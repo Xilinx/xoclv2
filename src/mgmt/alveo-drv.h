@@ -5,8 +5,8 @@
  * Authors: Sonal.Santan@Xilinx.com
  */
 
-#ifndef	_XMGMT_DRV_H_
-#define	_XMGMT_DRV_H_
+#ifndef	_XMGMT_ALVEO_DRV_H_
+#define	_XMGMT_ALVEO_DRV_H_
 
 #include <linux/device.h>
 #include <linux/cdev.h>
@@ -16,7 +16,7 @@
 #define	ICAP_XCLBIN_V2		"xclbin2"
 #define XMGMT_MAX_DEVICES	24
 #define MGMT_DEFAULT            0x000e
-#define XRT_DRIVER_VERSION      "3.1.0"
+#define XRT_DRIVER_VERSION      "4.0.0"
 
 #define xrt_err(dev, fmt, args...)			\
 	dev_err(dev, "dev %llx, %s: "fmt, (u64)dev, __func__, ##args)

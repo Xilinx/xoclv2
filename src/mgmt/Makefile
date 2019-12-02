@@ -6,17 +6,20 @@
 #
 
 obj-m	:= xmgmt.o
+obj-m	:= xmgmt-fmgr.o
 
-xmgmt-y := mgmt-drv.o mgmt-ctx.o
+xmgmt-y := alveo-drv.o alveo-ctx.o
+
+xmgmt-fmgr-y := alveo-fmgr.o
 
 CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 
 PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))
-XILINXINCLUDE := -I$(ROOT)/../include
+XILINXINCLUDE := -I$(ROOT)/include
 
-ccflags-y += $(XILINXINCLUDE) -DPF=USERPF -D__XRT__
+ccflags-y += $(XILINXINCLUDE) -DPF=MGMTPF -D__XRT__
 ifeq ($(DEBUG),1)
 ccflags-y += -DDEBUG
 endif
