@@ -9,7 +9,7 @@
 
 #include <linux/mutex.h>
 
-#include "mgmt-drv.h"
+#include "alveo-drv.h"
 
 /*
  * helper functions to protect driver private data

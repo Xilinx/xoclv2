@@ -5,8 +5,8 @@
 # Authors: Sonal.Santan@xilinx.com
 #
 
-obj-m	:= xmgmt.o
-obj-m	:= xmgmt-fmgr.o
+obj-m	+= xmgmt.o
+obj-m	+= xmgmt-fmgr.o
 
 xmgmt-y := alveo-drv.o alveo-ctx.o
 
@@ -34,4 +34,7 @@ all:
 
 clean:
 	rm -rf *.o *.o.d *~ core .depend .*.cmd *.ko *.ko.unsigned *.mod.c \
-	.tmp_versions *.symvers modules.order
+	.tmp_versions *.symvers modules.order *.mod
+
+checkpatch: clean
+	$(KERNELDIR)/scripts/checkpatch.pl --max-line-length=120 --color=never --emacs -f --no-tree *.c *.h

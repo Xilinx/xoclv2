@@ -12,7 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/aer.h>
 
-#include "mgmt-drv.h"
+#include "alveo-drv.h"
 
 static const struct pci_device_id pci_ids[] = {
         { PCI_DEVICE(0x10EE, 0x5000), },
