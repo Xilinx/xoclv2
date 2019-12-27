@@ -123,7 +123,7 @@ static struct xmgmt_region *xmgmt_region_probe(struct xmgmt_dev *lro, enum regio
 {
 	int rc = -ENOMEM;
 	int child_count = 1; // obtain the count of children IPs in this region in DT using id as key
-	struct xmgmt_region *part = vmalloc(offsetof(struct xmgmt_region, children) +
+	struct xmgmt_region *part = vzalloc(offsetof(struct xmgmt_region, children) +
 					      sizeof(struct platform_device *) * child_count);
 	if (part == NULL)
 		return ERR_PTR(-ENOMEM);

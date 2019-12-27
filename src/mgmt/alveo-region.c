@@ -12,6 +12,7 @@
 #include <linux/fpga/fpga-region.h>
 
 #include "alveo-drv.h"
+#include "alveo-devices.h"
 
 static int xmgmt_region_get_bridges(struct fpga_region *region)
 {
@@ -20,13 +21,14 @@ static int xmgmt_region_get_bridges(struct fpga_region *region)
 
 static int xmgmt_region_probe(struct platform_device *pdev)
 {
-	void *pdata = dev_get_platdata(&pdev->dev);
+	struct xmgmt_region *part = dev_get_platdata(&pdev->dev);
 	struct device *dev = &pdev->dev;
 	struct fpga_region *region;
 	struct fpga_manager *mgr;
 	int ret;
 
-	xmgmt_info(dev, "Region 0x%p 0x%p\n", pdata, dev);
+	xmgmt_info(dev, "Region 0x%p 0x%p\n", part, dev);
+	BUG_ON(part->region != pdev);
 /*
 	mgr = fpga_mgr_get(&pdata->mgr->dev);
 	if (IS_ERR(mgr))
