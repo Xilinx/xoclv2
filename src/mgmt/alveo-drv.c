@@ -211,20 +211,22 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int rc = 0;
 	struct xmgmt_dev *lro = NULL;
+	int region_count = 0;
 
 	xmgmt_info(&pdev->dev, "Driver: %s", XMGMT_DRIVER_VERSION);
 	xmgmt_info(&pdev->dev, "probe(pdev = 0x%p, pci_id = 0x%p)\n", pdev, id);
 
 	/* Assuming U200 XDMA legacy platform with two regions */
 	/* allocate zeroed device book keeping structure */
-	lro->region_count = 2;
+	region_count = 2;
 	lro = xmgmt_drvinst_alloc(&pdev->dev, offsetof(struct xmgmt_dev, region) +
-				  sizeof(struct xmgmt_region *) * lro->region_count);
+				  sizeof(struct xmgmt_region *) * region_count);
 	if (!lro) {
 		xmgmt_err(&pdev->dev, "Could not kzalloc(xmgmt_dev).\n");
 		rc = -ENOMEM;
 		goto err_alloc;
 	}
+	lro->region_count = 2;
 
 	/* create a device to driver reference */
 	dev_set_drvdata(&pdev->dev, lro);
