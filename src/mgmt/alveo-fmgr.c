@@ -28,18 +28,18 @@
  * xclbin format forcing us to collect the blocks and stitch them together here.
  * TODO:
  * 1. Add a variant of API, icap_download_bitstream_axlf() which works off kernel buffer
- * 2. Call this new API from FPGA Manager's write complete hook, xocl_pr_write_complete()
+ * 2. Call this new API from FPGA Manager's write complete hook, xmgmt_pr_write_complete()
  */
 
 struct xfpga_klass {
-//	struct xocl_dev *xdev;
+//	struct xmgmt_dev *xdev;
 	struct axlf *blob;
 	char name[64];
 	size_t count;
 	enum fpga_mgr_states state;
 };
 
-static int xocl_pr_write_init(struct fpga_manager *mgr,
+static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 			      struct fpga_image_info *info, const char *buf, size_t count)
 {
 	struct xfpga_klass *obj = mgr->priv;
@@ -63,14 +63,14 @@ static int xocl_pr_write_init(struct fpga_manager *mgr,
 	}
 
 	memcpy(obj->blob, buf, count);
-	xrt_info(&mgr->dev, "Begin download of xclbin %pUb of length %lld B", &obj->blob->m_header.uuid,
+	xmgmt_info(&mgr->dev, "Begin download of xclbin %pUb of length %lld B", &obj->blob->m_header.uuid,
 		  obj->blob->m_header.m_length);
 	obj->count = count;
 	obj->state = FPGA_MGR_STATE_WRITE_INIT;
 	return 0;
 }
 
-static int xocl_pr_write(struct fpga_manager *mgr,
+static int xmgmt_pr_write(struct fpga_manager *mgr,
 			 const char *buf, size_t count)
 {
 	struct xfpga_klass *obj = mgr->priv;
@@ -89,13 +89,13 @@ static int xocl_pr_write(struct fpga_manager *mgr,
 		return -EINVAL;
 	}
 	memcpy(curr, buf, count);
-	xrt_info(&mgr->dev, "Next block of %zu B of xclbin %pUb", count, &obj->blob->m_header.uuid);
+	xmgmt_info(&mgr->dev, "Next block of %zu B of xclbin %pUb", count, &obj->blob->m_header.uuid);
 	obj->state = FPGA_MGR_STATE_WRITE;
 	return 0;
 }
 
 
-static int xocl_pr_write_complete(struct fpga_manager *mgr,
+static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 				  struct fpga_image_info *info)
 {
 	int result = 0;
@@ -111,32 +111,32 @@ static int xocl_pr_write_complete(struct fpga_manager *mgr,
 		return -EINVAL;
 	}
 	/* Send the xclbin blob to actual download framework in icap */
-//	result = xocl_icap_download_axlf(obj->xdev, obj->blob);
+//	result = xmgmt_icap_download_axlf(obj->xdev, obj->blob);
 	obj->state = result ? FPGA_MGR_STATE_WRITE_COMPLETE_ERR : FPGA_MGR_STATE_WRITE_COMPLETE;
-	xrt_info(&mgr->dev, "Finish download of xclbin %pUb of size %zu B", &obj->blob->m_header.uuid, obj->count);
+	xmgmt_info(&mgr->dev, "Finish download of xclbin %pUb of size %zu B", &obj->blob->m_header.uuid, obj->count);
 	vfree(obj->blob);
 	obj->blob = NULL;
 	obj->count = 0;
 	return result;
 }
 
-static enum fpga_mgr_states xocl_pr_state(struct fpga_manager *mgr)
+static enum fpga_mgr_states xmgmt_pr_state(struct fpga_manager *mgr)
 {
 	struct xfpga_klass *obj = mgr->priv;
 
 	return obj->state;
 }
 
-static const struct fpga_manager_ops xocl_pr_ops = {
+static const struct fpga_manager_ops xmgmt_pr_ops = {
 	.initial_header_size = sizeof(struct axlf),
-	.write_init = xocl_pr_write_init,
-	.write = xocl_pr_write,
-	.write_complete = xocl_pr_write_complete,
-	.state = xocl_pr_state,
+	.write_init = xmgmt_pr_write_init,
+	.write = xmgmt_pr_write,
+	.write_complete = xmgmt_pr_write_complete,
+	.state = xmgmt_pr_state,
 };
 
 struct platform_device_id fmgr_id_table[] = {
-	{ XRT_DEVNAME(XOCL_FMGR), 0 },
+	{ XOCL_DEVNAME(XOCL_FMGR), 0 },
 	{ },
 };
 
@@ -154,7 +154,7 @@ static int fmgr_probe(struct platform_device *pdev)
 	obj->state = FPGA_MGR_STATE_UNKNOWN;
 	mgr = fpga_mgr_create(&pdev->dev,
 			      obj->name,
-			      &xocl_pr_ops,
+			      &xmgmt_pr_ops,
 			      obj);
 	if (!mgr)
 		return -ENOMEM;
@@ -197,12 +197,12 @@ static struct platform_driver fmgr_driver = {
 };
 
 /*
-int __init xocl_init_fmgr(void)
+int __init xmgmt_init_fmgr(void)
 {
 	return platform_driver_register(&fmgr_driver);
 }
 
-void xocl_fini_fmgr(void)
+void xmgmt_fini_fmgr(void)
 {
 	platform_driver_unregister(&fmgr_driver);
 }
@@ -215,3 +215,4 @@ MODULE_DESCRIPTION("FPGA Manager for Xilinx Alveo");
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");
 MODULE_ALIAS("platform:alveo-fmgr");
 MODULE_LICENSE("GPL v2");
+MODULE_ALIAS("platform:alveo-fmgr");

@@ -2,17 +2,19 @@
 /*
  * Xilinx Alveo Management Function Driver
  *
- * Copyright (C) 2019 Xilinx, Inc. All rights reserved.
+ * Copyright (C) 2019 Xilinx, Inc.
  *
- * Authors: Sonal.Santan@xilinx.com
+ * Authors: sonal.santan@xilinx.com
  */
 
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/kernel.h>
 #include <linux/aer.h>
+#include <linux/platform_device.h>
 
 #include "alveo-drv.h"
+#include "alveo-devices.h"
 
 static const struct pci_device_id pci_ids[] = {
         { PCI_DEVICE(0x10EE, 0x5000), },
@@ -29,7 +31,7 @@ int xmgmt_config_pci(struct xmgmt_dev *lro)
 
 	rc = pci_enable_device(pdev);
 	if (rc) {
-		xrt_err(&pdev->dev, "pci_enable_device() failed, rc = %d.\n",
+		xmgmt_err(&pdev->dev, "pci_enable_device() failed, rc = %d.\n",
 			rc);
 		goto failed;
 	}
@@ -38,13 +40,13 @@ int xmgmt_config_pci(struct xmgmt_dev *lro)
 
 	rc = pcie_get_readrq(pdev);
 	if (rc < 0) {
-		xrt_err(&pdev->dev, "failed to read mrrs %d\n", rc);
+		xmgmt_err(&pdev->dev, "failed to read mrrs %d\n", rc);
 		goto failed;
 	}
 	if (rc > 512) {
 		rc = pcie_set_readrq(pdev, 512);
 		if (rc) {
-			xrt_err(&pdev->dev, "failed to force mrrs %d\n", rc);
+			xmgmt_err(&pdev->dev, "failed to force mrrs %d\n", rc);
 			goto failed;
 		}
 	}
@@ -99,7 +101,7 @@ fail_add:
 	return rc;
 }
 
-static int destroy_sg_char(struct xmgmt_char *lro_char)
+static int destroy_char(struct xmgmt_char *lro_char)
 {
 	BUG_ON(!lro_char);
 	BUG_ON(!xmgmt_class);
@@ -109,6 +111,92 @@ static int destroy_sg_char(struct xmgmt_char *lro_char)
 	cdev_del(lro_char->cdev);
 
 	return 0;
+}
+
+static int xmgmt_subdev_probe(struct xmgmt_region *part)
+{
+	return 0;
+}
+
+
+static struct xmgmt_region *xmgmt_region_probe(struct xmgmt_dev *lro, enum region_id id)
+{
+	int rc = -ENOMEM;
+	int child_count = 1; // obtain the count of children IPs in this region in DT using id as key
+	struct xmgmt_region *part = vmalloc(offsetof(struct xmgmt_region, children) +
+					      sizeof(struct platform_device *) * child_count);
+	if (part == NULL)
+		return ERR_PTR(-ENOMEM);
+
+	part->lro = lro;
+	part->id = id;
+	part->region = platform_device_alloc("alveo-region", PLATFORM_DEVID_AUTO);
+	xmgmt_info(&lro->pdev->dev, "Region 0x%p\n", part->region);
+	if (!part->region)
+		goto out_free;
+
+	rc = platform_device_add_data(part->region, part, sizeof(*part));
+	xmgmt_info(&lro->pdev->dev, "Return code %d\n", rc);
+	if (rc)
+		goto out_dev_put;
+	rc = platform_device_add(part->region);
+	xmgmt_info(&lro->pdev->dev, "Return code %d\n", rc);
+	if (rc)
+		goto out_dev_put;
+
+	rc = xmgmt_subdev_probe(part);
+	if (rc)
+		goto out_dev_unregister;
+
+	return part;
+
+out_dev_unregister:
+	platform_device_unregister(part->region);
+out_dev_put:
+	platform_device_put(part->region);
+out_free:
+	vfree(part);
+	return ERR_PTR(-ENOMEM);
+}
+
+/*
+ * Cleanup the regions after their children have been destroyed
+ */
+static void xmgmt_regions_remove(struct xmgmt_dev *lro)
+{
+	int i = lro->region_count;
+	for (; i > 0;) {
+		if (!lro->region[--i])
+			continue;
+		platform_device_unregister(lro->region[i]->region);
+		vfree(lro->region[i]);
+		lro->region[i] = NULL;
+	}
+}
+
+/*
+ * The core of this function should be data driven using something like DT
+ * Go through each region (static and dynamic) and create the subdevices
+ * for the IPs present in the region.
+ */
+static int xmgmt_regions_probe(struct xmgmt_dev *lro)
+{
+	int rc = 0;
+	struct xmgmt_region *part = NULL;
+	part = xmgmt_region_probe(lro, XOCL_REGION_STATIC);
+	if (IS_ERR(part))
+		return PTR_ERR(part);
+	lro->region[0] = part;
+	part = xmgmt_region_probe(lro, XOCL_REGION_LEGACYRP);
+	if (IS_ERR(part)) {
+		rc = PTR_ERR(part);
+		goto out_free;
+	}
+	lro->region[1] = part;
+	return 0;
+out_free:
+	xmgmt_regions_remove(lro);
+	return rc;
 }
 
 /*
@@ -124,13 +212,16 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	int rc = 0;
 	struct xmgmt_dev *lro = NULL;
 
-	xrt_info(&pdev->dev, "Driver: %s", XRT_DRIVER_VERSION);
-	xrt_info(&pdev->dev, "probe(pdev = 0x%p, pci_id = 0x%p)\n", pdev, id);
+	xmgmt_info(&pdev->dev, "Driver: %s", XMGMT_DRIVER_VERSION);
+	xmgmt_info(&pdev->dev, "probe(pdev = 0x%p, pci_id = 0x%p)\n", pdev, id);
 
+	/* Assuming U200 XDMA legacy platform with two regions */
 	/* allocate zeroed device book keeping structure */
-	lro = xrt_drvinst_alloc(&pdev->dev, sizeof(struct xmgmt_dev));
+	lro->region_count = 2;
+	lro = xmgmt_drvinst_alloc(&pdev->dev, offsetof(struct xmgmt_dev, region) +
+				  sizeof(struct xmgmt_region *) * lro->region_count);
 	if (!lro) {
-		xrt_err(&pdev->dev, "Could not kzalloc(xmgmt_dev).\n");
+		xmgmt_err(&pdev->dev, "Could not kzalloc(xmgmt_dev).\n");
 		rc = -ENOMEM;
 		goto err_alloc;
 	}
@@ -145,22 +236,28 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (rc)
 		goto err_alloc_minor;
 
-	lro->instance = XRT_DEV_ID(pdev);
+	lro->instance = XMGMT_DEV_ID(pdev);
 	rc = create_char(lro);
 	if (rc) {
-		xrt_err(&pdev->dev, "create_char(user_char_dev) failed\n");
+		xmgmt_err(&pdev->dev, "create_char(user_char_dev) failed\n");
 		goto err_cdev;
 	}
 
+	rc = xmgmt_regions_probe(lro);
+	if (rc)
+		goto err_region;
+
+	return 0;
+
 #if 0
-	xocl_drvinst_set_filedev(lro, lro->user_char_dev.cdev);
+	xmgmt_drvinst_set_filedev(lro, lro->user_char_dev.cdev);
 
 	mutex_init(&lro->busy_mutex);
 
 	mgmt_init_sysfs(&pdev->dev);
 
 	/* Probe will not fail from now on. */
-	xrt_info(&pdev->dev, "minimum initialization done\n");
+	xmgmt_info(&pdev->dev, "minimum initialization done\n");
 
 	/* No further initialization for MFG board. */
 	if (minimum_initialization)
@@ -168,12 +265,12 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	xmgmt_extended_probe(lro);
 #endif
-	return 0;
 
+err_region:
+	destroy_char(&lro->user_char_dev);
 err_cdev:
-//	xocl_free_dev_minor(lro);
 err_alloc_minor:
-//	xocl_subdev_fini(lro);
+	xmgmt_drvinst_free(lro);
 err_alloc:
 	pci_disable_device(pdev);
 
@@ -188,32 +285,37 @@ static void xmgmt_remove(struct pci_dev *pdev)
 		return;
 
 	lro = (struct xmgmt_dev *)dev_get_drvdata(&pdev->dev);
-	xrt_info(&pdev->dev, "remove(0x%p) where pdev->dev.driver_data = 0x%p",
+	xmgmt_info(&pdev->dev, "remove(0x%p) where pdev->dev.driver_data = 0x%p",
                  pdev, lro);
 	BUG_ON(lro->pdev != pdev);
+	xmgmt_regions_remove(lro);
+	destroy_char(&lro->user_char_dev);
+	xmgmt_drvinst_free(lro);
+	pci_disable_device(pdev);
+
 #if 0
 	xmgmt_connect_notify(lro, false);
 
-	if (xocl_passthrough_virtualization_on(lro) &&
+	if (xmgmt_passthrough_virtualization_on(lro) &&
 		!iommu_present(&pci_bus_type))
 		pci_write_config_byte(pdev, 0x188, 0x0);
 
-	xocl_thread_stop(lro);
+	xmgmt_thread_stop(lro);
 
 	mgmt_fini_sysfs(&pdev->dev);
 
-	xocl_subdev_destroy_all(lro);
-	xocl_subdev_fini(lro);
+	xmgmt_subdev_destroy_all(lro);
+	xmgmt_subdev_fini(lro);
 
 	/* remove user character device */
-	destroy_sg_char(&lro->user_char_dev);
+	destroy_char(&lro->user_char_dev);
 
 	/* unmap the BARs */
 	unmap_bars(lro);
 
 	pci_disable_device(pdev);
 
-	xocl_free_dev_minor(lro);
+	xmgmt_free_dev_minor(lro);
 
 	if (lro->core.fdt_blob)
 		vfree(lro->core.fdt_blob);
@@ -226,7 +328,7 @@ static void xmgmt_remove(struct pci_dev *pdev)
 
 	dev_set_drvdata(&pdev->dev, NULL);
 
-	xocl_drvinst_free(lro);
+	xmgmt_drvinst_free(lro);
 #endif
 }
 
@@ -235,16 +337,16 @@ static pci_ers_result_t mgmt_pci_error_detected(struct pci_dev *pdev,
 {
 	switch (state) {
 	case pci_channel_io_normal:
-		xrt_info(&pdev->dev, "PCI normal state error\n");
+		xmgmt_info(&pdev->dev, "PCI normal state error\n");
 		return PCI_ERS_RESULT_CAN_RECOVER;
 	case pci_channel_io_frozen:
-		xrt_info(&pdev->dev, "PCI frozen state error\n");
+		xmgmt_info(&pdev->dev, "PCI frozen state error\n");
 		return PCI_ERS_RESULT_NEED_RESET;
 	case pci_channel_io_perm_failure:
-		xrt_info(&pdev->dev, "PCI failure state error\n");
+		xmgmt_info(&pdev->dev, "PCI failure state error\n");
 		return PCI_ERS_RESULT_DISCONNECT;
 	default:
-		xrt_info(&pdev->dev, "PCI unknown state %d error\n", state);
+		xmgmt_info(&pdev->dev, "PCI unknown state %d error\n", state);
 		break;
 	}
 	return PCI_ERS_RESULT_NEED_RESET;
@@ -268,7 +370,7 @@ static int __init xmgmt_init(void)
 	int res, i;
 
 	pr_info(XMGMT_MODULE_NAME " init()\n");
-	xmgmt_class = class_create(THIS_MODULE, "xrt_mgmt");
+	xmgmt_class = class_create(THIS_MODULE, "xmgmt_mgmt");
 	if (IS_ERR(xmgmt_class))
 		return PTR_ERR(xmgmt_class);
 
@@ -326,7 +428,7 @@ module_init(xmgmt_init);
 module_exit(xmgmt_exit);
 
 MODULE_DEVICE_TABLE(pci, pci_ids);
-MODULE_VERSION(XRT_DRIVER_VERSION);
+MODULE_VERSION(XMGMT_DRIVER_VERSION);
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");
 MODULE_DESCRIPTION("Xilinx Alveo management function driver");
 MODULE_LICENSE("GPL v2");

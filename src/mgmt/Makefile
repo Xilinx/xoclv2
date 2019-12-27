@@ -7,10 +7,12 @@
 
 obj-m	+= xmgmt.o
 obj-m	+= xmgmt-fmgr.o
+obj-m   += xmgmt-region.o
 
 xmgmt-y := alveo-drv.o alveo-ctx.o
 
 xmgmt-fmgr-y := alveo-fmgr.o
+xmgmt-region-y := alveo-region.o
 
 CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
@@ -34,7 +36,7 @@ all:
 
 clean:
 	rm -rf *.o *.o.d *~ core .depend .*.cmd *.ko *.ko.unsigned *.mod.c \
-	.tmp_versions *.symvers modules.order *.mod
+	.tmp_versions *.symvers modules.order *.mod .cache.mk
 
 checkpatch: clean
 	$(KERNELDIR)/scripts/checkpatch.pl --max-line-length=120 --color=never --emacs -f --no-tree *.c *.h
