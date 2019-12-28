@@ -144,18 +144,21 @@ static int fmgr_probe(struct platform_device *pdev)
 {
 	struct fpga_manager *mgr;
 	int ret = 0;
+	void *part = dev_get_platdata(&pdev->dev);
+	struct device *dev = &pdev->dev;
+
 	struct xfpga_klass *obj = kzalloc(sizeof(struct xfpga_klass), GFP_KERNEL);
 	if (!obj)
 		return -ENOMEM;
 
 //	obj->xdev = dev_get_platdata(&pdev->dev);
 	snprintf(obj->name, sizeof(obj->name), "Xilinx PCIe FPGA Manager");
-
 	obj->state = FPGA_MGR_STATE_UNKNOWN;
 	mgr = fpga_mgr_create(&pdev->dev,
 			      obj->name,
 			      &xmgmt_pr_ops,
 			      obj);
+	xmgmt_info(&pdev->dev, "fmgr_probe 0x%p 0x%p\n", mgr, dev);
 	if (!mgr)
 		return -ENOMEM;
 
@@ -176,6 +179,7 @@ static int fmgr_remove(struct platform_device *pdev)
 	struct fpga_manager *mgr = platform_get_drvdata(pdev);
 	struct xfpga_klass *obj = mgr->priv;
 
+	xmgmt_info(&pdev->dev, "fmgr_remove 0x%p 0x%p\n", mgr, &pdev->dev);
 	obj->state = FPGA_MGR_STATE_UNKNOWN;
 	/* TODO: Remove old fpga_mgr_unregister as soon as Linux < 4.18 is no
 	 * longer supported.
@@ -193,26 +197,11 @@ static struct platform_driver fmgr_driver = {
 	.driver		= {
 		.name = "alveo-fmgr",
 	},
-	.id_table = fmgr_id_table,
 };
-
-/*
-int __init xmgmt_init_fmgr(void)
-{
-	return platform_driver_register(&fmgr_driver);
-}
-
-void xmgmt_fini_fmgr(void)
-{
-	platform_driver_unregister(&fmgr_driver);
-}
-*/
 
 module_platform_driver(fmgr_driver);
 
-
 MODULE_DESCRIPTION("FPGA Manager for Xilinx Alveo");
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");
-MODULE_ALIAS("platform:alveo-fmgr");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:alveo-fmgr");

@@ -58,6 +58,7 @@ struct xmgmt_dev {
 	int                     instance;
 	struct xmgmt_char       user_char_dev;
         bool                    ready;
+	struct platform_device *fmgr;
 	int                     region_count;
 	struct xmgmt_region    *region[1];
 };

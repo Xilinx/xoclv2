@@ -113,6 +113,9 @@ static int destroy_char(struct xmgmt_char *lro_char)
 	return 0;
 }
 
+/*
+ * Go through the DT and create platform drivers for each of the IP in this region
+ */
 static int xmgmt_subdev_probe(struct xmgmt_region *part)
 {
 	return 0;
@@ -122,11 +125,12 @@ static int xmgmt_subdev_probe(struct xmgmt_region *part)
 static struct xmgmt_region *xmgmt_region_probe(struct xmgmt_dev *lro, enum region_id id)
 {
 	int rc = -ENOMEM;
-	int child_count = 1; // obtain the count of children IPs in this region in DT using id as key
+	// TODO: obtain the count of children IPs in this region in DT using id as key
+	int child_count = 1;
 	struct xmgmt_region *part = vzalloc(offsetof(struct xmgmt_region, children) +
 					      sizeof(struct platform_device *) * child_count);
 	if (part == NULL)
-		return ERR_PTR(-ENOMEM);
+		return ERR_PTR(rc);
 
 	part->lro = lro;
 	part->id = id;
@@ -135,6 +139,7 @@ static struct xmgmt_region *xmgmt_region_probe(struct xmgmt_dev *lro, enum regio
 	if (!part->region)
 		goto out_free;
 
+	part->region->dev.parent = &lro->pdev->dev;
 	rc = platform_device_add_data(part->region, part, sizeof(*part));
 	xmgmt_info(&lro->pdev->dev, "Return code %d\n", rc);
 	if (rc)
@@ -156,7 +161,7 @@ out_dev_put:
 	platform_device_put(part->region);
 out_free:
 	vfree(part);
-	return ERR_PTR(-ENOMEM);
+	return ERR_PTR(rc);
 }
 
 /*
@@ -196,6 +201,32 @@ static int xmgmt_regions_probe(struct xmgmt_dev *lro)
 	return 0;
 out_free:
 	xmgmt_regions_remove(lro);
+	return rc;
+}
+
+static int xmgmt_fmgr_probe(struct xmgmt_dev *lro)
+{
+	int rc = -ENOMEM;
+
+	lro->fmgr = platform_device_alloc("alveo-fmgr", PLATFORM_DEVID_AUTO);
+	xmgmt_info(&lro->pdev->dev, "FPGA Manager 0x%p\n", lro->fmgr);
+	if (!lro->fmgr)
+		return rc;
+
+	lro->fmgr->dev.parent = &lro->pdev->dev;
+	rc = platform_device_add_data(lro->fmgr, NULL, 0);
+	xmgmt_info(&lro->pdev->dev, "Return code %d\n", rc);
+	if (rc)
+		goto out_dev_put;
+	rc = platform_device_add(lro->fmgr);
+	xmgmt_info(&lro->pdev->dev, "Return code %d\n", rc);
+	if (rc)
+		goto out_dev_put;
+	return 0;
+
+out_dev_put:
+	platform_device_put(lro->fmgr);
+	lro->fmgr = NULL;
 	return rc;
 }
 
@@ -245,6 +276,10 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto err_cdev;
 	}
 
+	rc = xmgmt_fmgr_probe(lro);
+	if (rc)
+		goto err_fmgr;
+
 	rc = xmgmt_regions_probe(lro);
 	if (rc)
 		goto err_region;
@@ -269,6 +304,8 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 #endif
 
 err_region:
+	platform_device_unregister(lro->fmgr);
+err_fmgr:
 	destroy_char(&lro->user_char_dev);
 err_cdev:
 err_alloc_minor:
