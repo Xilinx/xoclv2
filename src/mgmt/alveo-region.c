@@ -19,41 +19,49 @@ static int xmgmt_region_get_bridges(struct fpga_region *region)
 	return 0;
 }
 
+static inline bool is_fixed_region(const struct xmgmt_region *part)
+{
+	return ((part->id == XOCL_REGION_STATIC) || (part->id == XOCL_REGION_BLD));
+}
+
 static int xmgmt_region_probe(struct platform_device *pdev)
 {
 	struct xmgmt_region *part = dev_get_platdata(&pdev->dev);
 	struct device *dev = &pdev->dev;
 	struct fpga_region *region;
-	struct fpga_manager *mgr;
+	struct fpga_manager *mgr = NULL;
 	int ret;
 
-	xmgmt_info(dev, "Region 0x%p 0x%p\n", part, dev);
+	xmgmt_info(dev, "Part 0x%p Dev 0x%p Id %x\n", part, dev, part->id);
 	BUG_ON(part->region != pdev);
-/*
-	mgr = fpga_mgr_get(&pdata->mgr->dev);
-	if (IS_ERR(mgr))
-		return -EPROBE_DEFER;
-
+	if (!is_fixed_region(part)) {
+		/* No FPGA manager for static regions */
+		mgr = fpga_mgr_get(&pdev->dev);
+		if (IS_ERR(mgr))
+			return -EPROBE_DEFER;
+	}
+	xmgmt_info(dev, "Mgr 0x%p\n", mgr);
 	region = devm_fpga_region_create(dev, mgr, xmgmt_region_get_bridges);
 	if (!region) {
 		ret = -ENOMEM;
 		goto eprobe_mgr_put;
 	}
+	xmgmt_info(dev, "Region 0x%p\n", region);
 
-	region->priv = pdata;
-	region->compat_id = mgr->compat_id;
+	region->priv = part;
+	region->compat_id = mgr ? mgr->compat_id : NULL;
 	platform_set_drvdata(pdev, region);
-
+	xmgmt_info(dev, "Region 0x%p Mgr 0x%p\n", part, mgr);
 	ret = fpga_region_register(region);
 	if (ret)
 		goto eprobe_mgr_put;
-*/
 	xmgmt_info(dev, "Alveo FPGA Region probed\n");
 
 	return 0;
 
 eprobe_mgr_put:
-	fpga_mgr_put(mgr);
+	if (mgr) fpga_mgr_put(mgr);
+	platform_set_drvdata(pdev, NULL);
 	return ret;
 }
 
@@ -62,8 +70,8 @@ static int xmgmt_region_remove(struct platform_device *pdev)
 	struct fpga_region *region = platform_get_drvdata(pdev);
 	struct fpga_manager *mgr = region->mgr;
 
-//	fpga_region_unregister(region);
-//	fpga_mgr_put(mgr);
+	fpga_region_unregister(region);
+	if (mgr) fpga_mgr_put(mgr);
 
 	return 0;
 }

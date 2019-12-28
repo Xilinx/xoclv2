@@ -32,7 +32,7 @@
  */
 
 struct xfpga_klass {
-//	struct xmgmt_dev *xdev;
+	struct xmgmt_region *fixed;
 	struct axlf *blob;
 	char name[64];
 	size_t count;
@@ -44,6 +44,12 @@ static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 {
 	struct xfpga_klass *obj = mgr->priv;
 	const struct axlf *bin = (const struct axlf *)buf;
+
+	if (!obj->fixed) {
+		obj->state = FPGA_MGR_STATE_WRITE_INIT_ERR;
+		return -EBUSY;
+	}
+
 	if (count < sizeof(struct axlf)) {
 	 	obj->state = FPGA_MGR_STATE_WRITE_INIT_ERR;
 		return -EINVAL;
@@ -135,30 +141,23 @@ static const struct fpga_manager_ops xmgmt_pr_ops = {
 	.state = xmgmt_pr_state,
 };
 
-struct platform_device_id fmgr_id_table[] = {
-	{ XOCL_DEVNAME(XOCL_FMGR), 0 },
-	{ },
-};
-
 static int fmgr_probe(struct platform_device *pdev)
 {
 	struct fpga_manager *mgr;
 	int ret = 0;
-	void *part = dev_get_platdata(&pdev->dev);
-	struct device *dev = &pdev->dev;
 
-	struct xfpga_klass *obj = kzalloc(sizeof(struct xfpga_klass), GFP_KERNEL);
+	struct xfpga_klass *obj = vzalloc(sizeof(struct xfpga_klass));
 	if (!obj)
 		return -ENOMEM;
 
-//	obj->xdev = dev_get_platdata(&pdev->dev);
+	obj->fixed = dev_get_platdata(&pdev->dev);
 	snprintf(obj->name, sizeof(obj->name), "Xilinx PCIe FPGA Manager");
 	obj->state = FPGA_MGR_STATE_UNKNOWN;
 	mgr = fpga_mgr_create(&pdev->dev,
 			      obj->name,
 			      &xmgmt_pr_ops,
 			      obj);
-	xmgmt_info(&pdev->dev, "fmgr_probe 0x%p 0x%p\n", mgr, dev);
+	xmgmt_info(&pdev->dev, "fmgr_probe 0x%p 0x%p\n", mgr, &pdev->dev);
 	if (!mgr)
 		return -ENOMEM;
 
@@ -187,7 +186,7 @@ static int fmgr_remove(struct platform_device *pdev)
 	fpga_mgr_unregister(mgr);
 	platform_set_drvdata(pdev, NULL);
 	vfree(obj->blob);
-	kfree(obj);
+	vfree(obj);
 	return 0;
 }
 

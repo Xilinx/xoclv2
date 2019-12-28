@@ -121,6 +121,11 @@ static int xmgmt_subdev_probe(struct xmgmt_region *part)
 	return 0;
 }
 
+static inline size_t sizeof_xmgmt_region(const struct xmgmt_region *part)
+{
+	return offsetof(struct xmgmt_region, children) +
+		sizeof(struct platform_device *) * part->child_count;
+}
 
 static struct xmgmt_region *xmgmt_region_probe(struct xmgmt_dev *lro, enum region_id id)
 {
@@ -140,7 +145,7 @@ static struct xmgmt_region *xmgmt_region_probe(struct xmgmt_dev *lro, enum regio
 		goto out_free;
 
 	part->region->dev.parent = &lro->pdev->dev;
-	rc = platform_device_add_data(part->region, part, sizeof(*part));
+	rc = platform_device_add_data(part->region, part, sizeof_xmgmt_region(part));
 	xmgmt_info(&lro->pdev->dev, "Return code %d\n", rc);
 	if (rc)
 		goto out_dev_put;
@@ -284,6 +289,13 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (rc)
 		goto err_region;
 
+	/*
+	 * Now complete fpga mgr initializatio. It needs access to STATIC or BLD in order
+	 * to orchestrate download with ICAP, CW, AXI_GATE, etc.
+	 */
+	rc = platform_device_add_data(lro->fmgr, lro->region[0], sizeof_xmgmt_region(lro->region[0]));
+	if (rc)
+		goto err_fmgr_data;
 	return 0;
 
 #if 0
@@ -302,7 +314,8 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	xmgmt_extended_probe(lro);
 #endif
-
+err_fmgr_data:
+	xmgmt_regions_remove(lro);
 err_region:
 	platform_device_unregister(lro->fmgr);
 err_fmgr:

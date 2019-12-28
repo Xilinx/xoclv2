@@ -82,10 +82,10 @@ enum region_id {
 };
 
 #define XOCL_STATIC           "STATIC"
-#define	XOCL_REGION_BLD       "BLD"
-#define	XOCL_REGION_PRP       "PRP"
-#define	XOCL_REGION_URP       "URP"
-#define	XOCL_REGION_LEGACYR   "LEGACYPR"
+#define	XOCL_BLD       "BLD"
+#define	XOCL_PRP       "PRP"
+#define	XOCL_URP       "URP"
+#define	XOCL_LEGACYR   "LEGACYPR"
 
 
 struct xocl_subdev_info {
