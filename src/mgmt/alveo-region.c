@@ -34,8 +34,8 @@ static int xmgmt_region_probe(struct platform_device *pdev)
 
 	xmgmt_info(dev, "Part 0x%p Dev 0x%p Id %x\n", part, dev, part->id);
 	BUG_ON(part->region != pdev);
+	/* No FPGA manager for static regions */
 	if (!is_fixed_region(part)) {
-		/* No FPGA manager for static regions */
 		mgr = fpga_mgr_get(&pdev->dev);
 		if (IS_ERR(mgr))
 			return -EPROBE_DEFER;

@@ -24,6 +24,8 @@ static const struct pci_device_id pci_ids[] = {
 static dev_t xmgmt_devnode;
 static struct class *xmgmt_class;
 
+static const struct xocl_board_private u200 = XOCL_BOARD_MGMT_XBB_DSA52;
+
 int xmgmt_config_pci(struct xmgmt_dev *lro)
 {
 	struct pci_dev *pdev = lro->pdev;
@@ -113,12 +115,68 @@ static int destroy_char(struct xmgmt_char *lro_char)
 	return 0;
 }
 
+static void xmgmt_subdevs_remove(struct xmgmt_region *part)
+{
+	int i = 0;
+	for (; i < u200.subdev_num; i++) {
+		if (!part->children[i])
+			continue;
+		platform_device_unregister(part->children[i]);
+		part->children[i] = NULL;
+	}
+}
+
+static struct platform_device *xmgmt_subdev_probe(struct xmgmt_region *part,
+						  struct xocl_subdev_info *info)
+{
+	/* WIP Start with U200 static region */
+	int rc = 0;
+	struct device *dev = &part->lro->pdev->dev;
+	struct platform_device *pdev = platform_device_alloc("alveo-rom", PLATFORM_DEVID_AUTO);
+	xmgmt_info(dev, "Rom 0x%p\n", pdev);
+	if (!pdev)
+		return ERR_PTR(-ENOMEM);;
+
+	pdev->dev.parent = &part->region->dev;
+	rc = platform_device_add_data(pdev, info, sizeof(*info));
+	xmgmt_info(dev, "Return code %d\n", rc);
+	if (rc)
+		goto out_dev_put;
+	rc = platform_device_add(pdev);
+	xmgmt_info(dev, "Return code %d\n", rc);
+	if (rc)
+		goto out_dev_put;
+	return 0;
+
+out_dev_put:
+	platform_device_put(pdev);
+	return ERR_PTR(rc);
+}
+
 /*
  * Go through the DT and create platform drivers for each of the IP in this region
  */
-static int xmgmt_subdev_probe(struct xmgmt_region *part)
+static int xmgmt_subdevs_probe(struct xmgmt_region *part)
 {
+	struct platform_device *child;
+	int rc = 0;
+	int i = 0;
+
+	/* WIP Start with U200 static region */
+	BUG_ON(part->id = XOCL_REGION_STATIC);
+	for (; i < u200.subdev_num; ) {
+		child = xmgmt_subdev_probe(part, &u200.subdev_info[i]);
+		if (IS_ERR(child)) {
+			rc = PTR_ERR(child);
+			goto out_free;
+		}
+		part->children[i++] = child;
+	}
 	return 0;
+
+out_free:
+	xmgmt_subdevs_remove(part);
+	return rc;
 }
 
 static inline size_t sizeof_xmgmt_region(const struct xmgmt_region *part)
@@ -154,7 +212,8 @@ static struct xmgmt_region *xmgmt_region_probe(struct xmgmt_dev *lro, enum regio
 	if (rc)
 		goto out_dev_put;
 
-	rc = xmgmt_subdev_probe(part);
+	// TODO: Pass the DT information for this region
+	rc = xmgmt_subdevs_probe(part);
 	if (rc)
 		goto out_dev_unregister;
 
@@ -178,6 +237,7 @@ static void xmgmt_regions_remove(struct xmgmt_dev *lro)
 	for (; i > 0;) {
 		if (!lro->region[--i])
 			continue;
+		xmgmt_subdevs_remove(lro->region[i]);
 		platform_device_unregister(lro->region[i]->region);
 		vfree(lro->region[i]);
 		lro->region[i] = NULL;

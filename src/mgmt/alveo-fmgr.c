@@ -32,6 +32,7 @@
  */
 
 struct xfpga_klass {
+	/* Refers to the static shell/BLD */
 	struct xmgmt_region *fixed;
 	struct axlf *blob;
 	char name[64];

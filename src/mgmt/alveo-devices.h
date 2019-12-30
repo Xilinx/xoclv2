@@ -8,6 +8,10 @@
 #ifndef	_XMGMT_ALVEO_DEVICES_H_
 #define	_XMGMT_ALVEO_DEVICES_H_
 
+#include <linux/resource.h>
+#include <linux/platform_device.h>
+//#include <linux/io.h>
+
 #define	MGMTPF		0
 #define	USERPF		1
 
@@ -81,27 +85,17 @@ enum region_id {
 	XOCL_REGION_MAX,
 };
 
-#define XOCL_STATIC           "STATIC"
-#define	XOCL_BLD       "BLD"
-#define	XOCL_PRP       "PRP"
-#define	XOCL_URP       "URP"
-#define	XOCL_LEGACYR   "LEGACYPR"
+#define XOCL_STATIC        "STATIC"
+#define	XOCL_BLD           "BLD"
+#define	XOCL_PRP           "PRP"
+#define	XOCL_URP           "URP"
+#define	XOCL_LEGACYR       "LEGACYPR"
 
+#define	FLASH_TYPE_SPI	   "spi"
+#define	FLASH_TYPE_QSPIPS  "qspi_ps"
 
-struct xocl_subdev_info {
-	enum subdev_id		id;
-	const char	       *name;
-	struct resource	       *res;
-	int			num_res;
-	void		       *priv_data;
-	int			data_len;
-	bool			multi_inst;
-	int			level;
-	char		       *bar_idx;
-	int			dyn_ip;
-	const char	       *override_name;
-	int			override_idx;
-};
+struct xmgmt_dev;
+struct xocl_subdev_info;
 
 struct xmgmt_subdev_ops {
 	int (*init)(struct platform_device *pdev, const struct xocl_subdev_info *detail);
@@ -109,11 +103,34 @@ struct xmgmt_subdev_ops {
 	long (*ioctl)(struct platform_device *pdev, unsigned int cmd, unsigned long arg);
 };
 
-struct xmgmt_subdev_core {
-	enum subdev_id                id;
-	const char	             *name;
-	const struct xocl_subdev_ops *ops;
-	void                         *sdata;
+struct xocl_subdev_info {
+	enum subdev_id		 id;
+	const char	        *name;
+	struct resource	        *res;
+	int			 num_res;
+	void		        *priv_data;
+	int			 data_len;
+	bool			 multi_inst;
+	int			 level;
+	char		        *bar_idx;
+	int			 dyn_ip;
+	const char	        *override_name;
+	int			 override_idx;
+	struct xmgmt_subdev_ops *ops;
+};
+
+struct xocl_board_private {
+	uint64_t		flags;
+	struct xocl_subdev_info	*subdev_info;
+	uint32_t		subdev_num;
+	uint32_t		dsa_ver;
+	bool			xpr;
+	char			*flash_type; /* used by xbflash */
+	char			*board_name; /* used by xbflash */
+	bool			mpsoc;
+	uint64_t		p2p_bar_sz;
+	const char		*vbnv;
+	const char		*sched_bin;
 };
 
 struct xmgmt_region {
@@ -123,5 +140,38 @@ struct xmgmt_region {
 	int                     child_count;
 	struct platform_device *children[1];
 };
+
+
+#define	XOCL_RES_FEATURE_ROM				\
+		((struct resource []) {			\
+			{				\
+			.start	= 0xB0000,		\
+			.end	= 0xB0FFF,		\
+			.flags	= IORESOURCE_MEM,	\
+			}				\
+		})
+
+
+#define	XOCL_DEVINFO_FEATURE_ROM			\
+	{						\
+		XOCL_SUBDEV_FEATURE_ROM,		\
+		XOCL_FEATURE_ROM,			\
+		XOCL_RES_FEATURE_ROM,			\
+		ARRAY_SIZE(XOCL_RES_FEATURE_ROM),	\
+	}
+
+
+#define	MGMT_RES_XBB_DSA52						\
+		((struct xocl_subdev_info []) {				\
+			XOCL_DEVINFO_FEATURE_ROM,			\
+		})
+
+#define	XOCL_BOARD_MGMT_XBB_DSA52					\
+	(struct xocl_board_private){					\
+		.flags		= 0,					\
+		.subdev_info	= MGMT_RES_XBB_DSA52,			\
+		.subdev_num     = ARRAY_SIZE(MGMT_RES_XBB_DSA52),	\
+		.flash_type     = FLASH_TYPE_SPI,			\
+	}
 
 #endif
