@@ -278,7 +278,6 @@ static int xmgmt_parts_probe(struct xmgmt_dev *lro)
 		return PTR_ERR(part);
 	xmgmt_info(&lro->pdev->dev, "Store part[0] 0x%px.0x%px \n", part, part->region);
 	lro->part[0] = part;
-#if 0
 	part = xmgmt_part_probe(lro, XOCL_REGION_LEGACYRP);
 	if (IS_ERR(part)) {
 		rc = PTR_ERR(part);
@@ -286,7 +285,6 @@ static int xmgmt_parts_probe(struct xmgmt_dev *lro)
 	}
 	xmgmt_info(&lro->pdev->dev, "Store part[1] 0x%px.0x%px\n", part, part->region);
 	lro->part[1] = part;
-#endif
 	return 0;
 out_free:
 	xmgmt_parts_remove(lro);
