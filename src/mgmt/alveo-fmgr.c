@@ -158,7 +158,7 @@ static int fmgr_probe(struct platform_device *pdev)
 			      obj->name,
 			      &xmgmt_pr_ops,
 			      obj);
-	xmgmt_info(&pdev->dev, "fmgr_probe 0x%p 0x%p\n", mgr, &pdev->dev);
+	xmgmt_info(&pdev->dev, "fmgr_probe 0x%px 0x%px\n", mgr, &pdev->dev);
 	if (!mgr)
 		return -ENOMEM;
 
@@ -179,7 +179,7 @@ static int fmgr_remove(struct platform_device *pdev)
 	struct fpga_manager *mgr = platform_get_drvdata(pdev);
 	struct xfpga_klass *obj = mgr->priv;
 
-	xmgmt_info(&pdev->dev, "fmgr_remove 0x%p 0x%p\n", mgr, &pdev->dev);
+	xmgmt_info(&pdev->dev, "fmgr_remove 0x%px 0x%px\n", mgr, &pdev->dev);
 	obj->state = FPGA_MGR_STATE_UNKNOWN;
 	/* TODO: Remove old fpga_mgr_unregister as soon as Linux < 4.18 is no
 	 * longer supported.

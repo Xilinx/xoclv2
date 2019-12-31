@@ -127,7 +127,7 @@ static void xmgmt_subdevs_remove(struct xmgmt_region *part)
 		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
 		xmgmt_info(dev, "Remove child[%d] 0x%px.0x%px %s\n", i, part, part->children[i], part->children[i]->name);
 		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
-		platform_device_put(part->children[i]);
+		//platform_device_put(part->children[i]);
 		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
 		platform_device_unregister(part->children[i]);
 		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
@@ -199,7 +199,7 @@ static inline size_t sizeof_xmgmt_region(const struct xmgmt_region *part)
 		sizeof(struct platform_device *) * part->child_count;
 }
 
-static struct xmgmt_region *xmgmt_region_probe(struct xmgmt_dev *lro, enum region_id id)
+static struct xmgmt_region *xmgmt_part_probe(struct xmgmt_dev *lro, enum region_id id)
 {
 	int rc = -ENOMEM;
 	// TODO: obtain the count of children IPs in this region in DT using id as key
@@ -233,12 +233,11 @@ static struct xmgmt_region *xmgmt_region_probe(struct xmgmt_dev *lro, enum regio
 		goto out_dev_unregister;
 
 	return part;
-
-out_dev_unregister:
-	platform_device_unregister(part->region);
 out_dev_put:
 	platform_device_put(part->region);
 	part->region = NULL;
+out_dev_unregister:
+	if (part->region) platform_device_unregister(part->region);
 out_free:
 	vfree(part);
 	return ERR_PTR(rc);
@@ -247,7 +246,7 @@ out_free:
 /*
  * Cleanup the regions after their children have been destroyed
  */
-static void xmgmt_regions_remove(struct xmgmt_dev *lro)
+static void xmgmt_parts_remove(struct xmgmt_dev *lro)
 {
 	int i = lro->part_count;
 	while (i > 0) {
@@ -256,8 +255,9 @@ static void xmgmt_regions_remove(struct xmgmt_dev *lro)
 		/* First takedown all the child IPs of this region */
 		xmgmt_subdevs_remove(lro->part[i]);
 		/* Now takedown this region */
-		xmgmt_info(&lro->pdev->dev, "Remove region[%d] 0x%px\n", i, lro->part[i]);
-		platform_device_put(lro->part[i]->region);
+		xmgmt_info(&lro->pdev->dev, "Remove region[%d] 0x%px.0x%px\n", i, lro->part[i],
+			   lro->part[i]->region);
+//		platform_device_put(lro->part[i]->region);
 		platform_device_unregister(lro->part[i]->region);
 		vfree(lro->part[i]);
 		lro->part[i] = NULL;
@@ -269,25 +269,27 @@ static void xmgmt_regions_remove(struct xmgmt_dev *lro)
  * Go through each region (static and dynamic) and create the subdevices
  * for the IPs present in the region.
  */
-static int xmgmt_regions_probe(struct xmgmt_dev *lro)
+static int xmgmt_parts_probe(struct xmgmt_dev *lro)
 {
 	int rc = 0;
 	struct xmgmt_region *part = NULL;
-	part = xmgmt_region_probe(lro, XOCL_REGION_STATIC);
+	part = xmgmt_part_probe(lro, XOCL_REGION_STATIC);
 	if (IS_ERR(part))
 		return PTR_ERR(part);
-	xmgmt_info(&lro->pdev->dev, "Store region[0] 0x%px\n", part);
+	xmgmt_info(&lro->pdev->dev, "Store part[0] 0x%px.0x%px \n", part, part->region);
 	lro->part[0] = part;
-	part = xmgmt_region_probe(lro, XOCL_REGION_LEGACYRP);
+#if 0
+	part = xmgmt_part_probe(lro, XOCL_REGION_LEGACYRP);
 	if (IS_ERR(part)) {
 		rc = PTR_ERR(part);
 		goto out_free;
 	}
-	xmgmt_info(&lro->pdev->dev, "Store region[1] 0x%px\n", part);
+	xmgmt_info(&lro->pdev->dev, "Store part[1] 0x%px.0x%px\n", part, part->region);
 	lro->part[1] = part;
+#endif
 	return 0;
 out_free:
-	xmgmt_regions_remove(lro);
+	xmgmt_parts_remove(lro);
 	return rc;
 }
 
@@ -367,7 +369,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (rc)
 		goto err_fmgr;
 
-	rc = xmgmt_regions_probe(lro);
+	rc = xmgmt_parts_probe(lro);
 	if (rc)
 		goto err_region;
 
@@ -378,6 +380,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	rc = platform_device_add_data(lro->fmgr, lro->part[0], sizeof_xmgmt_region(lro->part[0]));
 	if (rc)
 		goto err_fmgr_data;
+
 	return 0;
 
 #if 0
@@ -397,7 +400,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	xmgmt_extended_probe(lro);
 #endif
 err_fmgr_data:
-	xmgmt_regions_remove(lro);
+	xmgmt_parts_remove(lro);
 err_region:
 	platform_device_put(lro->fmgr);
 	platform_device_unregister(lro->fmgr);
@@ -419,11 +422,13 @@ static void xmgmt_remove(struct pci_dev *pdev)
 	if ((pdev == 0) || (dev_get_drvdata(&pdev->dev) == 0))
 		return;
 
+
 	lro = (struct xmgmt_dev *)dev_get_drvdata(&pdev->dev);
 	xmgmt_info(&pdev->dev, "remove(0x%px) where pdev->dev.driver_data = 0x%px",
                  pdev, lro);
+
 	BUG_ON(lro->pdev != pdev);
-	xmgmt_regions_remove(lro);
+	xmgmt_parts_remove(lro);
 	destroy_char(&lro->user_char_dev);
 	xmgmt_drvinst_free(lro);
 	pci_disable_device(pdev);

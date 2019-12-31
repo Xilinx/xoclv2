@@ -50,12 +50,12 @@ static int xmgmt_region_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto eprobe_mgr_put;
 	}
-	xmgmt_info(dev, "Region 0x%px\n", region);
+	xmgmt_info(dev, "FPGA Region 0x%px\n", region);
 
 	region->priv = part;
 	region->compat_id = mgr ? mgr->compat_id : NULL;
 	platform_set_drvdata(pdev, region);
-	xmgmt_info(dev, "Region 0x%px Mgr 0x%px\n", part, mgr);
+	xmgmt_info(dev, "Part 0x%px Mgr 0x%px\n", part, mgr);
 	ret = fpga_region_register(region);
 	if (ret)
 		goto eprobe_mgr_put;
@@ -71,9 +71,12 @@ eprobe_mgr_put:
 
 static int xmgmt_region_remove(struct platform_device *pdev)
 {
+	struct xmgmt_region *part = dev_get_platdata(&pdev->dev);
 	struct fpga_region *region = platform_get_drvdata(pdev);
 	struct fpga_manager *mgr = region->mgr;
+	struct device *dev = &pdev->dev;
 
+	xmgmt_info(dev, "FPGA Region 0x%px\n", region);
 	fpga_region_unregister(region);
 	if (mgr) fpga_mgr_put(mgr);
 
