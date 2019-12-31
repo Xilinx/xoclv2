@@ -117,11 +117,20 @@ static int destroy_char(struct xmgmt_char *lro_char)
 
 static void xmgmt_subdevs_remove(struct xmgmt_region *part)
 {
+	struct device *dev = &part->lro->pdev->dev;
 	int i = 0;
 	for (; i < u200.subdev_num; i++) {
+		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
+		xmgmt_info(dev, "Remove child[%d] 0x%px.0x%px\n", i, part, part->children[i]);
 		if (!part->children[i])
 			continue;
+		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
+		xmgmt_info(dev, "Remove child[%d] 0x%px.0x%px %s\n", i, part, part->children[i], part->children[i]->name);
+		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
+		platform_device_put(part->children[i]);
+		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
 		platform_device_unregister(part->children[i]);
+		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
 		part->children[i] = NULL;
 	}
 }
@@ -132,8 +141,8 @@ static struct platform_device *xmgmt_subdev_probe(struct xmgmt_region *part,
 	/* WIP Start with U200 static region */
 	int rc = 0;
 	struct device *dev = &part->lro->pdev->dev;
-	struct platform_device *pdev = platform_device_alloc("alveo-rom", PLATFORM_DEVID_AUTO);
-	xmgmt_info(dev, "Rom 0x%p\n", pdev);
+	struct platform_device *pdev = platform_device_alloc(info->name, PLATFORM_DEVID_AUTO);
+	xmgmt_info(dev, "Subdev 0x%px %s\n", pdev, info->name);
 	if (!pdev)
 		return ERR_PTR(-ENOMEM);;
 
@@ -146,7 +155,7 @@ static struct platform_device *xmgmt_subdev_probe(struct xmgmt_region *part,
 	xmgmt_info(dev, "Return code %d\n", rc);
 	if (rc)
 		goto out_dev_put;
-	return 0;
+	return pdev;
 
 out_dev_put:
 	platform_device_put(pdev);
@@ -161,15 +170,20 @@ static int xmgmt_subdevs_probe(struct xmgmt_region *part)
 	struct platform_device *child;
 	int rc = 0;
 	int i = 0;
+	struct device *dev = &part->lro->pdev->dev;
 
-	/* WIP Start with U200 static region */
-	BUG_ON(part->id = XOCL_REGION_STATIC);
-	for (; i < u200.subdev_num; ) {
+	/* WIP Start with U200 static region for now */
+	if (part->id != XOCL_REGION_STATIC)
+		return 0;
+
+	while (i < u200.subdev_num) {
+		xmgmt_info(dev, "%s.%d 0x%px [%d]", __func__, __LINE__, part, i);
 		child = xmgmt_subdev_probe(part, &u200.subdev_info[i]);
 		if (IS_ERR(child)) {
 			rc = PTR_ERR(child);
 			goto out_free;
 		}
+		xmgmt_info(dev, "Store child[%d] 0x%px.0x%px\n", i, part, child);
 		part->children[i++] = child;
 	}
 	return 0;
@@ -189,16 +203,17 @@ static struct xmgmt_region *xmgmt_region_probe(struct xmgmt_dev *lro, enum regio
 {
 	int rc = -ENOMEM;
 	// TODO: obtain the count of children IPs in this region in DT using id as key
-	int child_count = 1;
+	int child_count = u200.subdev_num;
 	struct xmgmt_region *part = vzalloc(offsetof(struct xmgmt_region, children) +
 					      sizeof(struct platform_device *) * child_count);
 	if (part == NULL)
 		return ERR_PTR(rc);
 
+	part->child_count = child_count;
 	part->lro = lro;
 	part->id = id;
 	part->region = platform_device_alloc("alveo-region", PLATFORM_DEVID_AUTO);
-	xmgmt_info(&lro->pdev->dev, "Region 0x%p\n", part->region);
+	xmgmt_info(&lro->pdev->dev, "Region 0x%px\n", part->region);
 	if (!part->region)
 		goto out_free;
 
@@ -212,7 +227,7 @@ static struct xmgmt_region *xmgmt_region_probe(struct xmgmt_dev *lro, enum regio
 	if (rc)
 		goto out_dev_put;
 
-	// TODO: Pass the DT information for this region
+	// TODO: Pass the DT information down for this region
 	rc = xmgmt_subdevs_probe(part);
 	if (rc)
 		goto out_dev_unregister;
@@ -223,6 +238,7 @@ out_dev_unregister:
 	platform_device_unregister(part->region);
 out_dev_put:
 	platform_device_put(part->region);
+	part->region = NULL;
 out_free:
 	vfree(part);
 	return ERR_PTR(rc);
@@ -233,14 +249,18 @@ out_free:
  */
 static void xmgmt_regions_remove(struct xmgmt_dev *lro)
 {
-	int i = lro->region_count;
-	for (; i > 0;) {
-		if (!lro->region[--i])
+	int i = lro->part_count;
+	while (i > 0) {
+		if (!lro->part[--i])
 			continue;
-		xmgmt_subdevs_remove(lro->region[i]);
-		platform_device_unregister(lro->region[i]->region);
-		vfree(lro->region[i]);
-		lro->region[i] = NULL;
+		/* First takedown all the child IPs of this region */
+		xmgmt_subdevs_remove(lro->part[i]);
+		/* Now takedown this region */
+		xmgmt_info(&lro->pdev->dev, "Remove region[%d] 0x%px\n", i, lro->part[i]);
+		platform_device_put(lro->part[i]->region);
+		platform_device_unregister(lro->part[i]->region);
+		vfree(lro->part[i]);
+		lro->part[i] = NULL;
 	}
 }
 
@@ -256,13 +276,15 @@ static int xmgmt_regions_probe(struct xmgmt_dev *lro)
 	part = xmgmt_region_probe(lro, XOCL_REGION_STATIC);
 	if (IS_ERR(part))
 		return PTR_ERR(part);
-	lro->region[0] = part;
+	xmgmt_info(&lro->pdev->dev, "Store region[0] 0x%px\n", part);
+	lro->part[0] = part;
 	part = xmgmt_region_probe(lro, XOCL_REGION_LEGACYRP);
 	if (IS_ERR(part)) {
 		rc = PTR_ERR(part);
 		goto out_free;
 	}
-	lro->region[1] = part;
+	xmgmt_info(&lro->pdev->dev, "Store region[1] 0x%px\n", part);
+	lro->part[1] = part;
 	return 0;
 out_free:
 	xmgmt_regions_remove(lro);
@@ -274,7 +296,7 @@ static int xmgmt_fmgr_probe(struct xmgmt_dev *lro)
 	int rc = -ENOMEM;
 
 	lro->fmgr = platform_device_alloc("alveo-fmgr", PLATFORM_DEVID_AUTO);
-	xmgmt_info(&lro->pdev->dev, "FPGA Manager 0x%p\n", lro->fmgr);
+	xmgmt_info(&lro->pdev->dev, "FPGA Manager 0x%px\n", lro->fmgr);
 	if (!lro->fmgr)
 		return rc;
 
@@ -307,22 +329,22 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int rc = 0;
 	struct xmgmt_dev *lro = NULL;
-	int region_count = 0;
+	int part_count = 0;
 
 	xmgmt_info(&pdev->dev, "Driver: %s", XMGMT_DRIVER_VERSION);
-	xmgmt_info(&pdev->dev, "probe(pdev = 0x%p, pci_id = 0x%p)\n", pdev, id);
+	xmgmt_info(&pdev->dev, "probe(pdev = 0x%px, pci_id = 0x%px)\n", pdev, id);
 
 	/* Assuming U200 XDMA legacy platform with two regions */
 	/* allocate zeroed device book keeping structure */
-	region_count = 2;
-	lro = xmgmt_drvinst_alloc(&pdev->dev, offsetof(struct xmgmt_dev, region) +
-				  sizeof(struct xmgmt_region *) * region_count);
+	part_count = 2;
+	lro = xmgmt_drvinst_alloc(&pdev->dev, offsetof(struct xmgmt_dev, part) +
+				  sizeof(struct xmgmt_region *) * part_count);
 	if (!lro) {
 		xmgmt_err(&pdev->dev, "Could not kzalloc(xmgmt_dev).\n");
 		rc = -ENOMEM;
 		goto err_alloc;
 	}
-	lro->region_count = 2;
+	lro->part_count = 2;
 
 	/* create a device to driver reference */
 	dev_set_drvdata(&pdev->dev, lro);
@@ -350,10 +372,10 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto err_region;
 
 	/*
-	 * Now complete fpga mgr initializatio. It needs access to STATIC or BLD in order
+	 * Now complete fpga mgr initialization. It needs access to STATIC or BLD in order
 	 * to orchestrate download with ICAP, CW, AXI_GATE, etc.
 	 */
-	rc = platform_device_add_data(lro->fmgr, lro->region[0], sizeof_xmgmt_region(lro->region[0]));
+	rc = platform_device_add_data(lro->fmgr, lro->part[0], sizeof_xmgmt_region(lro->part[0]));
 	if (rc)
 		goto err_fmgr_data;
 	return 0;
@@ -377,6 +399,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 err_fmgr_data:
 	xmgmt_regions_remove(lro);
 err_region:
+	platform_device_put(lro->fmgr);
 	platform_device_unregister(lro->fmgr);
 err_fmgr:
 	destroy_char(&lro->user_char_dev);
@@ -397,7 +420,7 @@ static void xmgmt_remove(struct pci_dev *pdev)
 		return;
 
 	lro = (struct xmgmt_dev *)dev_get_drvdata(&pdev->dev);
-	xmgmt_info(&pdev->dev, "remove(0x%p) where pdev->dev.driver_data = 0x%p",
+	xmgmt_info(&pdev->dev, "remove(0x%px) where pdev->dev.driver_data = 0x%px",
                  pdev, lro);
 	BUG_ON(lro->pdev != pdev);
 	xmgmt_regions_remove(lro);

@@ -32,26 +32,30 @@ static int xmgmt_region_probe(struct platform_device *pdev)
 	struct fpga_manager *mgr = NULL;
 	int ret;
 
-	xmgmt_info(dev, "Part 0x%p Dev 0x%p Id %x\n", part, dev, part->id);
+	xmgmt_info(dev, "Part 0x%px Dev 0x%px Id %x\n", part, dev, part->id);
 	BUG_ON(part->region != pdev);
 	/* No FPGA manager for static regions */
 	if (!is_fixed_region(part)) {
-		mgr = fpga_mgr_get(&pdev->dev);
+		xmgmt_info(dev, "Dynamic Part 0x%px Dev 0x%px Id %x\n", part, dev, part->id);
+//		mgr = fpga_mgr_get(&pdev->dev);
+		mgr = fpga_mgr_get(&part->lro->fmgr->dev);
+		xmgmt_info(dev, "Got FMgr 0x%px\n", mgr);
 		if (IS_ERR(mgr))
 			return -EPROBE_DEFER;
+		xmgmt_info(dev, "Dynamic Part 0x%px Dev 0x%px Id %x 0x%px\n", part, dev, part->id, mgr);
 	}
-	xmgmt_info(dev, "Mgr 0x%p\n", mgr);
+	xmgmt_info(dev, "Mgr 0x%px\n", mgr);
 	region = devm_fpga_region_create(dev, mgr, xmgmt_region_get_bridges);
 	if (!region) {
 		ret = -ENOMEM;
 		goto eprobe_mgr_put;
 	}
-	xmgmt_info(dev, "Region 0x%p\n", region);
+	xmgmt_info(dev, "Region 0x%px\n", region);
 
 	region->priv = part;
 	region->compat_id = mgr ? mgr->compat_id : NULL;
 	platform_set_drvdata(pdev, region);
-	xmgmt_info(dev, "Region 0x%p Mgr 0x%p\n", part, mgr);
+	xmgmt_info(dev, "Region 0x%px Mgr 0x%px\n", part, mgr);
 	ret = fpga_region_register(region);
 	if (ret)
 		goto eprobe_mgr_put;

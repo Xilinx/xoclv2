@@ -59,8 +59,8 @@ struct xmgmt_dev {
 	struct xmgmt_char       user_char_dev;
         bool                    ready;
 	struct platform_device *fmgr;
-	int                     region_count;
-	struct xmgmt_region    *region[1];
+	int                     part_count;
+	struct xmgmt_region    *part[1];
 };
 
 void *xmgmt_drvinst_alloc(struct device *dev, u32 size);

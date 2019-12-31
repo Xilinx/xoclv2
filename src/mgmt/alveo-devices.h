@@ -21,7 +21,7 @@
 #define SUBDEV_SUFFIX	".u"
 #endif
 
-#define XOCL_FEATURE_ROM	"rom"
+#define XOCL_FEATURE_ROM	"alveo-rom"
 #define XOCL_IORES0		"iores0"
 #define XOCL_IORES1		"iores1"
 #define XOCL_IORES2		"iores2"
@@ -37,7 +37,7 @@
 #define	XOCL_PS			"processor_system"
 #define	XOCL_XIIC		"xiic"
 #define	XOCL_MAILBOX		"mailbox"
-#define	XOCL_ICAP		"icap"
+#define	XOCL_ICAP		"alveo-icap"
 #define	XOCL_AXIGATE		"axigate"
 #define	XOCL_MIG		"mig"
 #define	XOCL_XMC		"xmc"
@@ -119,6 +119,7 @@ struct xocl_subdev_info {
 	struct xmgmt_subdev_ops *ops;
 };
 
+/* TODO: Update this struct to add concept of regions which holds arrays of subdev_info */
 struct xocl_board_private {
 	uint64_t		flags;
 	struct xocl_subdev_info	*subdev_info;
@@ -151,6 +152,15 @@ struct xmgmt_region {
 			}				\
 		})
 
+#define	XOCL_RES_ICAP_MGMT				\
+	((struct resource []) {				\
+		{					\
+			.start	= 0x020000,		\
+			.end	= 0x020119,		\
+			.flags  = IORESOURCE_MEM,	\
+		},					\
+	})
+
 
 #define	XOCL_DEVINFO_FEATURE_ROM			\
 	{						\
@@ -161,9 +171,19 @@ struct xmgmt_region {
 	}
 
 
+#define	XOCL_DEVINFO_ICAP_MGMT				\
+	{						\
+		XOCL_SUBDEV_ICAP,			\
+		XOCL_ICAP,				\
+		XOCL_RES_ICAP_MGMT,			\
+		ARRAY_SIZE(XOCL_RES_ICAP_MGMT),		\
+	}
+
+
 #define	MGMT_RES_XBB_DSA52						\
 		((struct xocl_subdev_info []) {				\
 			XOCL_DEVINFO_FEATURE_ROM,			\
+			XOCL_DEVINFO_ICAP_MGMT                          \
 		})
 
 #define	XOCL_BOARD_MGMT_XBB_DSA52					\

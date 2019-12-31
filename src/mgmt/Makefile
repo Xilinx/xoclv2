@@ -9,6 +9,7 @@ obj-m	+= xmgmt.o
 obj-m	+= xmgmt-fmgr.o
 obj-m   += xmgmt-region.o
 obj-m   += xmgmt-iplib.o
+obj-m   += ptest.o
 
 xmgmt-y := alveo-drv.o alveo-ctx.o
 xmgmt-fmgr-y := alveo-fmgr.o
