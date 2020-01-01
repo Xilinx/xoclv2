@@ -164,6 +164,7 @@ out_dev_put:
 
 /*
  * Go through the DT and create platform drivers for each of the IP in this region
+ * For now we assume all subdevs in xocl_board_private is for STATIC
  */
 static int xmgmt_subdevs_probe(struct xmgmt_region *part)
 {
@@ -427,6 +428,7 @@ static void xmgmt_remove(struct pci_dev *pdev)
 
 	BUG_ON(lro->pdev != pdev);
 	xmgmt_parts_remove(lro);
+	platform_device_unregister(lro->fmgr);
 	destroy_char(&lro->user_char_dev);
 	xmgmt_drvinst_free(lro);
 	pci_disable_device(pdev);

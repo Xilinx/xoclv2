@@ -179,11 +179,28 @@ struct xmgmt_region {
 		ARRAY_SIZE(XOCL_RES_ICAP_MGMT),		\
 	}
 
+#define	XOCL_RES_SYSMON					\
+		((struct resource []) {			\
+			{				\
+			.start	= 0xA0000,		\
+			.end 	= 0xAFFFF,		\
+			.flags  = IORESOURCE_MEM,	\
+			}				\
+		})
+
+#define	XOCL_DEVINFO_SYSMON				\
+	{						\
+		XOCL_SUBDEV_SYSMON,			\
+		XOCL_SYSMON,				\
+		XOCL_RES_SYSMON,			\
+		ARRAY_SIZE(XOCL_RES_SYSMON),		\
+	}
 
 #define	MGMT_RES_XBB_DSA52						\
 		((struct xocl_subdev_info []) {				\
 			XOCL_DEVINFO_FEATURE_ROM,			\
-			XOCL_DEVINFO_ICAP_MGMT                          \
+			XOCL_DEVINFO_ICAP_MGMT, 			\
+			XOCL_DEVINFO_SYSMON,	         	 	\
 		})
 
 #define	XOCL_BOARD_MGMT_XBB_DSA52					\
