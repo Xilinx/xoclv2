@@ -8,13 +8,11 @@
 obj-m	+= xmgmt.o
 obj-m	+= xmgmt-fmgr.o
 obj-m   += xmgmt-region.o
-obj-m   += xmgmt-iplib.o
-obj-m   += ptest.o
+obj-m   += xocl-iplib.o
 
 xmgmt-y := alveo-drv.o alveo-ctx.o
 xmgmt-fmgr-y := alveo-fmgr.o
 xmgmt-region-y := alveo-region.o
-xmgmt-iplib-y := alveo-iplib.o
 
 CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build

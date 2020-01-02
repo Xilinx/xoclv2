@@ -211,8 +211,6 @@ static void xmgmt_subdev_test(const struct xocl_region *part)
 
 	while (i < u200.subdev_num) {
 		xmgmt_info(dev, "subdev[%d] 0x%px.0x%px test", i, part, part->children[i]);
-		xocl_subdev_init(part->children[i], NULL);
-		xocl_subdev_uinit(part->children[i]);
 		xocl_subdev_ioctl(part->children[i++], 0, 0);
 	}
 }
@@ -230,7 +228,7 @@ static struct xocl_region *xmgmt_part_probe(struct xmgmt_dev *lro, enum region_i
 	part->child_count = child_count;
 	part->lro = lro;
 	part->id = id;
-	part->region = platform_device_alloc("alveo-region", PLATFORM_DEVID_AUTO);
+	part->region = platform_device_alloc("xocl-region", PLATFORM_DEVID_AUTO);
 	xmgmt_info(&lro->pdev->dev, "Region 0x%px\n", part->region);
 	if (!part->region)
 		goto out_free;
@@ -313,7 +311,7 @@ static int xmgmt_fmgr_probe(struct xmgmt_dev *lro)
 {
 	int rc = -ENOMEM;
 
-	lro->fmgr = platform_device_alloc("alveo-fmgr", PLATFORM_DEVID_AUTO);
+	lro->fmgr = platform_device_alloc("xocl-fmgr", PLATFORM_DEVID_AUTO);
 	xmgmt_info(&lro->pdev->dev, "FPGA Manager 0x%px\n", lro->fmgr);
 	if (!lro->fmgr)
 		return rc;

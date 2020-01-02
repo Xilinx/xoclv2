@@ -85,7 +85,7 @@ static int xmgmt_region_remove(struct platform_device *pdev)
 
 static struct platform_driver xmgmt_region_driver = {
 	.driver	= {
-		.name    = "alveo-region",
+		.name    = "xocl-region",
 	},
 	.probe   = xmgmt_region_probe,
 	.remove  = xmgmt_region_remove,
@@ -97,4 +97,4 @@ MODULE_VERSION(XMGMT_DRIVER_VERSION);
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");
 MODULE_DESCRIPTION("Xilinx Alveo FPGA Region driver");
 MODULE_LICENSE("GPL v2");
-MODULE_ALIAS("platform:alveo-region");
+MODULE_ALIAS("platform:xocl-region");

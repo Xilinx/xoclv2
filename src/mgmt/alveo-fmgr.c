@@ -195,7 +195,7 @@ static struct platform_driver fmgr_driver = {
 	.probe		= fmgr_probe,
 	.remove		= fmgr_remove,
 	.driver		= {
-		.name = "alveo-fmgr",
+		.name = "xocl-fmgr",
 	},
 };
 
@@ -204,4 +204,4 @@ module_platform_driver(fmgr_driver);
 MODULE_DESCRIPTION("FPGA Manager for Xilinx Alveo");
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");
 MODULE_LICENSE("GPL v2");
-MODULE_ALIAS("platform:alveo-fmgr");
+MODULE_ALIAS("platform:xocl-fmgr");

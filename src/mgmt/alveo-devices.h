@@ -20,7 +20,7 @@
 #define SUBDEV_SUFFIX	".u"
 #endif
 
-#define XOCL_FEATURE_ROM	"alveo-rom"
+#define XOCL_FEATURE_ROM	"xocl-rom"
 #define XOCL_IORES0		"iores0"
 #define XOCL_IORES1		"iores1"
 #define XOCL_IORES2		"iores2"
@@ -30,13 +30,13 @@
 #define XOCL_XVC_PUB		"xvc_pub"
 #define XOCL_XVC_PRI		"xvc_pri"
 #define XOCL_NIFD_PRI		"nifd_pri"
-#define XOCL_SYSMON		"alveo-sysmon"
+#define XOCL_SYSMON		"xocl-sysmon"
 #define XOCL_FIREWALL		"firewall"
 #define	XOCL_MB			"microblaze"
 #define	XOCL_PS			"processor_system"
 #define	XOCL_XIIC		"xiic"
 #define	XOCL_MAILBOX		"mailbox"
-#define	XOCL_ICAP		"alveo-icap"
+#define	XOCL_ICAP		"xocl-icap"
 #define	XOCL_AXIGATE		"axigate"
 #define	XOCL_MIG		"mig"
 #define	XOCL_XMC		"xmc"
@@ -96,9 +96,7 @@ enum region_id {
 struct xmgmt_dev;
 struct xocl_subdev_info;
 
-struct xmgmt_subdev_ops {
-	int (*init)(struct platform_device *pdev, const struct xocl_subdev_info *detail);
-	void (*uinit)(struct platform_device *pdev);
+struct xocl_subdev_ops {
 	long (*ioctl)(struct platform_device *pdev, unsigned int cmd, unsigned long arg);
 };
 
@@ -211,9 +209,7 @@ struct xocl_region {
 	}
 
 
-
-int xocl_subdev_init(struct platform_device *pdev, const struct xocl_subdev_info *detail);
-void xocl_subdev_uinit(struct platform_device *pdev);
-long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg);
+long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd,
+		       unsigned long arg);
 
 #endif
