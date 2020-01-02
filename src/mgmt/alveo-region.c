@@ -19,14 +19,14 @@ static int xmgmt_region_get_bridges(struct fpga_region *region)
 	return 0;
 }
 
-static inline bool is_fixed_region(const struct xmgmt_region *part)
+static inline bool is_fixed_region(const struct xocl_region *part)
 {
 	return ((part->id == XOCL_REGION_STATIC) || (part->id == XOCL_REGION_BLD));
 }
 
 static int xmgmt_region_probe(struct platform_device *pdev)
 {
-	struct xmgmt_region *part = dev_get_platdata(&pdev->dev);
+	struct xocl_region *part = dev_get_platdata(&pdev->dev);
 	struct device *dev = &pdev->dev;
 	struct fpga_region *region;
 	struct fpga_manager *mgr = NULL;

@@ -10,7 +10,6 @@
 
 #include <linux/resource.h>
 #include <linux/platform_device.h>
-//#include <linux/io.h>
 
 #define	MGMTPF		0
 #define	USERPF		1
@@ -31,7 +30,7 @@
 #define XOCL_XVC_PUB		"xvc_pub"
 #define XOCL_XVC_PRI		"xvc_pri"
 #define XOCL_NIFD_PRI		"nifd_pri"
-#define XOCL_SYSMON		"sysmon"
+#define XOCL_SYSMON		"alveo-sysmon"
 #define XOCL_FIREWALL		"firewall"
 #define	XOCL_MB			"microblaze"
 #define	XOCL_PS			"processor_system"
@@ -134,7 +133,7 @@ struct xocl_board_private {
 	const char		*sched_bin;
 };
 
-struct xmgmt_region {
+struct xocl_region {
 	struct xmgmt_dev       *lro;
 	enum region_id          id;
 	struct platform_device *region;
@@ -210,5 +209,11 @@ struct xmgmt_region {
 		.subdev_num     = ARRAY_SIZE(MGMT_RES_XBB_DSA52),	\
 		.flash_type     = FLASH_TYPE_SPI,			\
 	}
+
+
+
+int xocl_subdev_init(struct platform_device *pdev, const struct xocl_subdev_info *detail);
+void xocl_subdev_uinit(struct platform_device *pdev);
+long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg);
 
 #endif

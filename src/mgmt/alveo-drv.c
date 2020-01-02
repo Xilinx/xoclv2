@@ -115,7 +115,7 @@ static int destroy_char(struct xmgmt_char *lro_char)
 	return 0;
 }
 
-static void xmgmt_subdevs_remove(struct xmgmt_region *part)
+static void xmgmt_subdevs_remove(struct xocl_region *part)
 {
 	struct device *dev = &part->lro->pdev->dev;
 	int i = 0;
@@ -135,7 +135,7 @@ static void xmgmt_subdevs_remove(struct xmgmt_region *part)
 	}
 }
 
-static struct platform_device *xmgmt_subdev_probe(struct xmgmt_region *part,
+static struct platform_device *xmgmt_subdev_probe(struct xocl_region *part,
 						  struct xocl_subdev_info *info)
 {
 	/* WIP Start with U200 static region */
@@ -166,7 +166,7 @@ out_dev_put:
  * Go through the DT and create platform drivers for each of the IP in this region
  * For now we assume all subdevs in xocl_board_private is for STATIC
  */
-static int xmgmt_subdevs_probe(struct xmgmt_region *part)
+static int xmgmt_subdevs_probe(struct xocl_region *part)
 {
 	struct platform_device *child;
 	int rc = 0;
@@ -194,18 +194,35 @@ out_free:
 	return rc;
 }
 
-static inline size_t sizeof_xmgmt_region(const struct xmgmt_region *part)
+static inline size_t sizeof_xocl_region(const struct xocl_region *part)
 {
-	return offsetof(struct xmgmt_region, children) +
+	return offsetof(struct xocl_region, children) +
 		sizeof(struct platform_device *) * part->child_count;
 }
 
-static struct xmgmt_region *xmgmt_part_probe(struct xmgmt_dev *lro, enum region_id id)
+static void xmgmt_subdev_test(const struct xocl_region *part)
+{
+	int i = 0;
+	struct device *dev = &part->lro->pdev->dev;
+
+	/* WIP Start with U200 static region for now */
+	if (part->id != XOCL_REGION_STATIC)
+		return;
+
+	while (i < u200.subdev_num) {
+		xmgmt_info(dev, "subdev[%d] 0x%px.0x%px test", i, part, part->children[i]);
+		xocl_subdev_init(part->children[i], NULL);
+		xocl_subdev_uinit(part->children[i]);
+		xocl_subdev_ioctl(part->children[i++], 0, 0);
+	}
+}
+
+static struct xocl_region *xmgmt_part_probe(struct xmgmt_dev *lro, enum region_id id)
 {
 	int rc = -ENOMEM;
 	// TODO: obtain the count of children IPs in this region in DT using id as key
 	int child_count = u200.subdev_num;
-	struct xmgmt_region *part = vzalloc(offsetof(struct xmgmt_region, children) +
+	struct xocl_region *part = vzalloc(offsetof(struct xocl_region, children) +
 					      sizeof(struct platform_device *) * child_count);
 	if (part == NULL)
 		return ERR_PTR(rc);
@@ -219,7 +236,7 @@ static struct xmgmt_region *xmgmt_part_probe(struct xmgmt_dev *lro, enum region_
 		goto out_free;
 
 	part->region->dev.parent = &lro->pdev->dev;
-	rc = platform_device_add_data(part->region, part, sizeof_xmgmt_region(part));
+	rc = platform_device_add_data(part->region, part, sizeof_xocl_region(part));
 	xmgmt_info(&lro->pdev->dev, "Return code %d\n", rc);
 	if (rc)
 		goto out_dev_put;
@@ -273,7 +290,7 @@ static void xmgmt_parts_remove(struct xmgmt_dev *lro)
 static int xmgmt_parts_probe(struct xmgmt_dev *lro)
 {
 	int rc = 0;
-	struct xmgmt_region *part = NULL;
+	struct xocl_region *part = NULL;
 	part = xmgmt_part_probe(lro, XOCL_REGION_STATIC);
 	if (IS_ERR(part))
 		return PTR_ERR(part);
@@ -339,7 +356,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	/* allocate zeroed device book keeping structure */
 	part_count = 2;
 	lro = xmgmt_drvinst_alloc(&pdev->dev, offsetof(struct xmgmt_dev, part) +
-				  sizeof(struct xmgmt_region *) * part_count);
+				  sizeof(struct xocl_region *) * part_count);
 	if (!lro) {
 		xmgmt_err(&pdev->dev, "Could not kzalloc(xmgmt_dev).\n");
 		rc = -ENOMEM;
@@ -376,9 +393,12 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	 * Now complete fpga mgr initialization. It needs access to STATIC or BLD in order
 	 * to orchestrate download with ICAP, CW, AXI_GATE, etc.
 	 */
-	rc = platform_device_add_data(lro->fmgr, lro->part[0], sizeof_xmgmt_region(lro->part[0]));
+	rc = platform_device_add_data(lro->fmgr, lro->part[0], sizeof_xocl_region(lro->part[0]));
 	if (rc)
 		goto err_fmgr_data;
+
+	xmgmt_subdev_test(lro->part[0]);
+	xmgmt_subdev_test(lro->part[1]);
 
 	return 0;
 
