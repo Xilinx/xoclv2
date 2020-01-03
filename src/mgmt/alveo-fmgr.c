@@ -17,8 +17,8 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 
-#include "alveo-drv.h"
-#include "alveo-devices.h"
+#include "xmgmt-drv.h"
+#include "xocl-devices.h"
 #include "xclbin.h"
 
 /*

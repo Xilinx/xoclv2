@@ -9,15 +9,18 @@
 #define	_XMGMT_ALVEO_DEVICES_H_
 
 #include <linux/resource.h>
+#include <linux/device.h>
 #include <linux/platform_device.h>
 
-#define	MGMTPF		0
-#define	USERPF		1
+#define	ICAP_XCLBIN_V2		"xclbin2"
+
+#define	MGMTPF		         0
+#define	USERPF		         1
 
 #if PF == MGMTPF
-#define SUBDEV_SUFFIX	".m"
+#define SUBDEV_SUFFIX	        ".m"
 #elif PF == USERPF
-#define SUBDEV_SUFFIX	".u"
+#define SUBDEV_SUFFIX	        ".u"
 #endif
 
 #define XOCL_FEATURE_ROM	"xocl-rom"
@@ -211,5 +214,14 @@ struct xocl_region {
 
 long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd,
 		       unsigned long arg);
+
+#define xocl_err(dev, fmt, args...)			\
+	dev_err(dev, "dev %llx, %s: "fmt, (u64)dev, __func__, ##args)
+#define xocl_warn(dev, fmt, args...)			\
+	dev_warn(dev, "dev %llx, %s: "fmt, (u64)dev, __func__, ##args)
+#define xocl_info(dev, fmt, args...)			\
+	dev_info(dev, "dev %llx, %s: "fmt, (u64)dev, __func__, ##args)
+#define xocl_dbg(dev, fmt, args...)			\
+	dev_dbg(dev, "dev %llx, %s: "fmt, (u64)dev, __func__, ##args)
 
 #endif

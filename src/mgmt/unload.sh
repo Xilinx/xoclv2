@@ -1,4 +1,4 @@
 rmmod xmgmt
-rmmod xocl-iplib
+rmmod xocl-lib
 rmmod xmgmt-region
 rmmod xmgmt-fmgr

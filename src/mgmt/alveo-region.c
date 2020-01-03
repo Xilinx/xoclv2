@@ -11,8 +11,8 @@
 #include <linux/fpga/fpga-mgr.h>
 #include <linux/fpga/fpga-region.h>
 
-#include "alveo-drv.h"
-#include "alveo-devices.h"
+#include "xmgmt-drv.h"
+#include "xocl-devices.h"
 
 static int xmgmt_region_get_bridges(struct fpga_region *region)
 {

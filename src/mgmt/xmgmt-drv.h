@@ -13,7 +13,6 @@
 #include <linux/pci.h>
 
 #define	XMGMT_MODULE_NAME	"xmgmt"
-#define	ICAP_XCLBIN_V2		"xclbin2"
 #define XMGMT_MAX_DEVICES	 24
 #define XMGMT_DEFAULT            0x000e
 #define XMGMT_DRIVER_VERSION    "4.0.0"
