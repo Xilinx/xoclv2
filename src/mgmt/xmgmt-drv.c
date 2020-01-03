@@ -137,17 +137,11 @@ static void xmgmt_subdevs_remove(struct xocl_region *part)
 	struct device *dev = &part->lro->pdev->dev;
 	int i = 0;
 	for (; i < u200.subdev_num; i++) {
-		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
-		xmgmt_info(dev, "Remove child[%d] 0x%px.0x%px\n", i, part, part->children[i]);
 		if (!part->children[i])
 			continue;
-		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
 		xmgmt_info(dev, "Remove child[%d] 0x%px.0x%px %s\n", i, part, part->children[i], part->children[i]->name);
-		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
-		//platform_device_put(part->children[i]);
-		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
+		/* Only unregister, no put */
 		platform_device_unregister(part->children[i]);
-		xmgmt_info(dev, "%s.%d", __func__, __LINE__);
 		part->children[i] = NULL;
 	}
 }
@@ -168,12 +162,10 @@ static struct platform_device *xmgmt_subdev_probe(struct xocl_region *part,
 	if (rc)
 		goto out_dev_put;
 	rc = platform_device_add_data(pdev, info, sizeof(*info));
-	xmgmt_info(dev, "Return code %d\n", rc);
 	if (rc)
 		goto out_dev_put;
 	rebase_resources(part->lro->pdev, pdev, info);
 	rc = platform_device_add(pdev);
-	xmgmt_info(dev, "Return code %d\n", rc);
 	if (rc)
 		goto out_dev_put;
 	return pdev;
@@ -256,11 +248,9 @@ static struct xocl_region *xmgmt_part_probe(struct xmgmt_dev *lro, enum region_i
 
 	part->region->dev.parent = &lro->pdev->dev;
 	rc = platform_device_add_data(part->region, part, sizeof_xocl_region(part));
-	xmgmt_info(&lro->pdev->dev, "Return code %d\n", rc);
 	if (rc)
 		goto out_dev_put;
 	rc = platform_device_add(part->region);
-	xmgmt_info(&lro->pdev->dev, "Return code %d\n", rc);
 	if (rc)
 		goto out_dev_put;
 
@@ -339,11 +329,9 @@ static int xmgmt_fmgr_probe(struct xmgmt_dev *lro)
 
 	lro->fmgr->dev.parent = &lro->pdev->dev;
 	rc = platform_device_add_data(lro->fmgr, NULL, 0);
-	xmgmt_info(&lro->pdev->dev, "Return code %d\n", rc);
 	if (rc)
 		goto out_dev_put;
 	rc = platform_device_add(lro->fmgr);
-	xmgmt_info(&lro->pdev->dev, "Return code %d\n", rc);
 	if (rc)
 		goto out_dev_put;
 	return 0;

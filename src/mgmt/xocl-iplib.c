@@ -21,7 +21,7 @@ extern struct platform_driver xocl_rom_driver;
 
 static long myioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
 {
-	xocl_info(&pdev->dev, "%s ioctl %d %ld\n", pdev->name, cmd, arg);
+	xocl_info(&pdev->dev, "Subdev %s ioctl %d %ld\n", pdev->name, cmd, arg);
 	return 0;
 }
 
@@ -36,14 +36,7 @@ static int xocl_rom_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	const struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
-	xocl_info(dev, "Probed %s/%s: Info 0x%px Subdev 0x%px\n", info->name, pdev->name,
-		   info, pdev);
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res)
-		xocl_info(dev, "Subdev %s resource %pr", pdev->name, res);
-
-//	platform_set_drvdata(pdev, (void *)&rom_ops);
+	xocl_info(dev, "Probed subdev %s: resource %pr", pdev->name, res);
 	return 0;
 
 eprobe_mgr_put:
@@ -56,7 +49,7 @@ static int xocl_rom_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
 	platform_set_drvdata(pdev, NULL);
-	xocl_info(dev, "Removed %s/%s\n", info->name, pdev->name);
+	xocl_info(dev, "Removed subdev %s\n", pdev->name);
 	return 0;
 }
 
