@@ -31,12 +31,17 @@ const static struct xocl_subdev_ops rom_ops = {
 
 static int xocl_rom_probe(struct platform_device *pdev)
 {
+	int ret;
 	struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
 	struct device *dev = &pdev->dev;
-	int ret;
+	const struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
 	xocl_info(dev, "Probed %s/%s: Info 0x%px Subdev 0x%px\n", info->name, pdev->name,
 		   info, pdev);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res)
+		xocl_info(dev, "Subdev %s resource %pr", pdev->name, res);
 
 //	platform_set_drvdata(pdev, (void *)&rom_ops);
 	return 0;

@@ -116,6 +116,22 @@ static int destroy_char(struct xmgmt_char *lro_char)
 	return 0;
 }
 
+static void rebase_resources(struct pci_dev *pci_dev, struct platform_device *pdev,
+			     const struct xocl_subdev_info *info)
+{
+	struct resource *res;
+	int i;
+
+	const resource_size_t iostart = pci_resource_start(pci_dev, (int)info->bar_idx[0]);
+	for (i = 0; i < info->num_res; i++) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
+		if (!res)
+			continue;
+		res->start += iostart;
+		res->end += iostart;
+	}
+}
+
 static void xmgmt_subdevs_remove(struct xocl_region *part)
 {
 	struct device *dev = &part->lro->pdev->dev;
@@ -148,10 +164,14 @@ static struct platform_device *xmgmt_subdev_probe(struct xocl_region *part,
 		return ERR_PTR(-ENOMEM);;
 
 	pdev->dev.parent = &part->region->dev;
+	rc = platform_device_add_resources(pdev, info->res, info->num_res);
+	if (rc)
+		goto out_dev_put;
 	rc = platform_device_add_data(pdev, info, sizeof(*info));
 	xmgmt_info(dev, "Return code %d\n", rc);
 	if (rc)
 		goto out_dev_put;
+	rebase_resources(part->lro->pdev, pdev, info);
 	rc = platform_device_add(pdev);
 	xmgmt_info(dev, "Return code %d\n", rc);
 	if (rc)

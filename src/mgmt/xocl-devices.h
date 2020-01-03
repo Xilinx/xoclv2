@@ -116,7 +116,6 @@ struct xocl_subdev_info {
 	int			 dyn_ip;
 	const char	        *override_name;
 	int			 override_idx;
-	struct xmgmt_subdev_ops *ops;
 };
 
 /* TODO: Update this struct to add concept of regions which holds arrays of subdev_info */
@@ -161,24 +160,6 @@ struct xocl_region {
 		},					\
 	})
 
-
-#define	XOCL_DEVINFO_FEATURE_ROM			\
-	{						\
-		XOCL_SUBDEV_FEATURE_ROM,		\
-		XOCL_FEATURE_ROM,			\
-		XOCL_RES_FEATURE_ROM,			\
-		ARRAY_SIZE(XOCL_RES_FEATURE_ROM),	\
-	}
-
-
-#define	XOCL_DEVINFO_ICAP_MGMT				\
-	{						\
-		XOCL_SUBDEV_ICAP,			\
-		XOCL_ICAP,				\
-		XOCL_RES_ICAP_MGMT,			\
-		ARRAY_SIZE(XOCL_RES_ICAP_MGMT),		\
-	}
-
 #define	XOCL_RES_SYSMON					\
 		((struct resource []) {			\
 			{				\
@@ -188,12 +169,53 @@ struct xocl_region {
 			}				\
 		})
 
+#define	XOCL_DEVINFO_FEATURE_ROM			\
+	{						\
+		XOCL_SUBDEV_FEATURE_ROM,		\
+		XOCL_FEATURE_ROM,			\
+		XOCL_RES_FEATURE_ROM,			\
+		ARRAY_SIZE(XOCL_RES_FEATURE_ROM),	\
+		NULL,                                   \
+		0,                                      \
+		false,                                  \
+		0,                                      \
+		(char []){ 2 },                         \
+		0,                                      \
+		NULL,                                   \
+		0,                                      \
+	}
+
+
+#define	XOCL_DEVINFO_ICAP_MGMT				\
+	{						\
+		XOCL_SUBDEV_ICAP,			\
+		XOCL_ICAP,				\
+		XOCL_RES_ICAP_MGMT,			\
+		ARRAY_SIZE(XOCL_RES_ICAP_MGMT),		\
+		NULL,                                   \
+		0,                                      \
+		false,                                  \
+		0,                                      \
+		(char []){ 2 },                         \
+		0,                                      \
+		NULL,                                   \
+		0,                                      \
+	}
+
 #define	XOCL_DEVINFO_SYSMON				\
 	{						\
 		XOCL_SUBDEV_SYSMON,			\
 		XOCL_SYSMON,				\
 		XOCL_RES_SYSMON,			\
 		ARRAY_SIZE(XOCL_RES_SYSMON),		\
+		NULL,                                   \
+		0,                                      \
+		false,                                  \
+		0,                                      \
+		(char []){ 2 },                         \
+		0,                                      \
+		NULL,                                   \
+		0,                                      \
 	}
 
 #define	MGMT_RES_XBB_DSA52						\
