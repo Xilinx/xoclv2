@@ -39,7 +39,7 @@ static int xocl_rom_probe(struct platform_device *pdev)
 	xocl_info(dev, "Probed %s/%s: Info 0x%px Subdev 0x%px\n", info->name, pdev->name,
 		   info, pdev);
 
-	platform_set_drvdata(pdev, (void *)&rom_ops);
+//	platform_set_drvdata(pdev, (void *)&rom_ops);
 	return 0;
 
 eprobe_mgr_put:
@@ -57,7 +57,7 @@ static int xocl_rom_remove(struct platform_device *pdev)
 }
 
 static const struct platform_device_id rom_id_table[] = {
-	{ "xocl-rom", 0 },
+	{ "xocl-rom", (kernel_ulong_t)&rom_ops },
 	{ },
 };
 

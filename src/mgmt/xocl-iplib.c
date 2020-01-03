@@ -38,7 +38,7 @@ static int xocl_rom_probe(struct platform_device *pdev)
 	xocl_info(dev, "Probed %s/%s: Info 0x%px Subdev 0x%px\n", info->name, pdev->name,
 		   info, pdev);
 
-	platform_set_drvdata(pdev, (void *)&rom_ops);
+//	platform_set_drvdata(pdev, (void *)&rom_ops);
 	return 0;
 
 eprobe_mgr_put:
@@ -57,12 +57,12 @@ static int xocl_rom_remove(struct platform_device *pdev)
 
 
 static const struct platform_device_id icap_id_table[] = {
-	{ "xocl-icap", 0 },
+	{ "xocl-icap", (kernel_ulong_t)&rom_ops },
 	{ },
 };
 
 static const struct platform_device_id sysmon_id_table[] = {
-	{ "xocl-sysmon", 0 },
+	{ "xocl-sysmon", (kernel_ulong_t)&rom_ops },
 	{ },
 };
 
@@ -92,7 +92,10 @@ static struct platform_driver *xocl_subdev_drivers[] = {
 
 long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
 {
-	const struct xocl_subdev_ops *ops = platform_get_drvdata(pdev);
+	const struct platform_device_id	*id = platform_get_device_id(pdev);
+	if (!id || !id->driver_data)
+		return -EOPNOTSUPP;
+	const struct xocl_subdev_ops *ops = id->driver_data;
 	if (!ops || !ops->ioctl)
 		return -EOPNOTSUPP;
 
