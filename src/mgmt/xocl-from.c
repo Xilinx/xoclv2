@@ -10,10 +10,11 @@
 
 #include <linux/pci.h>
 #include <linux/platform_device.h>
+#include <linux/firmware.h>
 #include "xocl-devices.h"
 #include "xocl-features.h"
 
-#if 0
+#if 1
 #define	MAGIC_NUM	0x786e6c78
 struct feature_rom {
 	void __iomem		*base;
@@ -30,14 +31,24 @@ struct feature_rom {
 	bool			passthrough_virt_en;
 };
 
-static long myioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
-{
-	xocl_info(&pdev->dev, "%s ioctl %d %ld\n", pdev->name, cmd, arg);
-	return 0;
-}
-
-const static struct xocl_subdev_ops rom_ops = {
-	.ioctl = myioctl,
+struct xocl_rom_funcs {
+	//struct xocl_subdev_funcs common_funcs;
+	bool (*is_unified)(struct platform_device *pdev);
+	bool (*mb_mgmt_on)(struct platform_device *pdev);
+	bool (*mb_sched_on)(struct platform_device *pdev);
+	uint32_t* (*cdma_addr)(struct platform_device *pdev);
+	u16 (*get_ddr_channel_count)(struct platform_device *pdev);
+	u64 (*get_ddr_channel_size)(struct platform_device *pdev);
+	bool (*is_are)(struct platform_device *pdev);
+	bool (*is_aws)(struct platform_device *pdev);
+	bool (*verify_timestamp)(struct platform_device *pdev, u64 timestamp);
+	u64 (*get_timestamp)(struct platform_device *pdev);
+	int (*get_raw_header)(struct platform_device *pdev, void *header);
+	bool (*runtime_clk_scale_on)(struct platform_device *pdev);
+	int (*find_firmware)(struct platform_device *pdev, char *fw_name,
+		size_t len, u16 deviceid, const struct firmware **fw);
+	bool (*passthrough_virtualization_on)(struct platform_device *pdev);
+	char *(*get_uuid)(struct platform_device *pdev);
 };
 
 static ssize_t VBNV_show(struct device *dev,
@@ -181,8 +192,9 @@ static bool mb_sched_on(struct platform_device *pdev)
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
-
-	return rom->mb_sche_enabled && !XOCL_DSA_MB_SCHE_OFF(xocl_get_xdev(pdev));
+	// TODO: SS
+	// return rom->mb_sche_enabled && !XOCL_DSA_MB_SCHE_OFF(xocl_get_xdev(pdev));
+	return true;
 }
 
 static bool runtime_clk_scale_on(struct platform_device *pdev)
@@ -212,9 +224,11 @@ static uint32_t* get_cdma_base_addresses(struct platform_device *pdev)
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
 
-	return (!XOCL_DSA_NO_KDMA(xocl_get_xdev(pdev)) &&
-		(rom->header.FeatureBitMap & CDMA)) ?
-		rom->header.CDMABaseAddress : 0;
+	// TODO: SS
+	//return (!XOCL_DSA_NO_KDMA(xocl_get_xdev(pdev)) &&
+	//	(rom->header.FeatureBitMap & CDMA)) ?
+	//	rom->header.CDMABaseAddress : 0;
+	return NULL;
 }
 
 static u16 get_ddr_channel_count(struct platform_device *pdev)
@@ -394,6 +408,8 @@ static int get_header_from_peer(struct feature_rom *rom)
 {
 	struct FeatureRomHeader *header;
 	struct resource *res;
+	//TODO: SS
+/*
 	xdev_handle_t xdev = xocl_get_xdev(rom->pdev);
 
 	header = XOCL_GET_SUBDEV_PRIV(&rom->pdev->dev);
@@ -413,7 +429,7 @@ static int get_header_from_peer(struct feature_rom *rom)
 		xocl_xdev_info(xdev, "CDMA is on, CU offset: 0x%x",
 				rom->header.CDMABaseAddress[0]);
 	}
-
+*/
 	return 0;
 }
 
@@ -443,6 +459,8 @@ static void platform_type_append(char *prefix, u32 platform_type)
 
 static int init_rom_by_dtb(struct feature_rom *rom)
 {
+	// TODO: SS
+/*
 	xdev_handle_t xdev = xocl_get_xdev(rom->pdev);
 	struct FeatureRomHeader *header = &rom->header;
 	struct resource *res;
@@ -484,7 +502,7 @@ static int init_rom_by_dtb(struct feature_rom *rom)
 		xocl_xdev_info(xdev, "ERT is on");
 		header->FeatureBitMap |= MB_SCHEDULER;
 	}
-
+*/
 	return 0;
 }
 
@@ -505,6 +523,7 @@ static int get_header_from_dtb(struct feature_rom *rom)
 
 static int get_header_from_vsec(struct feature_rom *rom)
 {
+/*
 	xdev_handle_t xdev = xocl_get_xdev(rom->pdev);
 	int bar;
 	u64 offset;
@@ -517,7 +536,7 @@ static int get_header_from_vsec(struct feature_rom *rom)
 	offset += pci_resource_start(XDEV(xdev)->pdev, bar);
 	xocl_xdev_info(xdev, "Mapping uuid at offset 0x%llx", offset);
 	rom->base = ioremap_nocache(offset, PAGE_SIZE);
-
+*/
 	return get_header_from_dtb(rom);
 }
 
@@ -577,14 +596,14 @@ failed:
 }
 #endif
 
-static long myioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
+static long myrom_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
 {
 	xocl_info(&pdev->dev, "%s ioctl %d %ld\n", pdev->name, cmd, arg);
 	return 0;
 }
 
-const static struct xocl_subdev_ops rom_ops = {
-	.ioctl = myioctl,
+const static struct xocl_subdev_ops myrom_ops = {
+	.ioctl = myrom_ioctl,
 };
 
 static int xocl_rom_probe(struct platform_device *pdev)
@@ -612,7 +631,7 @@ static int xocl_rom_remove(struct platform_device *pdev)
 }
 
 static const struct platform_device_id rom_id_table[] = {
-	{ "xocl-rom", (kernel_ulong_t)&rom_ops },
+	{ "xocl-rom", (kernel_ulong_t)&myrom_ops },
 	{ },
 };
 

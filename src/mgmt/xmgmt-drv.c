@@ -116,6 +116,9 @@ static int destroy_char(struct xmgmt_char *lro_char)
 	return 0;
 }
 
+/*
+ * Compute the IP IOMEM resource absolute PCIe address based on PCIe BAR
+ */
 static void rebase_resources(struct pci_dev *pci_dev, struct platform_device *pdev,
 			     const struct xocl_subdev_info *info)
 {
@@ -134,9 +137,9 @@ static void rebase_resources(struct pci_dev *pci_dev, struct platform_device *pd
 
 static void xmgmt_subdevs_remove(struct xocl_region *part)
 {
+	int i;
 	struct device *dev = &part->lro->pdev->dev;
-	int i = 0;
-	for (; i < u200.subdev_num; i++) {
+	for (i = 0; i < u200.subdev_num; i++) {
 		if (!part->children[i])
 			continue;
 		xmgmt_info(dev, "Remove child[%d] 0x%px.0x%px %s\n", i, part, part->children[i], part->children[i]->name);

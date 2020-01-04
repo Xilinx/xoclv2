@@ -90,10 +90,11 @@ static struct platform_driver *xocl_subdev_drivers[] = {
 
 long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
 {
+	const struct xocl_subdev_ops *ops;
 	const struct platform_device_id	*id = platform_get_device_id(pdev);
 	if (!id || !id->driver_data)
 		return -EOPNOTSUPP;
-	const struct xocl_subdev_ops *ops = id->driver_data;
+	ops = (const struct xocl_subdev_ops *)id->driver_data;
 	if (!ops || !ops->ioctl)
 		return -EOPNOTSUPP;
 

@@ -96,11 +96,30 @@ enum region_id {
 #define	FLASH_TYPE_SPI	   "spi"
 #define	FLASH_TYPE_QSPIPS  "qspi_ps"
 
+#define XOCL_VSEC_UUID_ROM          0x50
+#define XOCL_VSEC_FLASH_CONTROLER   0x51
+#define XOCL_VSEC_PLATFORM_INFO     0x52
+#define XOCL_VSEC_MAILBOX           0x53
+#define XOCL_VSEC_PLAT_RECOVERY     0x00
+#define XOCL_VSEC_PLAT_1RP          0x01
+#define XOCL_VSEC_PLAT_2RP          0x02
+
+#define XOCL_MAXNAMELEN	64
+
+struct xocl_vsec_header {
+	u32		format;
+	u32		length;
+	u32		entry_sz;
+	u32		rsvd;
+};
+
 struct xmgmt_dev;
 struct xocl_subdev_info;
 
 struct xocl_subdev_ops {
 	long (*ioctl)(struct platform_device *pdev, unsigned int cmd, unsigned long arg);
+	int (*offline)(struct platform_device *pdev);
+	int (*online)(struct platform_device *pdev);
 };
 
 struct xocl_subdev_info {
@@ -245,5 +264,28 @@ long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd,
 	dev_info(dev, "dev %llx, %s: "fmt, (u64)dev, __func__, ##args)
 #define xocl_dbg(dev, fmt, args...)			\
 	dev_dbg(dev, "dev %llx, %s: "fmt, (u64)dev, __func__, ##args)
+
+#define	XOCL_PL_TO_PCI_DEV(pldev)		\
+	to_pci_dev(pldev->dev.parent->parent)
+
+static inline void xocl_memcpy_fromio(void *buf, void *iomem, u32 size)
+{
+	int i;
+
+	BUG_ON(size & 0x3);
+
+	for (i = 0; i < size / 4; i++)
+		((u32 *)buf)[i] = ioread32((char *)(iomem) + sizeof(u32) * i);
+}
+
+static inline void xocl_memcpy_toio(void *iomem, void *buf, u32 size)
+{
+	int i;
+
+	BUG_ON(size & 0x3);
+
+	for (i = 0; i < size / 4; i++)
+		iowrite32(((u32 *)buf)[i], ((char *)(iomem) + sizeof(u32) * i));
+}
 
 #endif
