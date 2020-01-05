@@ -142,8 +142,8 @@ static void xmgmt_subdevs_remove(struct xocl_region *part)
 	for (i = 0; i < u200.subdev_num; i++) {
 		if (!part->children[i])
 			continue;
-		xmgmt_info(dev, "Remove child[%d] 0x%px.0x%px %s\n", i, part, part->children[i], part->children[i]->name);
-		/* Only unregister, no put */
+		xmgmt_info(dev, "Remove child subdev[%d] %s: 0x%px.0x%px\n", i, part->children[i]->name, part, part->children[i]);
+		/* Only unregister, no put as the former does release the reference */
 		platform_device_unregister(part->children[i]);
 		part->children[i] = NULL;
 	}
@@ -194,13 +194,12 @@ static int xmgmt_subdevs_probe(struct xocl_region *part)
 		return 0;
 
 	while (i < u200.subdev_num) {
-		xmgmt_info(dev, "%s.%d 0x%px [%d]", __func__, __LINE__, part, i);
 		child = xmgmt_subdev_probe(part, &u200.subdev_info[i]);
 		if (IS_ERR(child)) {
 			rc = PTR_ERR(child);
 			goto out_free;
 		}
-		xmgmt_info(dev, "Store child[%d] 0x%px.0x%px\n", i, part, child);
+		xmgmt_info(dev, "Add child subdev[%d] %s: 0x%px.0x%px\n", i,  child->name, part, child);
 		part->children[i++] = child;
 	}
 	return 0;
@@ -226,7 +225,7 @@ static void xmgmt_subdev_test(const struct xocl_region *part)
 		return;
 
 	while (i < u200.subdev_num) {
-		xmgmt_info(dev, "subdev[%d] 0x%px.0x%px test", i, part, part->children[i]);
+		xmgmt_info(dev, "Subdev[%d] 0x%px.0x%px test", i, part, part->children[i]);
 		xocl_subdev_ioctl(part->children[i++], 0, 0);
 	}
 }
@@ -245,7 +244,6 @@ static struct xocl_region *xmgmt_part_probe(struct xmgmt_dev *lro, enum region_i
 	part->lro = lro;
 	part->id = id;
 	part->region = platform_device_alloc("xocl-region", PLATFORM_DEVID_AUTO);
-	xmgmt_info(&lro->pdev->dev, "Region 0x%px\n", part->region);
 	if (!part->region)
 		goto out_free;
 
@@ -285,9 +283,7 @@ static void xmgmt_parts_remove(struct xmgmt_dev *lro)
 		/* First takedown all the child IPs of this region */
 		xmgmt_subdevs_remove(lro->part[i]);
 		/* Now takedown this region */
-		xmgmt_info(&lro->pdev->dev, "Remove region[%d] 0x%px.0x%px\n", i, lro->part[i],
-			   lro->part[i]->region);
-//		platform_device_put(lro->part[i]->region);
+		/* Only unregister, no put as the former does release the reference */
 		platform_device_unregister(lro->part[i]->region);
 		vfree(lro->part[i]);
 		lro->part[i] = NULL;
@@ -549,14 +545,6 @@ static int __init xmgmt_init(void)
 	if (res)
 		goto alloc_err;
 
-	/* Need to init sub device driver before pci driver register */
-#if 0
-	for (i = 0; i < ARRAY_SIZE(drv_reg_funcs); ++i) {
-		res = drv_reg_funcs[i]();
-		if (res)
-			goto drv_init_err;
-	}
-#endif
 	res = pci_register_driver(&xmgmt_driver);
 	if (res)
 		goto reg_err;

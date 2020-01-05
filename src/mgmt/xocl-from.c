@@ -612,6 +612,9 @@ static int xocl_rom_probe(struct platform_device *pdev)
 	struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
 	struct device *dev = &pdev->dev;
 	const struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	struct feature_rom *rom = devm_kzalloc(&pdev->dev, sizeof(*rom), GFP_KERNEL);
+	if (!rom)
+		return -ENOMEM;
 
 	xocl_info(dev, "Probed subdev %s: resource %pr", pdev->name, res);
 	return 0;
@@ -626,7 +629,7 @@ static int xocl_rom_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
 	platform_set_drvdata(pdev, NULL);
-	xocl_info(dev, "Removed subdev %s\n", info->name, pdev->name);
+	xocl_info(dev, "Removed subdev %s\n", pdev->name);
 	return 0;
 }
 
