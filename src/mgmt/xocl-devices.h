@@ -198,7 +198,7 @@ struct xocl_region {
 		0,                                      \
 		false,                                  \
 		0,                                      \
-		(char []){ 2 },                         \
+		(char []){ 0 },                         \
 		0,                                      \
 		NULL,                                   \
 		0,                                      \

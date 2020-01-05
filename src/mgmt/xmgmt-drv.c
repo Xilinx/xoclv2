@@ -551,13 +551,7 @@ static int __init xmgmt_init(void)
 
 	return 0;
 
-drv_init_err:
 reg_err:
-#if 0
-	for (i--; i >= 0; i--)
-		drv_unreg_funcs[i]();
-#endif
-
 	unregister_chrdev_region(xmgmt_devnode, XMGMT_MAX_DEVICES);
 alloc_err:
 	pr_info(XMGMT_MODULE_NAME " init() err\n");
@@ -571,11 +565,6 @@ static void xmgmt_exit(void)
 
 	pr_info(XMGMT_MODULE_NAME" exit()\n");
 	pci_unregister_driver(&xmgmt_driver);
-
-#if 0
-	for (i = ARRAY_SIZE(drv_unreg_funcs) - 1; i >= 0; i--)
-		drv_unreg_funcs[i]();
-#endif
 
 	/* unregister this driver from the PCI bus driver */
 	unregister_chrdev_region(xmgmt_devnode, XMGMT_MAX_DEVICES);

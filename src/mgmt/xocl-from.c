@@ -606,6 +606,82 @@ const static struct xocl_subdev_ops myrom_ops = {
 	.ioctl = myrom_ioctl,
 };
 
+static int feature_rom_probe_helper(struct platform_device *pdev, const struct resource *res, struct feature_rom *rom)
+{
+	int ret;
+	char *tmp;
+
+	if (res == NULL) {
+		ret = get_header_from_vsec(rom);
+		if (ret)
+			(void)get_header_from_peer(rom);
+	} else {
+		rom->base = ioremap_nocache(res->start, res->end - res->start + 1);
+		if (!rom->base) {
+			ret = -EIO;
+			xocl_err(&pdev->dev, "Map iomem failed");
+			goto failed;
+		}
+
+		if (!strcmp(res->name, "uuid"))
+			(void)get_header_from_dtb(rom);
+		else
+			(void)get_header_from_iomem(rom);
+	}
+
+	if (strstr(rom->header.VBNVName, "-xare")) {
+		/*
+		 * ARE device, ARE is mapped like another DDR inside FPGA;
+		 * map_connects as M04_AXI
+		 */
+		rom->header.DDRChannelCount = rom->header.DDRChannelCount - 1;
+		rom->are_dev = true;
+	}
+
+	if(rom->header.FeatureBitMap & UNIFIED_PLATFORM)
+		rom->unified = true;
+
+	if(rom->header.FeatureBitMap & BOARD_MGMT_ENBLD)
+		rom->mb_mgmt_enabled = true;
+
+	if(rom->header.FeatureBitMap & MB_SCHEDULER)
+		rom->mb_sche_enabled = true;
+
+	if(rom->header.FeatureBitMap & RUNTIME_CLK_SCALE)
+		rom->runtime_clk_scale_en = true;
+
+	if(rom->header.FeatureBitMap & PASSTHROUGH_VIRTUALIZATION)
+		rom->passthrough_virt_en = true;
+
+	ret = sysfs_create_group(&pdev->dev.kobj, &rom_attr_group);
+	if (ret) {
+		xocl_err(&pdev->dev, "create sysfs failed");
+		goto failed;
+	}
+
+	tmp = rom->header.EntryPointString;
+	xocl_info(&pdev->dev, "ROM magic : %c%c%c%c",
+		tmp[0], tmp[1], tmp[2], tmp[3]);
+	xocl_info(&pdev->dev, "VBNV: %s", rom->header.VBNVName);
+	xocl_info(&pdev->dev, "DDR channel count : %d",
+		rom->header.DDRChannelCount);
+	xocl_info(&pdev->dev, "DDR channel size: %d GB",
+		rom->header.DDRChannelSize);
+	xocl_info(&pdev->dev, "Major Version: %d", rom->header.MajorVersion);
+	xocl_info(&pdev->dev, "Minor Version: %d", rom->header.MinorVersion);
+	xocl_info(&pdev->dev, "IPBuildID: %u", rom->header.IPBuildID);
+	xocl_info(&pdev->dev, "TimeSinceEpoch: %llx",
+		rom->header.TimeSinceEpoch);
+	xocl_info(&pdev->dev, "FeatureBitMap: %llx", rom->header.FeatureBitMap);
+
+	return 0;
+
+failed:
+	if (rom->base)
+		iounmap(rom->base);
+	return ret;
+}
+
 static int xocl_rom_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -615,11 +691,17 @@ static int xocl_rom_probe(struct platform_device *pdev)
 	struct feature_rom *rom = devm_kzalloc(&pdev->dev, sizeof(*rom), GFP_KERNEL);
 	if (!rom)
 		return -ENOMEM;
+	rom->pdev =  pdev;
 
-	xocl_info(dev, "Probed subdev %s: resource %pr", pdev->name, res);
+	ret = feature_rom_probe_helper(pdev, res, rom);
+	if (ret)
+		goto out;
+	platform_set_drvdata(pdev, rom);
+	xocl_info(dev, "Probed subdev %s: resource %pr mapped @%px\n", pdev->name, res, rom->base);
 	return 0;
 
-eprobe_mgr_put:
+out:
+	devm_kfree(&pdev->dev, rom);
 	platform_set_drvdata(pdev, NULL);
 	return ret;
 }
@@ -627,8 +709,14 @@ eprobe_mgr_put:
 static int xocl_rom_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct feature_rom *rom = platform_get_drvdata(pdev);
 	struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
+
+	if (rom->base)
+		iounmap(rom->base);
+	sysfs_remove_group(&pdev->dev.kobj, &rom_attr_group);
 	platform_set_drvdata(pdev, NULL);
+	devm_kfree(&pdev->dev, rom);
 	xocl_info(dev, "Removed subdev %s\n", pdev->name);
 	return 0;
 }
