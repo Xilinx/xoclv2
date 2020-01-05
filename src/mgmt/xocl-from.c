@@ -33,22 +33,22 @@ struct feature_rom {
 
 struct xocl_rom_funcs {
 	//struct xocl_subdev_funcs common_funcs;
-	bool (*is_unified)(struct platform_device *pdev);
-	bool (*mb_mgmt_on)(struct platform_device *pdev);
-	bool (*mb_sched_on)(struct platform_device *pdev);
-	uint32_t* (*cdma_addr)(struct platform_device *pdev);
-	u16 (*get_ddr_channel_count)(struct platform_device *pdev);
-	u64 (*get_ddr_channel_size)(struct platform_device *pdev);
-	bool (*is_are)(struct platform_device *pdev);
-	bool (*is_aws)(struct platform_device *pdev);
+	bool (*is_unified)(const struct platform_device *pdev);
+	bool (*mb_mgmt_on)(const struct platform_device *pdev);
+	bool (*mb_sched_on)(const struct platform_device *pdev);
+	uint32_t* (*cdma_addr)(const struct platform_device *pdev);
+	u16 (*get_ddr_channel_count)(const struct platform_device *pdev);
+	u64 (*get_ddr_channel_size)(const struct platform_device *pdev);
+	bool (*is_are)(const struct platform_device *pdev);
+	bool (*is_aws)(const struct platform_device *pdev);
 	bool (*verify_timestamp)(struct platform_device *pdev, u64 timestamp);
-	u64 (*get_timestamp)(struct platform_device *pdev);
+	u64 (*get_timestamp)(const struct platform_device *pdev);
 	int (*get_raw_header)(struct platform_device *pdev, void *header);
-	bool (*runtime_clk_scale_on)(struct platform_device *pdev);
-	int (*find_firmware)(struct platform_device *pdev, char *fw_name,
+	bool (*runtime_clk_scale_on)(const struct platform_device *pdev);
+	int (*find_firmware)(const struct platform_device *pdev, char *fw_name,
 		size_t len, u16 deviceid, const struct firmware **fw);
-	bool (*passthrough_virtualization_on)(struct platform_device *pdev);
-	char *(*get_uuid)(struct platform_device *pdev);
+	bool (*passthrough_virtualization_on)(const struct platform_device *pdev);
+	const char *(*get_uuid)(const struct platform_device *pdev);
 };
 
 static ssize_t VBNV_show(struct device *dev,
@@ -112,7 +112,7 @@ static DEVICE_ATTR_RO(uuid);
 static ssize_t FPGA_show(struct device *dev,
     struct device_attribute *attr, char *buf)
 {
-	struct feature_rom *rom = platform_get_drvdata(to_platform_device(dev));
+	const struct feature_rom *rom = platform_get_drvdata(to_platform_device(dev));
 
 	return sprintf(buf, "%s\n", rom->header.FPGAPartName);
 }
@@ -133,7 +133,7 @@ static ssize_t raw_show(struct file *filp, struct kobject *kobj,
 	struct bin_attribute *attr, char *buf, loff_t off, size_t count)
 {
 	struct device *dev = kobj_to_dev(kobj);
-	struct feature_rom *rom = platform_get_drvdata(to_platform_device(dev));
+	const struct feature_rom *rom = platform_get_drvdata(to_platform_device(dev));
 
 	if (off >= sizeof(rom->header))
 		return 0;
@@ -161,14 +161,14 @@ static struct bin_attribute  *rom_bin_attrs[] = {
 	NULL,
 };
 
-static struct attribute_group rom_attr_group = {
+static const struct attribute_group rom_attr_group = {
 	.attrs = rom_attrs,
 	.bin_attrs = rom_bin_attrs,
 };
 
-static bool is_unified(struct platform_device *pdev)
+static bool is_unified(const struct platform_device *pdev)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -176,9 +176,9 @@ static bool is_unified(struct platform_device *pdev)
 	return rom->unified;
 }
 
-static bool mb_mgmt_on(struct platform_device *pdev)
+static bool mb_mgmt_on(const struct platform_device *pdev)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -186,9 +186,9 @@ static bool mb_mgmt_on(struct platform_device *pdev)
 	return rom->mb_mgmt_enabled;
 }
 
-static bool mb_sched_on(struct platform_device *pdev)
+static bool mb_sched_on(const struct platform_device *pdev)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -197,9 +197,9 @@ static bool mb_sched_on(struct platform_device *pdev)
 	return true;
 }
 
-static bool runtime_clk_scale_on(struct platform_device *pdev)
+static bool runtime_clk_scale_on(const struct platform_device *pdev)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -207,9 +207,9 @@ static bool runtime_clk_scale_on(struct platform_device *pdev)
 	return rom->runtime_clk_scale_en;
 }
 
-static bool passthrough_virtualization_on(struct platform_device *pdev)
+static bool passthrough_virtualization_on(const struct platform_device *pdev)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -217,9 +217,9 @@ static bool passthrough_virtualization_on(struct platform_device *pdev)
 	return rom->passthrough_virt_en;
 }
 
-static uint32_t* get_cdma_base_addresses(struct platform_device *pdev)
+static uint32_t* get_cdma_base_addresses(const struct platform_device *pdev)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -231,9 +231,9 @@ static uint32_t* get_cdma_base_addresses(struct platform_device *pdev)
 	return NULL;
 }
 
-static u16 get_ddr_channel_count(struct platform_device *pdev)
+static u16 get_ddr_channel_count(const struct platform_device *pdev)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -241,9 +241,9 @@ static u16 get_ddr_channel_count(struct platform_device *pdev)
 	return rom->header.DDRChannelCount;
 }
 
-static u64 get_ddr_channel_size(struct platform_device *pdev)
+static u64 get_ddr_channel_size(const struct platform_device *pdev)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -251,9 +251,9 @@ static u64 get_ddr_channel_size(struct platform_device *pdev)
 	return rom->header.DDRChannelSize;
 }
 
-static u64 get_timestamp(struct platform_device *pdev)
+static u64 get_timestamp(const struct platform_device *pdev)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -261,9 +261,9 @@ static u64 get_timestamp(struct platform_device *pdev)
 	return rom->header.TimeSinceEpoch;
 }
 
-static char *get_uuid(struct platform_device *pdev)
+static const char *get_uuid(const struct platform_device *pdev)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -271,9 +271,9 @@ static char *get_uuid(struct platform_device *pdev)
 	return rom->uuid;
 }
 
-static bool is_are(struct platform_device *pdev)
+static bool is_are(const struct platform_device *pdev)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -281,9 +281,9 @@ static bool is_are(struct platform_device *pdev)
 	return rom->are_dev;
 }
 
-static bool is_aws(struct platform_device *pdev)
+static bool is_aws(const struct platform_device *pdev)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -293,7 +293,7 @@ static bool is_aws(struct platform_device *pdev)
 
 static bool verify_timestamp(struct platform_device *pdev, u64 timestamp)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	/* Ignore timestamp matching for AWS platform */
 	if (is_aws(pdev))
@@ -316,7 +316,7 @@ static bool verify_timestamp(struct platform_device *pdev, u64 timestamp)
 
 static int get_raw_header(struct platform_device *pdev, void *header)
 {
-	struct feature_rom *rom;
+	const struct feature_rom *rom;
 
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
@@ -326,10 +326,10 @@ static int get_raw_header(struct platform_device *pdev, void *header)
 	return 0;
 }
 
-static int __find_firmware(struct platform_device *pdev, char *fw_name,
-	size_t len, u16 deviceid, const struct firmware **fw, char *suffix)
+static int __find_firmware(const struct platform_device *pdev, char *fw_name,
+	size_t len, u16 deviceid, const struct firmware **fw, const char *suffix)
 {
-	struct feature_rom *rom = platform_get_drvdata(pdev);
+	const struct feature_rom *rom = platform_get_drvdata(pdev);
 	struct pci_dev *pcidev = XOCL_PL_TO_PCI_DEV(pdev);
 	u16 vendor = le16_to_cpu(pcidev->vendor);
 	u16 subdevice = le16_to_cpu(pcidev->subsystem_device);
@@ -374,7 +374,7 @@ static int __find_firmware(struct platform_device *pdev, char *fw_name,
 	return err;
 }
 
-static int find_firmware(struct platform_device *pdev, char *fw_name,
+static int find_firmware(const struct platform_device *pdev, char *fw_name,
 	size_t len, u16 deviceid, const struct firmware **fw)
 {
 	// try xsabin first, then dsabin
