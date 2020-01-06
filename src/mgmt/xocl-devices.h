@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2019 Xilinx, Inc. All rights reserved.
+ * Copyright (C) 2019, 2020 Xilinx, Inc.
  *
  * Authors: sonal.santan@xilinx.com
  */
@@ -117,13 +117,20 @@ struct xocl_vsec_header {
 struct xmgmt_dev;
 struct xocl_subdev_info;
 
+/*
+ * Populated by subdev drivers and is used by xocl core.
+ * This should be registered as driver_data in platform_device_id
+ */
 struct xocl_subdev_ops {
+	/* Called by xocl_subdev_ioctl/offline/online defined below */
 	long (*ioctl)(struct platform_device *pdev, unsigned int cmd, unsigned long arg);
 	int (*offline)(struct platform_device *pdev);
 	int (*online)(struct platform_device *pdev);
+	/* Populate this if subdev defines its own file operations */
 	const struct file_operations	*fops;
+	/* Set this to -1 if subdev intends to create a device node; xocl will handle the mechanics of
+	   char device (un)registration */
 	dev_t			         dev;
-	char			        *cdev_name;
 };
 
 struct xocl_subdev_info {
@@ -256,7 +263,12 @@ struct xocl_region {
 		.flash_type     = FLASH_TYPE_SPI,			\
 	}
 
-
+/*
+ * Exported framework functions for use by subdev clients. These exported functions
+ * call into private implementations of these (if defined) by the subdevs.
+ * These complement "probe" and "remove" functions which are already handled by
+ * platform driver model.
+ */
 long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd,
 		       unsigned long arg);
 int xocl_subdev_offline(struct platform_device *pdev);

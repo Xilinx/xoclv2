@@ -2,15 +2,10 @@
 /*
  * Xilinx Alveo Management Function Driver
  *
- * Copyright (C) 2019 Xilinx, Inc. All rights reserved.
- * Bulk of the code borrowed from XRT mgmt driver fmgr.c
+ * Copyright (C) 2019-2020 Xilinx, Inc.
+ * Bulk of the code borrowed from XRT mgmt driver file, fmgr.c
  *
  * Authors: Sonal.Santan@xilinx.com
- */
-
-/*
- * FPGA Mgr integration is support limited to Ubuntu for now. RHEL/CentOS 7.X
- * kernels do not support FPGA Mgr yet.
  */
 
 #include <linux/fpga/fpga-mgr.h>

@@ -1,39 +1,10 @@
-/**
- *  Copyright (C) 2015-2018, Xilinx Inc
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
+/*
+ *  Xilinx FPGA compiled binary container format
  *
- *  This file is dual licensed.  It may be redistributed and/or modified
- *  under the terms of the Apache 2.0 License OR version 2 of the GNU
- *  General Public License.
- *
- *  Apache License Verbiage
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *  http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- *  GPL license Verbiage:
- *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *  Copyright (C) 2015-2020, Xilinx Inc
  */
+
 
 #ifndef _XCLBIN_H_
 #define _XCLBIN_H_
@@ -56,22 +27,6 @@
     #include <stdlib.h>
     #include <stdint.h>
     #include <uuid/uuid.h>
-  #endif
-
-  #if !defined(__KERNEL__)
-    typedef uuid_t xuid_t;
-  #else //(__KERNEL__)
-    #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
-      typedef uuid_t xuid_t;
-    #elif defined(RHEL_RELEASE_CODE)
-      #if RHEL_RELEASE_CODE > RHEL_RELEASE_VERSION(7,4)
-        typedef uuid_t xuid_t;
-      #else
-        typedef uuid_le xuid_t;
-      #endif
-    #else
-      typedef uuid_le xuid_t;
-    #endif
   #endif
 #endif
 
@@ -189,7 +144,7 @@ extern "C" {
         unsigned char m_platformVBNV[64];   /* e.g. xilinx:xil-accel-rd-ku115:4ddr-xpr:3.4: null terminated */
 	union {
 	    char m_next_axlf[16];           /* Name of next xclbin file in the daisy chain */
-	    xuid_t uuid;                    /* uuid of this xclbin*/
+	    uuid_t uuid;                    /* uuid of this xclbin*/
 	};
         char m_debug_bin[16];               /* Name of binary with debug information */
         uint32_t m_numSections;             /* Number of section headers */
@@ -383,13 +338,13 @@ extern "C" {
 
     struct soft_kernel {                   /* soft kernel data section  */
         // Prefix Syntax:
-        //   mpo - member, pointer, offset  
-        //     This variable represents a zero terminated string 
-        //     that is offseted from the beginning of the section. 
-        //   
+        //   mpo - member, pointer, offset
+        //     This variable represents a zero terminated string
+        //     that is offseted from the beginning of the section.
+        //
         //     The pointer to access the string is initialized as follows:
         //     char * pCharString = (address_of_section) + (mpo value)
-        uint32_t mpo_name;         // Name of the soft kernel 
+        uint32_t mpo_name;         // Name of the soft kernel
         uint32_t m_image_offset;   // Image offset
         uint32_t m_image_size;     // Image size
         uint32_t mpo_version;      // Version
@@ -422,12 +377,12 @@ extern "C" {
 
       // Helper C++ section iteration
       // To keep with with the current "coding" them, the function get_axlf_section_next() was
-      // introduced find 'next' common section names.  
-      // 
-      // Future TODO: Create a custom iterator and refactor the code base to use it. 
-      // 
+      // introduced find 'next' common section names.
+      //
+      // Future TODO: Create a custom iterator and refactor the code base to use it.
+      //
       // Example on how this function may be used:
-      // 
+      //
       // const axlf_section_header * pSection;
       // const axlf* top = <xclbin image in memory>;
       // for (pSection = xclbin::get_axlf_section( top, SOFT_KERNEL);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Platform driver for Xilinx acclerator feature ROM IP.
+ * Bulk of the code borrowed from XRT driver file feature_rom.c
  *
  * Copyright (C) 2016-2019 Xilinx, Inc.
  *
@@ -14,7 +15,6 @@
 #include "xocl-devices.h"
 #include "xocl-features.h"
 
-#if 1
 #define	MAGIC_NUM	0x786e6c78
 struct feature_rom {
 	void __iomem		*base;
@@ -594,7 +594,6 @@ static int get_header_from_iomem(struct feature_rom *rom)
 failed:
 	return ret;
 }
-#endif
 
 static long myrom_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
 {
