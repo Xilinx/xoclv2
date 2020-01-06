@@ -42,7 +42,7 @@
 #define	XOCL_ICAP		"xocl-icap"
 #define	XOCL_AXIGATE		"axigate"
 #define	XOCL_MIG		"mig"
-#define	XOCL_XMC		"xmc"
+#define	XOCL_XMC		"xocl-xmc"
 #define	XOCL_DNA		"dna"
 #define	XOCL_FMGR		"fmgr"
 #define	XOCL_FLASH		"flash"
@@ -104,7 +104,8 @@ enum region_id {
 #define XOCL_VSEC_PLAT_1RP          0x01
 #define XOCL_VSEC_PLAT_2RP          0x02
 
-#define XOCL_MAXNAMELEN	64
+#define XOCL_MAXNAMELEN	            64
+#define XOCL_MAX_DEVICES	    16
 
 struct xocl_vsec_header {
 	u32		format;
@@ -120,6 +121,9 @@ struct xocl_subdev_ops {
 	long (*ioctl)(struct platform_device *pdev, unsigned int cmd, unsigned long arg);
 	int (*offline)(struct platform_device *pdev);
 	int (*online)(struct platform_device *pdev);
+	const struct file_operations	*fops;
+	dev_t			         dev;
+	char			        *cdev_name;
 };
 
 struct xocl_subdev_info {
@@ -255,6 +259,8 @@ struct xocl_region {
 
 long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd,
 		       unsigned long arg);
+int xocl_subdev_offline(struct platform_device *pdev);
+int xocl_subdev_online(struct platform_device *pdev);
 
 #define xocl_err(dev, fmt, args...)			\
 	dev_err(dev, "dev %llx, %s: "fmt, (u64)dev, __func__, ##args)

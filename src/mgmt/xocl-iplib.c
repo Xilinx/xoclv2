@@ -101,13 +101,72 @@ long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned 
 	return ops->ioctl(pdev, cmd, arg);
 }
 
+int xocl_subdev_offline(struct platform_device *pdev)
+{
+	const struct xocl_subdev_ops *ops;
+	const struct platform_device_id	*id = platform_get_device_id(pdev);
+	if (!id || !id->driver_data)
+		return -EOPNOTSUPP;
+	ops = (const struct xocl_subdev_ops *)id->driver_data;
+	if (!ops || !ops->offline)
+		return -EOPNOTSUPP;
+
+	return ops->offline(pdev);
+}
+
+int xocl_subdev_online(struct platform_device *pdev)
+{
+	const struct xocl_subdev_ops *ops;
+	const struct platform_device_id	*id = platform_get_device_id(pdev);
+	if (!id || !id->driver_data)
+		return -EOPNOTSUPP;
+	ops = (const struct xocl_subdev_ops *)id->driver_data;
+	if (!ops || !ops->online)
+		return -EOPNOTSUPP;
+
+	return ops->online(pdev);
+}
+
+
 static int __init xocl_iplib_init(void)
 {
-	return platform_register_drivers(xocl_subdev_drivers, ARRAY_SIZE(xocl_subdev_drivers));
+	int i, j;
+	struct xocl_subdev_ops *ops;
+	int rc = platform_register_drivers(xocl_subdev_drivers, ARRAY_SIZE(xocl_subdev_drivers));
+	if (rc)
+		return rc;
+	for (i = 0; i < ARRAY_SIZE(xocl_subdev_drivers); i++) {
+		ops = (struct xocl_subdev_ops *)xocl_subdev_drivers[i]->id_table[0].driver_data;
+		if (!ops || ops->dev == 0)
+			continue;
+		rc = alloc_chrdev_region(&ops->dev, 0, XOCL_MAX_DEVICES, xocl_subdev_drivers[i]->driver.name);
+		if (rc == 0)
+			continue;
+		goto out_error;
+	}
+	return 0;
+out_error:
+	for (j = 0; j < i; j++) {
+		ops = (struct xocl_subdev_ops *)xocl_subdev_drivers[j]->id_table[0].driver_data;
+		if (!ops || ops->dev == 0)
+			continue;
+		unregister_chrdev_region(ops->dev, XOCL_MAX_DEVICES);
+	}
+	platform_unregister_drivers(xocl_subdev_drivers, ARRAY_SIZE(xocl_subdev_drivers));
+	return rc;
 }
 
 static void __exit xocl_iplib_exit(void)
 {
+	int i;
+	const struct xocl_subdev_ops *ops;
+
+	for (i = 0; i < ARRAY_SIZE(xocl_subdev_drivers); i++) {
+		ops = (const struct xocl_subdev_ops *)xocl_subdev_drivers[i]->id_table[0].driver_data;
+		if (!ops || ops->dev == 0)
+			continue;
+		unregister_chrdev_region(ops->dev, XOCL_MAX_DEVICES);
+	}
 	platform_unregister_drivers(xocl_subdev_drivers, ARRAY_SIZE(xocl_subdev_drivers));
 }
 
@@ -115,6 +174,8 @@ module_init(xocl_iplib_init);
 module_exit(xocl_iplib_exit);
 
 EXPORT_SYMBOL_GPL(xocl_subdev_ioctl);
+EXPORT_SYMBOL_GPL(xocl_subdev_offline);
+EXPORT_SYMBOL_GPL(xocl_subdev_online);
 
 MODULE_VERSION(XOCL_IPLIB_MODULE_VERSION);
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");
