@@ -10,6 +10,7 @@
 
 #include <linux/resource.h>
 #include <linux/device.h>
+#include <linux/io.h>
 #include <linux/platform_device.h>
 
 #define	ICAP_XCLBIN_V2		"xclbin2"
@@ -104,8 +105,92 @@ enum region_id {
 #define XOCL_VSEC_PLAT_1RP          0x01
 #define XOCL_VSEC_PLAT_2RP          0x02
 
+#define XOCL_SUBDEV_MAX_INST	    64
 #define XOCL_MAXNAMELEN	            64
 #define XOCL_MAX_DEVICES	    16
+#define MAX_M_COUNT      	    XOCL_SUBDEV_MAX_INST
+#define XOCL_MAX_FDT_LEN	    1024 * 512
+
+enum data_kind {
+	MIG_CALIB,
+	DIMM0_TEMP,
+	DIMM1_TEMP,
+	DIMM2_TEMP,
+	DIMM3_TEMP,
+	FPGA_TEMP,
+	CLOCK_FREQ_0,
+	CLOCK_FREQ_1,
+	FREQ_COUNTER_0,
+	FREQ_COUNTER_1,
+	VOL_12V_PEX,
+	VOL_12V_AUX,
+	CUR_12V_PEX,
+	CUR_12V_AUX,
+	SE98_TEMP0,
+	SE98_TEMP1,
+	SE98_TEMP2,
+	FAN_TEMP,
+	FAN_RPM,
+	VOL_3V3_PEX,
+	VOL_3V3_AUX,
+	VPP_BTM,
+	VPP_TOP,
+	VOL_5V5_SYS,
+	VOL_1V2_TOP,
+	VOL_1V2_BTM,
+	VOL_1V8,
+	VCC_0V9A,
+	VOL_12V_SW,
+	VTT_MGTA,
+	VOL_VCC_INT,
+	CUR_VCC_INT,
+	IDCODE,
+	IPLAYOUT_AXLF,
+	MEMTOPO_AXLF,
+	CONNECTIVITY_AXLF,
+	DEBUG_IPLAYOUT_AXLF,
+	PEER_CONN,
+	XCLBIN_UUID,
+	CLOCK_FREQ_2,
+	CLOCK_FREQ_3,
+	FREQ_COUNTER_2,
+	FREQ_COUNTER_3,
+	PEER_UUID,
+	HBM_TEMP,
+	CAGE_TEMP0,
+	CAGE_TEMP1,
+	CAGE_TEMP2,
+	CAGE_TEMP3,
+	VCC_0V85,
+	SER_NUM,
+	MAC_ADDR0,
+	MAC_ADDR1,
+	MAC_ADDR2,
+	MAC_ADDR3,
+	REVISION,
+	CARD_NAME,
+	BMC_VER,
+	MAX_PWR,
+	FAN_PRESENCE,
+	CFG_MODE,
+	VOL_VCC_3V3,
+	CUR_3V3_PEX,
+	CUR_VCC_0V85,
+	VOL_HBM_1V2,
+	VOL_VPP_2V5,
+	VOL_VCCINT_BRAM,
+	XMC_VER,
+	EXP_BMC_VER,
+	XMC_OEM_ID,
+};
+
+enum mb_kind {
+	DAEMON_STATE,
+	CHAN_STATE,
+	CHAN_SWITCH,
+	COMM_ID,
+	VERSION,
+};
 
 struct xocl_vsec_header {
 	u32		format;
@@ -295,6 +380,11 @@ static inline void xocl_memcpy_fromio(void *buf, void *iomem, u32 size)
 	for (i = 0; i < size / 4; i++)
 		((u32 *)buf)[i] = ioread32((char *)(iomem) + sizeof(u32) * i);
 }
+
+#define	XOCL_READ_REG32(addr)		\
+	ioread32(addr)
+#define	XOCL_WRITE_REG32(val, addr)	\
+	iowrite32(val, addr)
 
 static inline void xocl_memcpy_toio(void *iomem, void *buf, u32 size)
 {

@@ -13,7 +13,7 @@ obj-m   += xocl-lib.o
 xmgmt-y := xmgmt-drv.o alveo-ctx.o
 xmgmt-fmgr-y := alveo-fmgr.o
 xmgmt-region-y := alveo-region.o
-xocl-lib-y := xocl-iplib.o xocl-from.o
+xocl-lib-y := xocl-iplib.o xocl-from.o xocl-xmc.o
 
 CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
