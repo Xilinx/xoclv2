@@ -259,6 +259,8 @@ struct xocl_region {
 };
 
 struct xocl_dev_core {
+	// TODO: Remove this PCIe device from here
+	struct pci_dev		*pdev;
 	struct mutex 		lock;
 	struct fpga_manager    *mgr;
 	u32			bar_idx;
