@@ -76,6 +76,7 @@ enum subdev_id {
 	XOCL_SUBDEV_MIG_HBM,
 	XOCL_SUBDEV_MAILBOX_VERSAL,
 	XOCL_SUBDEV_OSPI_VERSAL,
+	XOCL_SUBDEV_XMC,
 	XOCL_SUBDEV_NUM
 };
 
@@ -110,7 +111,7 @@ enum region_id {
 #define XOCL_MAX_DEVICES	    16
 #define MAX_M_COUNT      	    XOCL_SUBDEV_MAX_INST
 #define XOCL_MAX_FDT_LEN	    1024 * 512
-
+#define XOCL_EBUF_LEN               512
 enum data_kind {
 	MIG_CALIB,
 	DIMM0_TEMP,
@@ -216,6 +217,7 @@ struct xocl_subdev_ops {
 	/* Set this to -1 if subdev intends to create a device node; xocl will handle the mechanics of
 	   char device (un)registration */
 	dev_t			         dev;
+	enum subdev_id		         id;
 };
 
 struct xocl_subdev_info {
@@ -256,6 +258,28 @@ struct xocl_region {
 	struct platform_device *children[1];
 };
 
+struct xocl_dev_core {
+	struct mutex 		lock;
+	struct fpga_manager    *mgr;
+	u32			bar_idx;
+	void __iomem		*bar_addr;
+	resource_size_t		bar_size;
+	resource_size_t		feature_rom_offset;
+
+	u32			intr_bar_idx;
+	void __iomem		*intr_bar_addr;
+	resource_size_t		intr_bar_size;
+
+	struct task_struct      *poll_thread;
+
+	char			*fdt_blob;
+	u32			fdt_blob_sz;
+	struct xocl_board_private priv;
+
+	rwlock_t		rwlock;
+
+	char			ebuf[XOCL_EBUF_LEN + 1];
+};
 
 #define	XOCL_RES_FEATURE_ROM				\
 		((struct resource []) {			\
@@ -358,8 +382,13 @@ long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd,
 		       unsigned long arg);
 int xocl_subdev_offline(struct platform_device *pdev);
 int xocl_subdev_online(struct platform_device *pdev);
+const struct platform_device *xocl_lookup_subdev(const struct platform_device *region,
+						 enum subdev_id key);
+struct xocl_dev_core *xocl_get_xdev(const struct platform_device *pdev) {
+	return dev_get_platdata(&pdev->dev);
+}
 
-#define xocl_err(dev, fmt, args...)			\
+#define xocl_err(dev, fmt, args...)					\
 	dev_err(dev, "dev %llx, %s: "fmt, (u64)dev, __func__, ##args)
 #define xocl_warn(dev, fmt, args...)			\
 	dev_warn(dev, "dev %llx, %s: "fmt, (u64)dev, __func__, ##args)
@@ -371,6 +400,11 @@ int xocl_subdev_online(struct platform_device *pdev);
 #define	XOCL_PL_TO_PCI_DEV(pldev)		\
 	to_pci_dev(pldev->dev.parent->parent)
 
+#define	XOCL_READ_REG32(addr)		\
+	ioread32(addr)
+#define	XOCL_WRITE_REG32(val, addr)	\
+	iowrite32(val, addr)
+
 static inline void xocl_memcpy_fromio(void *buf, void *iomem, u32 size)
 {
 	int i;
@@ -380,11 +414,6 @@ static inline void xocl_memcpy_fromio(void *buf, void *iomem, u32 size)
 	for (i = 0; i < size / 4; i++)
 		((u32 *)buf)[i] = ioread32((char *)(iomem) + sizeof(u32) * i);
 }
-
-#define	XOCL_READ_REG32(addr)		\
-	ioread32(addr)
-#define	XOCL_WRITE_REG32(val, addr)	\
-	iowrite32(val, addr)
 
 static inline void xocl_memcpy_toio(void *iomem, void *buf, u32 size)
 {

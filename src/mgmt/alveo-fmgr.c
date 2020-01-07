@@ -32,11 +32,13 @@ struct xfpga_klass {
 	struct axlf *blob;
 	char name[64];
 	size_t count;
+	struct mutex axlf_lock;
+	int reader_ref;
 	enum fpga_mgr_states state;
 };
 
 static int xmgmt_pr_write_init(struct fpga_manager *mgr,
-			      struct fpga_image_info *info, const char *buf, size_t count)
+			       struct fpga_image_info *info, const char *buf, size_t count)
 {
 	struct xfpga_klass *obj = mgr->priv;
 	const struct axlf *bin = (const struct axlf *)buf;
@@ -165,7 +167,7 @@ static int fmgr_probe(struct platform_device *pdev)
 	ret = fpga_mgr_register(mgr);
 	if (ret)
 		fpga_mgr_free(mgr);
-
+	mutex_init(&obj->axlf_lock);
 	return ret;
 }
 
@@ -175,6 +177,8 @@ static int fmgr_remove(struct platform_device *pdev)
 	struct xfpga_klass *obj = mgr->priv;
 
 	xmgmt_info(&pdev->dev, "fmgr_remove 0x%px 0x%px\n", mgr, &pdev->dev);
+	mutex_destroy(&obj->axlf_lock);
+
 	obj->state = FPGA_MGR_STATE_UNKNOWN;
 	/* TODO: Remove old fpga_mgr_unregister as soon as Linux < 4.18 is no
 	 * longer supported.

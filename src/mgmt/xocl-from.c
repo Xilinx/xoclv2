@@ -603,9 +603,11 @@ static long myrom_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned
 
 const static struct xocl_subdev_ops myrom_ops = {
 	.ioctl = myrom_ioctl,
+	.id = XOCL_SUBDEV_FEATURE_ROM,
 };
 
-static int feature_rom_probe_helper(struct platform_device *pdev, const struct resource *res, struct feature_rom *rom)
+static int feature_rom_probe_helper(struct platform_device *pdev, const struct resource *res,
+				    struct feature_rom *rom)
 {
 	int ret;
 	char *tmp;
@@ -684,7 +686,6 @@ failed:
 static int xocl_rom_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
 	struct device *dev = &pdev->dev;
 	const struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	struct feature_rom *rom = devm_kzalloc(&pdev->dev, sizeof(*rom), GFP_KERNEL);
@@ -709,7 +710,6 @@ static int xocl_rom_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct feature_rom *rom = platform_get_drvdata(pdev);
-	struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
 
 	if (rom->base)
 		iounmap(rom->base);

@@ -5,8 +5,9 @@
  *
  * Copyright (C) 2016-2019 Xilinx, Inc.
  *
- * Authors: sonal.santan@xilinx.com
- *          chien-wei.lan@xilinx.com
+ * Authors: Sonal Santan
+ *          Chien-Wei Lan
+ *          Max Zhen
  */
 
 #include <linux/pci.h>
@@ -16,11 +17,13 @@
 #include <linux/hwmon-sysfs.h>
 #include <linux/vmalloc.h>
 #include <linux/string.h>
+#include <linux/delay.h>
 
 #include "xocl-devices.h"
 #include "xocl-features.h"
 #include "xocl-mailbox-proto.h"
 #include "xocl-ert.h"
+#include "xclbin.h"
 
 static const struct file_operations xmc_fops;
 
@@ -353,60 +356,6 @@ static void xmc_clk_scale_config(struct platform_device *pdev);
 static int xmc_load_board_info(struct xocl_xmc *xmc);
 static int cmc_access_ops(struct platform_device *pdev, int flags);
 
-static void set_sensors_data(struct xocl_xmc *xmc, struct xcl_sensor *sensors)
-{
-	memcpy(xmc->cache, sensors, sizeof(struct xcl_sensor));
-	xmc->cache_expires = ktime_add(ktime_get_boottime(),
-		ktime_set(xmc->cache_expire_secs, 0));
-}
-
-static void xmc_read_from_peer(struct platform_device *pdev)
-{
-	/*
-	struct xocl_xmc *xmc = platform_get_drvdata(pdev);
-	struct xcl_mailbox_subdev_peer subdev_peer = {0};
-	struct xcl_sensor *xcl_sensor = NULL;
-	size_t resp_len = sizeof(struct xcl_sensor);
-	size_t data_len = sizeof(struct xcl_mailbox_subdev_peer);
-	struct xcl_mailbox_req *mb_req = NULL;
-	size_t reqlen = sizeof(struct xcl_mailbox_req) + data_len;
-	xdev_handle_t xdev = xocl_get_xdev(pdev);
-
-	xocl_info(&pdev->dev, "reading from peer");
-	mb_req = vmalloc(reqlen);
-	if (!mb_req)
-		goto done;
-
-	xcl_sensor = vzalloc(resp_len);
-	if (!xcl_sensor)
-		goto done;
-
-	mb_req->req = XCL_MAILBOX_REQ_PEER_DATA;
-	subdev_peer.size = resp_len;
-	subdev_peer.kind = XCL_SENSOR;
-	subdev_peer.entries = 1;
-
-	memcpy(mb_req->data, &subdev_peer, data_len);
-
-	(void) xocl_peer_request(xdev,
-		mb_req, reqlen, xcl_sensor, &resp_len, NULL, NULL, 0);
-	set_sensors_data(xmc, xcl_sensor);
-
-done:
-	vfree(xcl_sensor);
-	vfree(mb_req);
-	*/
-}
-
-static void get_sensors_data(struct platform_device *pdev)
-{
-	struct xocl_xmc *xmc = platform_get_drvdata(pdev);
-	ktime_t now = ktime_get_boottime();
-
-	if (ktime_compare(now, xmc->cache_expires) > 0)
-		xmc_read_from_peer(pdev);
-}
-
 /* sysfs support */
 static void safe_read32(struct xocl_xmc *xmc, u32 reg, u32 *val)
 {
@@ -423,15 +372,6 @@ static void safe_write32(struct xocl_xmc *xmc, u32 reg, u32 val)
 	mutex_lock(&xmc->xmc_lock);
 	if (xmc->enabled && xmc->state == XMC_STATE_ENABLED)
 		WRITE_REG32(xmc, val, reg);
-	mutex_unlock(&xmc->xmc_lock);
-}
-
-static void safe_read_from_peer(struct xocl_xmc *xmc,
-	struct platform_device *pdev)
-{
-	mutex_lock(&xmc->xmc_lock);
-	if (xmc->enabled)
-		get_sensors_data(pdev);
 	mutex_unlock(&xmc->xmc_lock);
 }
 
@@ -568,182 +508,10 @@ static void xmc_sensor(struct platform_device *pdev, enum data_kind kind,
 		default:
 			break;
 		}
-	} else {
-		safe_read_from_peer(xmc, pdev);
-
-		switch (kind) {
-		case DIMM0_TEMP:
-			*val = xmc->cache->dimm_temp0;
-			break;
-		case DIMM1_TEMP:
-			*val = xmc->cache->dimm_temp1;
-			break;
-		case DIMM2_TEMP:
-			*val = xmc->cache->dimm_temp2;
-			break;
-		case DIMM3_TEMP:
-			*val = xmc->cache->dimm_temp3;
-			break;
-		case FPGA_TEMP:
-			*val = xmc->cache->fpga_temp;
-			break;
-		case VOL_12V_PEX:
-			*val = xmc->cache->vol_12v_pex;
-			break;
-		case VOL_12V_AUX:
-			*val = xmc->cache->vol_12v_aux;
-			break;
-		case CUR_12V_PEX:
-			*val = xmc->cache->cur_12v_pex;
-			break;
-		case CUR_12V_AUX:
-			*val = xmc->cache->cur_12v_aux;
-			break;
-		case SE98_TEMP0:
-			*val = xmc->cache->se98_temp0;
-			break;
-		case SE98_TEMP1:
-			*val = xmc->cache->se98_temp1;
-			break;
-		case SE98_TEMP2:
-			*val = xmc->cache->se98_temp2;
-			break;
-		case FAN_TEMP:
-			*val = xmc->cache->fan_temp;
-			break;
-		case FAN_RPM:
-			*val = xmc->cache->fan_rpm;
-			break;
-		case VOL_3V3_PEX:
-			*val = xmc->cache->vol_3v3_pex;
-			break;
-		case VOL_3V3_AUX:
-			*val = xmc->cache->vol_3v3_aux;
-			break;
-		case VPP_BTM:
-			*val = xmc->cache->ddr_vpp_btm;
-			break;
-		case VPP_TOP:
-			*val = xmc->cache->ddr_vpp_top;
-			break;
-		case VOL_5V5_SYS:
-			*val = xmc->cache->sys_5v5;
-			break;
-		case VOL_1V2_TOP:
-			*val = xmc->cache->top_1v2;
-			break;
-		case VOL_1V2_BTM:
-			*val = xmc->cache->vcc1v2_btm;
-			break;
-		case VOL_1V8:
-			*val = xmc->cache->vol_1v8;
-			break;
-		case VCC_0V9A:
-			*val = xmc->cache->mgt0v9avcc;
-			break;
-		case VOL_12V_SW:
-			*val = xmc->cache->vol_12v_sw;
-			break;
-		case VTT_MGTA:
-			*val = xmc->cache->mgtavtt;
-			break;
-		case VOL_VCC_INT:
-			*val = xmc->cache->vccint_vol;
-			break;
-		case CUR_VCC_INT:
-			*val = xmc->cache->vccint_curr;
-			break;
-		case HBM_TEMP:
-			*val = xmc->cache->hbm_temp0;
-			break;
-		case CAGE_TEMP0:
-			*val = xmc->cache->cage_temp0;
-			break;
-		case CAGE_TEMP1:
-			*val = xmc->cache->cage_temp1;
-			break;
-		case CAGE_TEMP2:
-			*val = xmc->cache->cage_temp2;
-			break;
-		case CAGE_TEMP3:
-			*val = xmc->cache->cage_temp3;
-			break;
-		case VCC_0V85:
-			*val = xmc->cache->vol_0v85;
-			break;
-		case VOL_VCC_3V3:
-			*val = xmc->cache->vol_3v3_vcc;
-			break;
-		case CUR_3V3_PEX:
-			*val = xmc->cache->cur_3v3_pex;
-			break;
-		case CUR_VCC_0V85:
-			*val = xmc->cache->cur_0v85;
-			break;
-		case VOL_HBM_1V2:
-			*val = xmc->cache->vol_1v2_hbm;
-			break;
-		case VOL_VPP_2V5:
-			*val = xmc->cache->vol_2v5_vpp;
-			break;
-		case VOL_VCCINT_BRAM:
-			*val = xmc->cache->vccint_bram;
-			break;
-		case XMC_VER:
-			*val = xmc->cache->version;
-			break;
-		case XMC_OEM_ID:
-			*val = xmc->cache->oem_id;
-			break;
-		default:
-			break;
-		}
 	}
 }
 
-static void read_bdinfo_from_peer(struct platform_device *pdev)
-{
-#if 0
-	struct xocl_xmc *xmc = platform_get_drvdata(pdev);
-	struct xcl_mailbox_subdev_peer subdev_peer = {0};
-	size_t resp_len = sizeof(struct xcl_board_info);
-	size_t data_len = sizeof(struct xcl_mailbox_subdev_peer);
-	struct xcl_mailbox_req *mb_req = NULL;
-	size_t reqlen = sizeof(struct xcl_mailbox_req) + data_len;
-	xdev_handle_t xdev = xocl_get_xdev(pdev);
-	int ret = 0;
 
-	if (xmc->bdinfo_raw)
-		return;
-
-	mb_req = vmalloc(reqlen);
-	if (!mb_req)
-		goto done;
-
-	xmc->bdinfo_raw = vzalloc(resp_len);
-	if (!xmc->bdinfo_raw)
-		goto done;
-
-	mb_req->req = XCL_MAILBOX_REQ_PEER_DATA;
-	subdev_peer.size = resp_len;
-	subdev_peer.kind = XCL_BDINFO;
-	subdev_peer.entries = 1;
-
-	memcpy(mb_req->data, &subdev_peer, data_len);
-
-	ret = xocl_peer_request(xdev,
-		mb_req, reqlen, xmc->bdinfo_raw, &resp_len, NULL, NULL, 0);
-done:
-	if (ret) {
-		/* if we failed to get board info from peer, free it and
-		 * try to retrieve next time
-		 */
-		vfree(xmc->bdinfo_raw);
-		xmc->bdinfo_raw = NULL;
-	}
-	vfree(mb_req);
-#endif
-}
 static void xmc_bdinfo(struct platform_device *pdev, enum data_kind kind,
 	u32 *buf)
 {
@@ -788,57 +556,6 @@ static void xmc_bdinfo(struct platform_device *pdev, enum data_kind kind,
 			break;
 		case EXP_BMC_VER:
 			memcpy(buf, xmc->exp_bmc_ver, XMC_BDINFO_ENTRY_LEN_MAX);
-			break;
-		default:
-			break;
-		}
-
-	} else {
-
-		read_bdinfo_from_peer(pdev);
-		if (!xmc->bdinfo_raw)
-			return;
-
-		bdinfo = (struct xcl_board_info *)xmc->bdinfo_raw;
-
-		switch (kind) {
-		case SER_NUM:
-			memcpy(buf, bdinfo->serial_num,
-				XMC_BDINFO_ENTRY_LEN_MAX);
-			break;
-		case MAC_ADDR0:
-			memcpy(buf, bdinfo->mac_addr0, XMC_BDINFO_ENTRY_LEN);
-			break;
-		case MAC_ADDR1:
-			memcpy(buf, bdinfo->mac_addr1, XMC_BDINFO_ENTRY_LEN);
-			break;
-		case MAC_ADDR2:
-			memcpy(buf, bdinfo->mac_addr2, XMC_BDINFO_ENTRY_LEN);
-			break;
-		case MAC_ADDR3:
-			memcpy(buf, bdinfo->mac_addr3, XMC_BDINFO_ENTRY_LEN);
-			break;
-		case REVISION:
-			memcpy(buf, bdinfo->revision, XMC_BDINFO_ENTRY_LEN_MAX);
-			break;
-		case CARD_NAME:
-			memcpy(buf, bdinfo->bd_name, XMC_BDINFO_ENTRY_LEN_MAX);
-			break;
-		case BMC_VER:
-			memcpy(buf, bdinfo->bmc_ver, XMC_BDINFO_ENTRY_LEN_MAX);
-			break;
-		case MAX_PWR:
-			*buf = bdinfo->max_power;
-			break;
-		case FAN_PRESENCE:
-			*buf = bdinfo->fan_presence;
-			break;
-		case CFG_MODE:
-			*buf = bdinfo->config_mode;
-			break;
-		case EXP_BMC_VER:
-			memcpy(buf, bdinfo->exp_bmc_ver,
-					XMC_BDINFO_ENTRY_LEN_MAX);
 			break;
 		default:
 			break;
@@ -1614,7 +1331,7 @@ static ssize_t read_temp_by_mem_topology(struct file *filp,
 	struct xocl_xmc *xmc =
 		dev_get_drvdata(container_of(kobj, struct device, kobj));
 	uint32_t temp[MAX_M_COUNT] = {0};
-	xdev_handle_t xdev = xocl_get_xdev(xmc->pdev);
+	struct xocl_dev_core *xdev = xocl_get_xdev(xmc->pdev);
 
 	err = xocl_icap_get_xclbin_metadata(xdev, MEMTOPO_AXLF,
 		(void **)&memtopo);
@@ -1980,7 +1697,7 @@ static ssize_t show_hwmon_name(struct device *dev, struct device_attribute *da,
 {
 	struct FeatureRomHeader rom = { {0} };
 	struct xocl_xmc *xmc = dev_get_drvdata(dev);
-	void *xdev_hdl = xocl_get_xdev(xmc->pdev);
+	struct xocl_dev_core *xdev_hdl = xocl_get_xdev(xmc->pdev);
 	char nm[150] = { 0 };
 	int n;
 
@@ -2037,12 +1754,9 @@ static void mgmt_sysfs_destroy_xmc(struct platform_device *pdev)
 
 static int mgmt_sysfs_create_xmc(struct platform_device *pdev)
 {
-	struct xocl_xmc *xmc;
-	struct xocl_dev_core *core;
 	int err;
-
-	xmc = platform_get_drvdata(pdev);
-	core = XDEV(xocl_get_xdev(pdev));
+	struct xocl_xmc *xmc = platform_get_drvdata(pdev);
+	struct xocl_dev_core *core = xocl_get_xdev(pdev);
 
 	if (!xmc->enabled)
 		return 0;
@@ -2420,7 +2134,7 @@ static int xmc_dynamic_region_freeze(struct platform_device *pdev);
  */
 static int cmc_access_ops(struct platform_device *pdev, int flags)
 {
-	xdev_handle_t xdev = xocl_get_xdev(pdev);
+	struct xocl_dev_core *xdev = xocl_get_xdev(pdev);
 	struct xocl_xmc *xmc = platform_get_drvdata(pdev);
 	u32 val, grant, ack;
 	int retry;
@@ -2529,6 +2243,7 @@ const static struct xocl_subdev_ops myxmc_ops = {
 	.fops = &xmc_fops,
 #endif
 	.dev = -1,
+	.id = XOCL_SUBDEV_XMC,
 };
 
 static int xocl_xmc_probe_helper(struct platform_device *pdev, struct xocl_xmc *xmc)

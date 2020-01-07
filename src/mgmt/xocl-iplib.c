@@ -25,14 +25,20 @@ static long myioctl(struct platform_device *pdev, unsigned int cmd, unsigned lon
 	return 0;
 }
 
-const static struct xocl_subdev_ops rom_ops = {
+const static struct xocl_subdev_ops irom_ops = {
 	.ioctl = myioctl,
+	.id = XOCL_SUBDEV_ICAP,
+};
+
+const static struct xocl_subdev_ops srom_ops = {
+	.ioctl = myioctl,
+	.id = XOCL_SUBDEV_SYSMON,
 };
 
 static int xocl_rom_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
+	//struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
 	struct device *dev = &pdev->dev;
 	const struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
@@ -47,7 +53,7 @@ eprobe_mgr_put:
 static int xocl_rom_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
+	//struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
 	platform_set_drvdata(pdev, NULL);
 	xocl_info(dev, "Removed subdev %s\n", pdev->name);
 	return 0;
@@ -55,12 +61,12 @@ static int xocl_rom_remove(struct platform_device *pdev)
 
 
 static const struct platform_device_id icap_id_table[] = {
-	{ "xocl-icap", (kernel_ulong_t)&rom_ops },
+	{ "xocl-icap", (kernel_ulong_t)&irom_ops },
 	{ },
 };
 
 static const struct platform_device_id sysmon_id_table[] = {
-	{ "xocl-sysmon", (kernel_ulong_t)&rom_ops },
+	{ "xocl-sysmon", (kernel_ulong_t)&srom_ops },
 	{ },
 };
 

@@ -80,6 +80,33 @@ static int xmgmt_region_remove(struct platform_device *pdev)
 	return 0;
 }
 
+/*
+ * This does look expensive given we have to jump through hoops to find the child pdev
+ * with the matching key. Also note this assumes that there is only one child of type
+ * specified with the key
+ */
+const struct platform_device *xocl_lookup_subdev(const struct platform_device *rdev,
+						 enum subdev_id key)
+{
+	int i;
+	const struct xocl_subdev_ops *ops;
+	const struct fpga_region *region = platform_get_drvdata(rdev);
+	const struct xocl_region *part = region->priv;
+
+	if (!part)
+		return NULL;
+
+	for (i = 0; i < part->child_count; i++) {
+		const struct platform_device_id	*id = platform_get_device_id(part->children[i]);
+		ops = (const struct xocl_subdev_ops *)id->driver_data;
+		if (!ops)
+			return NULL;
+		if (ops->id == key)
+			return part->children[i];
+	}
+	return NULL;
+}
+
 static struct platform_driver xmgmt_region_driver = {
 	.driver	= {
 		.name    = "xocl-region",
@@ -89,6 +116,8 @@ static struct platform_driver xmgmt_region_driver = {
 };
 
 module_platform_driver(xmgmt_region_driver);
+
+EXPORT_SYMBOL_GPL(xocl_lookup_subdev);
 
 MODULE_VERSION(XMGMT_DRIVER_VERSION);
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");
