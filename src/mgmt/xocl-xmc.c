@@ -26,6 +26,7 @@
 #include "xclbin.h"
 
 static const struct file_operations xmc_fops;
+static int xocl_xmc_remove(struct platform_device *pdev);
 
 static long myxmc_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
 {
@@ -304,7 +305,7 @@ enum board_info_key {
 struct xocl_xmc {
 	struct platform_device	*pdev;
 	void __iomem		*base_addrs[NUM_IOADDR];
-
+	struct cdev             char_dev;
 	struct device		*hwmon_dev;
 	bool			enabled;
 	u32			state;
@@ -2172,6 +2173,8 @@ static int xmc_probe_helper(struct platform_device *pdev, struct xocl_xmc *xmc)
 	struct resource *res;
 	int i, err;
 
+	const struct xocl_dev_core *core = xocl_get_xdev(pdev);
+
 	mutex_init(&xmc->xmc_lock);
 	mutex_init(&xmc->mbx_lock);
 
@@ -2207,8 +2210,8 @@ static int xmc_probe_helper(struct platform_device *pdev, struct xocl_xmc *xmc)
 		}
 	}
 
-	xdev_hdl = xocl_get_xdev(pdev);
-	if (xocl_mb_mgmt_on(xdev_hdl) || xocl_mb_sched_on(xdev_hdl) ||
+	core = xocl_get_xdev(pdev);
+	if (xocl_mb_mgmt_on(core) || xocl_mb_sched_on(core) ||
 		autonomous_xmc(pdev)) {
 		xocl_info(&pdev->dev, "Microblaze is supported.");
 		xmc->enabled = true;
@@ -2242,7 +2245,7 @@ static int xmc_probe_helper(struct platform_device *pdev, struct xocl_xmc *xmc)
 	 * clk scaling can only be enabled on mgmt side, why do we set
 	 * the enabled bit in feature ROM on user side at all?
 	 */
-	if (XMC_PRIVILEGED(xmc) && xocl_clk_scale_on(xdev_hdl)) {
+	if (XMC_PRIVILEGED(xmc) && xocl_clk_scale_on(core)) {
 		xmc->runtime_cs_enabled = true;
 		xocl_info(&pdev->dev, "Runtime clock scaling is supported.\n");
 	}
@@ -2254,7 +2257,6 @@ failed:
 static int xocl_xmc_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
 	struct device *dev = &pdev->dev;
 	const struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	struct xocl_xmc *xmc = devm_kzalloc(&pdev->dev, sizeof(*xmc), GFP_KERNEL);
@@ -2267,22 +2269,24 @@ static int xocl_xmc_probe(struct platform_device *pdev)
 	if (ret)
 		goto out;
 
-	xocl_info(dev, "Probed subdev %s: resource %pr mapped @%px\n", pdev->name, res, rom->base);
+	xocl_subdev_cdev_create(&xmc->cdev);
+	xocl_info(dev, "Probed subdev %s: resource %pr\n", pdev->name, res);
 	return 0;
 
 out:
-	xmc_remove(pdev);
+	xocl_xmc_remove(pdev);
 	return ret;
 }
 
 static int xocl_xmc_remove(struct platform_device *pdev)
 {
+	int i;
 	struct device *dev = &pdev->dev;
 	struct xocl_xmc *xmc = platform_get_drvdata(pdev);
 
 	if (!xmc)
-		return;
-
+		return 0;
+	xocl_subdev_cdev_destroy(&xmc->cdev);
 	vfree(xmc->mgmt_binary);
 	vfree(xmc->sche_binary);
 
@@ -2521,7 +2525,7 @@ static int xmc_load_board_info(struct xocl_xmc *xmc)
 	int ret = 0;
 	uint32_t bd_info_sz = 0;
 	uint32_t *bdinfo_raw;
-	xdev_handle_t xdev = xocl_get_xdev(xmc->pdev);
+	const struct xocl_dev_core *core = xocl_get_xdev(xmc->pdev);
 	char *tmp_str;
 
 	BUG_ON(!mutex_is_locked(&xmc->mbx_lock));
@@ -2575,7 +2579,7 @@ static int xmc_load_board_info(struct xocl_xmc *xmc)
 		xmc_set_board_info(bdinfo_raw, bd_info_sz,
 			BDINFO_CONFIG_MODE, (char *)&xmc->config_mode);
 
-		tmp_str = (char *)xocl_icap_get_data(xdev, EXP_BMC_VER);
+		tmp_str = (char *)xocl_icap_get_data(core, EXP_BMC_VER);
 		if (tmp_str) {
 			strncpy(xmc->exp_bmc_ver, tmp_str,
 				XMC_BDINFO_ENTRY_LEN_MAX - 1);
@@ -2729,7 +2733,7 @@ done:
 static int xmc_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
-	struct xocl_xmc *xmc = xocl_drvinst_open(inode->i_cdev);
+	struct xocl_xmc *xmc = container_of(inode->i_cdev, struct xocl_xmc, char_dev);
 
 	if (!xmc)
 		return -ENXIO;
@@ -2742,9 +2746,6 @@ static int xmc_open(struct inode *inode, struct file *file)
 		xmc->opened = true;
 	}
 	mutex_unlock(&xmc->mbx_lock);
-
-	if (ret)
-		xocl_drvinst_close(xmc);
 	return ret;
 }
 
@@ -2759,8 +2760,6 @@ static int xmc_close(struct inode *inode, struct file *file)
 	xmc->opened = false;
 	file->private_data = NULL;
 	mutex_unlock(&xmc->mbx_lock);
-
-	xocl_drvinst_close(xmc);
 	return 0;
 }
 

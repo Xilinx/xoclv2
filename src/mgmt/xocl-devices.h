@@ -386,9 +386,12 @@ int xocl_subdev_offline(struct platform_device *pdev);
 int xocl_subdev_online(struct platform_device *pdev);
 const struct platform_device *xocl_lookup_subdev(const struct platform_device *region,
 						 enum subdev_id key);
-struct xocl_dev_core *xocl_get_xdev(const struct platform_device *pdev) {
+static inline struct xocl_dev_core *xocl_get_xdev(const struct platform_device *pdev)
+{
 	return dev_get_platdata(&pdev->dev);
 }
+
+int xocl_subdev_cdev_create(const struct platform_device *pdev, struct cdev *char_dev);
 
 #define xocl_err(dev, fmt, args...)					\
 	dev_err(dev, "dev %llx, %s: "fmt, (u64)dev, __func__, ##args)

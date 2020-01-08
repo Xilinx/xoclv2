@@ -533,7 +533,7 @@ static struct pci_driver xmgmt_driver = {
 
 static int __init xmgmt_init(void)
 {
-	int res, i;
+	int res;
 
 	pr_info(XMGMT_MODULE_NAME " init()\n");
 	xmgmt_class = class_create(THIS_MODULE, "xmgmt_mgmt");
@@ -561,8 +561,6 @@ alloc_err:
 
 static void xmgmt_exit(void)
 {
-	int i;
-
 	pr_info(XMGMT_MODULE_NAME" exit()\n");
 	pci_unregister_driver(&xmgmt_driver);
 

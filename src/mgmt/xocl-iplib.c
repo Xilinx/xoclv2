@@ -37,17 +37,12 @@ const static struct xocl_subdev_ops srom_ops = {
 
 static int xocl_rom_probe(struct platform_device *pdev)
 {
-	int ret;
 	//struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
 	struct device *dev = &pdev->dev;
 	const struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
 	xocl_info(dev, "Probed subdev %s: resource %pr", pdev->name, res);
 	return 0;
-
-eprobe_mgr_put:
-	platform_set_drvdata(pdev, NULL);
-	return ret;
 }
 
 static int xocl_rom_remove(struct platform_device *pdev)
@@ -133,6 +128,25 @@ int xocl_subdev_online(struct platform_device *pdev)
 	return ops->online(pdev);
 }
 
+int xocl_subdev_cdev_create(const struct platform_device *pdev, struct cdev *chr_dev)
+{
+	const struct xocl_subdev_ops *ops;
+	const struct platform_device_id	*id = platform_get_device_id(pdev);
+	if (!id || !id->driver_data)
+		return -EOPNOTSUPP;
+	ops = (const struct xocl_subdev_ops *)id->driver_data;
+	if (!ops || !ops->fops)
+		return -EOPNOTSUPP;
+	cdev_init(chr_dev, ops->fops);
+	chr_dev->owner = owner;
+	chr_dev->kobj.parent = pdev->dev.kobj;
+	return cdev_add(chr_dev, pdev->dev.devt, 1);
+}
+
+int xocl_subdev_cdev_destroy(const struct platform_device *pdev, struct cdev *chr_dev)
+{
+	cdev_del(chr_dev);
+}
 
 static int __init xocl_iplib_init(void)
 {
@@ -143,7 +157,7 @@ static int __init xocl_iplib_init(void)
 		return rc;
 	for (i = 0; i < ARRAY_SIZE(xocl_subdev_drivers); i++) {
 		ops = (struct xocl_subdev_ops *)xocl_subdev_drivers[i]->id_table[0].driver_data;
-		if (!ops || ops->dev == 0)
+		if (!ops || ops->fops == 0)
 			continue;
 		rc = alloc_chrdev_region(&ops->dev, 0, XOCL_MAX_DEVICES, xocl_subdev_drivers[i]->driver.name);
 		if (rc == 0)
@@ -154,7 +168,7 @@ static int __init xocl_iplib_init(void)
 out_error:
 	for (j = 0; j < i; j++) {
 		ops = (struct xocl_subdev_ops *)xocl_subdev_drivers[j]->id_table[0].driver_data;
-		if (!ops || ops->dev == 0)
+		if (!ops || ops->fops == 0)
 			continue;
 		unregister_chrdev_region(ops->dev, XOCL_MAX_DEVICES);
 	}
