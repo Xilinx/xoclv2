@@ -12,6 +12,8 @@
 #include <linux/cdev.h>
 #include <linux/pci.h>
 
+#include "xocl-devices.h"
+
 #define	XMGMT_MODULE_NAME	"xmgmt"
 #define XMGMT_MAX_DEVICES	 24
 #define XMGMT_DEFAULT            0x000e
@@ -58,6 +60,7 @@ struct xmgmt_dev {
 	struct xmgmt_char       user_char_dev;
         bool                    ready;
 	struct platform_device *fmgr;
+	struct xocl_dev_core    core;
 	int                     part_count;
 	struct xocl_region     *part[1];
 };

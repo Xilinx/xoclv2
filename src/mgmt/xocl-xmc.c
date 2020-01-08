@@ -18,6 +18,7 @@
 #include <linux/vmalloc.h>
 #include <linux/string.h>
 #include <linux/delay.h>
+#include <linux/cdev.h>
 
 #include "xocl-devices.h"
 #include "xocl-features.h"
@@ -305,7 +306,7 @@ enum board_info_key {
 struct xocl_xmc {
 	struct platform_device	*pdev;
 	void __iomem		*base_addrs[NUM_IOADDR];
-	struct cdev             char_dev;
+	struct cdev             chr_dev;
 	struct device		*hwmon_dev;
 	bool			enabled;
 	u32			state;
@@ -368,6 +369,94 @@ static int stop_xmc(struct platform_device *pdev);
 static void xmc_clk_scale_config(struct platform_device *pdev);
 static int xmc_load_board_info(struct xocl_xmc *xmc);
 static int cmc_access_ops(struct platform_device *pdev, int flags);
+
+static int cmc_access_ops(struct platform_device *pdev, int flags)
+{
+#if 0
+	xdev_handle_t xdev = xocl_get_xdev(pdev);
+	struct xocl_xmc *xmc = platform_get_drvdata(pdev);
+	u32 val, grant, ack;
+	int retry;
+	int err = 0;
+
+	if (flags == 1) {
+		/*
+		 * for grant access (flags = 1), we are looking for new
+		 * features, if no new features, skip the grant operation
+		 */
+		err = xocl_iores_read32(xdev, XOCL_SUBDEV_LEVEL_URP,
+		    IORES_GAPPING, 0x0, &val);
+		if (err == -ENODEV) {
+			xocl_xdev_info(xdev, "No %s resource, skip.",
+			    NODE_GAPPING);
+			return 0;
+		} else if (err) {
+			xocl_xdev_err(xdev, "Read %s error %d.",
+			    NODE_GAPPING, err);
+			return err;
+		}
+		/*
+		 * Dancing with CMC here:
+		 * 0-24 bit is address read from xclbin
+		 * 28 is flag for enable
+		 * 29 is flag for present
+		 * Note: seems that we should write all data at one time.
+		 */
+		val = (val & 0x01FFFFFF) | (1 << 28) | (1 << 29);
+		WRITE_REG32(xmc, val, XMC_HOST_NEW_FEATURE_REG1);
+		if (val != READ_REG32(xmc, XMC_HOST_NEW_FEATURE_REG1)) {
+			xocl_xdev_info(xdev, "%s of New Feature Table expects: "
+			    "0x%x, but read back as: 0x%x", NODE_GAPPING, val,
+			    READ_REG32(xmc, XMC_HOST_NEW_FEATURE_REG1));
+		}
+	}
+
+	grant = (u32)flags & 0x1;
+	err = xocl_iores_write32(xdev, XOCL_SUBDEV_LEVEL_BLD, IORES_CMC_MUTEX,
+	    XOCL_RES_OFFSET_CHANNEL1, grant);
+	if (err == -ENODEV) {
+		xocl_xdev_info(xdev, "No %s resource, skip.",
+		    NODE_CMC_MUTEX);
+		return 0;
+	} else if (err) {
+		xocl_xdev_err(xdev, "Write %s to 0x%x error %d.",
+		    NODE_CMC_MUTEX, grant, err);
+		return err;
+	}
+
+	for (retry = 0; retry < 100; retry++) {
+		err = xocl_iores_read32(xdev, XOCL_SUBDEV_LEVEL_BLD,
+		    IORES_CMC_MUTEX, XOCL_RES_OFFSET_CHANNEL2, &ack);
+		if (err) {
+			if (err == -ENODEV)
+				xocl_xdev_info(xdev, "No %s resource, skip.",
+				    NODE_CMC_MUTEX);
+			else
+				xocl_xdev_err(xdev, "Read ack from %s error %d",
+				    NODE_CMC_MUTEX, err);
+			goto fail;
+		}
+
+		if ((grant & 0x1) == (ack & 0x1))
+			break;
+
+		msleep(100);
+	}
+
+	if ((grant & 0x1) != (ack & 0x1)) {
+		xocl_xdev_err(xdev,
+		    "Grant falied. The bit 0 in Ack (0x%x) is not the same "
+		    "in grant (0x%x)", ack, grant);
+		err = -EBUSY;
+		goto fail;
+	}
+
+	xocl_xdev_info(xdev, "%s CMC succeeded.", flags ? "Grant" : "Release");
+fail:
+	return err;
+#endif
+	return 0;
+}
 
 /* sysfs support */
 static void safe_read32(struct xocl_xmc *xmc, u32 reg, u32 *val)
@@ -1345,12 +1434,13 @@ static ssize_t read_temp_by_mem_topology(struct file *filp,
 		dev_get_drvdata(container_of(kobj, struct device, kobj));
 	uint32_t temp[MAX_M_COUNT] = {0};
 	struct xocl_dev_core *xdev = xocl_get_xdev(xmc->pdev);
-
+/*
+//TODO: WIP
 	err = xocl_icap_get_xclbin_metadata(xdev, MEMTOPO_AXLF,
 		(void **)&memtopo);
 	if (err)
 		return nread;
-
+*/
 	if (!memtopo)
 		goto done;
 
@@ -1368,7 +1458,8 @@ static ssize_t read_temp_by_mem_topology(struct file *filp,
 
 	memcpy(buffer, temp, nread);
 done:
-	xocl_icap_put_xclbin_metadata(xdev);
+//TODO: WIP
+//	xocl_icap_put_xclbin_metadata(xdev);
 	/* xocl_icap_unlock_bitstream */
 	return nread;
 }
@@ -1714,7 +1805,8 @@ static ssize_t show_hwmon_name(struct device *dev, struct device_attribute *da,
 	char nm[150] = { 0 };
 	int n;
 
-	xocl_get_raw_header(xdev_hdl, &rom);
+	// TODO: WIP
+//	xocl_get_raw_header(xdev_hdl, &rom);
 	n = snprintf(nm, sizeof(nm), "%s", rom.VBNVName);
 	if (XMC_PRIVILEGED(xmc))
 		(void) snprintf(nm + n, sizeof(nm) - n, "%s", "_mgmt");
@@ -1938,7 +2030,7 @@ static int load_xmc(struct xocl_xmc *xmc)
 	int retry = 0;
 	u32 reg_val = 0;
 	int ret = 0;
-	void *xdev_hdl;
+	const struct xocl_dev_core *core = NULL;
 
 	if (!xmc->enabled)
 		return -ENODEV;
@@ -1947,6 +2039,7 @@ static int load_xmc(struct xocl_xmc *xmc)
 		return ret;
 
 	mutex_lock(&xmc->xmc_lock);
+	core = xocl_get_xdev(xmc->pdev);
 
 	/* Stop XMC first */
 	ret = stop_xmc_nolock(xmc->pdev);
@@ -1965,16 +2058,14 @@ static int load_xmc(struct xocl_xmc *xmc)
 		goto out;
 	}
 
-	xdev_hdl = xocl_get_xdev(xmc->pdev);
-
 	/* Load XMC and ERT Image */
-	if (xocl_mb_mgmt_on(xdev_hdl)) {
+	if (xocl_mb_mgmt_on(core)) {
 		xocl_info(&xmc->pdev->dev, "Copying XMC image len %d",
 			xmc->mgmt_binary_length);
 		COPY_MGMT(xmc, xmc->mgmt_binary, xmc->mgmt_binary_length);
 	}
 
-	if (xocl_mb_sched_on(xdev_hdl)) {
+	if (xocl_mb_sched_on(core)) {
 		xocl_info(&xmc->pdev->dev, "Copying scheduler image len %d",
 			xmc->sche_binary_length);
 		COPY_SCHE(xmc, xmc->sche_binary, xmc->sche_binary_length);
@@ -2026,7 +2117,7 @@ static int load_xmc(struct xocl_xmc *xmc)
 
 	xmc->cap = READ_REG32(xmc, XMC_FEATURE_REG);
 
-	if (XMC_PRIVILEGED(xmc) && xocl_clk_scale_on(xdev_hdl))
+	if (XMC_PRIVILEGED(xmc) && xocl_clk_scale_on(core))
 		xmc_clk_scale_config(xmc->pdev);
 
 	mutex_unlock(&xmc->xmc_lock);
@@ -2164,7 +2255,7 @@ const static struct xocl_subdev_ops myxmc_ops = {
 #if PF == MGMTPF
 	.fops = &xmc_fops,
 #endif
-	.dev = -1,
+	.dnum = -1,
 	.id = XOCL_SUBDEV_XMC,
 };
 
@@ -2249,7 +2340,12 @@ static int xmc_probe_helper(struct platform_device *pdev, struct xocl_xmc *xmc)
 		xmc->runtime_cs_enabled = true;
 		xocl_info(&pdev->dev, "Runtime clock scaling is supported.\n");
 	}
+	err = xocl_subdev_cdev_create(pdev, &xmc->chr_dev);
+	if (err)
+		goto cdev_failed;
 	return 0;
+cdev_failed:
+	vfree(xmc->cache);
 failed:
 	return err;
 }
@@ -2269,7 +2365,7 @@ static int xocl_xmc_probe(struct platform_device *pdev)
 	if (ret)
 		goto out;
 
-	xocl_subdev_cdev_create(&xmc->cdev);
+	xocl_subdev_cdev_create(pdev, &xmc->chr_dev);
 	xocl_info(dev, "Probed subdev %s: resource %pr\n", pdev->name, res);
 	return 0;
 
@@ -2286,7 +2382,7 @@ static int xocl_xmc_remove(struct platform_device *pdev)
 
 	if (!xmc)
 		return 0;
-	xocl_subdev_cdev_destroy(&xmc->cdev);
+	xocl_subdev_cdev_destroy(pdev, &xmc->chr_dev);
 	vfree(xmc->mgmt_binary);
 	vfree(xmc->sche_binary);
 
@@ -2499,6 +2595,32 @@ done:
 	return ret;
 }
 
+static const char *xmc_get_board_info(uint32_t *bdinfo_raw,
+	uint32_t bdinfo_raw_sz, enum board_info_key key, size_t *len)
+{
+	char *buf, *p;
+	u32 sz;
+
+	if (!bdinfo_raw)
+		return NULL;
+
+	buf = (char *)bdinfo_raw;
+	sz = bdinfo_raw_sz;
+	for (p = buf; p < buf + sz;) {
+		char k = *(p++);
+		u8 l = *(p++);
+
+		if (k == key) {
+			if (len)
+				*len = l;
+			return p;
+		}
+		p += l;
+	}
+
+	return NULL;
+}
+
 static void xmc_set_board_info(uint32_t *bdinfo_raw, uint32_t bd_info_sz,
 	enum board_info_key key, char *target)
 {
@@ -2526,7 +2648,7 @@ static int xmc_load_board_info(struct xocl_xmc *xmc)
 	uint32_t bd_info_sz = 0;
 	uint32_t *bdinfo_raw;
 	const struct xocl_dev_core *core = xocl_get_xdev(xmc->pdev);
-	char *tmp_str;
+	char *tmp_str = NULL;
 
 	BUG_ON(!mutex_is_locked(&xmc->mbx_lock));
 	if (xmc->bdinfo_loaded)
@@ -2579,7 +2701,7 @@ static int xmc_load_board_info(struct xocl_xmc *xmc)
 		xmc_set_board_info(bdinfo_raw, bd_info_sz,
 			BDINFO_CONFIG_MODE, (char *)&xmc->config_mode);
 
-		tmp_str = (char *)xocl_icap_get_data(core, EXP_BMC_VER);
+//		tmp_str = (char *)xocl_icap_get_data(core, EXP_BMC_VER);
 		if (tmp_str) {
 			strncpy(xmc->exp_bmc_ver, tmp_str,
 				XMC_BDINFO_ENTRY_LEN_MAX - 1);
@@ -2733,7 +2855,7 @@ done:
 static int xmc_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
-	struct xocl_xmc *xmc = container_of(inode->i_cdev, struct xocl_xmc, char_dev);
+	struct xocl_xmc *xmc = container_of(inode->i_cdev, struct xocl_xmc, chr_dev);
 
 	if (!xmc)
 		return -ENXIO;

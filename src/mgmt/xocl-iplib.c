@@ -10,6 +10,8 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/export.h>
+#include <linux/cdev.h>
+#include <linux/idr.h>
 #include <linux/platform_device.h>
 
 #include "xocl-devices.h"
@@ -128,24 +130,48 @@ int xocl_subdev_online(struct platform_device *pdev)
 	return ops->online(pdev);
 }
 
-int xocl_subdev_cdev_create(const struct platform_device *pdev, struct cdev *chr_dev)
+int xocl_subdev_cdev_create(struct platform_device *pdev, struct cdev *chr_dev)
 {
-	const struct xocl_subdev_ops *ops;
+	int ret;
+	struct xocl_subdev_ops *ops;
 	const struct platform_device_id	*id = platform_get_device_id(pdev);
+
 	if (!id || !id->driver_data)
 		return -EOPNOTSUPP;
-	ops = (const struct xocl_subdev_ops *)id->driver_data;
+	ops = (struct xocl_subdev_ops *)id->driver_data;
 	if (!ops || !ops->fops)
 		return -EOPNOTSUPP;
 	cdev_init(chr_dev, ops->fops);
-	chr_dev->owner = owner;
-	chr_dev->kobj.parent = pdev->dev.kobj;
-	return cdev_add(chr_dev, pdev->dev.devt, 1);
+	chr_dev->owner = ops->fops->owner;
+	cdev_set_parent(chr_dev, &pdev->dev.kobj);
+	ret = ida_simple_get(&ops->minor, 0, XOCL_MAX_DEVICES, GFP_KERNEL);
+	if (ret < 0)
+		goto out_get;
+	ret = cdev_add(chr_dev, MKDEV(ops->dnum, ret), 1);
+	if (ret)
+		goto out_add;
+	return 0;
+out_add:
+	ida_simple_remove(&ops->minor, MINOR(chr_dev->dev));
+out_get:
+	cdev_del(chr_dev);
+	return ret;
 }
 
 int xocl_subdev_cdev_destroy(const struct platform_device *pdev, struct cdev *chr_dev)
 {
+	struct xocl_subdev_ops *ops;
+	const struct platform_device_id	*id = platform_get_device_id(pdev);
+
+	if (!id || !id->driver_data)
+		return 0;
+	ops = (struct xocl_subdev_ops *)id->driver_data;
+	if (!ops || !ops->fops)
+		return 0;
+
+	ida_simple_remove(&ops->minor, MINOR(chr_dev->dev));
 	cdev_del(chr_dev);
+	return 0;
 }
 
 static int __init xocl_iplib_init(void)
@@ -159,10 +185,10 @@ static int __init xocl_iplib_init(void)
 		ops = (struct xocl_subdev_ops *)xocl_subdev_drivers[i]->id_table[0].driver_data;
 		if (!ops || ops->fops == 0)
 			continue;
-		rc = alloc_chrdev_region(&ops->dev, 0, XOCL_MAX_DEVICES, xocl_subdev_drivers[i]->driver.name);
-		if (rc == 0)
-			continue;
-		goto out_error;
+		rc = alloc_chrdev_region(&ops->dnum, 0, XOCL_MAX_DEVICES, xocl_subdev_drivers[i]->driver.name);
+		if (!rc)
+			goto out_error;
+		ida_init(&ops->minor);
 	}
 	return 0;
 out_error:
@@ -170,7 +196,7 @@ out_error:
 		ops = (struct xocl_subdev_ops *)xocl_subdev_drivers[j]->id_table[0].driver_data;
 		if (!ops || ops->fops == 0)
 			continue;
-		unregister_chrdev_region(ops->dev, XOCL_MAX_DEVICES);
+		unregister_chrdev_region(ops->dnum, XOCL_MAX_DEVICES);
 	}
 	platform_unregister_drivers(xocl_subdev_drivers, ARRAY_SIZE(xocl_subdev_drivers));
 	return rc;
@@ -183,9 +209,9 @@ static void __exit xocl_iplib_exit(void)
 
 	for (i = 0; i < ARRAY_SIZE(xocl_subdev_drivers); i++) {
 		ops = (const struct xocl_subdev_ops *)xocl_subdev_drivers[i]->id_table[0].driver_data;
-		if (!ops || ops->dev == 0)
+		if (!ops || ops->dnum == 0)
 			continue;
-		unregister_chrdev_region(ops->dev, XOCL_MAX_DEVICES);
+		unregister_chrdev_region(ops->dnum, XOCL_MAX_DEVICES);
 	}
 	platform_unregister_drivers(xocl_subdev_drivers, ARRAY_SIZE(xocl_subdev_drivers));
 }

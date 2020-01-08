@@ -164,7 +164,7 @@ static struct platform_device *xmgmt_subdev_probe(struct xocl_region *part,
 	rc = platform_device_add_resources(pdev, info->res, info->num_res);
 	if (rc)
 		goto out_dev_put;
-	rc = platform_device_add_data(pdev, info, sizeof(*info));
+	rc = platform_device_add_data(pdev, &part->lro->core, sizeof(part->lro->core));
 	if (rc)
 		goto out_dev_put;
 	rebase_resources(part->lro->pdev, pdev, info);

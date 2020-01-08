@@ -13,6 +13,8 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 
+#include "xocl-features.h"
+
 #define	ICAP_XCLBIN_V2		"xclbin2"
 
 #define	MGMTPF		         0
@@ -216,8 +218,9 @@ struct xocl_subdev_ops {
 	const struct file_operations	*fops;
 	/* Set this to -1 if subdev intends to create a device node; xocl will handle the mechanics of
 	   char device (un)registration */
-	dev_t			         dev;
+	dev_t			         dnum;
 	enum subdev_id		         id;
+	struct ida                       minor;
 };
 
 struct xocl_subdev_info {
@@ -258,6 +261,18 @@ struct xocl_region {
 	struct platform_device *children[1];
 };
 
+struct xocl_from_core {
+	struct FeatureRomHeader	header;
+	bool			unified;
+	bool			mb_mgmt_enabled;
+	bool			mb_sche_enabled;
+	bool			are_dev;
+	bool			aws_dev;
+	bool			runtime_clk_scale_en;
+	char			uuid[65];
+	bool			passthrough_virt_en;
+};
+
 struct xocl_dev_core {
 	// TODO: Remove this PCIe device from here
 	struct pci_dev		*pdev;
@@ -279,7 +294,7 @@ struct xocl_dev_core {
 	struct xocl_board_private priv;
 
 	rwlock_t		rwlock;
-
+	struct xocl_from_core   from;
 	char			ebuf[XOCL_EBUF_LEN + 1];
 };
 
@@ -391,8 +406,20 @@ static inline struct xocl_dev_core *xocl_get_xdev(const struct platform_device *
 	return dev_get_platdata(&pdev->dev);
 }
 
-int xocl_subdev_cdev_create(const struct platform_device *pdev, struct cdev *char_dev);
+int xocl_subdev_cdev_create(struct platform_device *pdev, struct cdev *chr_dev);
+int xocl_subdev_cdev_destroy(const struct platform_device *pdev, struct cdev *chr_dev);
 
+static inline bool xocl_clk_scale_on(const struct xocl_dev_core *core) {
+	return core->from.runtime_clk_scale_en;
+}
+
+static inline bool xocl_mb_mgmt_on(const struct xocl_dev_core *core) {
+	return core->from.mb_mgmt_enabled;
+}
+
+static inline bool xocl_mb_sched_on(const struct xocl_dev_core *core) {
+	return core->from.mb_sche_enabled;
+}
 #define xocl_err(dev, fmt, args...)					\
 	dev_err(dev, "dev %llx, %s: "fmt, (u64)dev, __func__, ##args)
 #define xocl_warn(dev, fmt, args...)			\

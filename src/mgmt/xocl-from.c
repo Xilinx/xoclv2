@@ -19,7 +19,8 @@
 struct feature_rom {
 	void __iomem		*base;
 	struct platform_device	*pdev;
-
+	struct xocl_dev_core    *xdev;
+/*
 	struct FeatureRomHeader	header;
 	bool			unified;
 	bool			mb_mgmt_enabled;
@@ -29,6 +30,7 @@ struct feature_rom {
 	bool			runtime_clk_scale_en;
 	char			uuid[65];
 	bool			passthrough_virt_en;
+*/
 };
 
 struct xocl_rom_funcs {
@@ -56,7 +58,7 @@ static ssize_t VBNV_show(struct device *dev,
 {
 	struct feature_rom *rom = platform_get_drvdata(to_platform_device(dev));
 
-	return sprintf(buf, "%s\n", rom->header.VBNVName);
+	return sprintf(buf, "%s\n", rom->xdev->from.header.VBNVName);
 }
 static DEVICE_ATTR_RO(VBNV);
 
@@ -66,8 +68,8 @@ static ssize_t dr_base_addr_show(struct device *dev,
 	struct feature_rom *rom = platform_get_drvdata(to_platform_device(dev));
 
 	//TODO: Fix: DRBaseAddress no longer required in feature rom
-	if(rom->header.MajorVersion >= 10)
-		return sprintf(buf, "%llu\n", rom->header.DRBaseAddress);
+	if(rom->xdev->from.header.MajorVersion >= 10)
+		return sprintf(buf, "%llu\n", rom->xdev->from.header.DRBaseAddress);
 	else
 		return sprintf(buf, "%u\n", 0);
 }
@@ -78,7 +80,7 @@ static ssize_t ddr_bank_count_max_show(struct device *dev,
 {
 	struct feature_rom *rom = platform_get_drvdata(to_platform_device(dev));
 
-	return sprintf(buf, "%d\n", rom->header.DDRChannelCount);
+	return sprintf(buf, "%d\n", rom->xdev->from.header.DDRChannelCount);
 }
 static DEVICE_ATTR_RO(ddr_bank_count_max);
 
@@ -87,7 +89,7 @@ static ssize_t ddr_bank_size_show(struct device *dev,
 {
 	struct feature_rom *rom = platform_get_drvdata(to_platform_device(dev));
 
-	return sprintf(buf, "%d\n", rom->header.DDRChannelSize);
+	return sprintf(buf, "%d\n", rom->xdev->from.header.DDRChannelSize);
 }
 static DEVICE_ATTR_RO(ddr_bank_size);
 
@@ -96,7 +98,7 @@ static ssize_t timestamp_show(struct device *dev,
 {
 	struct feature_rom *rom = platform_get_drvdata(to_platform_device(dev));
 
-	return sprintf(buf, "%llu\n", rom->header.TimeSinceEpoch);
+	return sprintf(buf, "%llu\n", rom->xdev->from.header.TimeSinceEpoch);
 }
 static DEVICE_ATTR_RO(timestamp);
 
@@ -105,7 +107,7 @@ static ssize_t uuid_show(struct device *dev,
 {
 	struct feature_rom *rom = platform_get_drvdata(to_platform_device(dev));
 
-	return sprintf(buf, "%s\n", rom->uuid);
+	return sprintf(buf, "%s\n", rom->xdev->from.uuid);
 }
 static DEVICE_ATTR_RO(uuid);
 
@@ -114,7 +116,7 @@ static ssize_t FPGA_show(struct device *dev,
 {
 	const struct feature_rom *rom = platform_get_drvdata(to_platform_device(dev));
 
-	return sprintf(buf, "%s\n", rom->header.FPGAPartName);
+	return sprintf(buf, "%s\n", rom->xdev->from.header.FPGAPartName);
 }
 static DEVICE_ATTR_RO(FPGA);
 
@@ -135,13 +137,13 @@ static ssize_t raw_show(struct file *filp, struct kobject *kobj,
 	struct device *dev = kobj_to_dev(kobj);
 	const struct feature_rom *rom = platform_get_drvdata(to_platform_device(dev));
 
-	if (off >= sizeof(rom->header))
+	if (off >= sizeof(rom->xdev->from.header))
 		return 0;
 
-	if (off + count >= sizeof(rom->header))
-		count = sizeof(rom->header) - off;
+	if (off + count >= sizeof(rom->xdev->from.header))
+		count = sizeof(rom->xdev->from.header) - off;
 
-	memcpy(buf, &rom->header, count);
+	memcpy(buf, &rom->xdev->from.header, count);
 
 	return count;
 };
@@ -173,7 +175,7 @@ static bool is_unified(const struct platform_device *pdev)
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
 
-	return rom->unified;
+	return rom->xdev->from.unified;
 }
 
 static bool mb_mgmt_on(const struct platform_device *pdev)
@@ -183,7 +185,7 @@ static bool mb_mgmt_on(const struct platform_device *pdev)
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
 
-	return rom->mb_mgmt_enabled;
+	return rom->xdev->from.mb_mgmt_enabled;
 }
 
 static bool mb_sched_on(const struct platform_device *pdev)
@@ -204,7 +206,7 @@ static bool runtime_clk_scale_on(const struct platform_device *pdev)
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
 
-	return rom->runtime_clk_scale_en;
+	return rom->xdev->from.runtime_clk_scale_en;
 }
 
 static bool passthrough_virtualization_on(const struct platform_device *pdev)
@@ -214,7 +216,7 @@ static bool passthrough_virtualization_on(const struct platform_device *pdev)
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
 
-	return rom->passthrough_virt_en;
+	return rom->xdev->from.passthrough_virt_en;
 }
 
 static uint32_t* get_cdma_base_addresses(const struct platform_device *pdev)
@@ -226,8 +228,8 @@ static uint32_t* get_cdma_base_addresses(const struct platform_device *pdev)
 
 	// TODO: SS
 	//return (!XOCL_DSA_NO_KDMA(xocl_get_xdev(pdev)) &&
-	//	(rom->header.FeatureBitMap & CDMA)) ?
-	//	rom->header.CDMABaseAddress : 0;
+	//	(rom->xdev->from.header.FeatureBitMap & CDMA)) ?
+	//	rom->xdev->from.header.CDMABaseAddress : 0;
 	return NULL;
 }
 
@@ -238,7 +240,7 @@ static u16 get_ddr_channel_count(const struct platform_device *pdev)
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
 
-	return rom->header.DDRChannelCount;
+	return rom->xdev->from.header.DDRChannelCount;
 }
 
 static u64 get_ddr_channel_size(const struct platform_device *pdev)
@@ -248,7 +250,7 @@ static u64 get_ddr_channel_size(const struct platform_device *pdev)
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
 
-	return rom->header.DDRChannelSize;
+	return rom->xdev->from.header.DDRChannelSize;
 }
 
 static u64 get_timestamp(const struct platform_device *pdev)
@@ -258,7 +260,7 @@ static u64 get_timestamp(const struct platform_device *pdev)
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
 
-	return rom->header.TimeSinceEpoch;
+	return rom->xdev->from.header.TimeSinceEpoch;
 }
 
 static const char *get_uuid(const struct platform_device *pdev)
@@ -268,7 +270,7 @@ static const char *get_uuid(const struct platform_device *pdev)
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
 
-	return rom->uuid;
+	return rom->xdev->from.uuid;
 }
 
 static bool is_are(const struct platform_device *pdev)
@@ -278,7 +280,7 @@ static bool is_are(const struct platform_device *pdev)
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
 
-	return rom->are_dev;
+	return rom->xdev->from.are_dev;
 }
 
 static bool is_aws(const struct platform_device *pdev)
@@ -288,7 +290,7 @@ static bool is_aws(const struct platform_device *pdev)
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
 
-	return rom->aws_dev;
+	return rom->xdev->from.aws_dev;
 }
 
 static bool verify_timestamp(struct platform_device *pdev, u64 timestamp)
@@ -303,15 +305,15 @@ static bool verify_timestamp(struct platform_device *pdev, u64 timestamp)
 	BUG_ON(!rom);
 
 	xocl_info(&pdev->dev, "Shell timestamp: 0x%llx",
-		rom->header.TimeSinceEpoch);
+		rom->xdev->from.header.TimeSinceEpoch);
 	xocl_info(&pdev->dev, "Verify timestamp: 0x%llx", timestamp);
 
-	if (strlen(rom->uuid) > 0) {
+	if (strlen(rom->xdev->from.uuid) > 0) {
 		xocl_info(&pdev->dev, "2RP platform, skip timestamp check");
 		return true;
 	}
 
-	return (rom->header.TimeSinceEpoch == timestamp);
+	return (rom->xdev->from.header.TimeSinceEpoch == timestamp);
 }
 
 static int get_raw_header(struct platform_device *pdev, void *header)
@@ -321,7 +323,7 @@ static int get_raw_header(struct platform_device *pdev, void *header)
 	rom = platform_get_drvdata(pdev);
 	BUG_ON(!rom);
 
-	memcpy(header, &rom->header, sizeof (rom->header));
+	memcpy(header, &rom->xdev->from.header, sizeof (rom->xdev->from.header));
 
 	return 0;
 }
@@ -333,13 +335,13 @@ static int __find_firmware(const struct platform_device *pdev, char *fw_name,
 	struct pci_dev *pcidev = XOCL_PL_TO_PCI_DEV(pdev);
 	u16 vendor = le16_to_cpu(pcidev->vendor);
 	u16 subdevice = le16_to_cpu(pcidev->subsystem_device);
-	u64 timestamp = rom->header.TimeSinceEpoch;
-	bool is_multi_rp = (strlen(rom->uuid) > 0) ? true : false;
+	u64 timestamp = rom->xdev->from.header.TimeSinceEpoch;
+	bool is_multi_rp = (strlen(rom->xdev->from.uuid) > 0) ? true : false;
 	int err = 0;
 
 	/* For 2RP, only uuid is provided */
 	if (is_multi_rp) {
-		snprintf(fw_name, len, "xilinx/%s/partition.%s", rom->uuid,
+		snprintf(fw_name, len, "xilinx/%s/partition.%s", rom->xdev->from.uuid,
 			suffix);
 	} else {
 		snprintf(fw_name, len, "xilinx/%04x-%04x-%04x-%016llx.%s",
@@ -357,7 +359,7 @@ static int __find_firmware(const struct platform_device *pdev, char *fw_name,
 	}
 
 	if (err && is_multi_rp) {
-		snprintf(fw_name, len, "xilinx/%s/%s.%s", rom->uuid, rom->uuid,
+		snprintf(fw_name, len, "xilinx/%s/%s.%s", rom->xdev->from.uuid, rom->xdev->from.uuid,
 			suffix);
 		err = request_firmware(fw, fw_name, &pcidev->dev);
 	}
@@ -406,28 +408,29 @@ static struct xocl_rom_funcs rom_ops = {
 
 static int get_header_from_peer(struct feature_rom *rom)
 {
-	struct FeatureRomHeader *header;
-	struct resource *res;
 	//TODO: SS
 /*
+
+	struct FeatureRomHeader *header;
+	struct resource *res;
 	xdev_handle_t xdev = xocl_get_xdev(rom->pdev);
 
 	header = XOCL_GET_SUBDEV_PRIV(&rom->pdev->dev);
 	if (!header)
 		return -ENODEV;
 
-	memcpy(&rom->header, header, sizeof(*header));
+	memcpy(&rom->xdev->from.header, header, sizeof(*header));
 
 	xocl_xdev_info(xdev, "Searching CMC in dtb.");
 	res = xocl_subdev_get_ioresource(xdev, RESNAME_KDMA);
 	if (res) {
-                rom->header.FeatureBitMap |= CDMA;
-		memset(rom->header.CDMABaseAddress, 0,
-			sizeof(rom->header.CDMABaseAddress));
-		rom->header.CDMABaseAddress[0] = (uint32_t)res->start;
+                rom->xdev->from.header.FeatureBitMap |= CDMA;
+		memset(rom->xdev->from.header.CDMABaseAddress, 0,
+			sizeof(rom->xdev->from.header.CDMABaseAddress));
+		rom->xdev->from.header.CDMABaseAddress[0] = (uint32_t)res->start;
 
 		xocl_xdev_info(xdev, "CDMA is on, CU offset: 0x%x",
-				rom->header.CDMABaseAddress[0]);
+				rom->xdev->from.header.CDMABaseAddress[0]);
 	}
 */
 	return 0;
@@ -462,7 +465,7 @@ static int init_rom_by_dtb(struct feature_rom *rom)
 	// TODO: SS
 /*
 	xdev_handle_t xdev = xocl_get_xdev(rom->pdev);
-	struct FeatureRomHeader *header = &rom->header;
+	struct FeatureRomHeader *header = &rom->xdev->from.header;
 	struct resource *res;
 	const char *vbnv;
 	int i;
@@ -511,12 +514,12 @@ static int get_header_from_dtb(struct feature_rom *rom)
 	int i, j = 0;
 
 	/* uuid string should be 64 + '\0' */
-	BUG_ON(sizeof(rom->uuid) <= 64);
+	BUG_ON(sizeof(rom->xdev->from.uuid) <= 64);
 
 	for (i = 28; i >= 0 && j < 64; i -= 4, j += 8) {
-		sprintf(&rom->uuid[j], "%08x", ioread32(rom->base + i));
+		sprintf(&rom->xdev->from.uuid[j], "%08x", ioread32(rom->base + i));
 	}
-	xocl_info(&rom->pdev->dev, "UUID %s", rom->uuid);
+	xocl_info(&rom->pdev->dev, "UUID %s", rom->xdev->from.uuid);
 
 	return init_rom_by_dtb(rom);
 }
@@ -558,27 +561,27 @@ static int get_header_from_iomem(struct feature_rom *rom)
  			 * This is AWS device. Fill the FeatureROM struct.
  			 * Right now it doesn't have FeatureROM
  			 */
-			memset(rom->header.EntryPointString, 0,
-				sizeof(rom->header.EntryPointString));
-			strncpy(rom->header.EntryPointString, "xlnx", 4);
-			memset(rom->header.FPGAPartName, 0,
-				sizeof(rom->header.FPGAPartName));
-			strncpy(rom->header.FPGAPartName, "AWS VU9P", 8);
-			memset(rom->header.VBNVName, 0,
-				sizeof(rom->header.VBNVName));
-			strncpy(rom->header.VBNVName,
+			memset(rom->xdev->from.header.EntryPointString, 0,
+				sizeof(rom->xdev->from.header.EntryPointString));
+			strncpy(rom->xdev->from.header.EntryPointString, "xlnx", 4);
+			memset(rom->xdev->from.header.FPGAPartName, 0,
+				sizeof(rom->xdev->from.header.FPGAPartName));
+			strncpy(rom->xdev->from.header.FPGAPartName, "AWS VU9P", 8);
+			memset(rom->xdev->from.header.VBNVName, 0,
+				sizeof(rom->xdev->from.header.VBNVName));
+			strncpy(rom->xdev->from.header.VBNVName,
 				"xilinx_aws-vu9p-f1_dynamic_5_0", 35);
-			rom->header.MajorVersion = 4;
-			rom->header.MinorVersion = 0;
-			rom->header.VivadoBuildID = 0xabcd;
-			rom->header.IPBuildID = 0xabcd;
-			rom->header.TimeSinceEpoch = 0xabcd;
-			rom->header.DDRChannelCount = 4;
-			rom->header.DDRChannelSize = 16;
-			rom->header.FeatureBitMap = 0x0;
-			rom->header.FeatureBitMap = UNIFIED_PLATFORM;
-			rom->unified = true;
-			rom->aws_dev = true;
+			rom->xdev->from.header.MajorVersion = 4;
+			rom->xdev->from.header.MinorVersion = 0;
+			rom->xdev->from.header.VivadoBuildID = 0xabcd;
+			rom->xdev->from.header.IPBuildID = 0xabcd;
+			rom->xdev->from.header.TimeSinceEpoch = 0xabcd;
+			rom->xdev->from.header.DDRChannelCount = 4;
+			rom->xdev->from.header.DDRChannelSize = 16;
+			rom->xdev->from.header.FeatureBitMap = 0x0;
+			rom->xdev->from.header.FeatureBitMap = UNIFIED_PLATFORM;
+			rom->xdev->from.unified = true;
+			rom->xdev->from.aws_dev = true;
 
 			xocl_info(&pdev->dev, "Enabling AWS dynamic 5.0 Shell");
 		} else {
@@ -588,8 +591,8 @@ static int get_header_from_iomem(struct feature_rom *rom)
 			goto failed;
 		}
 	} else
-		xocl_memcpy_fromio(&rom->header, rom->base,
-				sizeof(rom->header));
+		xocl_memcpy_fromio(&rom->xdev->from.header, rom->base,
+				sizeof(rom->xdev->from.header));
 
 failed:
 	return ret;
@@ -630,29 +633,29 @@ static int feature_rom_probe_helper(struct platform_device *pdev, const struct r
 			(void)get_header_from_iomem(rom);
 	}
 
-	if (strstr(rom->header.VBNVName, "-xare")) {
+	if (strstr(rom->xdev->from.header.VBNVName, "-xare")) {
 		/*
 		 * ARE device, ARE is mapped like another DDR inside FPGA;
 		 * map_connects as M04_AXI
 		 */
-		rom->header.DDRChannelCount = rom->header.DDRChannelCount - 1;
-		rom->are_dev = true;
+		rom->xdev->from.header.DDRChannelCount = rom->xdev->from.header.DDRChannelCount - 1;
+		rom->xdev->from.are_dev = true;
 	}
 
-	if(rom->header.FeatureBitMap & UNIFIED_PLATFORM)
-		rom->unified = true;
+	if(rom->xdev->from.header.FeatureBitMap & UNIFIED_PLATFORM)
+		rom->xdev->from.unified = true;
 
-	if(rom->header.FeatureBitMap & BOARD_MGMT_ENBLD)
-		rom->mb_mgmt_enabled = true;
+	if(rom->xdev->from.header.FeatureBitMap & BOARD_MGMT_ENBLD)
+		rom->xdev->from.mb_mgmt_enabled = true;
 
-	if(rom->header.FeatureBitMap & MB_SCHEDULER)
-		rom->mb_sche_enabled = true;
+	if(rom->xdev->from.header.FeatureBitMap & MB_SCHEDULER)
+		rom->xdev->from.mb_sche_enabled = true;
 
-	if(rom->header.FeatureBitMap & RUNTIME_CLK_SCALE)
-		rom->runtime_clk_scale_en = true;
+	if(rom->xdev->from.header.FeatureBitMap & RUNTIME_CLK_SCALE)
+		rom->xdev->from.runtime_clk_scale_en = true;
 
-	if(rom->header.FeatureBitMap & PASSTHROUGH_VIRTUALIZATION)
-		rom->passthrough_virt_en = true;
+	if(rom->xdev->from.header.FeatureBitMap & PASSTHROUGH_VIRTUALIZATION)
+		rom->xdev->from.passthrough_virt_en = true;
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &rom_attr_group);
 	if (ret) {
@@ -660,20 +663,20 @@ static int feature_rom_probe_helper(struct platform_device *pdev, const struct r
 		goto failed;
 	}
 
-	tmp = rom->header.EntryPointString;
+	tmp = rom->xdev->from.header.EntryPointString;
 	xocl_info(&pdev->dev, "ROM magic : %c%c%c%c",
 		tmp[0], tmp[1], tmp[2], tmp[3]);
-	xocl_info(&pdev->dev, "VBNV: %s", rom->header.VBNVName);
+	xocl_info(&pdev->dev, "VBNV: %s", rom->xdev->from.header.VBNVName);
 	xocl_info(&pdev->dev, "DDR channel count : %d",
-		rom->header.DDRChannelCount);
+		rom->xdev->from.header.DDRChannelCount);
 	xocl_info(&pdev->dev, "DDR channel size: %d GB",
-		rom->header.DDRChannelSize);
-	xocl_info(&pdev->dev, "Major Version: %d", rom->header.MajorVersion);
-	xocl_info(&pdev->dev, "Minor Version: %d", rom->header.MinorVersion);
-	xocl_info(&pdev->dev, "IPBuildID: %u", rom->header.IPBuildID);
+		rom->xdev->from.header.DDRChannelSize);
+	xocl_info(&pdev->dev, "Major Version: %d", rom->xdev->from.header.MajorVersion);
+	xocl_info(&pdev->dev, "Minor Version: %d", rom->xdev->from.header.MinorVersion);
+	xocl_info(&pdev->dev, "IPBuildID: %u", rom->xdev->from.header.IPBuildID);
 	xocl_info(&pdev->dev, "TimeSinceEpoch: %llx",
-		rom->header.TimeSinceEpoch);
-	xocl_info(&pdev->dev, "FeatureBitMap: %llx", rom->header.FeatureBitMap);
+		rom->xdev->from.header.TimeSinceEpoch);
+	xocl_info(&pdev->dev, "FeatureBitMap: %llx", rom->xdev->from.header.FeatureBitMap);
 
 	return 0;
 
@@ -692,7 +695,7 @@ static int xocl_rom_probe(struct platform_device *pdev)
 	if (!rom)
 		return -ENOMEM;
 	rom->pdev =  pdev;
-
+	rom->xdev = xocl_get_xdev(pdev);
 	ret = feature_rom_probe_helper(pdev, res, rom);
 	if (ret)
 		goto out;
