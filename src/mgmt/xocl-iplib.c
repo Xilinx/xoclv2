@@ -166,20 +166,18 @@ static int __init xocl_iplib_init(void)
 	if (rc)
 		return rc;
 	for (i = 0; i < ARRAY_SIZE(xocl_subdev_drivers); i++) {
-		pr_info("Register driver[%d] %s...", i, xocl_subdev_drivers[i]->driver.name);
+		pr_info("Registering subdev driver[%d] %s...", i, xocl_subdev_drivers[i]->driver.name);
 		ops = (struct xocl_subdev_ops *)xocl_subdev_drivers[i]->id_table[0].driver_data;
-		pr_info("Register driver[%d] %s: ops 0x%px, dnum %d...", i, xocl_subdev_drivers[i]->driver.name, ops, ops->dnum);
 		if (!ops || !ops->fops)
 			continue;
-/*
 		rc = alloc_chrdev_region(&ops->dnum, 0, XOCL_MAX_DEVICES, xocl_subdev_drivers[i]->driver.name);
-		if (!rc)
+		if (rc)
 			goto out_error;
-*/
 		ida_init(&ops->minor);
 	}
 	return 0;
 out_error:
+	pr_info("Error registering subdev driver[%d] %s\n", i, xocl_subdev_drivers[i]->driver.name);
 	for (j = i; j >= 0; j--) {
 		ops = (struct xocl_subdev_ops *)xocl_subdev_drivers[j]->id_table[0].driver_data;
 		if (!ops || !ops->fops)
@@ -198,13 +196,11 @@ static void __exit xocl_iplib_exit(void)
 
 	for (i = 0; i < ARRAY_SIZE(xocl_subdev_drivers); i++) {
 		ops = (struct xocl_subdev_ops *)xocl_subdev_drivers[i]->id_table[0].driver_data;
-		pr_info("Unregister driver[%d] %s: ops 0x%px, dnum %d...\n", i, xocl_subdev_drivers[i]->driver.name, ops, ops->dnum);
+		pr_info("Unregistering subdev driver[%d] %s\n", i, xocl_subdev_drivers[i]->driver.name);
 		if (!ops || !ops->fops)
 			continue;
 		ida_destroy(&ops->minor);
-/*
 		unregister_chrdev_region(ops->dnum, XOCL_MAX_DEVICES);
-*/
 	}
 	platform_unregister_drivers(xocl_subdev_drivers, ARRAY_SIZE(xocl_subdev_drivers));
 }
