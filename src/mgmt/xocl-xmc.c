@@ -2250,7 +2250,7 @@ static void xmc_unload_board_info(struct xocl_xmc *xmc)
 }
 
 
-const static struct xocl_subdev_ops myxmc_ops = {
+static struct xocl_subdev_ops myxmc_ops = {
 	.ioctl = myxmc_ioctl,
 #if PF == MGMTPF
 	.fops = &xmc_fops,
