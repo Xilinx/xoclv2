@@ -158,19 +158,22 @@ static struct platform_device *xmgmt_subdev_probe(struct xocl_region *part,
 	struct platform_device *pdev = platform_device_alloc(info->name, PLATFORM_DEVID_AUTO);
 	xmgmt_info(dev, "Subdev 0x%px %s\n", pdev, info->name);
 	if (!pdev)
-		return ERR_PTR(-ENOMEM);;
+		return ERR_PTR(-ENOMEM);
 
 	pdev->dev.parent = &part->region->dev;
 	rc = platform_device_add_resources(pdev, info->res, info->num_res);
 	if (rc)
 		goto out_dev_put;
+	xmgmt_info(dev, "Subdev A 0x%px %s\n", pdev, info->name);
 	rc = platform_device_add_data(pdev, &part->lro->core, sizeof(part->lro->core));
 	if (rc)
 		goto out_dev_put;
+	xmgmt_info(dev, "Subdev B 0x%px %s\n", pdev, info->name);
 	rebase_resources(part->lro->pdev, pdev, info);
 	rc = platform_device_add(pdev);
 	if (rc)
 		goto out_dev_put;
+	xmgmt_info(dev, "Subdev C 0x%px %s\n", pdev, info->name);
 	return pdev;
 
 out_dev_put:

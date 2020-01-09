@@ -316,6 +316,41 @@ struct xocl_dev_core {
 		},					\
 	})
 
+#define	XOCL_RES_XMC					\
+		((struct resource []) {			\
+			{				\
+			.start	= 0x120000,		\
+			.end 	= 0x121FFF,		\
+			.flags  = IORESOURCE_MEM,	\
+			},				\
+			{				\
+			.start	= 0x131000,		\
+			.end 	= 0x131FFF,		\
+			.flags  = IORESOURCE_MEM,	\
+			},				\
+			{				\
+			.start	= 0x140000,		\
+			.end 	= 0x15FFFF,		\
+			.flags  = IORESOURCE_MEM,	\
+			},				\
+			{				\
+			.start	= 0x160000,		\
+			.end 	= 0x17FFFF,		\
+			.flags  = IORESOURCE_MEM,	\
+			},				\
+			{				\
+			.start	= 0x190000,		\
+			.end 	= 0x19FFFF,		\
+			.flags  = IORESOURCE_MEM,	\
+			},				\
+			/* RUNTIME CLOCK SCALING FEATURE BASE */	\
+			{				\
+			.start	= 0x053000,		\
+			.end	= 0x053fff,		\
+			.flags	= IORESOURCE_MEM,	\
+			},				\
+		})
+
 #define	XOCL_RES_SYSMON					\
 		((struct resource []) {			\
 			{				\
@@ -356,6 +391,14 @@ struct xocl_dev_core {
 		0,                                      \
 		NULL,                                   \
 		0,                                      \
+	}
+
+#define	XOCL_DEVINFO_XMC_MGMT				\
+	{						\
+		XOCL_SUBDEV_MB,				\
+		XOCL_XMC,				\
+		XOCL_RES_XMC,				\
+		ARRAY_SIZE(XOCL_RES_XMC),		\
 	}
 
 #define	XOCL_DEVINFO_SYSMON				\
@@ -403,7 +446,16 @@ const struct platform_device *xocl_lookup_subdev(const struct platform_device *r
 						 enum subdev_id key);
 static inline struct xocl_dev_core *xocl_get_xdev(const struct platform_device *pdev)
 {
-	return dev_get_platdata(&pdev->dev);
+	struct device *top = NULL;
+	/* Go up to region */
+	struct device *rdev = pdev->dev.parent;
+	if (!rdev)
+		return NULL;
+	/* Now go up to xmgmt-drv */
+	top = rdev->parent;
+	if (!top)
+		return NULL;
+	return dev_get_drvdata(top);
 }
 
 int xocl_subdev_cdev_create(struct platform_device *pdev, struct cdev *chr_dev);

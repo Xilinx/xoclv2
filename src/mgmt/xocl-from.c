@@ -696,6 +696,7 @@ static int xocl_rom_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	rom->pdev =  pdev;
 	rom->xdev = xocl_get_xdev(pdev);
+	xocl_info(dev, "xocl_core 0x%px\n", rom->xdev);
 	ret = feature_rom_probe_helper(pdev, res, rom);
 	if (ret)
 		goto out;

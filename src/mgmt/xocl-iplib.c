@@ -20,17 +20,14 @@
 #define	XOCL_IPLIB_MODULE_VERSION	"4.0.0"
 
 extern struct platform_driver xocl_rom_driver;
+extern struct platform_driver xocl_xmc_driver;
+extern struct platform_driver xocl_icap_driver;
 
 static long myioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
 {
 	xocl_info(&pdev->dev, "Subdev %s ioctl %d %ld\n", pdev->name, cmd, arg);
 	return 0;
 }
-
-const static struct xocl_subdev_ops irom_ops = {
-	.ioctl = myioctl,
-	.id = XOCL_SUBDEV_ICAP,
-};
 
 const static struct xocl_subdev_ops srom_ops = {
 	.ioctl = myioctl,
@@ -57,23 +54,9 @@ static int xocl_rom_remove(struct platform_device *pdev)
 }
 
 
-static const struct platform_device_id icap_id_table[] = {
-	{ "xocl-icap", (kernel_ulong_t)&irom_ops },
-	{ },
-};
-
 static const struct platform_device_id sysmon_id_table[] = {
 	{ "xocl-sysmon", (kernel_ulong_t)&srom_ops },
 	{ },
-};
-
-static struct platform_driver xocl_icap_driver = {
-	.driver	= {
-		.name    = "xocl-icap",
-	},
-	.probe    = xocl_rom_probe,
-	.remove   = xocl_rom_remove,
-	.id_table = icap_id_table,
 };
 
 static struct platform_driver xocl_sysmon_driver = {
@@ -182,6 +165,7 @@ static int __init xocl_iplib_init(void)
 	if (rc)
 		return rc;
 	for (i = 0; i < ARRAY_SIZE(xocl_subdev_drivers); i++) {
+		pr_info("Register driver[%d] %s...", i, xocl_subdev_drivers[i]->driver.name);
 		ops = (struct xocl_subdev_ops *)xocl_subdev_drivers[i]->id_table[0].driver_data;
 		if (!ops || ops->fops == 0)
 			continue;
