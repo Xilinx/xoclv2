@@ -387,7 +387,7 @@ struct xocl_dev_core {
 		0,                                      \
 		false,                                  \
 		0,                                      \
-		(char []){ 2 },                         \
+		(char []){ 0 },                         \
 		0,                                      \
 		NULL,                                   \
 		0,                                      \
@@ -399,6 +399,14 @@ struct xocl_dev_core {
 		XOCL_XMC,				\
 		XOCL_RES_XMC,				\
 		ARRAY_SIZE(XOCL_RES_XMC),		\
+		NULL,                                   \
+		0,                                      \
+		false,                                  \
+		0,                                      \
+		(char []){ 0 },                         \
+		0,                                      \
+		NULL,                                   \
+		0,                                      \
 	}
 
 #define	XOCL_DEVINFO_SYSMON				\
@@ -411,7 +419,7 @@ struct xocl_dev_core {
 		0,                                      \
 		false,                                  \
 		0,                                      \
-		(char []){ 2 },                         \
+		(char []){ 0 },                         \
 		0,                                      \
 		NULL,                                   \
 		0,                                      \
@@ -420,7 +428,8 @@ struct xocl_dev_core {
 #define	MGMT_RES_XBB_DSA52						\
 		((struct xocl_subdev_info []) {				\
 			XOCL_DEVINFO_FEATURE_ROM,			\
-			XOCL_DEVINFO_ICAP_MGMT, 			\
+			XOCL_DEVINFO_ICAP_MGMT,                         \
+			XOCL_DEVINFO_XMC_MGMT,			        \
 			XOCL_DEVINFO_SYSMON,	         	 	\
 		})
 
