@@ -331,8 +331,8 @@ static inline struct xocl_dev_core *xocl_get_xdev(const struct platform_device *
 	return dev_get_drvdata(top);
 }
 
-int xocl_subdev_cdev_create(struct platform_device *pdev, struct cdev *chr_dev);
-int xocl_subdev_cdev_destroy(const struct platform_device *pdev, struct cdev *chr_dev);
+int xocl_subdev_cdev_create(struct xocl_subdev_base *subdev);
+int xocl_subdev_cdev_destroy(struct xocl_subdev_base *subdev);
 
 static inline bool xocl_clk_scale_on(const struct xocl_dev_core *core) {
 	return core->from.runtime_clk_scale_en;

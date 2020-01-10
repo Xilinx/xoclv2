@@ -17,20 +17,9 @@
 
 #define	MAGIC_NUM	0x786e6c78
 struct feature_rom {
+	struct xocl_subdev_base  core;
 	void __iomem		*base;
-	struct platform_device	*pdev;
 	struct xocl_dev_core    *xdev;
-/*
-	struct FeatureRomHeader	header;
-	bool			unified;
-	bool			mb_mgmt_enabled;
-	bool			mb_sche_enabled;
-	bool			are_dev;
-	bool			aws_dev;
-	bool			runtime_clk_scale_en;
-	char			uuid[65];
-	bool			passthrough_virt_en;
-*/
 };
 
 struct xocl_rom_funcs {
@@ -519,7 +508,7 @@ static int get_header_from_dtb(struct feature_rom *rom)
 	for (i = 28; i >= 0 && j < 64; i -= 4, j += 8) {
 		sprintf(&rom->xdev->from.uuid[j], "%08x", ioread32(rom->base + i));
 	}
-	xocl_info(&rom->pdev->dev, "UUID %s", rom->xdev->from.uuid);
+	xocl_info(&rom->core.pdev->dev, "UUID %s", rom->xdev->from.uuid);
 
 	return init_rom_by_dtb(rom);
 }
@@ -527,7 +516,7 @@ static int get_header_from_dtb(struct feature_rom *rom)
 static int get_header_from_vsec(struct feature_rom *rom)
 {
 /*
-	xdev_handle_t xdev = xocl_get_xdev(rom->pdev);
+	xdev_handle_t xdev = xocl_get_xdev(rom->core.pdev);
 	int bar;
 	u64 offset;
 	int ret;
@@ -545,7 +534,7 @@ static int get_header_from_vsec(struct feature_rom *rom)
 
 static int get_header_from_iomem(struct feature_rom *rom)
 {
-	struct platform_device *pdev = rom->pdev;
+	struct platform_device *pdev = rom->core.pdev;
 	u32	val;
 	u16	vendor, did;
 	int	ret = 0;
@@ -694,7 +683,7 @@ static int xocl_rom_probe(struct platform_device *pdev)
 	struct feature_rom *rom = devm_kzalloc(&pdev->dev, sizeof(*rom), GFP_KERNEL);
 	if (!rom)
 		return -ENOMEM;
-	rom->pdev =  pdev;
+	rom->core.pdev =  pdev;
 	rom->xdev = xocl_get_xdev(pdev);
 	xocl_info(dev, "xocl_core 0x%px\n", rom->xdev);
 	ret = feature_rom_probe_helper(pdev, res, rom);
