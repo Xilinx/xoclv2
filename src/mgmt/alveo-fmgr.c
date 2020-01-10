@@ -13,7 +13,7 @@
 #include <linux/module.h>
 
 #include "xmgmt-drv.h"
-#include "xocl-devices.h"
+#include "xocl-lib.h"
 #include "xclbin.h"
 
 /*

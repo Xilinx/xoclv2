@@ -14,7 +14,7 @@
 #include <linux/idr.h>
 #include <linux/platform_device.h>
 
-#include "xocl-devices.h"
+#include "xocl-lib.h"
 
 #define	XOCL_IPLIB_MODULE_NAME	        "xocl-iplib"
 #define	XOCL_IPLIB_MODULE_VERSION	"4.0.0"
@@ -22,6 +22,7 @@
 extern struct platform_driver xocl_rom_driver;
 extern struct platform_driver xocl_xmc_driver;
 extern struct platform_driver xocl_icap_driver;
+extern struct platform_driver xocl_region_driver;
 
 static long myioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
 {
@@ -69,6 +70,7 @@ static struct platform_driver xocl_sysmon_driver = {
 };
 
 static struct platform_driver *xocl_subdev_drivers[] = {
+	&xocl_region_driver,
 	&xocl_rom_driver,
 	&xocl_icap_driver,
 	&xocl_sysmon_driver,

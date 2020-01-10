@@ -12,7 +12,7 @@
 #include <linux/cdev.h>
 #include <linux/pci.h>
 
-#include "xocl-devices.h"
+#include "xocl-lib.h"
 
 #define	XMGMT_MODULE_NAME	"xmgmt"
 #define XMGMT_MAX_DEVICES	 24

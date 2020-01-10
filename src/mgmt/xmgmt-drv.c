@@ -14,6 +14,7 @@
 #include <linux/platform_device.h>
 
 #include "xmgmt-drv.h"
+#include "xocl-lib.h"
 #include "xocl-devices.h"
 
 static const struct pci_device_id pci_ids[] = {

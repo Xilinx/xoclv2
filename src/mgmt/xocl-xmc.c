@@ -20,7 +20,7 @@
 #include <linux/delay.h>
 #include <linux/cdev.h>
 
-#include "xocl-devices.h"
+#include "xocl-lib.h"
 #include "xocl-features.h"
 #include "xocl-mailbox-proto.h"
 #include "xocl-ert.h"

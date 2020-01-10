@@ -7,15 +7,13 @@
 
 obj-m	+= xmgmt.o
 obj-m	+= xmgmt-fmgr.o
-obj-m   += xmgmt-region.o
 obj-m   += xocl-lib.o
-obj-m   += pqt.o
+
 
 xmgmt-y := xmgmt-drv.o alveo-ctx.o
 xmgmt-fmgr-y := alveo-fmgr.o
-xmgmt-region-y := alveo-region.o
-xocl-lib-y := xocl-iplib.o xocl-from.o xocl-xmc.o xocl-icap.o
-pqt-y        := ptest.o
+xocl-lib-y := xocl-iplib.o xocl-from.o xocl-xmc.o xocl-icap.o xocl-region.o
+
 
 CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build

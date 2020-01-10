@@ -12,7 +12,7 @@
 #include <linux/fpga/fpga-region.h>
 
 #include "xmgmt-drv.h"
-#include "xocl-devices.h"
+#include "xocl-lib.h"
 
 static int xmgmt_region_get_bridges(struct fpga_region *region)
 {
@@ -24,7 +24,7 @@ static inline bool is_fixed_region(const struct xocl_region *part)
 	return ((part->id == XOCL_REGION_STATIC) || (part->id == XOCL_REGION_BLD));
 }
 
-static int xmgmt_region_probe(struct platform_device *pdev)
+static int xocl_region_probe(struct platform_device *pdev)
 {
 	struct xocl_region *part = dev_get_platdata(&pdev->dev);
 	struct device *dev = &pdev->dev;
@@ -66,7 +66,7 @@ eprobe_mgr_put:
 	return ret;
 }
 
-static int xmgmt_region_remove(struct platform_device *pdev)
+static int xocl_region_remove(struct platform_device *pdev)
 {
 	struct xmgmt_region *part = dev_get_platdata(&pdev->dev);
 	struct fpga_region *region = platform_get_drvdata(pdev);
@@ -107,20 +107,16 @@ const struct platform_device *xocl_lookup_subdev(const struct platform_device *r
 	return NULL;
 }
 
-static struct platform_driver xmgmt_region_driver = {
+static const struct platform_device_id region_id_table[] = {
+	{ "xocl-region", 0 },
+	{ },
+};
+
+struct platform_driver xocl_region_driver = {
 	.driver	= {
 		.name    = "xocl-region",
 	},
-	.probe   = xmgmt_region_probe,
-	.remove  = xmgmt_region_remove,
+	.probe   = xocl_region_probe,
+	.remove  = xocl_region_remove,
+	.id_table = region_id_table,
 };
-
-module_platform_driver(xmgmt_region_driver);
-
-EXPORT_SYMBOL_GPL(xocl_lookup_subdev);
-
-MODULE_VERSION(XMGMT_DRIVER_VERSION);
-MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");
-MODULE_DESCRIPTION("Xilinx Alveo FPGA Region driver");
-MODULE_LICENSE("GPL v2");
-MODULE_ALIAS("platform:xocl-region");

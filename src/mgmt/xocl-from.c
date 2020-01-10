@@ -12,7 +12,7 @@
 #include <linux/pci.h>
 #include <linux/platform_device.h>
 #include <linux/firmware.h>
-#include "xocl-devices.h"
+#include "xocl-lib.h"
 #include "xocl-features.h"
 
 #define	MAGIC_NUM	0x786e6c78
