@@ -11,6 +11,7 @@
 #include <linux/resource.h>
 #include <linux/device.h>
 #include <linux/io.h>
+#include <linux/cdev.h>
 #include <linux/platform_device.h>
 
 #include "xocl-features.h"
@@ -209,6 +210,12 @@ struct xocl_subdev_info;
  * Populated by subdev drivers and is used by xocl core.
  * This should be registered as driver_data in platform_device_id
  */
+struct xocl_subdev_base {
+	struct platform_device	*pdev;
+	struct cdev              chr_dev;
+	struct device           *sys_device;
+};
+
 struct xocl_subdev_ops {
 	/* Called by xocl_subdev_ioctl/offline/online defined below */
 	long (*ioctl)(struct platform_device *pdev, unsigned int cmd, unsigned long arg);

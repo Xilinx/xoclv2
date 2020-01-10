@@ -8,12 +8,12 @@
 obj-m	+= xmgmt.o
 obj-m	+= xmgmt-fmgr.o
 obj-m   += xocl-lib.o
-
+obj-m   += ptest.o
 
 xmgmt-y := xmgmt-drv.o alveo-ctx.o
 xmgmt-fmgr-y := alveo-fmgr.o
-xocl-lib-y := xocl-iplib.o xocl-from.o xocl-xmc.o xocl-icap.o xocl-region.o
-
+xocl-lib-y := xocl-from.o xocl-xmc.o xocl-icap.o xocl-region.o xocl-core.o
+#ptest-y := ptest.o
 
 CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build

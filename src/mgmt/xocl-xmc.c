@@ -2364,8 +2364,6 @@ static int xocl_xmc_probe(struct platform_device *pdev)
 	ret = xmc_probe_helper(pdev, xmc);
 	if (ret)
 		goto out;
-
-	xocl_subdev_cdev_create(pdev, &xmc->chr_dev);
 	xocl_info(dev, "Probed subdev %s: resource %pr\n", pdev->name, res);
 	return 0;
 
