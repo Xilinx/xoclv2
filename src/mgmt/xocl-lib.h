@@ -223,8 +223,7 @@ struct xocl_subdev_ops {
 	int (*online)(struct platform_device *pdev);
 	/* Populate this if subdev defines its own file operations */
 	const struct file_operations	*fops;
-	/* Set this to -1 if subdev intends to create a device node; xocl will handle the mechanics of
-	   char device (un)registration */
+	/* If fops is defined then xocl will handle the mechanics of char device (un)registration */
 	dev_t			         dnum;
 	enum subdev_id		         id;
 	struct ida                       minor;

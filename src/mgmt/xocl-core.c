@@ -122,6 +122,7 @@ int xocl_subdev_cdev_create(struct xocl_subdev_base *subdev)
 {
 	int ret;
 	struct xocl_subdev_ops *ops;
+	dev_t mydevt;
 	const struct platform_device_id	*id = platform_get_device_id(subdev->pdev);
 
 	if (!id || !id->driver_data)
@@ -129,28 +130,33 @@ int xocl_subdev_cdev_create(struct xocl_subdev_base *subdev)
 	ops = (struct xocl_subdev_ops *)id->driver_data;
 	if (!ops || !ops->fops)
 		return -EOPNOTSUPP;
+
 	cdev_init(&subdev->chr_dev, ops->fops);
-	subdev->chr_dev.owner = ops->fops->owner;
+	subdev->chr_dev.owner = THIS_MODULE;
 	cdev_set_parent(&subdev->chr_dev, &subdev->pdev->dev.kobj);
 	ret = ida_simple_get(&ops->minor, 0, XOCL_MAX_DEVICES, GFP_KERNEL);
 	if (ret < 0)
 		goto out_get;
-	ret = cdev_add(&subdev->chr_dev, MKDEV(ops->dnum, ret), 1);
-	if (ret)
-		goto out_add;
+	mydevt = MKDEV(MAJOR(ops->dnum), ret);
 	subdev->sys_device = device_create(xocl_class,
-				   &subdev->pdev->dev,
-				   subdev->chr_dev.dev, NULL,
-				   "%s%d", id->name, MINOR(subdev->chr_dev.dev));
+					   &subdev->pdev->dev,
+					   mydevt, NULL,
+					   "%s%d", id->name, ret);
 	if (IS_ERR(subdev->sys_device)) {
 		ret = PTR_ERR(subdev->sys_device);
 		goto out_device;
 	}
-	xocl_info(&subdev->pdev->dev, "Created device node %s\n", dev_name(subdev->sys_device));
+
+	ret = cdev_add(&subdev->chr_dev, mydevt, 1);
+	if (ret)
+		goto out_add;
+	xocl_info(&subdev->pdev->dev, "Created device node %s (%d %d)\n", dev_name(subdev->sys_device),
+		  MAJOR(subdev->sys_device->devt), MINOR(subdev->sys_device->devt));
 	return 0;
-out_device:
-	cdev_del(&subdev->chr_dev);
+
 out_add:
+	device_destroy(xocl_class, mydevt);
+out_device:
 	ida_simple_remove(&ops->minor, MINOR(subdev->chr_dev.dev));
 out_get:
 	return ret;
@@ -166,6 +172,7 @@ int xocl_subdev_cdev_destroy(struct xocl_subdev_base *subdev)
 	ops = (struct xocl_subdev_ops *)id->driver_data;
 	if (!ops || !ops->fops)
 		return 0;
+
 	device_destroy(xocl_class, subdev->chr_dev.dev);
 	cdev_del(&subdev->chr_dev);
 	ida_simple_remove(&ops->minor, MINOR(subdev->chr_dev.dev));
