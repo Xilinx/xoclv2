@@ -684,7 +684,7 @@ static int xocl_rom_probe(struct platform_device *pdev)
 	if (!rom)
 		return -ENOMEM;
 	rom->core.pdev =  pdev;
-	rom->xdev = xocl_get_xdev(pdev);
+	rom->xdev = xocl_get_xdev(&rom->core);
 	xocl_info(dev, "xocl_core 0x%px\n", rom->xdev);
 	ret = feature_rom_probe_helper(pdev, res, rom);
 	if (ret)
@@ -714,13 +714,13 @@ static int xocl_rom_remove(struct platform_device *pdev)
 }
 
 static const struct platform_device_id rom_id_table[] = {
-	{ "xocl-rom", (kernel_ulong_t)&myrom_ops },
+	{ XOCL_FEATURE_ROM, (kernel_ulong_t)&myrom_ops },
 	{ },
 };
 
 struct platform_driver xocl_rom_driver = {
 	.driver	= {
-		.name    = "xocl-rom",
+		.name    = XOCL_FEATURE_ROM,
 	},
 	.probe    = xocl_rom_probe,
 	.remove   = xocl_rom_remove,

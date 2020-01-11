@@ -26,62 +26,17 @@ extern struct platform_driver xocl_region_driver;
 
 struct class *xocl_class;
 
-static long myioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
-{
-	xocl_info(&pdev->dev, "Subdev %s ioctl %d %ld\n", pdev->name, cmd, arg);
-	return 0;
-}
-
-const static struct xocl_subdev_ops srom_ops = {
-	.ioctl = myioctl,
-	.id = XOCL_SUBDEV_SYSMON,
-};
-
-static int xocl_rom_probe(struct platform_device *pdev)
-{
-	//struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
-	struct device *dev = &pdev->dev;
-	const struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-
-	xocl_info(dev, "Probed subdev %s: resource %pr", pdev->name, res);
-	return 0;
-}
-
-static int xocl_rom_remove(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	//struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
-	platform_set_drvdata(pdev, NULL);
-	xocl_info(dev, "Removed subdev %s\n", pdev->name);
-	return 0;
-}
-
-
-static const struct platform_device_id sysmon_id_table[] = {
-	{ "xocl-sysmon", (kernel_ulong_t)&srom_ops },
-	{ },
-};
-
-static struct platform_driver xocl_sysmon_driver = {
-	.driver	= {
-		.name    = "xocl-sysmon",
-	},
-	.probe    = xocl_rom_probe,
-	.remove   = xocl_rom_remove,
-	.id_table = sysmon_id_table,
-};
-
 static struct platform_driver *xocl_subdev_drivers[] = {
 	&xocl_region_driver,
 	&xocl_rom_driver,
 	&xocl_icap_driver,
-	&xocl_sysmon_driver,
 	&xocl_xmc_driver,
 };
 
-long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
+long xocl_subdev_ioctl(struct xocl_subdev_base *subdev, unsigned int cmd, unsigned long arg)
 {
 	const struct xocl_subdev_ops *ops;
+	struct platform_device *pdev = subdev->pdev;
 	const struct platform_device_id	*id = platform_get_device_id(pdev);
 	if (!id || !id->driver_data)
 		return -EOPNOTSUPP;
@@ -92,9 +47,10 @@ long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned 
 	return ops->ioctl(pdev, cmd, arg);
 }
 
-int xocl_subdev_offline(struct platform_device *pdev)
+int xocl_subdev_offline(struct xocl_subdev_base *subdev)
 {
 	const struct xocl_subdev_ops *ops;
+	struct platform_device *pdev = subdev->pdev;
 	const struct platform_device_id	*id = platform_get_device_id(pdev);
 	if (!id || !id->driver_data)
 		return -EOPNOTSUPP;
@@ -105,9 +61,10 @@ int xocl_subdev_offline(struct platform_device *pdev)
 	return ops->offline(pdev);
 }
 
-int xocl_subdev_online(struct platform_device *pdev)
+int xocl_subdev_online(struct xocl_subdev_base *subdev)
 {
 	const struct xocl_subdev_ops *ops;
+	struct platform_device *pdev = subdev->pdev;
 	const struct platform_device_id	*id = platform_get_device_id(pdev);
 	if (!id || !id->driver_data)
 		return -EOPNOTSUPP;

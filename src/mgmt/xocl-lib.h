@@ -260,11 +260,11 @@ struct xocl_board_private {
 };
 
 struct xocl_region {
-	struct xmgmt_dev       *lro;
-	enum region_id          id;
-	struct platform_device *region;
-	int                     child_count;
-	struct platform_device *children[1];
+	struct xmgmt_dev        *lro;
+	enum region_id           id;
+	struct platform_device  *region;
+	int                      child_count;
+	struct xocl_subdev_base *children[1];
 };
 
 struct xocl_from_core {
@@ -310,17 +310,17 @@ struct xocl_dev_core {
  * These complement "probe" and "remove" functions which are already handled by
  * platform driver model.
  */
-long xocl_subdev_ioctl(struct platform_device *pdev, unsigned int cmd,
+long xocl_subdev_ioctl(struct xocl_subdev_base *subdev, unsigned int cmd,
 		       unsigned long arg);
-int xocl_subdev_offline(struct platform_device *pdev);
-int xocl_subdev_online(struct platform_device *pdev);
-const struct platform_device *xocl_lookup_subdev(const struct platform_device *region,
-						 enum subdev_id key);
-static inline struct xocl_dev_core *xocl_get_xdev(const struct platform_device *pdev)
+int xocl_subdev_offline(struct xocl_subdev_base *subdev);
+int xocl_subdev_online(struct xocl_subdev_base *subdev);
+const struct xocl_subdev_base *xocl_lookup_subdev(const struct platform_device *region,
+						  enum subdev_id key);
+static inline struct xocl_dev_core *xocl_get_xdev(const struct xocl_subdev_base *subdev)
 {
 	struct device *top = NULL;
 	/* Go up to region */
-	struct device *rdev = pdev->dev.parent;
+	struct device *rdev = subdev->pdev->dev.parent;
 	if (!rdev)
 		return NULL;
 	/* Now go up to xmgmt-drv */
@@ -328,6 +328,21 @@ static inline struct xocl_dev_core *xocl_get_xdev(const struct platform_device *
 	if (!top)
 		return NULL;
 	return dev_get_drvdata(top);
+}
+
+static inline struct xocl_subdev_base *xocl_get_subdev(struct platform_device *pdev)
+{
+	return platform_get_drvdata(pdev);
+}
+
+static inline const char *xocl_get_subdev_name(const struct xocl_subdev_base *subdev)
+{
+	return subdev->pdev->name;
+}
+
+static inline const struct platform_device_id *subdev_get_device_id(const struct xocl_subdev_base *subdev)
+{
+	return platform_get_device_id(subdev->pdev);
 }
 
 int xocl_subdev_cdev_create(struct xocl_subdev_base *subdev);

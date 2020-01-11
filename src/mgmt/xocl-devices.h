@@ -142,7 +142,6 @@
 			XOCL_DEVINFO_FEATURE_ROM,			\
 			XOCL_DEVINFO_ICAP_MGMT,                         \
 			XOCL_DEVINFO_XMC_MGMT,			        \
-			XOCL_DEVINFO_SYSMON,	         	 	\
 		})
 
 #define	XOCL_BOARD_MGMT_XBB_DSA52					\

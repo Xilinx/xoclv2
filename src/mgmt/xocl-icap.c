@@ -15,6 +15,10 @@
 #include "xocl-lib.h"
 #include "xocl-features.h"
 
+struct xocl_icap {
+	struct xocl_subdev_base  core;
+};
+
 static long myioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
 {
 	xocl_info(&pdev->dev, "Subdev %s ioctl %d %ld\n", pdev->name, cmd, arg);
@@ -28,36 +32,36 @@ const static struct xocl_subdev_ops irom_ops = {
 
 static int xocl_icap_probe(struct platform_device *pdev)
 {
-	//struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
-	struct device *dev = &pdev->dev;
 	const struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	const struct xocl_dev_core *core = xocl_get_xdev(pdev);
+	struct xocl_icap *rom = devm_kzalloc(&pdev->dev, sizeof(struct xocl_icap), GFP_KERNEL);
+	if (!rom)
+		return -ENOMEM;
+	rom->core.pdev =  pdev;
+	platform_set_drvdata(pdev, rom);
 
-	xocl_info(dev, "Probed subdev %s: resource %pr", pdev->name, res);
-	xocl_info(dev, "xocl_core 0x%px\n", core);
-	xocl_info(dev, "VBNV %s: ", core->from.header.VBNVName);
+	xocl_info(&pdev->dev, "Probed subdev %s: resource %pr", pdev->name, res);
 	return 0;
 }
 
 static int xocl_icap_remove(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
-	//struct xocl_subdev_info *info = dev_get_platdata(&pdev->dev);
+	struct xocl_xmc *icap = platform_get_drvdata(pdev);
 	platform_set_drvdata(pdev, NULL);
-	xocl_info(dev, "Removed subdev %s\n", pdev->name);
+	devm_kfree(&pdev->dev, icap);
+	xocl_info(&pdev->dev, "Removed subdev %s\n", pdev->name);
 	return 0;
 }
 
 
 static const struct platform_device_id icap_id_table[] = {
-	{ "xocl-icap", (kernel_ulong_t)&irom_ops },
+	{ XOCL_ICAP, (kernel_ulong_t)&irom_ops },
 	{ },
 };
 
 
 struct platform_driver xocl_icap_driver = {
 	.driver	= {
-		.name    = "xocl-icap",
+		.name    = XOCL_ICAP,
 	},
 	.probe    = xocl_icap_probe,
 	.remove   = xocl_icap_remove,

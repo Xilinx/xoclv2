@@ -85,8 +85,8 @@ static int xocl_region_remove(struct platform_device *pdev)
  * with the matching key. Also note this assumes that there is only one child of type
  * specified with the key
  */
-const struct platform_device *xocl_lookup_subdev(const struct platform_device *rdev,
-						 enum subdev_id key)
+const struct xocl_subdev_base *xocl_lookup_subdev(const struct platform_device *rdev,
+						  enum subdev_id key)
 {
 	int i;
 	const struct xocl_subdev_ops *ops;
@@ -97,7 +97,7 @@ const struct platform_device *xocl_lookup_subdev(const struct platform_device *r
 		return NULL;
 
 	for (i = 0; i < part->child_count; i++) {
-		const struct platform_device_id	*id = platform_get_device_id(part->children[i]);
+		const struct platform_device_id	*id = subdev_get_device_id(part->children[i]);
 		ops = (const struct xocl_subdev_ops *)id->driver_data;
 		if (!ops)
 			return NULL;

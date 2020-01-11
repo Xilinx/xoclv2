@@ -1433,7 +1433,7 @@ static ssize_t read_temp_by_mem_topology(struct file *filp,
 	struct xocl_xmc *xmc =
 		dev_get_drvdata(container_of(kobj, struct device, kobj));
 	uint32_t temp[MAX_M_COUNT] = {0};
-	struct xocl_dev_core *xdev = xocl_get_xdev(xmc->core.pdev);
+	struct xocl_dev_core *xdev = xocl_get_xdev(&xmc->core);
 /*
 //TODO: WIP
 	err = xocl_icap_get_xclbin_metadata(xdev, MEMTOPO_AXLF,
@@ -1801,7 +1801,7 @@ static ssize_t show_hwmon_name(struct device *dev, struct device_attribute *da,
 {
 	struct FeatureRomHeader rom = { {0} };
 	struct xocl_xmc *xmc = dev_get_drvdata(dev);
-	struct xocl_dev_core *xdev_hdl = xocl_get_xdev(xmc->core.pdev);
+	struct xocl_dev_core *xdev_hdl = xocl_get_xdev(&xmc->core);
 	char nm[150] = { 0 };
 	int n;
 
@@ -1861,7 +1861,7 @@ static int mgmt_sysfs_create_xmc(struct platform_device *pdev)
 {
 	int err;
 	struct xocl_xmc *xmc = platform_get_drvdata(pdev);
-	struct xocl_dev_core *core = xocl_get_xdev(pdev);
+	struct xocl_dev_core *core = xocl_get_xdev(&xmc->core);
 
 	if (!xmc->enabled)
 		return 0;
@@ -1926,7 +1926,7 @@ static int stop_xmc_nolock(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	xdev_hdl = xocl_get_xdev(xmc->core.pdev);
+	xdev_hdl = xocl_get_xdev(&xmc->core);
 
 	magic = READ_REG32(xmc, XMC_MAGIC_REG);
 	if (!magic) {
@@ -2039,7 +2039,7 @@ static int load_xmc(struct xocl_xmc *xmc)
 		return ret;
 
 	mutex_lock(&xmc->xmc_lock);
-	core = xocl_get_xdev(xmc->core.pdev);
+	core = xocl_get_xdev(&xmc->core);
 
 	/* Stop XMC first */
 	ret = stop_xmc_nolock(xmc->core.pdev);
@@ -2264,7 +2264,7 @@ static int xmc_probe_helper(struct platform_device *pdev, struct xocl_xmc *xmc)
 	struct resource *res;
 	int i, err;
 
-	const struct xocl_dev_core *core = xocl_get_xdev(pdev);
+	const struct xocl_dev_core *core = xocl_get_xdev(&xmc->core);
 
 	mutex_init(&xmc->xmc_lock);
 	mutex_init(&xmc->mbx_lock);
@@ -2301,7 +2301,6 @@ static int xmc_probe_helper(struct platform_device *pdev, struct xocl_xmc *xmc)
 		}
 	}
 
-	core = xocl_get_xdev(pdev);
 	if (xocl_mb_mgmt_on(core) || xocl_mb_sched_on(core) ||
 		autonomous_xmc(pdev)) {
 		xocl_info(&pdev->dev, "Microblaze is supported.");
@@ -2415,13 +2414,13 @@ end:
 }
 
 static const struct platform_device_id xmc_id_table[] = {
-	{ "xocl-xmc", (kernel_ulong_t)&myxmc_ops },
+	{ XOCL_XMC, (kernel_ulong_t)&myxmc_ops },
 	{ },
 };
 
 struct platform_driver xocl_xmc_driver = {
 	.driver	= {
-		.name    = "xocl-xmc",
+		.name    = XOCL_XMC,
 	},
 	.probe    = xocl_xmc_probe,
 	.remove   = xocl_xmc_remove,
@@ -2645,7 +2644,7 @@ static int xmc_load_board_info(struct xocl_xmc *xmc)
 	int ret = 0;
 	uint32_t bd_info_sz = 0;
 	uint32_t *bdinfo_raw;
-	const struct xocl_dev_core *core = xocl_get_xdev(xmc->core.pdev);
+	const struct xocl_dev_core *core = xocl_get_xdev(&xmc->core);
 	char *tmp_str = NULL;
 
 	BUG_ON(!mutex_is_locked(&xmc->mbx_lock));

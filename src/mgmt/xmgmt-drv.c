@@ -143,14 +143,14 @@ static void xmgmt_subdevs_remove(struct xocl_region *part)
 	for (i = 0; i < u200.subdev_num; i++) {
 		if (!part->children[i])
 			continue;
-		xmgmt_info(dev, "Remove child subdev[%d] %s: 0x%px.0x%px\n", i, part->children[i]->name, part, part->children[i]);
+		xmgmt_info(dev, "Remove child subdev[%d] %s: 0x%px.0x%px\n", i, xocl_get_subdev_name(part->children[i]), part, part->children[i]);
 		/* Only unregister, no put as the former does release the reference */
-		platform_device_unregister(part->children[i]);
+		platform_device_unregister(part->children[i]->pdev);
 		part->children[i] = NULL;
 	}
 }
 
-static struct platform_device *xmgmt_subdev_probe(struct xocl_region *part,
+static struct xocl_subdev_base *xmgmt_subdev_probe(struct xocl_region *part,
 						  struct xocl_subdev_info *info)
 {
 	/* WIP Start with U200 static region */
@@ -175,7 +175,7 @@ static struct platform_device *xmgmt_subdev_probe(struct xocl_region *part,
 	if (rc)
 		goto out_dev_put;
 	xmgmt_info(dev, "Subdev C 0x%px %s\n", pdev, info->name);
-	return pdev;
+	return xocl_get_subdev(pdev);
 
 out_dev_put:
 	platform_device_put(pdev);
@@ -188,7 +188,7 @@ out_dev_put:
  */
 static int xmgmt_subdevs_probe(struct xocl_region *part)
 {
-	struct platform_device *child;
+	struct xocl_subdev_base *child;
 	int rc = 0;
 	int i = 0;
 	struct device *dev = &part->lro->pdev->dev;
@@ -203,7 +203,8 @@ static int xmgmt_subdevs_probe(struct xocl_region *part)
 			rc = PTR_ERR(child);
 			goto out_free;
 		}
-		xmgmt_info(dev, "Add child subdev[%d] %s: 0x%px.0x%px\n", i,  child->name, part, child);
+		xmgmt_info(dev, "Add child subdev[%d] %s: 0x%px.0x%px\n", i,
+			   xocl_get_subdev_name(child), part, child);
 		part->children[i++] = child;
 	}
 	return 0;
