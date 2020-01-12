@@ -235,7 +235,7 @@ static void xmgmt_subdev_test(const struct xocl_region *part)
 	}
 }
 
-static struct xocl_region *xmgmt_part_probe(struct xmgmt_dev *lro, enum region_id id)
+static struct xocl_region *xmgmt_part_probe(struct xmgmt_dev *lro, enum xocl_region_id id)
 {
 	int rc = -ENOMEM;
 	// TODO: obtain the count of children IPs in this region in DT using id as key
@@ -248,7 +248,7 @@ static struct xocl_region *xmgmt_part_probe(struct xmgmt_dev *lro, enum region_i
 	part->child_count = child_count;
 	part->lro = lro;
 	part->id = id;
-	part->region = platform_device_alloc("xocl-region", PLATFORM_DEVID_AUTO);
+	part->region = platform_device_alloc(XOCL_REGION, PLATFORM_DEVID_AUTO);
 	if (!part->region)
 		goto out_free;
 

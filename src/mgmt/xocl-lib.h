@@ -53,6 +53,7 @@
 #define XOCL_DMA_MSIX		"dma_msix"
 #define	XOCL_MAILBOX_VERSAL	"mailbox_versal"
 #define XOCL_ERT		"ert"
+#define XOCL_REGION		"xocl-region"
 
 #define XOCL_DEVNAME(str)	str SUBDEV_SUFFIX
 
@@ -83,7 +84,7 @@ enum xocl_subdev_id {
 	XOCL_SUBDEV_NUM
 };
 
-enum region_id {
+enum xocl_region_id {
 	XOCL_REGION_STATIC,
 	XOCL_REGION_BLD,
 	XOCL_REGION_PRP,
@@ -265,7 +266,7 @@ struct xocl_board_private {
 
 struct xocl_region {
 	struct xmgmt_dev        *lro;
-	enum region_id           id;
+	enum xocl_region_id      id;
 	struct platform_device  *region;
 	int                      child_count;
 	struct xocl_subdev_base *children[1];

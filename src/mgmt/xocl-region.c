@@ -108,13 +108,13 @@ const struct xocl_subdev_base *xocl_lookup_subdev(const struct platform_device *
 }
 
 static const struct platform_device_id region_id_table[] = {
-	{ "xocl-region", 0 },
+	{ XOCL_REGION, 0 },
 	{ },
 };
 
 struct platform_driver xocl_region_driver = {
 	.driver	= {
-		.name    = "xocl-region",
+		.name    = XOCL_REGION,
 	},
 	.probe   = xocl_region_probe,
 	.remove  = xocl_region_remove,
