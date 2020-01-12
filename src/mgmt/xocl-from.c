@@ -365,6 +365,9 @@ static int __find_firmware(const struct platform_device *pdev, char *fw_name,
 	return err;
 }
 
+/*
+ * TODO: This functionality shuld really move into alveo_fmgr
+ */
 static int find_firmware(const struct platform_device *pdev, char *fw_name,
 	size_t len, u16 deviceid, const struct firmware **fw)
 {
@@ -593,7 +596,7 @@ static long myrom_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned
 	return 0;
 }
 
-const static struct xocl_subdev_ops myrom_ops = {
+const static struct xocl_subdev_drv myrom_ops = {
 	.ioctl = myrom_ioctl,
 	.id = XOCL_SUBDEV_FEATURE_ROM,
 };

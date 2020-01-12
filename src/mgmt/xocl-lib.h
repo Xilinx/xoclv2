@@ -56,7 +56,7 @@
 
 #define XOCL_DEVNAME(str)	str SUBDEV_SUFFIX
 
-enum subdev_id {
+enum xocl_subdev_id {
 	XOCL_SUBDEV_FEATURE_ROM,
 	XOCL_SUBDEV_AXIGATE,
 	XOCL_SUBDEV_DMA,
@@ -216,8 +216,9 @@ struct xocl_subdev_base {
 	struct device           *sys_device;
 };
 
-struct xocl_subdev_ops {
-	/* Called by xocl_subdev_ioctl/offline/online defined below */
+struct xocl_subdev_drv {
+	/* Backends if defined for a subdev are called by xocl_subdev_ioctl/offline/online
+	   exported functions defined below */
 	long (*ioctl)(struct platform_device *pdev, unsigned int cmd, unsigned long arg);
 	int (*offline)(struct platform_device *pdev);
 	int (*online)(struct platform_device *pdev);
@@ -225,12 +226,15 @@ struct xocl_subdev_ops {
 	const struct file_operations	*fops;
 	/* If fops is defined then xocl will handle the mechanics of char device (un)registration */
 	dev_t			         dnum;
-	enum subdev_id		         id;
+	enum xocl_subdev_id	         id;
 	struct ida                       minor;
+	/* If defined these are called as part of driver (un)registration */
+	int (*subdrv_post_init)(struct xocl_subdev_drv *ops);
+	void (*subdrv_pre_exit)(struct xocl_subdev_drv *ops);
 };
 
 struct xocl_subdev_info {
-	enum subdev_id		 id;
+	enum xocl_subdev_id	 id;
 	const char	        *name;
 	struct resource	        *res;
 	int			 num_res;
@@ -315,7 +319,7 @@ long xocl_subdev_ioctl(struct xocl_subdev_base *subdev, unsigned int cmd,
 int xocl_subdev_offline(struct xocl_subdev_base *subdev);
 int xocl_subdev_online(struct xocl_subdev_base *subdev);
 const struct xocl_subdev_base *xocl_lookup_subdev(const struct platform_device *region,
-						  enum subdev_id key);
+						  enum xocl_subdev_id key);
 static inline struct xocl_dev_core *xocl_get_xdev(const struct xocl_subdev_base *subdev)
 {
 	struct device *top = NULL;

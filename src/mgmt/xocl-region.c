@@ -86,10 +86,10 @@ static int xocl_region_remove(struct platform_device *pdev)
  * specified with the key
  */
 const struct xocl_subdev_base *xocl_lookup_subdev(const struct platform_device *rdev,
-						  enum subdev_id key)
+						  enum xocl_subdev_id key)
 {
 	int i;
-	const struct xocl_subdev_ops *ops;
+	const struct xocl_subdev_drv *ops;
 	const struct fpga_region *region = platform_get_drvdata(rdev);
 	const struct xocl_region *part = region->priv;
 
@@ -98,7 +98,7 @@ const struct xocl_subdev_base *xocl_lookup_subdev(const struct platform_device *
 
 	for (i = 0; i < part->child_count; i++) {
 		const struct platform_device_id	*id = subdev_get_device_id(part->children[i]);
-		ops = (const struct xocl_subdev_ops *)id->driver_data;
+		ops = (const struct xocl_subdev_drv *)id->driver_data;
 		if (!ops)
 			return NULL;
 		if (ops->id == key)

@@ -306,7 +306,6 @@ enum board_info_key {
 struct xocl_xmc {
 	struct xocl_subdev_base  core;
 	void __iomem		*base_addrs[NUM_IOADDR];
-	struct cdev             chr_dev;
 	struct device		*hwmon_dev;
 	bool			enabled;
 	u32			state;
@@ -2250,7 +2249,7 @@ static void xmc_unload_board_info(struct xocl_xmc *xmc)
 }
 
 
-static struct xocl_subdev_ops myxmc_ops = {
+static struct xocl_subdev_drv myxmc_ops = {
 	.ioctl = myxmc_ioctl,
 #if PF == MGMTPF
 	.fops = &xmc_fops,
@@ -2852,7 +2851,7 @@ done:
 static int xmc_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
-	struct xocl_xmc *xmc = container_of(inode->i_cdev, struct xocl_xmc, chr_dev);
+	struct xocl_xmc *xmc = container_of(inode->i_cdev, struct xocl_xmc, core.chr_dev);
 
 	if (!xmc)
 		return -ENXIO;
