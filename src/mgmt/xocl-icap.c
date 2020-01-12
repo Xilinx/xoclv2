@@ -15,6 +15,7 @@
 #include <linux/cred.h>
 #include <linux/sched/signal.h>
 #include <linux/efi.h>
+#include <linux/delay.h>
 
 #include "xocl-icap.h"
 #include "xocl-lib.h"
@@ -92,6 +93,142 @@ static uint64_t icap_get_data(struct platform_device *pdev, enum data_kind kind)
 static const struct axlf_section_header *get_axlf_section_hdr(
 	struct xocl_icap *icap, const struct axlf *top, enum axlf_section_kind kind);
 static void icap_refresh_addrs(struct platform_device *pdev);
+
+static void icap_iounmap_resources(struct xocl_icap *icap)
+{
+	int i = 0;
+	if (icap->icap_state)
+		iounmap(icap->icap_state);
+	for (i = 0; i < 3; i++) {
+		if (!icap->icap_clock_bases[i])
+			continue;
+		iounmap(icap->icap_clock_bases[i]);
+	}
+}
+
+static void *icap_ioremap_resource(const struct xocl_icap *icap, const char *name)
+{
+	void *io;
+	const struct resource *res = xocl_subdev_resource(&icap->core, IORESOURCE_MEM, name);
+	if (!res) {
+		ICAP_ERR(icap, "Failed to find resource %s\n", RESNAME_MEMCALIB);
+		return ERR_PTR(-ENXIO);
+	}
+	xocl_info(&icap->core.pdev->dev, "resource %pr", res);
+	io = ioremap_nocache(res->start, resource_size(res));
+	if (!io) {
+		ICAP_ERR(icap, "Failed to map resource %s\n", RESNAME_MEMCALIB);
+		return ERR_PTR(-EIO);
+	}
+	return io;
+}
+
+static int icap_ioremap_resources(struct xocl_icap *icap)
+{
+	int rc = 0;
+	void *io = icap_ioremap_resource(icap, RESNAME_MEMCALIB);
+	if (IS_ERR(io)) {
+		rc = PTR_ERR(io);
+		goto cleanup;
+	}
+	icap->icap_state = io;
+
+	io = icap_ioremap_resource(icap, RESNAME_CLKWIZKERNEL1);
+	if (IS_ERR(io)) {
+		rc = PTR_ERR(io);
+		goto cleanup;
+	}
+	icap->icap_clock_bases[0] = io;
+
+	io = icap_ioremap_resource(icap, RESNAME_CLKWIZKERNEL1);
+	if (IS_ERR(io)) {
+		rc = PTR_ERR(io);
+		goto cleanup;
+	}
+	icap->icap_clock_bases[1] = io;
+
+	io = icap_ioremap_resource(icap, RESNAME_CLKWIZKERNEL2);
+	if (IS_ERR(io)) {
+		rc = PTR_ERR(io);
+		goto cleanup;
+	}
+	icap->icap_clock_bases[2] = io;
+
+	io = icap_ioremap_resource(icap, RESNAME_CLKFREQ_K1_K2);
+	if (IS_ERR(io)) {
+		rc = PTR_ERR(io);
+		goto cleanup;
+	}
+	icap->icap_clock_freq_counter = io;
+
+	return 0;
+cleanup:
+	icap_iounmap_resources(icap);
+	return rc;
+}
+
+static unsigned short icap_get_ocl_frequency(const struct xocl_icap *icap, int idx)
+{
+#define XCL_INPUT_FREQ 100
+	const u64 input = XCL_INPUT_FREQ;
+	u32 val;
+	u32 mul0, div0;
+	u32 mul_frac0 = 0;
+	u32 div1;
+	u32 div_frac1 = 0;
+	u64 freq = 0;
+	char *base = NULL;
+
+	if (ICAP_PRIVILEGED(icap)) {
+		base = icap->icap_clock_bases[idx];
+		if (!base)
+			return 0;
+		val = reg_rd(base + OCL_CLKWIZ_STATUS_OFFSET);
+		if ((val & 1) == 0)
+			return 0;
+
+		val = reg_rd(base + OCL_CLKWIZ_CONFIG_OFFSET(0));
+
+		div0 = val & 0xff;
+		mul0 = (val & 0xff00) >> 8;
+		if (val & BIT(26)) {
+			mul_frac0 = val >> 16;
+			mul_frac0 &= 0x3ff;
+		}
+
+		/*
+		 * Multiply both numerator (mul0) and the denominator (div0) with 1000
+		 * to account for fractional portion of multiplier
+		 */
+		mul0 *= 1000;
+		mul0 += mul_frac0;
+		div0 *= 1000;
+
+		val = reg_rd(base + OCL_CLKWIZ_CONFIG_OFFSET(2));
+
+		div1 = val & 0xff;
+		if (val & BIT(18)) {
+			div_frac1 = val >> 8;
+			div_frac1 &= 0x3ff;
+		}
+
+		/*
+		 * Multiply both numerator (mul0) and the denominator (div1) with 1000 to
+		 * account for fractional portion of divider
+		 */
+
+		div1 *= 1000;
+		div1 += div_frac1;
+		div0 *= div1;
+		mul0 *= 1000;
+		if (div0 == 0) {
+			ICAP_ERR(icap, "clockwiz 0 divider");
+			return 0;
+		}
+		freq = (input * mul0) / div0;
+	}
+	return freq;
+}
 
 /*
  * Run the following sequence of canned commands to obtain IDCODE of the FPGA
@@ -204,6 +341,29 @@ static  void icap_xclbin_rd_unlock(struct xocl_icap *icap)
 		wake_up_interruptible(&icap->reader_wq);
 }
 
+static void icap_get_ocl_frequency_max_min(struct xocl_icap *icap,
+					   int idx, unsigned short *freq_max, unsigned short *freq_min)
+{
+	struct clock_freq_topology *topology = 0;
+	int num_clocks = 0;
+
+	if (!uuid_is_null(&icap->icap_bitstream_uuid)) {
+		topology = icap->icap_clock_freq_topology;
+		if (!topology)
+			return;
+
+		num_clocks = topology->m_count;
+
+		if (idx >= num_clocks)
+			return;
+
+		if (freq_max)
+			*freq_max = topology->m_clock_freq[idx].m_freq_Mhz;
+
+		if (freq_min)
+			*freq_min = frequency_table[0].ocl;
+	}
+}
 
 static void icap_free_bins(struct xocl_icap *icap)
 {
@@ -368,15 +528,213 @@ static void icap_clean_bitstream_axlf(struct xocl_icap *icap)
 	icap_clean_axlf_section(icap, PARTITION_METADATA);
 }
 
-static struct attribute *icap_attrs[] = {
+static ssize_t idcode_show(struct device *dev,
+			   struct device_attribute *attr, char *buf)
+{
+	struct xocl_icap *icap = platform_get_drvdata(to_platform_device(dev));
+	ssize_t cnt = 0;
+
+	mutex_lock(&icap->icap_lock);
+	cnt = sprintf(buf, "0x%x\n", icap->idcode);
+	mutex_unlock(&icap->icap_lock);
+
+	return cnt;
+}
+
+static DEVICE_ATTR_RO(idcode);
+
+static unsigned int icap_get_clock_frequency_counter_khz(const struct xocl_icap *icap, int idx)
+{
+	u32 freq = 0, status;
+	int times = 10;
 	/*
-	&dev_attr_clock_freqs.attr,
+	 * reset and wait until done
+	 */
+
+	if (ICAP_PRIVILEGED(icap)) {
+		if (uuid_is_null(&icap->icap_bitstream_uuid))
+			return freq;
+
+		if (icap->icap_clock_freq_counter && idx < 2) {
+			reg_wr(icap->icap_clock_freq_counter,
+				OCL_CLKWIZ_STATUS_MEASURE_START);
+			while (times != 0) {
+				status = reg_rd(icap->icap_clock_freq_counter);
+				if ((status & OCL_CLKWIZ_STATUS_MASK) ==
+					OCL_CLKWIZ_STATUS_MEASURE_DONE)
+					break;
+				mdelay(1);
+				times--;
+			};
+			if ((status & OCL_CLKWIZ_STATUS_MASK) ==
+				OCL_CLKWIZ_STATUS_MEASURE_DONE)
+				freq = reg_rd(icap->icap_clock_freq_counter + OCL_CLK_FREQ_COUNTER_OFFSET + idx*sizeof(u32));
+			return freq;
+		}
+
+		if (icap->icap_clock_freq_counters[idx]) {
+			reg_wr(icap->icap_clock_freq_counters[idx],
+				OCL_CLKWIZ_STATUS_MEASURE_START);
+			while (times != 0) {
+				status =
+				    reg_rd(icap->icap_clock_freq_counters[idx]);
+				if ((status & OCL_CLKWIZ_STATUS_MASK) ==
+					OCL_CLKWIZ_STATUS_MEASURE_DONE)
+					break;
+				mdelay(1);
+				times--;
+			};
+			if ((status & OCL_CLKWIZ_STATUS_MASK) ==
+				OCL_CLKWIZ_STATUS_MEASURE_DONE) {
+				freq = (status & OCL_CLK_FREQ_V5_CLK0_ENABLED) ?
+					reg_rd(icap->icap_clock_freq_counters[idx] + OCL_CLK_FREQ_V5_COUNTER_OFFSET) :
+					reg_rd(icap->icap_clock_freq_counters[idx] + OCL_CLK_FREQ_COUNTER_OFFSET);
+			}
+		}
+	}
+	return freq;
+}
+
+static ssize_t clock_freqs_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct xocl_icap *icap = platform_get_drvdata(to_platform_device(dev));
+	ssize_t cnt = 0;
+	int i, err;
+	u32 freq_counter, freq, request_in_khz, tolerance;
+
+	err = icap_xclbin_rd_lock(icap);
+	if (err)
+		return cnt;
+
+	mutex_lock(&icap->icap_lock);
+	for (i = 0; i < ICAP_MAX_NUM_CLOCKS; i++) {
+		freq = icap_get_ocl_frequency(icap, i);
+		if (!uuid_is_null(&icap->icap_bitstream_uuid)) {
+			freq_counter = icap_get_clock_frequency_counter_khz(icap, i);
+
+			request_in_khz = freq*1000;
+			tolerance = freq*50;
+
+			if (abs(freq_counter-request_in_khz) > tolerance)
+				ICAP_INFO(icap, "Frequency mismatch, Should be %u khz, Now is %ukhz", request_in_khz, freq_counter);
+			cnt += sprintf(buf + cnt, "%d\n", DIV_ROUND_CLOSEST(freq_counter, 1000));
+		} else
+			cnt += sprintf(buf + cnt, "%d\n", freq);
+	}
+
+	mutex_unlock(&icap->icap_lock);
+	icap_xclbin_rd_unlock(icap);
+	return cnt;
+}
+static DEVICE_ATTR_RO(clock_freqs);
+
+static ssize_t reader_cnt_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct xocl_icap *icap = platform_get_drvdata(to_platform_device(dev));
+	u64 val = 0;
+
+	mutex_lock(&icap->icap_lock);
+
+	val = icap->reader_ref;
+
+	mutex_unlock(&icap->icap_lock);
+
+	return sprintf(buf, "%llu\n", val);
+}
+static DEVICE_ATTR_RO(reader_cnt);
+
+static ssize_t cache_expire_secs_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct xocl_icap *icap = platform_get_drvdata(to_platform_device(dev));
+	u64 val = 0;
+
+	mutex_lock(&icap->icap_lock);
+	if (!ICAP_PRIVILEGED(icap))
+		val = icap->cache_expire_secs;
+
+	mutex_unlock(&icap->icap_lock);
+	return sprintf(buf, "%llu\n", val);
+}
+
+static ssize_t cache_expire_secs_store(struct device *dev,
+	struct device_attribute *da, const char *buf, size_t count)
+{
+	struct xocl_icap *icap = platform_get_drvdata(to_platform_device(dev));
+	u64 val;
+
+	mutex_lock(&icap->icap_lock);
+	if (kstrtou64(buf, 10, &val) == -EINVAL || val > 10) {
+		xocl_err(&to_platform_device(dev)->dev,
+			"usage: echo [0 ~ 10] > cache_expire_secs");
+		return -EINVAL;
+	}
+
+	if (!ICAP_PRIVILEGED(icap))
+		icap->cache_expire_secs = val;
+
+	mutex_unlock(&icap->icap_lock);
+	return count;
+}
+static DEVICE_ATTR_RW(cache_expire_secs);
+
+static ssize_t clock_freqs_max_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct xocl_icap *icap = platform_get_drvdata(to_platform_device(dev));
+	ssize_t cnt = 0;
+	int i, err;
+	unsigned short freq;
+
+	err = icap_xclbin_rd_lock(icap);
+	if (err)
+		return cnt;
+
+	for (i = 0; i < ICAP_MAX_NUM_CLOCKS; i++) {
+		freq = 0;
+		icap_get_ocl_frequency_max_min(icap, i, &freq, NULL);
+		cnt += sprintf(buf + cnt, "%d\n", freq);
+	}
+
+	icap_xclbin_rd_unlock(icap);
+	return cnt;
+}
+static DEVICE_ATTR_RO(clock_freqs_max);
+
+static ssize_t clock_freqs_min_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct xocl_icap *icap = platform_get_drvdata(to_platform_device(dev));
+	ssize_t cnt = 0;
+	int i, err;
+	unsigned short freq;
+
+	err = icap_xclbin_rd_lock(icap);
+	if (err)
+		return cnt;
+
+	for (i = 0; i < ICAP_MAX_NUM_CLOCKS; i++) {
+		freq = 0;
+		icap_get_ocl_frequency_max_min(icap, i, NULL, &freq);
+		cnt += sprintf(buf + cnt, "%d\n", freq);
+	}
+
+	icap_xclbin_rd_unlock(icap);
+	return cnt;
+}
+static DEVICE_ATTR_RO(clock_freqs_min);
+
+static struct attribute *icap_attrs[] = {
 	&dev_attr_idcode.attr,
+	&dev_attr_clock_freqs.attr,
+	&dev_attr_reader_cnt.attr,
 	&dev_attr_cache_expire_secs.attr,
-	&dev_attr_sec_level.attr,
 	&dev_attr_clock_freqs_max.attr,
 	&dev_attr_clock_freqs_min.attr,
-	&dev_attr_reader_cnt.attr,
+	/*
+	&dev_attr_sec_level.attr,
 	*/
 	NULL,
 };
@@ -403,6 +761,7 @@ static int xocl_icap_remove(struct platform_device *pdev)
 	struct xocl_icap *icap = platform_get_drvdata(pdev);
 	free_clock_freq_topology(icap);
 	sysfs_remove_group(&pdev->dev.kobj, &icap_attr_group);
+	icap_iounmap_resources(icap);
 	iounmap(icap->icap_regs);
 	icap_clean_bitstream_axlf(icap);
 	ICAP_INFO(icap, "cleaned up successfully");
@@ -428,16 +787,16 @@ static int xocl_icap_probe(struct platform_device *pdev)
 
 	regs = (void **)&icap->icap_regs;
 	if (res != NULL) {
-		*regs = ioremap_nocache(res->start, res->end - res->start + 1);
+		xocl_info(&pdev->dev, "resource[0] %pr", res);
+		*regs = ioremap_nocache(res->start, resource_size(res));
 		if (*regs == NULL) {
 			ICAP_ERR(icap, "failed to map in register");
 			ret = -EIO;
 			goto failed;
-		} else {
-			ICAP_INFO(icap,
-				"mapped in register @ 0x%p", *regs);
 		}
 	}
+
+	icap_ioremap_resources(icap);
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &icap_attr_group);
 	if (ret) {

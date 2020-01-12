@@ -143,7 +143,7 @@ static void xmgmt_subdevs_remove(struct xocl_region *part)
 	for (i = 0; i < u200.subdev_num; i++) {
 		if (!part->children[i])
 			continue;
-		xmgmt_info(dev, "Remove child subdev[%d] %s: 0x%px.0x%px\n", i, xocl_get_subdev_name(part->children[i]), part, part->children[i]);
+		xmgmt_info(dev, "Remove child subdev[%d] %s: 0x%px.0x%px\n", i, xocl_subdev_name(part->children[i]), part, part->children[i]);
 		/* Only unregister, no put as the former does release the reference */
 		platform_device_unregister(part->children[i]->pdev);
 		part->children[i] = NULL;
@@ -204,7 +204,7 @@ static int xmgmt_subdevs_probe(struct xocl_region *part)
 			goto out_free;
 		}
 		xmgmt_info(dev, "Add child subdev[%d] %s: 0x%px.0x%px\n", i,
-			   xocl_get_subdev_name(child), part, child);
+			   xocl_subdev_name(child), part, child);
 		part->children[i++] = child;
 	}
 	return 0;

@@ -204,6 +204,9 @@ enum mb_kind {
 #define RESNAME_CLKWIZKERNEL1   "clkwizkernel1"
 #define RESNAME_CLKWIZKERNEL2   "clkwizkernel2"
 #define RESNAME_CLKWIZKERNEL3   "clkwizkernel3"
+#define RESNAME_CLKFREQ_K1_K2   "clkfreq_k1_k2"
+#define RESNAME_CLKFREQ_K1      "clkfreq_k1"
+#define RESNAME_CLKFREQ_K2      "clkfreq_k2"
 
 struct xocl_vsec_header {
 	u32		format;
@@ -329,6 +332,12 @@ int xocl_subdev_offline(struct xocl_subdev_base *subdev);
 int xocl_subdev_online(struct xocl_subdev_base *subdev);
 const struct xocl_subdev_base *xocl_lookup_subdev(const struct platform_device *region,
 						  enum xocl_subdev_id key);
+static inline const struct resource *xocl_subdev_resource(const struct xocl_subdev_base *subdev,
+							  unsigned int type, const char *name)
+{
+	return platform_get_resource_byname(subdev->pdev, type, name);
+}
+
 static inline struct xocl_dev_core *xocl_get_xdev(const struct xocl_subdev_base *subdev)
 {
 	struct device *top = NULL;
@@ -348,7 +357,7 @@ static inline struct xocl_subdev_base *xocl_get_subdev(struct platform_device *p
 	return platform_get_drvdata(pdev);
 }
 
-static inline const char *xocl_get_subdev_name(const struct xocl_subdev_base *subdev)
+static inline const char *xocl_subdev_name(const struct xocl_subdev_base *subdev)
 {
 	return subdev->pdev->name;
 }

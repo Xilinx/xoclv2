@@ -51,6 +51,12 @@
 			.end	= 0x051fff,		\
 			.flags  = IORESOURCE_MEM,	\
 		},                                      \
+		{	                                \
+			.name	= RESNAME_CLKFREQ_K1_K2,\
+			.start	= 0x052000,		\
+			.end	= 0x052fff,		\
+			.flags  = IORESOURCE_MEM,	\
+		},			                \
 	})
 
 #define	XOCL_RES_XMC					\
