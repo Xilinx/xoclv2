@@ -17,7 +17,7 @@
 #include "xocl-features.h"
 
 #define	ICAP_XCLBIN_V2		"xclbin2"
-
+#define XOCL_AXLF_SIGNING_KEYS  ".xilinx_fpga_xclbin_keys"
 #define	MGMTPF		         0
 #define	USERPF		         1
 
@@ -116,6 +116,7 @@ enum xocl_region_id {
 #define MAX_M_COUNT      	    XOCL_SUBDEV_MAX_INST
 #define XOCL_MAX_FDT_LEN	    1024 * 512
 #define XOCL_EBUF_LEN               512
+
 enum data_kind {
 	MIG_CALIB,
 	DIMM0_TEMP,
@@ -196,6 +197,13 @@ enum mb_kind {
 	COMM_ID,
 	VERSION,
 };
+
+#define RESNAME_ICAP            "icap"
+#define RESNAME_MEMCALIB        "memcalib"
+#define RESNAME_GATEPRPRP       "gateprp"
+#define RESNAME_CLKWIZKERNEL1   "clkwizkernel1"
+#define RESNAME_CLKWIZKERNEL2   "clkwizkernel2"
+#define RESNAME_CLKWIZKERNEL3   "clkwizkernel3"
 
 struct xocl_vsec_header {
 	u32		format;

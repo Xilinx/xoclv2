@@ -22,10 +22,35 @@
 #define	XOCL_RES_ICAP_MGMT				\
 	((struct resource []) {				\
 		{					\
+	                .name   = RESNAME_ICAP,		\
 			.start	= 0x020000,		\
 			.end	= 0x020119,		\
 			.flags  = IORESOURCE_MEM,	\
 		},					\
+		{					\
+			.name	= RESNAME_MEMCALIB,	\
+			.start	= 0x032000,		\
+			.end	= 0x032003,		\
+			.flags  = IORESOURCE_MEM,	\
+		},					\
+		{					\
+			.name	= RESNAME_GATEPRPRP,	\
+			.start	= 0x030000,		\
+			.end	= 0x03000b,		\
+			.flags  = IORESOURCE_MEM,	\
+		},					\
+		{					\
+			.name	= RESNAME_CLKWIZKERNEL1,\
+			.start	= 0x050000,		\
+			.end	= 0x050fff,		\
+			.flags  = IORESOURCE_MEM,	\
+		},					\
+		{					\
+			.name	= RESNAME_CLKWIZKERNEL2,\
+			.start	= 0x051000,		\
+			.end	= 0x051fff,		\
+			.flags  = IORESOURCE_MEM,	\
+		},                                      \
 	})
 
 #define	XOCL_RES_XMC					\
