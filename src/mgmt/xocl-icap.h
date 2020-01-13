@@ -12,15 +12,9 @@
 #include <linux/pid.h>
 
 #include "xocl-lib.h"
-
-#define	ICAP_ERR(icap, fmt, arg...)	\
-	xocl_err(&(icap)->core.pdev->dev, fmt "\n", ##arg)
-#define	ICAP_WARN(icap, fmt, arg...)	\
-	xocl_warn(&(icap)->core.pdev->dev, fmt "\n", ##arg)
-#define	ICAP_INFO(icap, fmt, arg...)	\
-	xocl_info(&(icap)->core.pdev->dev, fmt "\n", ##arg)
-#define	ICAP_DBG(icap, fmt, arg...)	\
-	xocl_dbg(&(icap)->core.pdev->dev, fmt "\n", ##arg)
+#include "xocl-features.h"
+#include "xocl-mailbox-proto.h"
+#include "xclbin.h"
 
 #define	ICAP_PRIVILEGED(icap)	((icap)->icap_regs != NULL)
 #define DMA_HWICAP_BITFILE_BUFFER_SIZE 1024
@@ -100,6 +94,62 @@ struct icap_axi_gate {
 struct icap_bitstream_user {
 	struct list_head	ibu_list;
 	pid_t			ibu_pid;
+};
+
+struct xocl_icap {
+	struct xocl_subdev_base    core;
+	struct mutex		   icap_lock;
+	struct icap_reg		  *icap_regs;
+	struct icap_generic_state *icap_state;
+	unsigned int		   idcode;
+	bool			   icap_axi_gate_frozen;
+	struct icap_axi_gate	  *icap_axi_gate;
+
+	uuid_t			   icap_bitstream_uuid;
+	int			   icap_bitstream_ref;
+
+	char			  *icap_clock_bases[ICAP_MAX_NUM_CLOCKS];
+	unsigned short		   icap_ocl_frequency[ICAP_MAX_NUM_CLOCKS];
+
+	struct clock_freq_topology *icap_clock_freq_topology;
+	unsigned long		    icap_clock_freq_topology_length;
+	char			   *icap_clock_freq_counter;
+	struct mem_topology	   *mem_topo;
+	struct ip_layout	   *ip_layout;
+	struct debug_ip_layout	   *debug_layout;
+	struct connectivity	   *connectivity;
+	void			   *partition_metadata;
+
+	void			   *rp_bit;
+	unsigned long		    rp_bit_len;
+	void			   *rp_fdt;
+	unsigned long		    rp_fdt_len;
+	void			   *rp_mgmt_bin;
+	unsigned long		    rp_mgmt_bin_len;
+	void			   *rp_sche_bin;
+	unsigned long		    rp_sche_bin_len;
+	void			   *rp_sc_bin;
+	unsigned long		   *rp_sc_bin_len;
+
+	struct bmc		    bmc_header;
+
+	char			   *icap_clock_freq_counters[ICAP_MAX_NUM_CLOCKS];
+	char			   *icap_ucs_control_status;
+
+	uint64_t		    cache_expire_secs;
+	struct xcl_pr_region	    cache;
+	ktime_t			    cache_expires;
+
+	enum icap_sec_level	    sec_level;
+
+
+	/* Use reader_ref as xclbin metadata reader counter
+	 * Ther reference count increases by 1
+	 * if icap_xclbin_rd_lock get called.
+	 */
+	u64			    busy;
+	int			    reader_ref;
+	wait_queue_head_t	    reader_wq;
 };
 
 /*
@@ -261,5 +311,18 @@ static inline void reg_wr(void __iomem *reg, u32 val)
 
 	iowrite32(val, reg);
 }
+
+#define	ICAP_ERR(icap, fmt, arg...)	\
+	xocl_err(&(icap)->core.pdev->dev, fmt "\n", ##arg)
+#define	ICAP_WARN(icap, fmt, arg...)	\
+	xocl_warn(&(icap)->core.pdev->dev, fmt "\n", ##arg)
+#define	ICAP_INFO(icap, fmt, arg...)	\
+	xocl_info(&(icap)->core.pdev->dev, fmt "\n", ##arg)
+#define	ICAP_DBG(icap, fmt, arg...)	\
+	xocl_dbg(&(icap)->core.pdev->dev, fmt "\n", ##arg)
+
+long icap_ioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg);
+
+unsigned short icap_get_ocl_frequency(const struct xocl_icap *icap, int idx);
 
 #endif

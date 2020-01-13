@@ -25,65 +25,7 @@
 
 static struct key *icap_keys = NULL;
 
-static u32 gate_free_user[] = {0xe, 0xc, 0xe, 0xf};
-
 static struct attribute_group icap_attr_group;
-
-struct xocl_icap {
-	struct xocl_subdev_base    core;
-	struct mutex		   icap_lock;
-	struct icap_reg		  *icap_regs;
-	struct icap_generic_state *icap_state;
-	unsigned int		   idcode;
-	bool			   icap_axi_gate_frozen;
-	struct icap_axi_gate	  *icap_axi_gate;
-
-	uuid_t			   icap_bitstream_uuid;
-	int			   icap_bitstream_ref;
-
-	char			  *icap_clock_bases[ICAP_MAX_NUM_CLOCKS];
-	unsigned short		   icap_ocl_frequency[ICAP_MAX_NUM_CLOCKS];
-
-	struct clock_freq_topology *icap_clock_freq_topology;
-	unsigned long		    icap_clock_freq_topology_length;
-	char			   *icap_clock_freq_counter;
-	struct mem_topology	   *mem_topo;
-	struct ip_layout	   *ip_layout;
-	struct debug_ip_layout	   *debug_layout;
-	struct connectivity	   *connectivity;
-	void			   *partition_metadata;
-
-	void			   *rp_bit;
-	unsigned long		    rp_bit_len;
-	void			   *rp_fdt;
-	unsigned long		    rp_fdt_len;
-	void			   *rp_mgmt_bin;
-	unsigned long		    rp_mgmt_bin_len;
-	void			   *rp_sche_bin;
-	unsigned long		    rp_sche_bin_len;
-	void			   *rp_sc_bin;
-	unsigned long		   *rp_sc_bin_len;
-
-	struct bmc		    bmc_header;
-
-	char			   *icap_clock_freq_counters[ICAP_MAX_NUM_CLOCKS];
-	char			   *icap_ucs_control_status;
-
-	uint64_t		    cache_expire_secs;
-	struct xcl_pr_region	    cache;
-	ktime_t			    cache_expires;
-
-	enum icap_sec_level	    sec_level;
-
-
-	/* Use reader_ref as xclbin metadata reader counter
-	 * Ther reference count increases by 1
-	 * if icap_xclbin_rd_lock get called.
-	 */
-	u64			    busy;
-	int			    reader_ref;
-	wait_queue_head_t	    reader_wq;
-};
 
 static int icap_parse_bitstream_axlf_section(struct platform_device *pdev,
 	const struct axlf *xclbin, enum axlf_section_kind kind);
@@ -99,6 +41,8 @@ static void icap_iounmap_resources(struct xocl_icap *icap)
 	int i = 0;
 	if (icap->icap_state)
 		iounmap(icap->icap_state);
+	if (icap->icap_axi_gate)
+		iounmap(icap->icap_axi_gate);
 	for (i = 0; i < 3; i++) {
 		if (!icap->icap_clock_bases[i])
 			continue;
@@ -111,13 +55,13 @@ static void *icap_ioremap_resource(const struct xocl_icap *icap, const char *nam
 	void *io;
 	const struct resource *res = xocl_subdev_resource(&icap->core, IORESOURCE_MEM, name);
 	if (!res) {
-		ICAP_ERR(icap, "Failed to find resource %s\n", RESNAME_MEMCALIB);
+		ICAP_ERR(icap, "Failed to find resource %s\n", name);
 		return ERR_PTR(-ENXIO);
 	}
 	xocl_info(&icap->core.pdev->dev, "resource %pr", res);
 	io = ioremap_nocache(res->start, resource_size(res));
 	if (!io) {
-		ICAP_ERR(icap, "Failed to map resource %s\n", RESNAME_MEMCALIB);
+		ICAP_ERR(icap, "Failed to map resource %s\n", name);
 		return ERR_PTR(-EIO);
 	}
 	return io;
@@ -132,6 +76,13 @@ static int icap_ioremap_resources(struct xocl_icap *icap)
 		goto cleanup;
 	}
 	icap->icap_state = io;
+
+	io = icap_ioremap_resource(icap, RESNAME_GATEPRPRP);
+	if (IS_ERR(io)) {
+		rc = PTR_ERR(io);
+		goto cleanup;
+	}
+	icap->icap_axi_gate = io;
 
 	io = icap_ioremap_resource(icap, RESNAME_CLKWIZKERNEL1);
 	if (IS_ERR(io)) {
@@ -167,7 +118,7 @@ cleanup:
 	return rc;
 }
 
-static unsigned short icap_get_ocl_frequency(const struct xocl_icap *icap, int idx)
+unsigned short icap_get_ocl_frequency(const struct xocl_icap *icap, int idx)
 {
 #define XCL_INPUT_FREQ 100
 	const u64 input = XCL_INPUT_FREQ;
@@ -389,12 +340,6 @@ static void icap_free_bins(struct xocl_icap *icap)
 	}
 }
 
-static long myioctl(struct platform_device *pdev, unsigned int cmd, unsigned long arg)
-{
-	xocl_info(&pdev->dev, "Subdev %s ioctl %d %ld\n", pdev->name, cmd, arg);
-	return 0;
-}
-
 static int xocl_post_init_icap(struct xocl_subdev_drv *ops)
 {
 	int err = 0;
@@ -461,7 +406,7 @@ static const struct file_operations icap_fops = {
 };
 
 static struct xocl_subdev_drv icap_ops = {
-	.ioctl = myioctl,
+	.ioctl = icap_ioctl,
 	.fops = &icap_fops,
 	.id = XOCL_SUBDEV_ICAP,
 	.dnum = -1,
@@ -755,6 +700,7 @@ static struct attribute_group icap_attr_group = {
 	.attrs = icap_attrs,
 	.bin_attrs = icap_bin_attrs,
 };
+
 
 static int xocl_icap_remove(struct platform_device *pdev)
 {
