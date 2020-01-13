@@ -166,8 +166,8 @@ static int __init xocl_iplib_init(void)
 		if (ops->fops)
 			ida_init(&ops->minor);
 		pr_info("DD Registering subdev driver[%d] %s...\n", i, xocl_subdev_drivers[i]->driver.name);
-		if (ops->subdrv_post_init)
-			rc = ops->subdrv_post_init(ops);
+		if (ops->drv_post_init)
+			rc = ops->drv_post_init(ops);
 		pr_info("EE Registering subdev driver[%d] %s...\n", i, xocl_subdev_drivers[i]->driver.name);
 		if (rc)
 			goto out_chrdev;
@@ -179,8 +179,8 @@ out_chrdev:
 		ops = (struct xocl_subdev_drv *)xocl_subdev_drivers[j]->id_table[0].driver_data;
 		if (!ops)
 			continue;
-		if (ops->subdrv_pre_exit)
-			ops->subdrv_pre_exit(ops);
+		if (ops->drv_pre_exit)
+			ops->drv_pre_exit(ops);
 		if (ops->fops) {
 			ida_destroy(&ops->minor);
 			unregister_chrdev_region(ops->dnum, XOCL_MAX_DEVICES);
@@ -207,8 +207,8 @@ static void __exit xocl_iplib_exit(void)
 			ida_destroy(&ops->minor);
 			unregister_chrdev_region(ops->dnum, XOCL_MAX_DEVICES);
 		}
-		if (ops->subdrv_pre_exit)
-			ops->subdrv_pre_exit(ops);
+		if (ops->drv_pre_exit)
+			ops->drv_pre_exit(ops);
 	}
 	platform_unregister_drivers(xocl_subdev_drivers, ARRAY_SIZE(xocl_subdev_drivers));
 	class_destroy(xocl_class);

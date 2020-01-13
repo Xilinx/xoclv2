@@ -5,8 +5,8 @@
  * Authors: sonal.santan@xilinx.com
  */
 
-#ifndef	_XOCL_LIBRARY_H_
-#define	_XOCL_LIBRARY_H_
+#ifndef	_XOCL_CORE_LIBRARY_H_
+#define	_XOCL_CORE_LIBRARY_H_
 
 #include <linux/resource.h>
 #include <linux/device.h>
@@ -241,8 +241,8 @@ struct xocl_subdev_drv {
 	enum xocl_subdev_id	         id;
 	struct ida                       minor;
 	/* If defined these are called as part of driver (un)registration */
-	int (*subdrv_post_init)(struct xocl_subdev_drv *ops);
-	void (*subdrv_pre_exit)(struct xocl_subdev_drv *ops);
+	int (*drv_post_init)(struct xocl_subdev_drv *ops);
+	void (*drv_pre_exit)(struct xocl_subdev_drv *ops);
 };
 
 struct xocl_subdev_info {

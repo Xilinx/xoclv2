@@ -465,8 +465,8 @@ static struct xocl_subdev_drv icap_ops = {
 	.fops = &icap_fops,
 	.id = XOCL_SUBDEV_ICAP,
 	.dnum = -1,
-	.subdrv_post_init = xocl_post_init_icap,
-	.subdrv_pre_exit = xocl_pre_exit_icap,
+	.drv_post_init = xocl_post_init_icap,
+	.drv_pre_exit = xocl_pre_exit_icap,
 };
 
 static inline void free_clock_freq_topology(struct xocl_icap *icap)

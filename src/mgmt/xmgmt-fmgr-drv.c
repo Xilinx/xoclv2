@@ -8,34 +8,17 @@
  * Authors: Sonal.Santan@xilinx.com
  */
 
+#include <linux/cred.h>
+#include <linux/efi.h>
 #include <linux/fpga/fpga-mgr.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
 
 #include "xmgmt-drv.h"
 #include "xocl-lib.h"
-#include "xclbin.h"
+#include "xmgmt-fmgr.h"
 
-/*
- * Container to capture and cache full xclbin as it is passed in blocks by FPGA
- * Manager. xocl needs access to full xclbin to walk through xclbin sections. FPGA
- * Manager's .write() backend sends incremental blocks without any knowledge of
- * xclbin format forcing us to collect the blocks and stitch them together here.
- * TODO:
- * 1. Add a variant of API, icap_download_bitstream_axlf() which works off kernel buffer
- * 2. Call this new API from FPGA Manager's write complete hook, xmgmt_pr_write_complete()
- */
-
-struct xfpga_klass {
-	/* Refers to the static shell/BLD which contains the IPs necessary for reprogramming */
-	struct xmgmt_region *fixed;
-	struct axlf *blob;
-	char name[64];
-	size_t count;
-	struct mutex axlf_lock;
-	int reader_ref;
-	enum fpga_mgr_states state;
-};
+struct key *xfpga_keys = NULL;
 
 static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 			       struct fpga_image_info *info, const char *buf, size_t count)
@@ -100,7 +83,7 @@ static int xmgmt_pr_write(struct fpga_manager *mgr,
 
 
 static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
-				  struct fpga_image_info *info)
+				   struct fpga_image_info *info)
 {
 	int result = 0;
 	struct xfpga_klass *obj = mgr->priv;
@@ -115,7 +98,7 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 		return -EINVAL;
 	}
 	/* Send the xclbin blob to actual download framework in icap */
-//	result = xmgmt_icap_download_axlf(obj->xdev, obj->blob);
+	result = xfpga_xclbin_download(mgr);
 	obj->state = result ? FPGA_MGR_STATE_WRITE_COMPLETE_ERR : FPGA_MGR_STATE_WRITE_COMPLETE;
 	xmgmt_info(&mgr->dev, "Finish download of xclbin %pUb of size %zu B", &obj->blob->m_header.uuid, obj->count);
 	vfree(obj->blob);
@@ -163,7 +146,24 @@ static int fmgr_probe(struct platform_device *pdev)
 	 * of drv_set_drvdata) but is expected to be called here since Linux 4.18.
 	 */
 	platform_set_drvdata(pdev, mgr);
+	obj->sec_level = XFPGA_SEC_NONE;
+#ifdef CONFIG_EFI
+	if (is_module_sig_enforced())
+		obj->sec_level = XFPGA_SEC_SYSTEM;
+	xmgmt_info(&pdev->dev, "Secure boot mode detected");
+	// TODO: This does not work with the latest kernels
+	/*
+	if (efi_get_secureboot() == efi_secureboot_mode_enabled) {
+		if (efi_enabled(EFI_SECURE_BOOT)) {
 
+			icap->sec_level = ICAP_SEC_SYSTEM;
+		} else {
+			icap->sec_level = ICAP_SEC_NONE;
+		}
+	*/
+#else
+	xmgmt_info(&pdev->dev, "no support for detection of secure boot mode");
+#endif
 	ret = fpga_mgr_register(mgr);
 	if (ret)
 		fpga_mgr_free(mgr);
@@ -198,7 +198,43 @@ static struct platform_driver fmgr_driver = {
 	},
 };
 
-module_platform_driver(fmgr_driver);
+static int __init xocl_fmgr_init(void)
+{
+	int err = 0;
+	xfpga_keys = keyring_alloc(XOCL_AXLF_SIGNING_KEYS, KUIDT_INIT(0),
+				  KGIDT_INIT(0), current_cred(),
+				  ((KEY_POS_ALL & ~KEY_POS_SETATTR) |
+				   KEY_USR_VIEW | KEY_USR_WRITE | KEY_USR_SEARCH),
+				  KEY_ALLOC_NOT_IN_QUOTA, NULL, NULL);
+
+	if (IS_ERR(xfpga_keys)) {
+		err = PTR_ERR(xfpga_keys);
+		xfpga_keys = NULL;
+		pr_err("Failed to allocate keyring \"%s\": %d\n",
+		       XOCL_AXLF_SIGNING_KEYS, err);
+		return err;
+	}
+	pr_info("Allocated keyring \"%s\" for xclbin signature validation\n",
+		XOCL_AXLF_SIGNING_KEYS);
+	err = platform_driver_register(&fmgr_driver);
+	if (err)
+		key_put(xfpga_keys);
+
+	return err;
+}
+
+static void __exit xocl_fmgr_exit(void)
+{
+	platform_driver_unregister(&fmgr_driver);
+	if (!xfpga_keys)
+		return;
+
+	key_put(xfpga_keys);
+	pr_info("Released keyring \"%s\"\n", XOCL_AXLF_SIGNING_KEYS);
+}
+
+module_init(xocl_fmgr_init);
+module_exit(xocl_fmgr_exit);
 
 MODULE_DESCRIPTION("FPGA Manager for Xilinx Alveo");
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");
