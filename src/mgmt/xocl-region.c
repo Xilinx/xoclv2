@@ -118,3 +118,5 @@ struct platform_driver xocl_region_driver = {
 	.remove  = xocl_region_remove,
 	.id_table = region_id_table,
 };
+
+EXPORT_SYMBOL_GPL(xocl_lookup_subdev);
