@@ -68,7 +68,7 @@ eprobe_mgr_put:
 
 static int xocl_region_remove(struct platform_device *pdev)
 {
-	struct xmgmt_region *part = dev_get_platdata(&pdev->dev);
+	struct xocl_region *part = dev_get_platdata(&pdev->dev);
 	struct fpga_region *region = platform_get_drvdata(pdev);
 	struct fpga_manager *mgr = region->mgr;
 	struct device *dev = &pdev->dev;
@@ -85,13 +85,11 @@ static int xocl_region_remove(struct platform_device *pdev)
  * with the matching key. Also note this assumes that there is only one child of type
  * specified with the key
  */
-const struct xocl_subdev_base *xocl_lookup_subdev(const struct platform_device *rdev,
+const struct xocl_subdev_base *xocl_lookup_subdev(const struct xocl_region *part,
 						  enum xocl_subdev_id key)
 {
 	int i;
 	const struct xocl_subdev_drv *ops;
-	const struct fpga_region *region = platform_get_drvdata(rdev);
-	const struct xocl_region *part = region->priv;
 
 	if (!part)
 		return NULL;

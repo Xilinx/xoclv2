@@ -35,7 +35,7 @@ enum xfpga_sec_level {
 
 struct xfpga_klass {
 	/* Refers to the static shell/BLD which contains the IPs necessary for reprogramming */
-	struct xmgmt_region *fixed;
+	struct xocl_region *fixed;
 	struct axlf         *blob;
 	char                 name[64];
 	size_t               count;

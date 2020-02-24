@@ -18,6 +18,8 @@
 #include "xocl-lib.h"
 #include "xmgmt-fmgr.h"
 
+#include "mgmt-ioctl.h"
+
 struct key *xfpga_keys = NULL;
 
 static int xmgmt_pr_write_init(struct fpga_manager *mgr,
@@ -85,6 +87,7 @@ static int xmgmt_pr_write(struct fpga_manager *mgr,
 static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 				   struct fpga_image_info *info)
 {
+	struct xocl_subdev_base *icap;
 	int result = 0;
 	struct xfpga_klass *obj = mgr->priv;
 	if (obj->state != FPGA_MGR_STATE_WRITE) {
@@ -97,8 +100,14 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 		obj->state = FPGA_MGR_STATE_WRITE_COMPLETE_ERR;
 		return -EINVAL;
 	}
+
+	icap = xocl_lookup_subdev(obj->fixed, XOCL_SUBDEV_ICAP);
+	if (!icap)
+		return -ENODEV;
+
 	/* Send the xclbin blob to actual download framework in icap */
-	result = xfpga_xclbin_download(mgr);
+	result = xocl_subdev_ioctl(icap, XCLMGMT_IOCICAPDOWNLOAD_AXLF, (long)obj->blob);
+
 	obj->state = result ? FPGA_MGR_STATE_WRITE_COMPLETE_ERR : FPGA_MGR_STATE_WRITE_COMPLETE;
 	xmgmt_info(&mgr->dev, "Finish download of xclbin %pUb of size %zu B", &obj->blob->m_header.uuid, obj->count);
 	vfree(obj->blob);

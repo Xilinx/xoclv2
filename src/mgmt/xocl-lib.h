@@ -338,7 +338,7 @@ long xocl_subdev_ioctl(struct xocl_subdev_base *subdev, unsigned int cmd,
 		       unsigned long arg);
 int xocl_subdev_offline(struct xocl_subdev_base *subdev);
 int xocl_subdev_online(struct xocl_subdev_base *subdev);
-const struct xocl_subdev_base *xocl_lookup_subdev(const struct platform_device *region,
+const struct xocl_subdev_base *xocl_lookup_subdev(const struct xocl_region *region,
 						  enum xocl_subdev_id key);
 static inline const struct resource *xocl_subdev_resource(const struct xocl_subdev_base *subdev,
 							  unsigned int type, const char *name)
