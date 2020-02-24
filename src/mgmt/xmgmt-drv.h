@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2019 Xilinx, Inc. All rights reserved.
+ * Copyright (C) 2019-2020 Xilinx, Inc. All rights reserved.
  *
  * Authors: Sonal.Santan@Xilinx.com
  */
@@ -48,7 +48,7 @@ struct xmgmt_dev;
 
 struct xmgmt_char {
 	struct xmgmt_dev       *lro;
-	struct cdev            *cdev;
+	struct cdev             chr_dev;
 	struct device          *sys_device;
 };
 
@@ -67,5 +67,6 @@ struct xmgmt_dev {
 
 void *xmgmt_drvinst_alloc(struct device *dev, u32 size);
 void xmgmt_drvinst_free(void *data);
+long xmgmt_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 
 #endif

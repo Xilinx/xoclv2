@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo Management Function Driver
  *
- * Copyright (C) 2019 Xilinx, Inc.
+ * Copyright (C) 2019-2020 Xilinx, Inc.
  *
  * Authors: sonal.santan@xilinx.com
  */
@@ -10,7 +10,10 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/kernel.h>
+#include <linux/ioctl.h>
 #include <linux/aer.h>
+#include <linux/pid.h>
+#include <linux/sched/signal.h>
 #include <linux/platform_device.h>
 
 #include "xmgmt-drv.h"
@@ -60,62 +63,6 @@ failed:
 	return rc;
 }
 
-/*
- * create_char() -- create a character device interface to data or control bus
- *
- * If at least one SG DMA engine is specified, the character device interface
- * is coupled to the SG DMA file operations which operate on the data bus. If
- * no engines are specified, the interface is coupled with the control bus.
- */
-static int create_char(struct xmgmt_dev *lro)
-{
-        int rc;
-	struct xmgmt_char *lro_char = &lro->user_char_dev;
-
-	/* couple the control device file operations to the character device */
-	lro_char->cdev = cdev_alloc();
-	if (!lro_char->cdev)
-		return -ENOMEM;
-
-//	lro_char->cdev->ops = &ctrl_fops;
-	lro_char->cdev->owner = THIS_MODULE;
-	lro_char->cdev->dev = MKDEV(MAJOR(xmgmt_devnode), lro->dev_minor);
-	rc = cdev_add(lro_char->cdev, lro_char->cdev->dev, 1);
-	if (rc < 0) {
-		memset(lro_char, 0, sizeof(*lro_char));
-		printk(KERN_INFO "cdev_add() = %d\n", rc);
-		goto fail_add;
-	}
-
-	lro_char->sys_device = device_create(xmgmt_class,
-				&lro->pdev->dev,
-				lro_char->cdev->dev, NULL,
-				XMGMT_MODULE_NAME "%d", lro->instance);
-
-	if (IS_ERR(lro_char->sys_device)) {
-		rc = PTR_ERR(lro_char->sys_device);
-		goto fail_device;
-	}
-
-	return 0;
-
-fail_device:
-	cdev_del(lro_char->cdev);
-fail_add:
-	return rc;
-}
-
-static int destroy_char(struct xmgmt_char *lro_char)
-{
-	BUG_ON(!lro_char);
-	BUG_ON(!xmgmt_class);
-
-	if (lro_char->sys_device)
-		device_destroy(xmgmt_class, lro_char->cdev->dev);
-	cdev_del(lro_char->cdev);
-
-	return 0;
-}
 
 /*
  * Compute the IP IOMEM resource absolute PCIe address based on PCIe BAR
@@ -347,6 +294,102 @@ out_dev_put:
 }
 
 /*
+ * Called when the device goes from unused to used.
+ */
+static int xmgmt_open(struct inode *inode, struct file *file)
+{
+	struct xmgmt_dev *lro = container_of(inode->i_cdev, struct xmgmt_dev, user_char_dev.chr_dev);
+
+	if (!lro)
+		return -ENXIO;
+
+	/* create a reference to our char device in the opened file */
+	file->private_data = lro;
+	BUG_ON(!lro);
+
+	xmgmt_info(&lro->pdev->dev, "opened file %p by pid: %d\n",
+		   file, pid_nr(task_tgid(current)));
+
+	return 0;
+}
+
+/*
+ * Called when the device goes from used to unused.
+ */
+static int xmgmt_close(struct inode *inode, struct file *file)
+{
+	struct xmgmt_dev *lro = (struct xmgmt_dev *)file->private_data;
+	BUG_ON(!lro);
+
+	xmgmt_info(&lro->pdev->dev, "Closing file %p by pid: %d\n",
+		   file, pid_nr(task_tgid(current)));
+
+	return 0;
+}
+
+
+static const struct file_operations ctrl_fops = {
+	.owner = THIS_MODULE,
+	.open = xmgmt_open,
+	.release = xmgmt_close,
+	.unlocked_ioctl = xmgmt_ioctl,
+};
+
+/*
+ * create_char() -- create a character device interface to data or control bus
+ *
+ * If at least one SG DMA engine is specified, the character device interface
+ * is coupled to the SG DMA file operations which operate on the data bus. If
+ * no engines are specified, the interface is coupled with the control bus.
+ */
+static int create_char(struct xmgmt_dev *lro)
+{
+        int rc;
+	struct xmgmt_char *lro_char = &lro->user_char_dev;
+
+	/* couple the control device file operations to the character device */
+	cdev_init(&lro_char->chr_dev, &ctrl_fops);
+
+	lro_char->chr_dev.owner = THIS_MODULE;
+	lro_char->chr_dev.dev = MKDEV(MAJOR(xmgmt_devnode), lro->dev_minor);
+	rc = cdev_add(&lro_char->chr_dev, lro_char->chr_dev.dev, 1);
+	if (rc < 0) {
+		memset(lro_char, 0, sizeof(*lro_char));
+		printk(KERN_INFO "cdev_add() = %d\n", rc);
+		goto fail_add;
+	}
+
+	lro_char->sys_device = device_create(xmgmt_class,
+				&lro->pdev->dev,
+				lro_char->chr_dev.dev, NULL,
+				XMGMT_MODULE_NAME "%d", lro->instance);
+
+	if (IS_ERR(lro_char->sys_device)) {
+		rc = PTR_ERR(lro_char->sys_device);
+		goto fail_device;
+	}
+
+	return 0;
+
+fail_device:
+	cdev_del(&lro_char->chr_dev);
+fail_add:
+	return rc;
+}
+
+static int destroy_char(struct xmgmt_char *lro_char)
+{
+	BUG_ON(!lro_char);
+	BUG_ON(!xmgmt_class);
+
+	if (lro_char->sys_device)
+		device_destroy(xmgmt_class, lro_char->chr_dev.dev);
+	cdev_del(&lro_char->chr_dev);
+
+	return 0;
+}
+
+/*
  * Device initialization is done in two phases:
  * 1. Minimum initialization - init to the point where open/close/mmap entry
  * points are working, sysfs entries work without register access, ioctl entry
@@ -414,7 +457,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	return 0;
 
 #if 0
-	xmgmt_drvinst_set_filedev(lro, lro->user_char_dev.cdev);
+	xmgmt_drvinst_set_filedev(lro, lro->user_char_dev.chr_dev);
 
 	mutex_init(&lro->busy_mutex);
 

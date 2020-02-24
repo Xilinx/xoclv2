@@ -8,9 +8,9 @@
 obj-m	+= xmgmt.o
 obj-m	+= xmgmt-fmgr.o
 obj-m   += xocl-lib.o
-obj-m   += ptest.o
+#obj-m   += ptest.o
 
-xmgmt-y := xmgmt-drv.o alveo-ctx.o
+xmgmt-y := xmgmt-drv.o alveo-ctx.o xmgmt-ioctl.o
 xmgmt-fmgr-y := xmgmt-fmgr-xclbin.o xmgmt-fmgr-drv.o
 xocl-lib-y := xocl-from.o xocl-xmc.o xocl-icap.o xocl-icap-ioctl.o xocl-region.o xocl-core.o
 #ptest-y := ptest.o

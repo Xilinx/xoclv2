@@ -1,0 +1,17 @@
+'plantuml -tsvg relations.txt
+
+@startuml
+
+xocl_subdev_base o-- platform_device
+xocl_region "1" o-- "*" xocl_subdev_base
+xocl_subdev_drv -- platform_device
+xmgmt_dev o-- xocl_region
+xmgmt_dev o-- fpga_manager
+fpga_manager o-- xfpga_klass
+
+xocl_subdev_drv : ioctl()
+xocl_subdev_drv : offline(struct platform_device *pdev)
+xocl_subdev_drv : online()
+xocl_subdev_drv : enum xocl_subdev_id id
+
+@enduml

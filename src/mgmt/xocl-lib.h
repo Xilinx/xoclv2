@@ -219,7 +219,8 @@ struct xmgmt_dev;
 struct xocl_subdev_info;
 
 /*
- * Populated by subdev drivers and is used by xocl core.
+ * Populated by subdev drivers and is used by xocl core. It represents
+ * the PLATFORM DEVICE.
  * This should be registered as driver_data in platform_device_id
  */
 struct xocl_subdev_base {
@@ -228,6 +229,10 @@ struct xocl_subdev_base {
 	struct device           *sys_device;
 };
 
+/*
+ * Subdev driver for a subdev. Provides services to clients and manages the subdev
+ * It represents PLATFORM DRIVER.
+ */
 struct xocl_subdev_drv {
 	/* Backends if defined for a subdev are called by xocl_subdev_ioctl/offline/online
 	   exported functions defined below */
@@ -238,8 +243,8 @@ struct xocl_subdev_drv {
 	const struct file_operations	*fops;
 	/* If fops is defined then xocl will handle the mechanics of char device (un)registration */
 	dev_t			         dnum;
-	enum xocl_subdev_id	         id;
 	struct ida                       minor;
+	enum xocl_subdev_id	         id;
 	/* If defined these are called as part of driver (un)registration */
 	int (*drv_post_init)(struct xocl_subdev_drv *ops);
 	void (*drv_pre_exit)(struct xocl_subdev_drv *ops);
@@ -275,6 +280,9 @@ struct xocl_board_private {
 	const char		*sched_bin;
 };
 
+/*
+ * A region contains one or more subdevs.
+ */
 struct xocl_region {
 	struct xmgmt_dev        *lro;
 	enum xocl_region_id      id;
