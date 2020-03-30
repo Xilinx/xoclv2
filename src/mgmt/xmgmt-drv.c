@@ -98,7 +98,7 @@ static void xmgmt_subdevs_remove(struct xocl_region *part)
 }
 
 static struct xocl_subdev_base *xmgmt_subdev_probe(struct xocl_region *part,
-						  struct xocl_subdev_info *info)
+						   struct xocl_subdev_info *info)
 {
 	/* WIP Start with U200 static region */
 	int rc = 0;

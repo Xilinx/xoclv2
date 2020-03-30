@@ -3,7 +3,7 @@
  * Platform driver for Xilinx acclerator FPGA image download feature.
  * Bulk of the code borrowed from XRT driver file icap.c
  *
- * Copyright (C) 2016-2019 Xilinx, Inc.
+ * Copyright (C) 2016-2020 Xilinx, Inc.
  *
  * Authors: sonal.santan@xilinx.com
  *          chien-wei.lan@xilinx.com
