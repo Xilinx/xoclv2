@@ -1,16 +1,14 @@
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (C) 2019 Xilinx, Inc. All rights reserved.
+# Copyright (C) 2020 Xilinx, Inc. All rights reserved.
 #
 # Authors: Sonal.Santan@xilinx.com
 #
 
-obj-m	+= xmgmt.o
-obj-m	+= xmgmt-fmgr.o
+obj-m   += xocl-lib.o
 #obj-m   += ptest.o
 
-xmgmt-y := xmgmt-drv.o alveo-ctx.o xmgmt-ioctl.o
-xmgmt-fmgr-y := xmgmt-fmgr-xclbin.o xmgmt-fmgr-drv.o
+xocl-lib-y := xocl-from.o xocl-xmc.o xocl-icap.o xocl-icap-ioctl.o xocl-region.o xocl-core.o
 #ptest-y := ptest.o
 
 CONFIG_MODULE_SIG=n
@@ -31,8 +29,7 @@ endif
 
 all:
 	echo $(PWD)
-	echo $(ROOT)
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) KBUILD_EXTRA_SYMBOLS=$(PWD)/../lib/Module.symvers modules
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
 
 clean:
 	rm -rf *.o *.o.d *~ core .depend .*.cmd *.ko *.ko.unsigned *.mod.c \
