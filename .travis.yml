@@ -1,0 +1,30 @@
+sudo: enabled
+language: c
+
+matrix:
+  include:
+  - os: linux
+    arch: amd64
+    dist: focal
+    env:
+      - CONFIGURATION=linux/amd64
+
+  - os: linux-ppc64le
+    arch: ppc64le
+    dist: focal
+    env:
+      - CONFIGURATION=linux/ppc64le
+
+  - os: linux
+    arch: arm64
+    dist: focal
+    env:
+      - CONFIGURATION=linux/arm64
+
+before_script:
+  - cd build
+
+before_install:
+  - sudo apt-get update
+
+script: ./build.sh;
