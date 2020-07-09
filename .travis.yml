@@ -22,9 +22,10 @@ matrix:
       - CONFIGURATION=linux/arm64
 
 before_script:
-  - cd build
+  - cd src
 
 before_install:
   - sudo apt-get update
 
-script: ./build.sh;
+script:
+  - make all
