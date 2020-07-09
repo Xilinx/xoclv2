@@ -6,10 +6,7 @@
 #
 
 obj-m   += xocl-lib.o
-#obj-m   += ptest.o
-
-xocl-lib-y := xocl-from.o xocl-xmc.o xocl-icap.o xocl-icap-ioctl.o xocl-region.o xocl-core.o
-#ptest-y := ptest.o
+xocl-lib-y := xocl-partition.o xocl-subdev.o xocl-test.o
 
 CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
@@ -18,13 +15,9 @@ PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))
 XILINXINCLUDE := -I$(ROOT)/include -I$(ROOT)/include/uapi
 
-ccflags-y += $(XILINXINCLUDE) -DPF=MGMTPF -D__XRT__
+ccflags-y += $(XILINXINCLUDE)
 ifeq ($(DEBUG),1)
-ccflags-y += -DDEBUG
-endif
-
-ifeq ($(SYMBOL),1)
-ccflags-y += -g
+ccflags-y += -DDEBUG -g -Og
 endif
 
 all:
