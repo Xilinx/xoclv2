@@ -1,10 +1,10 @@
+#!/bin/bash
+
 # SPDX-License-Identifier: GPL-2.0
 #
 # Copyright (C) 2019 Xilinx, Inc. All rights reserved.
 #
 # Authors: Sonal.Santan@xilinx.com
-
-#!/bin/bash
 
 set -e
 
