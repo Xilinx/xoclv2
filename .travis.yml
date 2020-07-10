@@ -17,7 +17,7 @@ matrix:
 
   - os: linux
     arch: arm64
-    dist: focal
+    dist: bionic
     env:
       - CONFIGURATION=linux/arm64
 
