@@ -22,6 +22,7 @@ matrix:
       - CONFIGURATION=linux/arm64
 
 before_script:
+  - sudo ./scripts/xrtdeps.sh
   - cd src
 
 before_install:
