@@ -8,6 +8,15 @@ matrix:
     dist: focal
     env:
       - CONFIGURATION=linux/amd64
+      - secure: "h86MWuJe8XZgNCZyW5JBob1H/4S2qzSpJIO/fJ8lr5VdtwWb3kOX2Zw5QVQ6NXsBehNFfScNawgXiKzluavxGdUm3jFJJGGp2/qsM9MRJG1jjhr5pJJ+z4MyAqQe97ONTf2p+2A3AAfwpkvqcWDpINYlNAjgUV0J8FrYMBFgDj+AfcnJ0Aw/gZiooK2DzLs4aObHHfU6bQZ1PueoKknNaHLhLpHc7j53GVo2NuEqQE1Gdaa4huD0BUsEH2RscnmTjBGn/0KQVUIKMB4CO9TIMVR2vHMlirW8NNjJdQSPS4Uc9P4AfRiydQnc4Ckxw79Ivm6rgJNQVOoWG8eESF6CfTUzHw+gxf1c3pPp5wE+AVhJesho+BBmVHe1BA9EpDuw8pTLK7b5PN2YRfWDsH8sFJQb3FScxb+Nm3WccpQiLiGjEsHfKA21YsTYQSCTLk3LrCGTBN3XRkh9ltDFdR9YhSOFZ32P4HBApGtxR6eouDAgHApcdUxMV8lsZETbfTX7I5UaJ8qxbvoETtNsGrSuFXZtRBhwPHkW6cQ+yO7D0V1Bo3xW+KD4VvhEyn9uJEFcHq78vWODLFoKB+2tafd7lBD6ZJXFuCAc50hgGD/4FyD35AA9AEKBiDrZENoC5Oqmy8Mz0ODvP9sKbsn/8s9t2bH2Y+D8Qdd895oSs/GYQE0="
+    addons:
+      coverity_scan:
+        project:
+          name: "Xilinx/xoclv2"
+          description: "XRT second generation Linux kernel drivers (xoclv2)"
+        notification_email: runtime@xilinx.com
+        build_command: "make all"
+        branch_pattern: master
 
   - os: linux-ppc64le
     arch: ppc64le
@@ -22,6 +31,7 @@ matrix:
       - CONFIGURATION=linux/arm64
 
 before_script:
+  - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
   - sudo ./scripts/xrtdeps.sh
   - cd src
 
@@ -29,4 +39,4 @@ before_install:
   - sudo apt-get update
 
 script:
-  - make clean; time make all
+  - if [ "$COVERITY_SCAN_BRANCH" != 1 ]; then make clean; time make all; fi
