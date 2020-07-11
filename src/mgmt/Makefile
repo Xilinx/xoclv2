@@ -6,7 +6,19 @@
 #
 
 obj-m	+= xmgmt.o
-xmgmt-y := xmgmt-root.o
+
+fdtdir := ../common/libfdt
+xmgmt-y := xmgmt-root.o				\
+	   $(fdtdir)/fdt.o			\
+	   $(fdtdir)/fdt_addresses.o		\
+	   $(fdtdir)/fdt_empty_tree.o		\
+	   $(fdtdir)/fdt_overlay.o		\
+	   $(fdtdir)/fdt_ro.o			\
+	   $(fdtdir)/fdt_rw.o			\
+	   $(fdtdir)/fdt_strerror.o		\
+	   $(fdtdir)/fdt_sw.o			\
+	   $(fdtdir)/fdt_wip.o
+
 
 CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
@@ -27,4 +39,5 @@ all:
 
 clean:
 	rm -rf *.o *.o.d *~ core .depend .*.cmd *.ko *.ko.unsigned *.mod.c \
-	.tmp_versions *.symvers modules.order *.mod .cache.mk
+	.tmp_versions *.symvers modules.order *.mod .cache.mk \
+	../common/libfdt/*.o
