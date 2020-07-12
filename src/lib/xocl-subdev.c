@@ -14,7 +14,7 @@
 #define	XOCL_IPLIB_MODULE_NAME		"xocl-lib"
 #define	XOCL_IPLIB_MODULE_VERSION	"4.0.0"
 
-#define XOCL_CDEV_DIR			"xfpga"
+#define	XOCL_CDEV_DIR			"xfpga"
 #define	XOCL_DRVNAME(drv)		((drv)->driver.name)
 
 extern struct platform_driver xocl_partition_driver;

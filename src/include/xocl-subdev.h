@@ -104,7 +104,7 @@ struct xocl_subdev_priv {
 	void *xsp_drv_priv;
 	size_t xsp_drv_priv_len;
 
-	/* Something to associated w/ root for msg printing. */
+	/* Something to associate w/ root for msg printing. */
 	int xsp_domain;
 	unsigned int xsp_bus;
 	unsigned int xsp_dev;
