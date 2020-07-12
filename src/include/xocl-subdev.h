@@ -37,7 +37,9 @@ enum xocl_partition_id {
  * char device (un)registration.
  */
 struct xocl_subdev_file_ops {
-	const struct file_operations *xsf_ops;
+	const struct file_operations xsf_ops;
+	dev_t xsf_dev_t;
+	const char *xsf_dev_name;
 };
 
 /*
@@ -65,6 +67,8 @@ struct xocl_subdev_drv_ops {
 	int (*xsd_online)(struct platform_device *pdev);
 };
 
+#define	XOCL_MAX_DEVICE_NODES	128
+
 /*
  * Defined and populated by subdev driver, exported as driver_data in
  * struct platform_device_id.
@@ -91,7 +95,7 @@ struct xocl_subdev_priv {
 	 * the subdev driver to handle. Should always be defined.
 	 */
 	void *xsp_dtb;
-	size_t xsp_dtb_len;
+	size_t xsp_dtb_len; // Redundant??
 
 	/*
 	 * Populated by parent driver to pass in the subdev driver
@@ -99,6 +103,12 @@ struct xocl_subdev_priv {
 	 */
 	void *xsp_drv_priv;
 	size_t xsp_drv_priv_len;
+
+	/* Something to associated w/ root for msg printing. */
+	int xsp_domain;
+	unsigned int xsp_bus;
+	unsigned int xsp_dev;
+	unsigned int xsp_func;
 };
 
 /*
@@ -107,9 +117,12 @@ struct xocl_subdev_priv {
  */
 struct xocl_subdev {
 	struct list_head xs_dev_list;
-	struct platform_device *xs_pdev;	/* name, instance, etc... */
-	struct platform_driver *xs_drv;		/* file and driver ops */
+	enum xocl_subdev_id xs_id;		/* type of subdev */
+	struct platform_driver *xs_drv;		/* all drv ops found by xs_id */
+	struct platform_device *xs_pdev;	/* a particular subdev inst */
 	struct xocl_subdev_priv xs_priv;	/* dtb, subdev priv, etc... */
+	int xs_instance;			/* drv instance & minor */
+	struct cdev *xs_cdev;			/* char dev */
 };
 
 /*
@@ -131,10 +144,19 @@ struct xocl_parent_ioctl_get_leaf {
 };
 
 /* All subdev drivers should use below common routines to print out msg. */
-#define xocl_err(dev, fmt, args...) dev_err(dev, "%s: " fmt, __func__, ##args)
-#define xocl_warn(dev, fmt, args...) dev_warn(dev, "%s: " fmt, __func__, ##args)
-#define xocl_info(dev, fmt, args...) dev_info(dev, "%s: " fmt, __func__, ##args)
-#define xocl_dbg(dev, fmt, args...) dev_dbg(dev, "%s: " fmt, __func__, ##args)
+#define	DEV(pdev)	(&(pdev)->dev)
+#define	DEV_PRIV(pdev)	((struct xocl_subdev_priv *)dev_get_platdata(DEV(pdev)))
+#define	FMT_PRT(prt_fn, pdev, fmt, args...)		\
+	prt_fn(DEV(pdev), "%x:%x:%x.%x %s: "fmt,	\
+	DEV_PRIV(pdev)->xsp_domain,			\
+	DEV_PRIV(pdev)->xsp_bus,			\
+	DEV_PRIV(pdev)->xsp_dev,			\
+	DEV_PRIV(pdev)->xsp_func,			\
+	__func__, ##args)
+#define xocl_err(pdev, fmt, args...) FMT_PRT(dev_err, pdev, fmt, ##args)
+#define xocl_warn(pdev, fmt, args...) FMT_PRT(dev_warn, pdev, fmt, ##args)
+#define xocl_info(pdev, fmt, args...) FMT_PRT(dev_info, pdev, fmt, ##args)
+#define xocl_dbg(pdev, fmt, args...) FMT_PRT(dev_dbg, pdev, fmt, ##args)
 
 extern struct xocl_subdev *
 xocl_subdev_create_partition(struct pci_dev *root, enum xocl_partition_id id,
@@ -147,7 +169,6 @@ extern long xocl_subdev_parent_ioctl(struct platform_device *pdev,
 	u32 cmd, u64 arg);
 extern long xocl_subdev_ioctl(xocl_subdev_leaf_handle_t handle,
 	u32 cmd, u64 arg);
-extern struct platform_driver *xocl_subdev_id2drv(enum xocl_subdev_id id);
 extern xocl_subdev_leaf_handle_t
 xocl_subdev_get_leaf(struct platform_device *pdev, enum xocl_subdev_id id,
 	xocl_leaf_match_t match_cb, u64 match_arg);

@@ -58,37 +58,65 @@ static int xocl_test_probe(struct platform_device *pdev)
 {
 	struct xocl_test *xt;
 
-	xocl_info(&pdev->dev, "probing...");
+	xocl_info(pdev, "probing...");
 
 	xt = devm_kzalloc(&pdev->dev, sizeof(*xt), GFP_KERNEL);
 	if (!xt) {
-		xocl_err(&pdev->dev, "failed to alloc xocl_test");
+		xocl_err(pdev, "failed to alloc xocl_test");
 		return -ENOMEM;
 	}
 	xt->pdev = pdev;
 	platform_set_drvdata(pdev, xt);
 	if (sysfs_create_group(&pdev->dev.kobj, &xocl_test_attrgroup))
-		xocl_err(&pdev->dev, "failed to create sysfs group");
+		xocl_err(pdev, "failed to create sysfs group");
 	return 0;
 }
 
 static int xocl_test_remove(struct platform_device *pdev)
 {
 
-	xocl_info(&pdev->dev, "leaving...");
+	xocl_info(pdev, "leaving...");
 	(void) sysfs_remove_group(&pdev->dev.kobj, &xocl_test_attrgroup);
 	return 0;
 }
 
-static long xocl_test_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
+static long xocl_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
 {
-	xocl_info(&pdev->dev, "handling IOCTL cmd: %d", cmd);
+	xocl_info(pdev, "handling IOCTL cmd: %d", cmd);
+	return 0;
+}
+
+static int xocl_test_open(struct inode *inode, struct file *file)
+{
+	printk(KERN_INFO "OPENED\n");
+	return 0;
+}
+
+static ssize_t
+xocl_test_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
+{
+	printk(KERN_INFO "READ\n");
+	return 0;
+}
+
+static int xocl_test_close(struct inode *inode, struct file *file)
+{
+	printk(KERN_INFO "CLOSED\n");
 	return 0;
 }
 
 struct xocl_subdev_data xocl_test_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xocl_test_ioctl,
+		.xsd_ioctl = xocl_test_leaf_ioctl,
+	},
+	.xsd_file_ops = {
+		.xsf_ops = {
+			.owner = THIS_MODULE,
+			.open = xocl_test_open,
+			.release = xocl_test_close,
+			.read = xocl_test_read,
+		},
+		.xsf_dev_name = "test",
 	},
 };
 
