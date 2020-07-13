@@ -11,6 +11,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/pci.h>
+#include <linux/cdev.h>
 
 /*
  * Every subdev driver should have an ID for others to refer to it.
@@ -80,22 +81,19 @@ struct xocl_subdev_data {
 
 /*
  * Defined and populated by parent driver, passed in as subdev driver's
- * private data when creating subdev driver instance.
+ * platform data when creating subdev driver instance.
  */
 typedef long (*xocl_subdev_parent_cb_t)(struct device *, u32, u64);
-struct xocl_subdev_priv {
+struct xocl_subdev_platdata {
+	/*
+	 * Refer back to the platform device who is holding it.
+	 */
+	struct platform_device *xsp_pdev;
 	/*
 	 * Per driver instance callback. The pdev points to the instance.
 	 * Should always be defined for subdev driver to call into its parent.
 	 */
 	xocl_subdev_parent_cb_t xsp_parent_cb;
-
-	/*
-	 * Populated by parent driver to describe the device tree for
-	 * the subdev driver to handle. Should always be defined.
-	 */
-	void *xsp_dtb;
-	size_t xsp_dtb_len; // Redundant??
 
 	/*
 	 * Populated by parent driver to pass in the subdev driver
@@ -109,6 +107,16 @@ struct xocl_subdev_priv {
 	unsigned int xsp_bus;
 	unsigned int xsp_dev;
 	unsigned int xsp_func;
+
+	/* Char dev of this subdev instance */
+	struct cdev xsp_cdev;
+
+	/*
+	 * Populated by parent driver to describe the device tree for
+	 * the subdev driver to handle. Variable len, should always be last one.
+	 */
+	size_t xsp_dtb_len; // Redundant??
+	char xsp_dtb[1];
 };
 
 /*
@@ -118,11 +126,9 @@ struct xocl_subdev_priv {
 struct xocl_subdev {
 	struct list_head xs_dev_list;
 	enum xocl_subdev_id xs_id;		/* type of subdev */
+	int xs_instance;			/* drv instance & minor */
 	struct platform_driver *xs_drv;		/* all drv ops found by xs_id */
 	struct platform_device *xs_pdev;	/* a particular subdev inst */
-	struct xocl_subdev_priv xs_priv;	/* dtb, subdev priv, etc... */
-	int xs_instance;			/* drv instance & minor */
-	struct cdev *xs_cdev;			/* char dev */
 };
 
 /*
@@ -145,13 +151,14 @@ struct xocl_parent_ioctl_get_leaf {
 
 /* All subdev drivers should use below common routines to print out msg. */
 #define	DEV(pdev)	(&(pdev)->dev)
-#define	DEV_PRIV(pdev)	((struct xocl_subdev_priv *)dev_get_platdata(DEV(pdev)))
+#define	DEV_PDATA(pdev)					\
+	((struct xocl_subdev_platdata *)dev_get_platdata(DEV(pdev)))
 #define	FMT_PRT(prt_fn, pdev, fmt, args...)		\
 	prt_fn(DEV(pdev), "%x:%x:%x.%x %s: "fmt,	\
-	DEV_PRIV(pdev)->xsp_domain,			\
-	DEV_PRIV(pdev)->xsp_bus,			\
-	DEV_PRIV(pdev)->xsp_dev,			\
-	DEV_PRIV(pdev)->xsp_func,			\
+	DEV_PDATA(pdev)->xsp_domain,			\
+	DEV_PDATA(pdev)->xsp_bus,			\
+	DEV_PDATA(pdev)->xsp_dev,			\
+	DEV_PDATA(pdev)->xsp_func,			\
 	__func__, ##args)
 #define xocl_err(pdev, fmt, args...) FMT_PRT(dev_err, pdev, fmt, ##args)
 #define xocl_warn(pdev, fmt, args...) FMT_PRT(dev_warn, pdev, fmt, ##args)
