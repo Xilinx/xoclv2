@@ -24,7 +24,7 @@ static long xocl_part_parent_cb(struct device *dev, u32 cmd, u64 arg)
 	struct platform_device *pdev =
 		container_of(dev, struct platform_device, dev);
 
-	xocl_info(dev, "forwarding parent call, cmd %d", cmd);
+	xocl_info(pdev, "forwarding parent call, cmd %d", cmd);
 	return xocl_subdev_parent_ioctl(pdev, cmd, arg);
 }
 
@@ -33,11 +33,11 @@ static int xocl_part_probe(struct platform_device *pdev)
 	struct xocl_partition *xp;
 	struct xocl_subdev *sdev;
 
-	xocl_info(&pdev->dev, "probing...");
+	xocl_info(pdev, "probing...");
 
 	xp = devm_kzalloc(&pdev->dev, sizeof(*xp), GFP_KERNEL);
 	if (!xp) {
-		xocl_info(&pdev->dev, "failed to alloc xocl_partition");
+		xocl_info(pdev, "failed to alloc xocl_partition");
 		return -ENOMEM;
 	}
 	xp->pdev = pdev;
@@ -64,7 +64,7 @@ static int xocl_part_remove(struct platform_device *pdev)
 {
 	struct xocl_partition *xp = platform_get_drvdata(pdev);
 
-	xocl_info(&pdev->dev, "leaving...");
+	xocl_info(pdev, "leaving...");
 
 	while (!list_empty(&xp->leaves)) {
 		struct xocl_subdev *sdev = list_first_entry(&xp->leaves,
@@ -81,20 +81,13 @@ static int xocl_part_get_leaf(struct xocl_partition *xp,
 {
 	struct list_head *ptr;
 	struct xocl_subdev *sdev;
-	struct platform_driver *drv = xocl_subdev_id2drv(get_leaf->xpigl_id);
 	bool found = false;
 	xocl_leaf_match_t match_cb = get_leaf->xpigl_match_cb;
-
-	if (!drv) {
-		xocl_err(&xp->pdev->dev, "unknown leaf driver id: %d",
-			get_leaf->xpigl_id);
-		return -EINVAL;
-	}
 
 	list_for_each(ptr, &xp->leaves) {
 		sdev = list_entry(ptr, struct xocl_subdev, xs_dev_list);
 
-		if (sdev->xs_drv != drv)
+		if (sdev->xs_id != get_leaf->xpigl_id)
 			continue;
 
 		if (match_cb)
@@ -117,7 +110,7 @@ static long xocl_part_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
 	long rc = 0;
 	struct xocl_partition *xp = platform_get_drvdata(pdev);
 
-	xocl_info(&pdev->dev, "handling IOCTL cmd %d", cmd);
+	xocl_info(pdev, "handling IOCTL cmd %d", cmd);
 
 	switch (cmd) {
 	case XOCL_PARENT_GET_LEAF:
@@ -125,7 +118,7 @@ static long xocl_part_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
 			(struct xocl_parent_ioctl_get_leaf *)arg);
 		break;
 	default:
-		xocl_err(&pdev->dev, "unknown IOCTL cmd %d", cmd);
+		xocl_err(pdev, "unknown IOCTL cmd %d", cmd);
 		rc = -EINVAL;
 		break;
 	}

@@ -18,12 +18,6 @@ matrix:
         build_command: "make all"
         branch_pattern: master
 
-  - os: linux-ppc64le
-    arch: ppc64le
-    dist: focal
-    env:
-      - CONFIGURATION=linux/ppc64le
-
   - os: linux
     arch: arm64
     dist: bionic

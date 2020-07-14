@@ -8,10 +8,14 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/cdev.h>
 #include "xocl-subdev.h"
 
-#define	XOCL_IPLIB_MODULE_NAME	        "xocl-lib"
+#define	XOCL_IPLIB_MODULE_NAME		"xocl-lib"
 #define	XOCL_IPLIB_MODULE_VERSION	"4.0.0"
+
+#define	XOCL_CDEV_DIR			"xfpga"
+#define	XOCL_DRVNAME(drv)		((drv)->driver.name)
 
 extern struct platform_driver xocl_partition_driver;
 extern struct platform_driver xocl_test_driver;
@@ -28,16 +32,11 @@ static struct xocl_subdev_map {
 	enum xocl_subdev_id id;
 	struct platform_driver *drv;
 	char *dtb_name;
+	struct ida ida; /* manage driver instance and char dev minor */
 } xocl_subdev_maps[] = {
 	{ XOCL_SUBDEV_PART, &xocl_partition_driver, },
 	{ XOCL_SUBDEV_TEST, &xocl_test_driver, },
 };
-
-static inline const char *
-xocl_subdev_map2name(struct xocl_subdev_map *map)
-{
-	return map->drv->driver.name;
-}
 
 static inline struct xocl_subdev_data *
 xocl_subdev_map2drvdata(struct xocl_subdev_map *map)
@@ -45,80 +44,11 @@ xocl_subdev_map2drvdata(struct xocl_subdev_map *map)
 	return (struct xocl_subdev_data *)map->drv->id_table[0].driver_data;
 }
 
-static int xocl_subdev_register_driver(struct xocl_subdev_map *map)
+static inline struct xocl_subdev_data *
+xocl_subdev_drvdata(struct platform_device *pdev)
 {
-	struct xocl_subdev_data *data = xocl_subdev_map2drvdata(map);
-	int rc = platform_driver_register(map->drv);
-
-	if (rc) {
-		pr_err("can't register subdev driver: %s",
-			xocl_subdev_map2name(map));
-		return rc;
-	}
-
-	if (data && data->xsd_dev_ops.xsd_post_init) {
-		rc = data->xsd_dev_ops.xsd_post_init();
-		if (rc) {
-			platform_driver_unregister(map->drv);
-			pr_err("failed to post-init subdev driver: %s: %d",
-				xocl_subdev_map2name(map), rc);
-			return rc;
-		}
-	}
-
-	/* TODO: Alloc device node regsion, if needed. */
-
-	pr_info("registered subdev driver: %s\n", xocl_subdev_map2name(map));
-	return 0;
-}
-
-static void xocl_subdev_unregister_driver(struct xocl_subdev_map *map)
-{
-	struct xocl_subdev_data *data = xocl_subdev_map2drvdata(map);
-
-	/* TODO: Free device node regsion, if needed. */
-
-	if (data && data->xsd_dev_ops.xsd_pre_exit)
-		data->xsd_dev_ops.xsd_pre_exit();
-
-	platform_driver_unregister(map->drv);
-
-	pr_info("unregistered subdev driver: %s\n", xocl_subdev_map2name(map));
-}
-
-static __init int xocl_subdev_register_drivers(void)
-{
-	int i;
-	int rc;
-
-	xocl_class = class_create(THIS_MODULE, XOCL_IPLIB_MODULE_NAME);
-	if (IS_ERR(xocl_class))
-		return PTR_ERR(xocl_class);
-
-	for (i = 0; i < ARRAY_SIZE(xocl_subdev_maps); i++) {
-		rc = xocl_subdev_register_driver(&xocl_subdev_maps[i]);
-		if (rc)
-			break;
-
-	}
-	if (!rc)
-		return 0;
-
-	while (i-- > 0)
-		xocl_subdev_unregister_driver(&xocl_subdev_maps[i]);
-	class_destroy(xocl_class);
-	return rc;
-}
-
-static __exit void xocl_subdev_unregister_drivers(void)
-{
-	int i;
-
-	/* TODO: Free device node region, if needed. */
-
-	for (i = 0; i < ARRAY_SIZE(xocl_subdev_maps); i++)
-		xocl_subdev_unregister_driver(&xocl_subdev_maps[i]);
-	class_destroy(xocl_class);
+	return (struct xocl_subdev_data *)
+		platform_get_device_id(pdev)->driver_data;
 }
 
 static struct xocl_subdev_map *
@@ -134,35 +64,145 @@ xocl_subdev_find_map_by_id(enum xocl_subdev_id id)
 	return NULL;
 }
 
-struct platform_driver *
-xocl_subdev_id2drv(enum xocl_subdev_id id)
+static int xocl_subdev_register_driver(enum xocl_subdev_id id)
 {
 	struct xocl_subdev_map *map = xocl_subdev_find_map_by_id(id);
+	struct xocl_subdev_data *data;
+	int rc;
+	const char *drvname;
 
-	if (!map)
-		return NULL;
-	return map->drv;
+	BUG_ON(!map);
+	drvname = XOCL_DRVNAME(map->drv);
+
+	rc = platform_driver_register(map->drv);
+	if (rc) {
+		pr_err("register %s subdev driver failed\n", drvname);
+		return rc;
+	}
+
+	data = xocl_subdev_map2drvdata(map);
+	if (data && data->xsd_dev_ops.xsd_post_init) {
+		rc = data->xsd_dev_ops.xsd_post_init();
+		if (rc) {
+			platform_driver_unregister(map->drv);
+			pr_err("%s's post-init, ret %d\n", drvname, rc);
+			return rc;
+		}
+	}
+
+	if (data && data->xsd_file_ops.xsf_ops.owner) {
+		rc = alloc_chrdev_region(&data->xsd_file_ops.xsf_dev_t, 0,
+			XOCL_MAX_DEVICE_NODES, drvname);
+		if (rc) {
+			if (data->xsd_dev_ops.xsd_pre_exit)
+				data->xsd_dev_ops.xsd_pre_exit();
+			platform_driver_unregister(map->drv);
+			pr_err("failed to alloc dev minors for %s, ret %d\n",
+				drvname, rc);
+			return rc;
+		}
+	} else {
+		data->xsd_file_ops.xsf_dev_t = (dev_t)-1;
+	}
+
+	ida_init(&map->ida);
+
+	pr_info("registered %s subdev driver\n", drvname);
+	return 0;
+}
+
+static void xocl_subdev_unregister_driver(enum xocl_subdev_id id)
+{
+	struct xocl_subdev_map *map = xocl_subdev_find_map_by_id(id);
+	struct xocl_subdev_data *data;
+	const char *drvname;
+
+	BUG_ON(!map);
+	drvname = XOCL_DRVNAME(map->drv);
+
+	ida_destroy(&map->ida);
+
+	data = xocl_subdev_map2drvdata(map);
+	if (data && data->xsd_file_ops.xsf_dev_t != (dev_t)-1) {
+		unregister_chrdev_region(data->xsd_file_ops.xsf_dev_t,
+			XOCL_MAX_DEVICE_NODES);
+	}
+
+	if (data && data->xsd_dev_ops.xsd_pre_exit)
+		data->xsd_dev_ops.xsd_pre_exit();
+
+	platform_driver_unregister(map->drv);
+
+	pr_info("unregistered %s subdev driver\n", drvname);
+}
+
+static __init int xocl_subdev_register_drivers(void)
+{
+	int i;
+	int rc;
+
+	xocl_class = class_create(THIS_MODULE, XOCL_IPLIB_MODULE_NAME);
+	if (IS_ERR(xocl_class))
+		return PTR_ERR(xocl_class);
+
+	for (i = 0; i < ARRAY_SIZE(xocl_subdev_maps); i++) {
+		rc = xocl_subdev_register_driver(xocl_subdev_maps[i].id);
+		if (rc)
+			break;
+	}
+	if (!rc)
+		return 0;
+
+	while (i-- > 0)
+		xocl_subdev_unregister_driver(xocl_subdev_maps[i].id);
+	class_destroy(xocl_class);
+	return rc;
+}
+
+static __exit void xocl_subdev_unregister_drivers(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(xocl_subdev_maps); i++)
+		xocl_subdev_unregister_driver(xocl_subdev_maps[i].id);
+	class_destroy(xocl_class);
 }
 
 static struct xocl_subdev *
-xocl_subdev_alloc(xocl_subdev_parent_cb_t pcb, void *dtb, size_t dtb_len)
+xocl_subdev_alloc(enum xocl_subdev_id devid, int instance)
 {
-	size_t sz = sizeof(struct xocl_subdev) + dtb_len;
-	struct xocl_subdev *sdev = vzalloc(sz);
+	struct xocl_subdev_map *map = xocl_subdev_find_map_by_id(devid);
+	struct xocl_subdev *sdev = vzalloc(sizeof(struct xocl_subdev));
+	int inst;
 
 	if (!sdev)
 		return NULL;
 
+	if (instance == PLATFORM_DEVID_AUTO) {
+		inst = ida_alloc_range(&map->ida, 0, XOCL_MAX_DEVICE_NODES,
+			GFP_KERNEL);
+	} else {
+		inst = ida_alloc_range(&map->ida, instance, instance,
+			GFP_KERNEL);
+		BUG_ON(inst == -ENOSPC);
+	}
+	if (inst < 0) {
+		vfree(sdev);
+		return NULL;
+	}
+
 	INIT_LIST_HEAD(&sdev->xs_dev_list);
-	sdev->xs_priv.xsp_parent_cb = pcb;
-	sdev->xs_priv.xsp_dtb = (char *)sdev + sizeof(struct xocl_subdev);
-	sdev->xs_priv.xsp_dtb_len = dtb_len;
-	(void) memcpy(sdev->xs_priv.xsp_dtb, dtb, dtb_len);
+	sdev->xs_id = devid;
+	sdev->xs_instance = inst;
+	sdev->xs_drv = map->drv;
 	return sdev;
 }
 
 static void xocl_subdev_free(struct xocl_subdev *sdev)
 {
+	struct xocl_subdev_map *map = xocl_subdev_find_map_by_id(sdev->xs_id);
+
+	ida_free(&map->ida, sdev->xs_instance);
 	vfree(sdev);
 }
 
@@ -170,108 +210,199 @@ struct xocl_subdev *
 xocl_subdev_create_partition(struct pci_dev *root, enum xocl_partition_id id,
 	xocl_subdev_parent_cb_t pcb, void *dtb, size_t dtb_len)
 {
-	struct xocl_subdev_map *map =
-		xocl_subdev_find_map_by_id(XOCL_SUBDEV_PART);
-	struct xocl_subdev *sdev = xocl_subdev_alloc(pcb, dtb, dtb_len);
+	struct xocl_subdev *sdev;
 	struct device *parent = &root->dev;
+	struct xocl_subdev_platdata *pdata = NULL;
+	size_t pdata_sz = sizeof(struct xocl_subdev_platdata) + dtb_len - 1;
 
-	BUG_ON(map == NULL);
-
+	sdev = xocl_subdev_alloc(XOCL_SUBDEV_PART, id);
 	if (!sdev) {
-		xocl_err(parent, "failed to alloc subdev.");
+		dev_err(parent, "failed to alloc subdev");
 		return NULL;
 	}
 
-	sdev->xs_drv = map->drv;
+	/* Prepare platform data passed to subdev. */
+	pdata = vzalloc(pdata_sz);
+	if (!pdata) {
+		dev_err(parent, "failed to alloc platform data");
+		goto fail;
+	}
+	pdata->xsp_parent_cb = pcb;
+	(void) memcpy(pdata->xsp_dtb, dtb, dtb_len);
+	pdata->xsp_domain = pci_domain_nr(root->bus);
+	pdata->xsp_bus = root->bus->number;
+	pdata->xsp_dev = PCI_SLOT(root->devfn);
+	pdata->xsp_func = PCI_FUNC(root->devfn);
+
 	sdev->xs_pdev = platform_device_register_data(parent,
-		map->drv->driver.name, id,
-		&sdev->xs_priv, sizeof(struct xocl_subdev_priv));
+		sdev->xs_drv->driver.name, sdev->xs_instance, pdata, pdata_sz);
 	if (IS_ERR(sdev->xs_pdev)) {
-		xocl_err(parent, "failed to create subdev: %ld.",
+		dev_err(parent, "failed to create subdev: %ld",
 			PTR_ERR(sdev->xs_pdev));
-		xocl_subdev_free(sdev);
-		return NULL;
+		goto fail;
 	}
 
 	if (device_attach(&sdev->xs_pdev->dev) != 1) {
-		xocl_err(parent, "failed to attach subdev.");
-		platform_device_unregister(sdev->xs_pdev);
-		xocl_subdev_free(sdev);
-		return NULL;
+		xocl_err(sdev->xs_pdev, "failed to attach");
+		goto fail;
 	}
 
+	vfree(pdata);
 	return sdev;
+
+fail:
+	vfree(pdata);
+	if (!IS_ERR_OR_NULL(sdev->xs_pdev))
+		platform_device_unregister(sdev->xs_pdev);
+	xocl_subdev_free(sdev);
+	return NULL;
+}
+
+static int xocl_subdev_create_cdev(struct xocl_subdev *sdev)
+{
+	struct platform_device *pdev = sdev->xs_pdev;
+	struct xocl_subdev_data *drvdata = xocl_subdev_drvdata(pdev);
+	struct xocl_subdev_file_ops *fops = &drvdata->xsd_file_ops;
+	struct cdev *cdevp;
+	struct device *sysdev;
+	int ret = 0;
+	const char *cdevname;
+	char filename[256];
+
+	if (fops->xsf_dev_t == (dev_t)-1)
+		return 0; /* subdev does not support char dev */
+
+	cdevp = &DEV_PDATA(pdev)->xsp_cdev;
+	cdev_init(cdevp, &fops->xsf_ops);
+	cdevp->owner = fops->xsf_ops.owner;
+	cdevp->dev = MKDEV(MAJOR(fops->xsf_dev_t),
+		(sdev->xs_instance & MINORMASK));
+	/*
+	 * Set pdev as parent of cdev so that when pdev (and its platform
+	 * data) will not be freed when cdev is not freed.
+	 */
+	cdev_set_parent(cdevp, &pdev->dev.kobj);
+
+	ret = cdev_add(cdevp, cdevp->dev, 1);
+	if (ret) {
+		xocl_err(pdev, "failed to add cdev: %d", ret);
+		goto failed;
+	}
+
+	cdevname = fops->xsf_dev_name;
+	if (!cdevname)
+		cdevname = sdev->xs_drv->driver.name;
+	snprintf(filename, sizeof(filename) - 1, "%s/%s.%x:%x:%x.%x-%u",
+		XOCL_CDEV_DIR, cdevname, DEV_PDATA(pdev)->xsp_domain,
+		DEV_PDATA(pdev)->xsp_bus, DEV_PDATA(pdev)->xsp_dev,
+		DEV_PDATA(pdev)->xsp_func, sdev->xs_instance);
+	sysdev = device_create(xocl_class, &pdev->dev, cdevp->dev,
+		NULL, "%s", filename);
+	if (IS_ERR(sysdev)) {
+		ret = PTR_ERR(sysdev);
+		xocl_err(pdev, "failed to create device node: %d", ret);
+		goto failed;
+	}
+
+	xocl_info(pdev, "created device node: %s", filename);
+	return 0;
+
+failed:
+	device_destroy(xocl_class, cdevp->dev);
+	cdev_del(cdevp);
+	cdevp->owner = NULL;
+	return ret;
+}
+
+static void xocl_subdev_destroy_cdev(struct xocl_subdev *sdev)
+{
+	struct cdev *cdevp = &DEV_PDATA(sdev->xs_pdev)->xsp_cdev;
+
+	if (!cdevp->owner)
+		return;
+
+	device_destroy(xocl_class, cdevp->dev);
+	cdev_del(cdevp);
+	cdevp->owner = NULL;
+	xocl_info(sdev->xs_pdev, "removed device node");
 }
 
 struct xocl_subdev *
 xocl_subdev_create_leaf(struct platform_device *part, enum xocl_subdev_id id,
 	xocl_subdev_parent_cb_t pcb, void *dtb, size_t dtb_len)
 {
-	struct xocl_subdev_map *map;
 	struct xocl_subdev *sdev;
 	struct device *parent = &part->dev;
+	struct xocl_subdev_platdata *pdata = NULL;
+	size_t pdata_sz = sizeof(struct xocl_subdev_platdata) + dtb_len - 1;
 
-	map = xocl_subdev_find_map_by_id(id);
-	if (!map) {
-		xocl_err(parent, "failed to find subdev.");
-		return NULL;
-	}
-
-	sdev = xocl_subdev_alloc(pcb, dtb, dtb_len);
+	sdev = xocl_subdev_alloc(id, PLATFORM_DEVID_AUTO);
 	if (!sdev) {
-		xocl_err(parent, "failed to alloc subdev.");
+		dev_err(parent, "failed to alloc subdev for ID %d", id);
 		return NULL;
 	}
 
-	sdev->xs_drv = map->drv;
+	/* Prepare platform data passed to subdev. */
+	pdata = vzalloc(pdata_sz);
+	if (!pdata) {
+		dev_err(parent, "failed to alloc platform data");
+		goto fail;
+	}
+	pdata->xsp_parent_cb = pcb;
+	(void) memcpy(pdata->xsp_dtb, dtb, dtb_len);
+	pdata->xsp_domain = DEV_PDATA(part)->xsp_domain;
+	pdata->xsp_bus = DEV_PDATA(part)->xsp_bus;
+	pdata->xsp_dev = DEV_PDATA(part)->xsp_dev;
+	pdata->xsp_func = DEV_PDATA(part)->xsp_func;
+
 	sdev->xs_pdev = platform_device_register_resndata(parent,
-		map->drv->driver.name, PLATFORM_DEVID_AUTO,
+		sdev->xs_drv->driver.name, sdev->xs_instance,
 		NULL, 0, /* TODO: find out IO and IRQ resources from dtb */
-		&sdev->xs_priv, sizeof(struct xocl_subdev_priv));
+		pdata, pdata_sz);
 	if (IS_ERR(sdev->xs_pdev)) {
-		xocl_err(parent, "failed to create subdev: %ld.",
+		dev_err(parent, "failed to create subdev for %s inst %d: %ld",
+			XOCL_DRVNAME(sdev->xs_drv), sdev->xs_instance,
 			PTR_ERR(sdev->xs_pdev));
-		xocl_subdev_free(sdev);
-		return NULL;
+		goto fail;
 	}
 
 	if (device_attach(&sdev->xs_pdev->dev) != 1) {
-		xocl_err(parent, "failed to attach subdev.");
-		platform_device_unregister(sdev->xs_pdev);
-		xocl_subdev_free(sdev);
-		return NULL;
+		xocl_err(sdev->xs_pdev, "failed to attach");
+		goto fail;
 	}
 
-	/*
-	 * TODO: create device node if needed
-	 */
-
+	(void) xocl_subdev_create_cdev(sdev);
+	vfree(pdata);
 	return sdev;
+
+fail:
+	vfree(pdata);
+	if (!IS_ERR_OR_NULL(sdev->xs_pdev))
+		platform_device_unregister(sdev->xs_pdev);
+	xocl_subdev_free(sdev);
+	return NULL;
+
 }
 
 void xocl_subdev_destroy(struct xocl_subdev *sdev)
 {
-	/*
-	 * TODO: remove device node if needed
-	 */
-
+	xocl_subdev_destroy_cdev(sdev);
 	platform_device_unregister(sdev->xs_pdev);
 	xocl_subdev_free(sdev);
 }
 
 long xocl_subdev_parent_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
 {
-	struct device *dev = &pdev->dev;
-	struct xocl_subdev_priv *priv = dev_get_platdata(dev);
+	struct device *dev = DEV(pdev);
+	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
 
-	return (*priv->xsp_parent_cb)(dev->parent, cmd, arg);
+	return (*pdata->xsp_parent_cb)(dev->parent, cmd, arg);
 }
 
 long xocl_subdev_ioctl(xocl_subdev_leaf_handle_t handle, u32 cmd, u64 arg)
 {
 	struct platform_device *pdev = (struct platform_device *)handle;
-	struct xocl_subdev_data *drvdata = (struct xocl_subdev_data *)
-		platform_get_device_id(pdev)->driver_data;
+	struct xocl_subdev_data *drvdata = xocl_subdev_drvdata(pdev);
 
 	return (*drvdata->xsd_dev_ops.xsd_ioctl)(pdev, cmd, arg);
 }
@@ -287,7 +418,7 @@ xocl_subdev_get_leaf(struct platform_device *pdev, enum xocl_subdev_id id,
 	rc = xocl_subdev_parent_ioctl(
 		pdev, XOCL_PARENT_GET_LEAF, (u64)&get_leaf);
 	if (rc) {
-		xocl_err(&pdev->dev, "failed to find leaf subdev: %ld.", rc);
+		xocl_err(pdev, "failed to find leaf subdev id %d: %ld", id, rc);
 		return NULL;
 	}
 	return get_leaf.xpigl_leaf;
@@ -301,7 +432,6 @@ EXPORT_SYMBOL_GPL(xocl_subdev_create_leaf);
 EXPORT_SYMBOL_GPL(xocl_subdev_destroy);
 EXPORT_SYMBOL_GPL(xocl_subdev_parent_ioctl);
 EXPORT_SYMBOL_GPL(xocl_subdev_ioctl);
-EXPORT_SYMBOL_GPL(xocl_subdev_id2drv);
 EXPORT_SYMBOL_GPL(xocl_subdev_get_leaf);
 
 MODULE_VERSION(XOCL_IPLIB_MODULE_VERSION);
