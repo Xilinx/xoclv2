@@ -20,7 +20,7 @@ matrix:
 
   - os: linux-ppc64le
     arch: ppc64le
-    dist: focal
+    dist: bionic
     env:
       - CONFIGURATION=linux/ppc64le
 

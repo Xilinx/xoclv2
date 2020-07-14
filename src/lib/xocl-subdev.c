@@ -354,7 +354,6 @@ xocl_subdev_create_leaf(struct platform_device *part, enum xocl_subdev_id id,
 	pdata->xsp_bus = DEV_PDATA(part)->xsp_bus;
 	pdata->xsp_dev = DEV_PDATA(part)->xsp_dev;
 	pdata->xsp_func = DEV_PDATA(part)->xsp_func;
-	pdata->fortest = 0x55aa;
 
 	sdev->xs_pdev = platform_device_register_resndata(parent,
 		sdev->xs_drv->driver.name, sdev->xs_instance,
