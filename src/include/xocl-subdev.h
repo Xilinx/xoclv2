@@ -110,6 +110,11 @@ struct xocl_subdev_platdata {
 
 	/* Char dev of this subdev instance */
 	struct cdev xsp_cdev;
+	struct mutex xsp_devnode_lock;
+	struct completion xsp_devnode_comp;
+	int xsp_devnode_ref;
+	bool xsp_devnode_online;
+	bool xsp_devnode_excl;
 
 	/*
 	 * Populated by parent driver to describe the device tree for
@@ -165,6 +170,7 @@ struct xocl_parent_ioctl_get_leaf {
 #define xocl_info(pdev, fmt, args...) FMT_PRT(dev_info, pdev, fmt, ##args)
 #define xocl_dbg(pdev, fmt, args...) FMT_PRT(dev_dbg, pdev, fmt, ##args)
 
+/* For root and partition drivers. */
 extern struct xocl_subdev *
 xocl_subdev_create_partition(struct pci_dev *root, enum xocl_partition_id id,
 	xocl_subdev_parent_cb_t pcb, void *dtb, size_t dtb_len);
@@ -172,6 +178,8 @@ extern struct xocl_subdev *
 xocl_subdev_create_leaf(struct platform_device *part, enum xocl_subdev_id id,
 	xocl_subdev_parent_cb_t pcb, void *dtb, size_t dtb_len);
 extern void xocl_subdev_destroy(struct xocl_subdev *sdev);
+
+/* For leaf drivers. */
 extern long xocl_subdev_parent_ioctl(struct platform_device *pdev,
 	u32 cmd, u64 arg);
 extern long xocl_subdev_ioctl(xocl_subdev_leaf_handle_t handle,
@@ -179,5 +187,10 @@ extern long xocl_subdev_ioctl(xocl_subdev_leaf_handle_t handle,
 extern xocl_subdev_leaf_handle_t
 xocl_subdev_get_leaf(struct platform_device *pdev, enum xocl_subdev_id id,
 	xocl_leaf_match_t match_cb, u64 match_arg);
+extern void xocl_devnode_allowed(struct platform_device *pdev);
+extern int xocl_devnode_disallowed(struct platform_device *pdev);
+extern struct platform_device *xocl_devnode_open_excl(struct inode *inode);
+extern struct platform_device *xocl_devnode_open(struct inode *inode);
+extern void xocl_devnode_close(struct inode *inode);
 
 #endif	/* _XOCL_SUBDEV_H_ */
