@@ -258,6 +258,23 @@ fail:
 	return NULL;
 }
 
+static void
+xocl_subdev_cdev_name(struct xocl_subdev *sdev, char *buf, size_t sz)
+{
+	struct platform_device *pdev = sdev->xs_pdev;
+	struct xocl_subdev_data *drvdata = xocl_subdev_drvdata(pdev);
+	struct xocl_subdev_file_ops *fops = &drvdata->xsd_file_ops;
+	const char *cdevname;
+
+	cdevname = fops->xsf_dev_name;
+	if (!cdevname)
+		cdevname = sdev->xs_drv->driver.name;
+	snprintf(buf, sz, "%s/%s.%x:%x:%x.%x-%u",
+		XOCL_CDEV_DIR, cdevname, DEV_PDATA(pdev)->xsp_domain,
+		DEV_PDATA(pdev)->xsp_bus, DEV_PDATA(pdev)->xsp_dev,
+		DEV_PDATA(pdev)->xsp_func, sdev->xs_instance);
+}
+
 static int xocl_subdev_create_cdev(struct xocl_subdev *sdev)
 {
 	struct platform_device *pdev = sdev->xs_pdev;
@@ -266,8 +283,7 @@ static int xocl_subdev_create_cdev(struct xocl_subdev *sdev)
 	struct cdev *cdevp;
 	struct device *sysdev;
 	int ret = 0;
-	const char *cdevname;
-	char filename[256];
+	char fname[256];
 
 	if (fops->xsf_dev_t == (dev_t)-1)
 		return 0; /* subdev does not support char dev */
@@ -275,8 +291,8 @@ static int xocl_subdev_create_cdev(struct xocl_subdev *sdev)
 	cdevp = &DEV_PDATA(pdev)->xsp_cdev;
 	cdev_init(cdevp, &fops->xsf_ops);
 	cdevp->owner = fops->xsf_ops.owner;
-	cdevp->dev = MKDEV(MAJOR(fops->xsf_dev_t),
-		(sdev->xs_instance & MINORMASK));
+	cdevp->dev = MKDEV(MAJOR(fops->xsf_dev_t), sdev->xs_instance);
+
 	/*
 	 * Set pdev as parent of cdev so that when pdev (and its platform
 	 * data) will not be freed when cdev is not freed.
@@ -288,23 +304,16 @@ static int xocl_subdev_create_cdev(struct xocl_subdev *sdev)
 		xocl_err(pdev, "failed to add cdev: %d", ret);
 		goto failed;
 	}
-
-	cdevname = fops->xsf_dev_name;
-	if (!cdevname)
-		cdevname = sdev->xs_drv->driver.name;
-	snprintf(filename, sizeof(filename) - 1, "%s/%s.%x:%x:%x.%x-%u",
-		XOCL_CDEV_DIR, cdevname, DEV_PDATA(pdev)->xsp_domain,
-		DEV_PDATA(pdev)->xsp_bus, DEV_PDATA(pdev)->xsp_dev,
-		DEV_PDATA(pdev)->xsp_func, sdev->xs_instance);
-	sysdev = device_create(xocl_class, &pdev->dev, cdevp->dev,
-		NULL, "%s", filename);
+	xocl_subdev_cdev_name(sdev, fname, sizeof(fname));
+	sysdev = device_create(xocl_class, NULL, cdevp->dev, NULL, "%s", fname);
 	if (IS_ERR(sysdev)) {
 		ret = PTR_ERR(sysdev);
 		xocl_err(pdev, "failed to create device node: %d", ret);
 		goto failed;
 	}
 
-	xocl_info(pdev, "created device node: %s", filename);
+	xocl_info(pdev, "created (%d, %d): %s",
+		MAJOR(cdevp->dev), sdev->xs_instance, fname);
 	return 0;
 
 failed:
@@ -316,15 +325,18 @@ failed:
 
 static void xocl_subdev_destroy_cdev(struct xocl_subdev *sdev)
 {
-	struct cdev *cdevp = &DEV_PDATA(sdev->xs_pdev)->xsp_cdev;
+	struct platform_device *pdev = sdev->xs_pdev;
+	struct cdev *cdevp = &DEV_PDATA(pdev)->xsp_cdev;
+	dev_t dev = cdevp->dev;
+	char fname[256];
 
 	if (!cdevp->owner)
 		return;
 
 	device_destroy(xocl_class, cdevp->dev);
 	cdev_del(cdevp);
-	cdevp->owner = NULL;
-	xocl_info(sdev->xs_pdev, "removed device node");
+	xocl_subdev_cdev_name(sdev, fname, sizeof(fname));
+	xocl_info(pdev, "removed (%d, %d): %s", MAJOR(dev), MINOR(dev), fname);
 }
 
 struct xocl_subdev *
@@ -428,11 +440,8 @@ module_init(xocl_subdev_register_drivers);
 module_exit(xocl_subdev_unregister_drivers);
 
 EXPORT_SYMBOL_GPL(xocl_subdev_create_partition);
-EXPORT_SYMBOL_GPL(xocl_subdev_create_leaf);
 EXPORT_SYMBOL_GPL(xocl_subdev_destroy);
-EXPORT_SYMBOL_GPL(xocl_subdev_parent_ioctl);
 EXPORT_SYMBOL_GPL(xocl_subdev_ioctl);
-EXPORT_SYMBOL_GPL(xocl_subdev_get_leaf);
 
 MODULE_VERSION(XOCL_IPLIB_MODULE_VERSION);
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");

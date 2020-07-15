@@ -6,7 +6,7 @@
 #
 
 obj-m   += xocl-lib.o
-xocl-lib-y := xocl-partition.o xocl-subdev.o xocl-test.o
+xocl-lib-y := xocl-partition.o xocl-subdev.o xocl-test.o xocl-ctx.o
 
 CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build

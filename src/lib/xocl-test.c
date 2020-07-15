@@ -58,11 +58,8 @@ static const struct attribute_group xocl_test_attrgroup = {
 static int xocl_test_probe(struct platform_device *pdev)
 {
 	struct xocl_test *xt;
-	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
 
 	xocl_info(pdev, "probing...");
-
-	pdata->xsp_pdev = pdev;
 
 	xt = devm_kzalloc(&pdev->dev, sizeof(*xt), GFP_KERNEL);
 	if (!xt) {
@@ -72,16 +69,34 @@ static int xocl_test_probe(struct platform_device *pdev)
 	xt->pdev = pdev;
 	platform_set_drvdata(pdev, xt);
 
+	/* Ready to handle req thru sysfs nodes. */
 	if (sysfs_create_group(&pdev->dev.kobj, &xocl_test_attrgroup))
 		xocl_err(pdev, "failed to create sysfs group");
 
+	/* Ready to handle req thru cdev. */
+	xocl_devnode_allowed(pdev);
+
+	/* After we return here, we'll get inter-leaf calls. */
 	return 0;
 }
 
 static int xocl_test_remove(struct platform_device *pdev)
 {
+	int ret;
+
+	/* By now, partition driver should prevent any inter-leaf call. */
+
 	xocl_info(pdev, "leaving...");
+
+	ret = xocl_devnode_disallowed(pdev);
+	if (ret)
+		return ret;
+	/* By now, no more access thru cdev. */
+
 	(void) sysfs_remove_group(&pdev->dev.kobj, &xocl_test_attrgroup);
+	/* By now, no more access thru sysfs nodes. */
+
+	/* Clean up can safely be done now. */
 	return 0;
 }
 
@@ -93,25 +108,37 @@ static long xocl_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
 
 static int xocl_test_open(struct inode *inode, struct file *file)
 {
-	struct xocl_subdev_platdata *pdata = container_of(inode->i_cdev,
-		struct xocl_subdev_platdata, xsp_cdev);
+	struct platform_device *pdev = xocl_devnode_open(inode);
 
-	printk(KERN_INFO "OPENED\n");
+	/* Device may have gone already when we get here. */
+	if (!pdev)
+		return -ENODEV;
 
-	file->private_data = pdata->xsp_pdev;
+	xocl_info(pdev, "opened");
+	file->private_data = platform_get_drvdata(pdev);
 	return 0;
 }
 
 static ssize_t
 xocl_test_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
 {
-	printk(KERN_INFO "READ\n");
+	int i;
+	struct xocl_test *xt = file->private_data;
+
+	for (i = 0; i < 10; i++) {
+		xocl_info(xt->pdev, "reading...");
+		ssleep(1);
+	}
 	return 0;
 }
 
 static int xocl_test_close(struct inode *inode, struct file *file)
 {
-	printk(KERN_INFO "CLOSED\n");
+	struct xocl_test *xt = file->private_data;
+
+	xocl_devnode_close(inode);
+
+	xocl_info(xt->pdev, "closed");
 	return 0;
 }
 
