@@ -8,10 +8,9 @@
  * 	Cheng Zhen <maxz@xilinx.com>
  */
 
-#include <linux/mod_devicetable.h>
-#include <linux/platform_device.h>
 #include <linux/delay.h>
 #include "xocl-subdev.h"
+#include "xocl-parent.h"
 
 #define	XOCL_TEST "xocl_test"
 
@@ -30,10 +29,11 @@ static ssize_t test_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	xocl_subdev_leaf_handle_t leaf = xocl_subdev_get_leaf(pdev,
+	struct platform_device *leaf = xocl_subdev_get_leaf(pdev,
 		XOCL_SUBDEV_TEST, xocl_test_leaf_match, pdev->id);
 	if (leaf)
-		(void) xocl_subdev_ioctl(leaf, 1, 0);
+		(void) xocl_subdev_ioctl(leaf, 1, (u64)NULL);
+
 	return 0;
 }
 
@@ -58,10 +58,11 @@ static const struct attribute_group xocl_test_attrgroup = {
 static int xocl_test_probe(struct platform_device *pdev)
 {
 	struct xocl_test *xt;
+	struct xocl_parent_ioctl_create_partition cp = { XOCL_PART_TEST_1, };
 
 	xocl_info(pdev, "probing...");
 
-	xt = devm_kzalloc(&pdev->dev, sizeof(*xt), GFP_KERNEL);
+	xt = devm_kzalloc(DEV(pdev), sizeof(*xt), GFP_KERNEL);
 	if (!xt) {
 		xocl_err(pdev, "failed to alloc xocl_test");
 		return -ENOMEM;
@@ -70,11 +71,15 @@ static int xocl_test_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, xt);
 
 	/* Ready to handle req thru sysfs nodes. */
-	if (sysfs_create_group(&pdev->dev.kobj, &xocl_test_attrgroup))
+	if (sysfs_create_group(&DEV(pdev)->kobj, &xocl_test_attrgroup))
 		xocl_err(pdev, "failed to create sysfs group");
 
 	/* Ready to handle req thru cdev. */
-	xocl_devnode_allowed(pdev);
+	(void) xocl_devnode_create(pdev, "test");
+
+	/* Trigger partition creation. */
+	(void) xocl_subdev_parent_ioctl(pdev,
+		XOCL_PARENT_CREATE_PARTITION, (u64)&cp);
 
 	/* After we return here, we'll get inter-leaf calls. */
 	return 0;
@@ -88,12 +93,12 @@ static int xocl_test_remove(struct platform_device *pdev)
 
 	xocl_info(pdev, "leaving...");
 
-	ret = xocl_devnode_disallowed(pdev);
+	ret = xocl_devnode_destroy(pdev);
 	if (ret)
 		return ret;
 	/* By now, no more access thru cdev. */
 
-	(void) sysfs_remove_group(&pdev->dev.kobj, &xocl_test_attrgroup);
+	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xocl_test_attrgroup);
 	/* By now, no more access thru sysfs nodes. */
 
 	/* Clean up can safely be done now. */
@@ -142,7 +147,7 @@ static int xocl_test_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-struct xocl_subdev_data xocl_test_data = {
+struct xocl_subdev_drvdata xocl_test_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xocl_test_leaf_ioctl,
 	},
@@ -153,7 +158,6 @@ struct xocl_subdev_data xocl_test_data = {
 			.release = xocl_test_close,
 			.read = xocl_test_read,
 		},
-		.xsf_dev_name = "test",
 	},
 };
 
