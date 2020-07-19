@@ -8,6 +8,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/pci.h>
+#include <linux/vmalloc.h>
 #include "xocl-subdev.h"
 #include "xocl-parent.h"
 
