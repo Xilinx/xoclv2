@@ -9,8 +9,9 @@
 #ifndef	_XOCL_SUBDEV_H_
 #define	_XOCL_SUBDEV_H_
 
+#include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
-#include <linux/pci.h>
+#include <linux/fs.h>
 #include <linux/cdev.h>
 
 /*
@@ -25,22 +26,12 @@ enum xocl_subdev_id {
 };
 
 /*
- * Defines all flavors of partitions. This also serves as instance ID for
- * partition subdev. An instance of partition subdev can be identified by
- * <XOCL_SUBDEV_PART, xocl_partition_id>.
- */
-enum xocl_partition_id {
-	XOCL_PART_TEST = 0,
-};
-
-/*
  * If populated by subdev driver, parent will handle the mechanics of
  * char device (un)registration.
  */
 struct xocl_subdev_file_ops {
 	const struct file_operations xsf_ops;
 	dev_t xsf_dev_t;
-	const char *xsf_dev_name;
 };
 
 /*
@@ -57,6 +48,7 @@ struct xocl_subdev_drv_ops {
 	/*
 	 * Per driver instance callback. The pdev points to the instance.
 	 * If defined these are called by other leaf drivers.
+	 * Note that root driver may call into xsd_ioctl of a partition driver.
 	 */
 	long (*xsd_ioctl)(struct platform_device *pdev, u32 cmd, u64 arg);
 
@@ -64,52 +56,51 @@ struct xocl_subdev_drv_ops {
 	 * Per driver instance callback. The pdev points to the instance.
 	 * If defined these are called by partition or root drivers.
 	 */
-	int (*xsd_offline)(struct platform_device *pdev);
 	int (*xsd_online)(struct platform_device *pdev);
+	int (*xsd_offline)(struct platform_device *pdev);
 };
-
-#define	XOCL_MAX_DEVICE_NODES	128
 
 /*
  * Defined and populated by subdev driver, exported as driver_data in
  * struct platform_device_id.
  */
-struct xocl_subdev_data {
+struct xocl_subdev_drvdata {
 	struct xocl_subdev_file_ops xsd_file_ops;
 	struct xocl_subdev_drv_ops xsd_dev_ops;
 };
 
 /*
- * Defined and populated by parent driver, passed in as subdev driver's
- * platform data when creating subdev driver instance.
+ * Partially initialized by parent driver, then, passed in as subdev driver's
+ * platform data when creating subdev driver instance by calling platform
+ * device register API (platform_device_register_data() or the likes).
+ *
+ * Once device register API returns, platform driver framework makes a copy of
+ * this buffer and maintains its life cycle. The content of the buffer is
+ * completely owned by subdev driver.
+ *
+ * Thus, parent driver should be very careful when it touches this buffer
+ * again once it's handed over to subdev driver. And the data structure
+ * should not contain pointers pointing to buffers that is managed by
+ * other or parent drivers since it could have been freed before platform
+ * data buffer is freed by platform driver framework.
  */
 typedef long (*xocl_subdev_parent_cb_t)(struct device *, u32, u64);
 struct xocl_subdev_platdata {
-	/*
-	 * Refer back to the platform device who is holding it.
-	 */
-	struct platform_device *xsp_pdev;
 	/*
 	 * Per driver instance callback. The pdev points to the instance.
 	 * Should always be defined for subdev driver to call into its parent.
 	 */
 	xocl_subdev_parent_cb_t xsp_parent_cb;
 
-	/*
-	 * Populated by parent driver to pass in the subdev driver
-	 * private data. This is optional.
-	 */
-	void *xsp_drv_priv;
-	size_t xsp_drv_priv_len;
-
 	/* Something to associate w/ root for msg printing. */
-	int xsp_domain;
-	unsigned int xsp_bus;
-	unsigned int xsp_dev;
-	unsigned int xsp_func;
+	const char *xsp_root_name;
 
-	/* Char dev of this subdev instance */
+	/*
+	 * Char dev support for this subdev instance.
+	 * Initialized by subdev driver.
+	 */
 	struct cdev xsp_cdev;
+	struct device *xsp_sysdev;
 	struct mutex xsp_devnode_lock;
 	struct completion xsp_devnode_comp;
 	int xsp_devnode_ref;
@@ -117,10 +108,18 @@ struct xocl_subdev_platdata {
 	bool xsp_devnode_excl;
 
 	/*
-	 * Populated by parent driver to describe the device tree for
-	 * the subdev driver to handle. Variable len, should always be last one.
+	 * Subdev driver specific init data. The buffer should be embedded
+	 * in this data structure buffer after dtb, so that it can be freed
+	 * together with platform data.
 	 */
-	size_t xsp_dtb_len; // Redundant??
+	loff_t xsp_priv_off; /* Offset into this platform data buffer. */
+	size_t xsp_priv_len;
+
+	/*
+	 * Populated by parent driver to describe the device tree for
+	 * the subdev driver to handle. Should always be last one since it's
+	 * of variable length.
+	 */
 	char xsp_dtb[1];
 };
 
@@ -131,40 +130,20 @@ struct xocl_subdev_platdata {
 struct xocl_subdev {
 	struct list_head xs_dev_list;
 	enum xocl_subdev_id xs_id;		/* type of subdev */
-	int xs_instance;			/* drv instance & minor */
-	struct platform_driver *xs_drv;		/* all drv ops found by xs_id */
 	struct platform_device *xs_pdev;	/* a particular subdev inst */
 };
 
-/*
- * Parent IOCTL calls.
- */
-enum xocl_parent_ioctl_cmd {
-	XOCL_PARENT_GET_LEAF = 0,
-	XOCL_PARENT_PUT_LEAF,
-};
-
 typedef bool (*xocl_leaf_match_t)(struct xocl_subdev *, u64);
-typedef void * xocl_subdev_leaf_handle_t;
-struct xocl_parent_ioctl_get_leaf {
-	struct platform_device *xpigl_pdev; /* caller's pdev */
-	enum xocl_subdev_id xpigl_id;
-	xocl_leaf_match_t xpigl_match_cb;
-	u64 xpigl_match_arg;
-	xocl_subdev_leaf_handle_t xpigl_leaf; /* target leaf handle */
-};
 
 /* All subdev drivers should use below common routines to print out msg. */
 #define	DEV(pdev)	(&(pdev)->dev)
 #define	DEV_PDATA(pdev)					\
-	((struct xocl_subdev_platdata *)dev_get_platdata(DEV(pdev)))
+	((struct xocl_subdev_platdata*)dev_get_platdata(DEV(pdev)))
+#define	DEV_DRVDATA(pdev)				\
+	((struct xocl_subdev_drvdata*)platform_get_device_id(pdev)->driver_data)
 #define	FMT_PRT(prt_fn, pdev, fmt, args...)		\
-	prt_fn(DEV(pdev), "%x:%x:%x.%x %s: "fmt,	\
-	DEV_PDATA(pdev)->xsp_domain,			\
-	DEV_PDATA(pdev)->xsp_bus,			\
-	DEV_PDATA(pdev)->xsp_dev,			\
-	DEV_PDATA(pdev)->xsp_func,			\
-	__func__, ##args)
+	prt_fn(DEV(pdev), "%s %s: "fmt,			\
+	DEV_PDATA(pdev)->xsp_root_name, __func__, ##args)
 #define xocl_err(pdev, fmt, args...) FMT_PRT(dev_err, pdev, fmt, ##args)
 #define xocl_warn(pdev, fmt, args...) FMT_PRT(dev_warn, pdev, fmt, ##args)
 #define xocl_info(pdev, fmt, args...) FMT_PRT(dev_info, pdev, fmt, ##args)
@@ -172,23 +151,22 @@ struct xocl_parent_ioctl_get_leaf {
 
 /* For root and partition drivers. */
 extern struct xocl_subdev *
-xocl_subdev_create_partition(struct pci_dev *root, enum xocl_partition_id id,
-	xocl_subdev_parent_cb_t pcb, void *dtb, size_t dtb_len);
-extern struct xocl_subdev *
-xocl_subdev_create_leaf(struct platform_device *part, enum xocl_subdev_id id,
-	xocl_subdev_parent_cb_t pcb, void *dtb, size_t dtb_len);
+xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
+	int instance, xocl_subdev_parent_cb_t pcb, void *dtb);
 extern void xocl_subdev_destroy(struct xocl_subdev *sdev);
+extern int xocl_subdev_online(struct platform_device *pdev);
+extern int xocl_subdev_offline(struct platform_device *pdev);
 
 /* For leaf drivers. */
-extern long xocl_subdev_parent_ioctl(struct platform_device *pdev,
+extern long xocl_subdev_parent_ioctl(struct platform_device *self,
 	u32 cmd, u64 arg);
-extern long xocl_subdev_ioctl(xocl_subdev_leaf_handle_t handle,
-	u32 cmd, u64 arg);
-extern xocl_subdev_leaf_handle_t
+extern long xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, u64 arg);
+extern struct platform_device *
 xocl_subdev_get_leaf(struct platform_device *pdev, enum xocl_subdev_id id,
 	xocl_leaf_match_t match_cb, u64 match_arg);
-extern void xocl_devnode_allowed(struct platform_device *pdev);
-extern int xocl_devnode_disallowed(struct platform_device *pdev);
+
+extern int xocl_devnode_create(struct platform_device *pdev, const char *name);
+extern int xocl_devnode_destroy(struct platform_device *pdev);
 extern struct platform_device *xocl_devnode_open_excl(struct inode *inode);
 extern struct platform_device *xocl_devnode_open(struct inode *inode);
 extern void xocl_devnode_close(struct inode *inode);
