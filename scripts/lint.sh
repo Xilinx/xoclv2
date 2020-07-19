@@ -26,6 +26,10 @@ do
     if [[ $item =~ $regex ]]; then
 	continue
     fi
+    regex="^.+xclbin\.h$"
+    if [[ $item =~ $regex ]]; then
+	continue
+    fi
     regex="^.+[c|h]$"
     if [[ $item =~ $regex ]]; then
 	$ROOT/scripts/checkpatch.pl --no-tree --emacs --color=never -f $ROOT/$item || true
