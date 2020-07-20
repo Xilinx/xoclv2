@@ -17,8 +17,14 @@
  * <XOCL_SUBDEV_PART, xocl_partition_id>.
  */
 enum xocl_partition_id {
-	XOCL_PART_TEST = 0,
+	/* Always the 1st. */
+	XOCL_PART_BEGIN = 0,
+
+	XOCL_PART_TEST = XOCL_PART_BEGIN,
 	XOCL_PART_TEST_1,
+
+	/* Always in the end. */
+	XOCL_PART_END
 };
 
 /*
@@ -27,14 +33,6 @@ enum xocl_partition_id {
 enum xocl_partition_ioctl_cmd {
 	XOCL_PARTITION_GET_LEAF = 0,
 	XOCL_PARTITION_PUT_LEAF,
-};
-
-struct xocl_partition_ioctl_get_leaf {
-	struct platform_device *xpart_pdev; /* caller's pdev */
-	enum xocl_subdev_id xpart_id;
-	xocl_leaf_match_t xpart_match_cb;
-	u64 xpart_match_arg;
-	struct platform_device *xpart_leaf; /* target leaf pdev */
 };
 
 #endif	/* _XOCL_PARTITION_H_ */

@@ -124,16 +124,17 @@ struct xocl_subdev_platdata {
 };
 
 /*
- * It represents a specific instance of platform driver for a subdev, which
- * provides services to its clients (another subdev driver or root driver).
+ * It manages a list of xocl_subdevs for root and partition drivers.
  */
-struct xocl_subdev {
-	struct list_head xs_dev_list;
-	enum xocl_subdev_id xs_id;		/* type of subdev */
-	struct platform_device *xs_pdev;	/* a particular subdev inst */
+struct xocl_subdev_pool {
+	struct list_head xpool_dev_list;
+	struct device *xpool_owner;
+	struct mutex xpool_lock;
+	bool xpool_closing;
 };
 
-typedef bool (*xocl_leaf_match_t)(struct xocl_subdev *, u64);
+typedef bool (*xocl_subdev_match_t)(enum xocl_subdev_id,
+	struct platform_device *, u64);
 
 /* All subdev drivers should use below common routines to print out msg. */
 #define	DEV(pdev)	(&(pdev)->dev)
@@ -149,22 +150,38 @@ typedef bool (*xocl_leaf_match_t)(struct xocl_subdev *, u64);
 #define xocl_info(pdev, fmt, args...) FMT_PRT(dev_info, pdev, fmt, ##args)
 #define xocl_dbg(pdev, fmt, args...) FMT_PRT(dev_dbg, pdev, fmt, ##args)
 
-/* For root and partition drivers. */
-extern struct xocl_subdev *
-xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
-	int instance, xocl_subdev_parent_cb_t pcb, void *dtb);
-extern void xocl_subdev_destroy(struct xocl_subdev *sdev);
+/*
+ * For root and partition drivers.
+ */
 extern int xocl_subdev_online(struct platform_device *pdev);
 extern int xocl_subdev_offline(struct platform_device *pdev);
+extern int xocl_subdev_pool_get(struct xocl_subdev_pool *spool,
+	xocl_subdev_match_t match, u64 arg, struct device *holder_dev,
+	struct platform_device **pdevp);
+extern int xocl_subdev_pool_put(struct xocl_subdev_pool *spool,
+	struct platform_device *pdev, struct device *holder_dev);
+extern int xocl_subdev_pool_add(struct xocl_subdev_pool *spool,
+	enum xocl_subdev_id id, int instance, xocl_subdev_parent_cb_t pcb,
+	void *dtb);
+extern int xocl_subdev_pool_del(struct xocl_subdev_pool *spool,
+	enum xocl_subdev_id id, int instance);
+extern void xocl_subdev_pool_init(struct device *dev,
+	struct xocl_subdev_pool *spool);
+extern int xocl_subdev_pool_fini(struct xocl_subdev_pool *spool);
 
-/* For leaf drivers. */
+/*
+ * For leaf drivers.
+ */
 extern long xocl_subdev_parent_ioctl(struct platform_device *self,
 	u32 cmd, u64 arg);
 extern long xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, u64 arg);
-extern struct platform_device *
-xocl_subdev_get_leaf(struct platform_device *pdev, enum xocl_subdev_id id,
-	xocl_leaf_match_t match_cb, u64 match_arg);
-
+extern struct platform_device *xocl_subdev_get_leaf(
+	struct platform_device *pdev, xocl_subdev_match_t cb, u64 arg);
+extern struct platform_device *xocl_subdev_get_leaf_by_id(
+	struct platform_device *pdev, enum xocl_subdev_id id, int instance);
+extern int xocl_subdev_put_leaf(struct platform_device *pdev,
+	struct platform_device *leaf);
+/* Char dev APIs. */
 extern int xocl_devnode_create(struct platform_device *pdev, const char *name);
 extern int xocl_devnode_destroy(struct platform_device *pdev);
 extern struct platform_device *xocl_devnode_open_excl(struct inode *inode);

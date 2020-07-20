@@ -16,38 +16,45 @@
 
 struct xocl_test {
 	struct platform_device *pdev;
+	struct platform_device *leaf;
 };
 
-static bool xocl_test_leaf_match(struct xocl_subdev *sdev, u64 arg)
+static bool xocl_test_leaf_match(enum xocl_subdev_id id,
+	struct platform_device *pdev, u64 arg)
 {
 	int myid = arg;
-
-	return sdev->xs_pdev->id != myid;
+	return id == XOCL_SUBDEV_TEST && pdev->id != myid;
 }
 
-static ssize_t test_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct platform_device *leaf = xocl_subdev_get_leaf(pdev,
-		XOCL_SUBDEV_TEST, xocl_test_leaf_match, pdev->id);
-	if (leaf)
-		(void) xocl_subdev_ioctl(leaf, 1, (u64)NULL);
-
-	return 0;
-}
-
-static ssize_t test_store(struct device *dev,
+static ssize_t hold_store(struct device *dev,
 	struct device_attribute *da, const char *buf, size_t count)
 {
-	/* Place holder for now. */
+	struct platform_device *pdev = to_platform_device(dev);
+	struct xocl_test *xt = platform_get_drvdata(pdev);
+	struct platform_device *leaf;
+
+	leaf = xocl_subdev_get_leaf(pdev, xocl_test_leaf_match, pdev->id);
+	if (leaf)
+		xt->leaf = leaf;
 	return count;
 }
+static DEVICE_ATTR_WO(hold);
 
-static DEVICE_ATTR_RW(test);
+static ssize_t release_store(struct device *dev,
+	struct device_attribute *da, const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct xocl_test *xt = platform_get_drvdata(pdev);
+
+	if (xt->leaf)
+		(void) xocl_subdev_put_leaf(pdev, xt->leaf);
+	return count;
+}
+static DEVICE_ATTR_WO(release);
 
 static struct attribute *xocl_test_attrs[] = {
-	&dev_attr_test.attr,
+	&dev_attr_hold.attr,
+	&dev_attr_release.attr,
 	NULL,
 };
 
@@ -57,6 +64,7 @@ static const struct attribute_group xocl_test_attrgroup = {
 
 static int xocl_test_probe(struct platform_device *pdev)
 {
+	struct platform_device *leaf;
 	struct xocl_test *xt;
 	struct xocl_parent_ioctl_create_partition cp = { XOCL_PART_TEST_1, };
 
@@ -81,6 +89,11 @@ static int xocl_test_probe(struct platform_device *pdev)
 	(void) xocl_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_CREATE_PARTITION, (u64)&cp);
 
+	leaf = xocl_subdev_get_leaf(pdev, xocl_test_leaf_match, pdev->id);
+	if (leaf) {
+		(void) xocl_subdev_ioctl(leaf, 1, (u64)NULL);
+		(void) xocl_subdev_put_leaf(pdev, leaf);
+	}
 	/* After we return here, we'll get inter-leaf calls. */
 	return 0;
 }
