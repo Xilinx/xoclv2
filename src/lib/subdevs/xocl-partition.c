@@ -11,44 +11,41 @@
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include "xocl-subdev.h"
+#include "xocl-parent.h"
 #include "xocl-partition.h"
 
 #define	XOCL_PART "xocl_partition"
 
 struct xocl_partition {
 	struct platform_device *pdev;
-	struct list_head leaves;
+	struct xocl_subdev_pool leaves;
+	bool dev_created;
+	struct mutex lock;
 };
 
 static long xocl_part_parent_cb(struct device *dev, u32 cmd, u64 arg)
 {
 	struct platform_device *pdev =
 		container_of(dev, struct platform_device, dev);
-
-	xocl_info(pdev, "forwarding parent call, cmd %d", cmd);
+	/* Forward parent call to root. */
 	return xocl_subdev_parent_ioctl(pdev, cmd, arg);
 }
 
 static int xocl_part_create_subdevs(struct xocl_partition *xp)
 {
-	struct xocl_subdev *sdev;
-	struct platform_device *pdev = xp->pdev;
+	bool created;
 
-	if (!list_empty(&xp->leaves))
+	mutex_lock(&xp->lock);
+	created = xp->dev_created;
+	xp->dev_created = true;
+	mutex_unlock(&xp->lock);
+	if (created)
 		return 0;
 
 	/* Create 1st leaf. */
-	sdev = xocl_subdev_create(&pdev->dev, XOCL_SUBDEV_TEST,
+	xocl_info(xp->pdev, "bringing up subdevs ...");
+	(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_TEST,
 		PLATFORM_DEVID_AUTO, xocl_part_parent_cb, NULL);
-	if (sdev)
-		list_add(&sdev->xs_dev_list, &xp->leaves);
-#if 0
-	/* Create 2nd leaf. */
-	sdev = xocl_subdev_create(&pdev->dev, XOCL_SUBDEV_TEST,
-		PLATFORM_DEVID_AUTO, xocl_part_parent_cb, NULL);
-	if (sdev)
-		list_add(&sdev->xs_dev_list, &xp->leaves);
-#endif
 	return 0;
 }
 
@@ -64,9 +61,9 @@ static int xocl_part_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	xp->pdev = pdev;
+	xocl_subdev_pool_init(DEV(xp->pdev), &xp->leaves);
+	mutex_init(&xp->lock);
 	platform_set_drvdata(pdev, xp);
-
-	INIT_LIST_HEAD(&xp->leaves);
 
 	return 0;
 }
@@ -76,44 +73,8 @@ static int xocl_part_remove(struct platform_device *pdev)
 	struct xocl_partition *xp = platform_get_drvdata(pdev);
 
 	xocl_info(pdev, "leaving...");
-
-	while (!list_empty(&xp->leaves)) {
-		struct xocl_subdev *sdev = list_first_entry(&xp->leaves,
-			struct xocl_subdev, xs_dev_list);
-		list_del(&sdev->xs_dev_list);
-		xocl_subdev_destroy(sdev);
-	}
-
+	(void) xocl_subdev_pool_fini(&xp->leaves);
 	return 0;
-}
-
-static int xocl_part_get_leaf(struct xocl_partition *xp,
-	struct xocl_partition_ioctl_get_leaf *get_leaf)
-{
-	struct list_head *ptr;
-	struct xocl_subdev *sdev;
-	bool found = false;
-	xocl_leaf_match_t match_cb = get_leaf->xpart_match_cb;
-
-	list_for_each(ptr, &xp->leaves) {
-		sdev = list_entry(ptr, struct xocl_subdev, xs_dev_list);
-
-		if (sdev->xs_id != get_leaf->xpart_id)
-			continue;
-
-		if (match_cb)
-			found = match_cb(sdev, get_leaf->xpart_match_arg);
-		else
-			found = true;
-
-		if (found)
-			break;
-	}
-
-	if (found)
-		get_leaf->xpart_leaf = sdev->xs_pdev;
-
-	return found ? 0 : -ENOENT;
 }
 
 static long xocl_part_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
@@ -124,10 +85,21 @@ static long xocl_part_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
 	xocl_info(pdev, "handling IOCTL cmd %d", cmd);
 
 	switch (cmd) {
-	case XOCL_PARTITION_GET_LEAF:
-		rc = xocl_part_get_leaf(xp,
-			(struct xocl_partition_ioctl_get_leaf *)arg);
+	case XOCL_PARTITION_GET_LEAF: {
+		struct xocl_parent_ioctl_get_leaf *get_leaf =
+			(struct xocl_parent_ioctl_get_leaf *)arg;
+		rc = xocl_subdev_pool_get(&xp->leaves, get_leaf->xpigl_match_cb, 
+			get_leaf->xpigl_match_arg, DEV(get_leaf->xpigl_pdev),
+			&get_leaf->xpigl_leaf);
 		break;
+	}
+	case XOCL_PARTITION_PUT_LEAF: {
+		struct xocl_parent_ioctl_put_leaf *put_leaf =
+			(struct xocl_parent_ioctl_put_leaf *)arg;
+		rc = xocl_subdev_pool_put(&xp->leaves, put_leaf->xpipl_leaf,
+			DEV(put_leaf->xpipl_pdev));
+		break;
+	}
 	default:
 		xocl_err(pdev, "unknown IOCTL cmd %d", cmd);
 		rc = -EINVAL;

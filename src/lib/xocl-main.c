@@ -166,12 +166,18 @@ const char *xocl_drv_name(enum xocl_subdev_id id)
 	return NULL;
 }
 
-int xocl_drv_get_instance(enum xocl_subdev_id id)
+int xocl_drv_get_instance(enum xocl_subdev_id id, int instance)
 {
 	int inst;
 	struct xocl_drv_map *map = xocl_drv_find_map_by_id(id);
 
-	inst = ida_alloc_range(&map->ida, 0, XOCL_MAX_DEVICE_NODES, GFP_KERNEL);
+	if (instance >= 0) {
+		inst = ida_alloc_range(&map->ida, instance, instance,
+			GFP_KERNEL);
+	} else {
+		inst = ida_alloc_range(&map->ida, 0, XOCL_MAX_DEVICE_NODES,
+			GFP_KERNEL);
+	}
 	return inst;
 }
 
