@@ -93,8 +93,19 @@
 #define NODE_BLP_ROM "ep_blp_rom_00"
 #define NODE_PLAT_INFO "ep_platform_info_mgmt_00"
 
+struct xocl_md_endpoint {
+	char	*ep_name;
+	u32	pf_num;
+	u32	bar;
+	long	bar_off;
+	ulong	size;
+};
+
+long xocl_md_size(struct device *dev, char *blob);
 int xocl_md_create(struct device *dev, char **blob);
-int xocl_md_add_endpoint(struct device *dev, char **blob, char *ep_name);
+int xocl_md_add_endpoint(struct device *dev, char **blob,
+	struct xocl_md_endpoint *ep);
+int xocl_md_del_endpoint(struct device *dev, char **blob, char *ep_name);
 int xocl_md_get_endpoint(struct device *dev, char *blob, char *ep_name,
 	int *ep_offset);
 int xocl_md_get_prop(struct device *dev, char *blob, char *ep_name,

@@ -17,6 +17,14 @@
 #define md_err		dev_err
 #define md_info		dev_info
 
+static int xocl_md_setprop(struct device *dev, char **blob, int offset,
+		         const char *prop, const void *val, int size);
+
+long xocl_md_size(struct device *dev, char *blob)
+{
+	return (long) fdt_totalsize(blob);
+}
+
 int xocl_md_create(struct device *dev, char **blob)
 {
 	int ret = 0;
@@ -80,11 +88,35 @@ failed:
 	return ret;
 }
 
+int xocl_md_del_endpoint(struct device *dev, char **blob, char *ep_name)
+{
+	int ret;
+	int ep_offset;
 
-int xocl_md_add_endpoint(struct device *dev, char **blob, char *ep_name)
+	ret = xocl_md_get_endpoint(dev, *blob, ep_name, &ep_offset);
+	if (ret) {
+		md_err(dev, "can not find ep %s", ep_name);
+		return -EINVAL;
+	}
+
+	ret = fdt_del_node(*blob, ep_offset);
+	if (ret)
+		md_err(dev, "delete node %s failed, ret %d", ep_name, ret);
+
+	return ret;
+}
+
+int xocl_md_add_endpoint(struct device *dev, char **blob, struct xocl_md_endpoint *ep)
 {
 	int ret = 0;
 	int ep_offset;
+	u32 val;
+	u64 io_range[2];
+
+	if (!ep->ep_name) {
+		md_err(dev, "empty name");
+		return -EINVAL;
+	}
 
 	ret = xocl_md_get_endpoint(dev, *blob, NODE_ENDPOINTS, &ep_offset);
 	if (ret) {
@@ -92,13 +124,37 @@ int xocl_md_add_endpoint(struct device *dev, char **blob, char *ep_name)
 		return -EINVAL;
 	}
 
-	ret = xocl_md_add_node(dev, blob, ep_offset, ep_name);
-	if (ret < 0) {
+	ep_offset = xocl_md_add_node(dev, blob, ep_offset, ep->ep_name);
+	if (ep_offset < 0) {
 		 md_err(dev, "add endpoint failed, ret = %d", ret);
 		 return -EINVAL;
 	}
 
-	return 0;
+	if (ep->size != 0) {
+		val = cpu_to_be32(ep->bar);
+		ret = xocl_md_setprop(dev, blob, ep_offset, PROP_BAR_IDX,
+				&val, sizeof(u32));
+		if (ret) {
+			md_err(dev, "set %s failed, ret %d",
+				PROP_BAR_IDX, ret);
+			goto failed;
+		}
+		io_range[0] = cpu_to_be64((u64)ep->bar_off);
+		io_range[1] = cpu_to_be64((u64)ep->size);
+		ret = xocl_md_setprop(dev, blob, ep_offset, PROP_IO_OFFSET,
+			io_range, sizeof(io_range));
+		if (ret) {
+			md_err(dev, "set %s failed, ret %d",
+				PROP_IO_OFFSET, ret);
+			goto failed;
+		}
+	}
+
+failed:
+	if (ret)
+		xocl_md_del_endpoint(dev, blob, ep->ep_name);
+
+	return ret;
 }
 
 int xocl_md_get_endpoint(struct device *dev, char *blob, char *ep_name,
@@ -152,7 +208,7 @@ int xocl_md_get_prop(struct device *dev, char *blob, char *ep_name,
 	return 0;
 }
 
-int xocl_md_setprop(struct device *dev, char **blob, int offset,
+static int xocl_md_setprop(struct device *dev, char **blob, int offset,
 	 const char *prop, const void *val, int size)
 {
 	int ret;

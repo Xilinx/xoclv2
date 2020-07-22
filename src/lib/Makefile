@@ -8,22 +8,23 @@
 obj-m   += xocl-lib.o
 
 fdtdir := ../common/libfdt
-xocl-lib-y := xocl-partition.o			\
-	xocl-subdev.o				\
-	xocl-test.o				\
-	xocl-ctx.o				\
-	xocl-metadata.o				\
-	xocl-vsec.o				\
-	$(fdtdir)/fdt.o				\
-	$(fdtdir)/fdt_addresses.o		\
-	$(fdtdir)/fdt_empty_tree.o		\
-	$(fdtdir)/fdt_overlay.o			\
-	$(fdtdir)/fdt_ro.o			\
-	$(fdtdir)/fdt_rw.o			\
-	$(fdtdir)/fdt_strerror.o		\
-	$(fdtdir)/fdt_sw.o			\
+xocl-lib-y := 				\
+	xocl-main.o			\
+	xocl-subdev.o			\
+	xocl-cdev.o			\
+	../common/xocl-metadata.o	\
+	subdevs/xocl-partition.o	\
+	subdevs/xocl-test.o		\
+	subdevs/xocl-vsec.o		\
+	$(fdtdir)/fdt.o			\
+	$(fdtdir)/fdt_addresses.o	\
+	$(fdtdir)/fdt_empty_tree.o	\
+	$(fdtdir)/fdt_overlay.o		\
+	$(fdtdir)/fdt_ro.o		\
+	$(fdtdir)/fdt_rw.o		\
+	$(fdtdir)/fdt_strerror.o	\
+	$(fdtdir)/fdt_sw.o		\
 	$(fdtdir)/fdt_wip.o
-
 
 CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build

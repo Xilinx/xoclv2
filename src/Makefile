@@ -15,3 +15,6 @@ tags:
 clean:
 	$(MAKE) -C lib clean
 	$(MAKE) -C mgmt clean
+
+lint:
+	../scripts/lint.sh
