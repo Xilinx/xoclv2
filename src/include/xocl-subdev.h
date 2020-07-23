@@ -32,6 +32,7 @@ enum xocl_subdev_id {
  */
 enum xocl_partition_id {
 	XOCL_PART_TEST = 0,
+	XOCL_PART_VSEC,
 	XOCL_PART_TEST_1,
 };
 
