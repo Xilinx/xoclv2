@@ -36,7 +36,7 @@ static const struct pci_device_id xmgmt_pci_ids[] = {
 	{ 0, }
 };
 
-static long xmgmt_parent_cb(struct device *, u32, void *);
+static int xmgmt_parent_cb(struct device *, u32, void *);
 
 struct xmgmt_event_cb {
 	struct list_head list;
@@ -266,7 +266,7 @@ static int xmgmt_destroy_partition(struct xmgmt *xm, enum xocl_partition_id id)
 	return xocl_subdev_pool_del(&xm->parts, XOCL_SUBDEV_PART, id);
 }
 
-static long xmgmt_get_leaf(struct xmgmt *xm,
+static int xmgmt_get_leaf(struct xmgmt *xm,
 	struct xocl_parent_ioctl_get_leaf *arg)
 {
 	int rc = -ENOENT;
@@ -279,7 +279,7 @@ static long xmgmt_get_leaf(struct xmgmt *xm,
 	return rc;
 }
 
-static long xmgmt_get_leaf_by_id(struct xmgmt *xm,
+static int xmgmt_get_leaf_by_id(struct xmgmt *xm,
 	struct xocl_parent_ioctl_get_leaf_by_id *arg)
 {
 	int rc = -ENOENT;
@@ -296,7 +296,7 @@ static long xmgmt_get_leaf_by_id(struct xmgmt *xm,
 	return rc;
 }
 
-static long xmgmt_put_leaf(struct xmgmt *xm,
+static int xmgmt_put_leaf(struct xmgmt *xm,
 	struct xocl_parent_ioctl_put_leaf *arg)
 {
 	int rc = -ENOENT;
@@ -309,11 +309,11 @@ static long xmgmt_put_leaf(struct xmgmt *xm,
 	return rc;
 }
 
-static long xmgmt_parent_cb(struct device *dev, u32 cmd, void *arg)
+static int xmgmt_parent_cb(struct device *dev, u32 cmd, void *arg)
 {
 	struct pci_dev *pdev = container_of(dev, struct pci_dev, dev);
 	struct xmgmt *xm = pci_get_drvdata(pdev);
-	long rc = 0;
+	int rc = 0;
 
 	xmgmt_info(xm, "handling parent call, cmd %d", cmd);
 

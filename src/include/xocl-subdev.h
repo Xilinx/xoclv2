@@ -60,7 +60,7 @@ struct xocl_subdev_drv_ops {
 	 * If defined these are called by other leaf drivers.
 	 * Note that root driver may call into xsd_ioctl of a partition driver.
 	 */
-	long (*xsd_ioctl)(struct platform_device *pdev, u32 cmd, void *arg);
+	int (*xsd_ioctl)(struct platform_device *pdev, u32 cmd, void *arg);
 
 	/*
 	 * Per driver instance callback. The pdev points to the instance.
@@ -94,7 +94,7 @@ struct xocl_subdev_drvdata {
  * other or parent drivers since it could have been freed before platform
  * data buffer is freed by platform driver framework.
  */
-typedef long (*xocl_subdev_parent_cb_t)(struct device *, u32, void *);
+typedef int (*xocl_subdev_parent_cb_t)(struct device *, u32, void *);
 struct xocl_subdev_platdata {
 	/*
 	 * Per driver instance callback. The pdev points to the instance.

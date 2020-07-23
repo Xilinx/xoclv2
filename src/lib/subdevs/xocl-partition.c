@@ -31,7 +31,7 @@ struct xocl_partition {
 	struct xocl_subdev_pool leaves;
 };
 
-static long xocl_part_parent_cb(struct device *dev, u32 cmd, void *arg)
+static int xocl_part_parent_cb(struct device *dev, u32 cmd, void *arg)
 {
 	struct platform_device *pdev =
 		container_of(dev, struct platform_device, dev);
@@ -82,9 +82,9 @@ static int xocl_part_remove(struct platform_device *pdev)
 	return xocl_part_remove_leaves(xp);
 }
 
-static long xocl_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+static int xocl_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	long rc = 0;
+	int rc = 0;
 	struct xocl_partition *xp = platform_get_drvdata(pdev);
 
 	xocl_info(pdev, "handling IOCTL cmd %d", cmd);

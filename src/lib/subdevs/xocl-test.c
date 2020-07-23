@@ -140,7 +140,7 @@ static int xocl_test_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static long
+static int
 xocl_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	xocl_info(pdev, "handling IOCTL cmd: %d", cmd);
