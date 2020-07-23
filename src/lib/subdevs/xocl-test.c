@@ -10,19 +10,19 @@
 
 #include <linux/delay.h>
 #include "xocl-subdev.h"
-#include "xocl-parent.h"
 
 #define	XOCL_TEST "xocl_test"
 
 struct xocl_test {
 	struct platform_device *pdev;
 	struct platform_device *leaf;
+	xocl_event_cb_handle_t evt_hdl;
 };
 
 static bool xocl_test_leaf_match(enum xocl_subdev_id id,
-	struct platform_device *pdev, u64 arg)
+	struct platform_device *pdev, void *arg)
 {
-	int myid = arg;
+	int myid = (int)(uintptr_t)arg;
 	return id == XOCL_SUBDEV_TEST && pdev->id != myid;
 }
 
@@ -33,7 +33,8 @@ static ssize_t hold_store(struct device *dev,
 	struct xocl_test *xt = platform_get_drvdata(pdev);
 	struct platform_device *leaf;
 
-	leaf = xocl_subdev_get_leaf(pdev, xocl_test_leaf_match, pdev->id);
+	leaf = xocl_subdev_get_leaf(pdev, xocl_test_leaf_match,
+		(void *)(uintptr_t)pdev->id);
 	if (leaf)
 		xt->leaf = leaf;
 	return count;
@@ -62,11 +63,31 @@ static const struct attribute_group xocl_test_attrgroup = {
 	.attrs = xocl_test_attrs,
 };
 
-static int xocl_test_probe(struct platform_device *pdev)
+static int xocl_test_event_cb(struct platform_device *pdev,
+	enum xocl_subdev_id id, int instance, enum xocl_events evt)
 {
 	struct platform_device *leaf;
+
+	xocl_info(pdev, "event %d for (%d, %d)", evt, id, instance);
+
+	switch (evt) {
+	case XOCL_EVENT_POST_CREATION:
+		break;
+	default:
+		return 0;
+	}
+	
+	leaf = xocl_subdev_get_leaf_by_id(pdev, id, instance);
+	if (leaf) {
+		(void) xocl_subdev_ioctl(leaf, 1, NULL);
+		(void) xocl_subdev_put_leaf(pdev, leaf);
+	}
+	return 0;
+}
+
+static int xocl_test_probe(struct platform_device *pdev)
+{
 	struct xocl_test *xt;
-	struct xocl_parent_ioctl_create_partition cp = { XOCL_PART_TEST_1, };
 
 	xocl_info(pdev, "probing...");
 
@@ -85,15 +106,13 @@ static int xocl_test_probe(struct platform_device *pdev)
 	/* Ready to handle req thru cdev. */
 	(void) xocl_devnode_create(pdev, "test");
 
-	/* Trigger partition creation. */
-	(void) xocl_subdev_parent_ioctl(pdev,
-		XOCL_PARENT_CREATE_PARTITION, (u64)&cp);
+	/* Add event callback to wait for the peer instance. */
+	xt->evt_hdl = xocl_subdev_add_event_cb(pdev, xocl_test_leaf_match,
+		(void *)(uintptr_t)pdev->id, xocl_test_event_cb);
 
-	leaf = xocl_subdev_get_leaf(pdev, xocl_test_leaf_match, pdev->id);
-	if (leaf) {
-		(void) xocl_subdev_ioctl(leaf, 1, (u64)NULL);
-		(void) xocl_subdev_put_leaf(pdev, leaf);
-	}
+	/* Trigger partition creation. */
+	(void) xocl_subdev_create_partition(pdev, XOCL_PART_TEST_1, NULL);
+
 	/* After we return here, we'll get inter-leaf calls. */
 	return 0;
 }
@@ -101,10 +120,13 @@ static int xocl_test_probe(struct platform_device *pdev)
 static int xocl_test_remove(struct platform_device *pdev)
 {
 	int ret;
+	struct xocl_test *xt = platform_get_drvdata(pdev);
 
 	/* By now, partition driver should prevent any inter-leaf call. */
 
 	xocl_info(pdev, "leaving...");
+
+	(void) xocl_subdev_remove_event_cb(pdev, xt->evt_hdl);
 
 	ret = xocl_devnode_destroy(pdev);
 	if (ret)
@@ -118,7 +140,8 @@ static int xocl_test_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static long xocl_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
+static long
+xocl_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	xocl_info(pdev, "handling IOCTL cmd: %d", cmd);
 	return 0;
