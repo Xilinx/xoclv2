@@ -152,7 +152,7 @@ static int xocl_vsec_create_metadata(struct xocl_vsec *vsec)
 	return 0;
 }
 
-static long xocl_vsec_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
+static int xocl_vsec_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	return 0;
 }
@@ -242,7 +242,6 @@ static int xocl_vsec_probe(struct platform_device *pdev)
 {
 	struct xocl_vsec	*vsec;
 	int			ret = 0;
-	struct xocl_parent_ioctl_create_partition cp;
 
 	vsec = devm_kzalloc(&pdev->dev, sizeof(*vsec), GFP_KERNEL);
 	if (!vsec)
@@ -260,10 +259,8 @@ static int xocl_vsec_probe(struct platform_device *pdev)
 		xocl_err(pdev, "create metadata failed, ret %d", ret);
 		goto failed;
 	}
-	cp.xpicp_id = XOCL_PART_VSEC;
-	cp. xpicp_dtb = vsec->metadata;
-	ret = xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_CREATE_PARTITION,
-		(u64)&cp);
+	ret = xocl_subdev_create_partition(pdev, XOCL_PART_VSEC,
+		vsec->metadata);
 	if (ret) {
 		xocl_err(pdev, "create partition failed, ret %d", ret);
 	}
