@@ -152,7 +152,7 @@ void xocl_subdev_destroy(struct xocl_subdev *sdev)
 	xocl_subdev_free(sdev);
 }
 
-long xocl_subdev_parent_ioctl(struct platform_device *self, u32 cmd, u64 arg)
+int xocl_subdev_parent_ioctl(struct platform_device *self, u32 cmd, void *arg)
 {
 	struct device *dev = DEV(self);
 	struct xocl_subdev_platdata *pdata = DEV_PDATA(self);
@@ -160,7 +160,7 @@ long xocl_subdev_parent_ioctl(struct platform_device *self, u32 cmd, u64 arg)
 	return (*pdata->xsp_parent_cb)(dev->parent, cmd, arg);
 }
 
-long xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, u64 arg)
+int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
 {
 	struct xocl_subdev_drvdata *drvdata = DEV_DRVDATA(tgt);
 
@@ -183,14 +183,13 @@ int xocl_subdev_offline(struct platform_device *pdev)
 
 struct platform_device *
 xocl_subdev_get_leaf(struct platform_device *pdev,
-	xocl_subdev_match_t match_cb, u64 match_arg)
+	xocl_subdev_match_t match_cb, void *match_arg)
 {
-	long rc;
+	int rc;
 	struct xocl_parent_ioctl_get_leaf get_leaf =
 		{ pdev, match_cb, match_arg, };
 
-	rc = xocl_subdev_parent_ioctl(
-		pdev, XOCL_PARENT_GET_LEAF, (u64)&get_leaf);
+	rc = xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_LEAF, &get_leaf);
 	if (rc)
 		return NULL;
 	return get_leaf.xpigl_leaf;
@@ -200,12 +199,12 @@ struct platform_device *
 xocl_subdev_get_leaf_by_id(struct platform_device *pdev,
 	enum xocl_subdev_id id, int instance)
 {
-	long rc;
+	int rc;
 	struct xocl_parent_ioctl_get_leaf_by_id get_leaf =
 		{ pdev, id, instance, };
 
 	rc = xocl_subdev_parent_ioctl(
-		pdev, XOCL_PARENT_GET_LEAF_BY_ID, (u64)&get_leaf);
+		pdev, XOCL_PARENT_GET_LEAF_BY_ID, &get_leaf);
 	if (rc)
 		return NULL;
 	return get_leaf.xpiglbi_leaf;
@@ -214,12 +213,40 @@ xocl_subdev_get_leaf_by_id(struct platform_device *pdev,
 int xocl_subdev_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf)
 {
-	long rc;
 	struct xocl_parent_ioctl_put_leaf put_leaf = { pdev, leaf };
 
-	rc = xocl_subdev_parent_ioctl(
-		pdev, XOCL_PARENT_PUT_LEAF, (u64)&put_leaf);
-	return rc;
+	return xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_PUT_LEAF, &put_leaf);
+}
+
+int xocl_subdev_create_partition(struct platform_device *pdev,
+	enum xocl_partition_id id, void *dtb)
+{
+	struct xocl_parent_ioctl_create_partition cp = { id, dtb };
+
+	return xocl_subdev_parent_ioctl(pdev,
+		XOCL_PARENT_CREATE_PARTITION, &cp);
+}
+
+int xocl_subdev_destroy_partition(struct platform_device *pdev,
+	enum xocl_partition_id id)
+{
+	return xocl_subdev_parent_ioctl(pdev,
+		XOCL_PARENT_REMOVE_PARTITION, (void *)(uintptr_t)id);
+}
+
+xocl_event_cb_handle_t xocl_subdev_add_event_cb(struct platform_device *pdev,
+	xocl_subdev_match_t match, void *match_arg, xocl_event_cb_t cb)
+{
+	struct xocl_parent_ioctl_add_evt_cb c = { pdev, match, match_arg, cb };
+
+	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_ADD_EVENT_CB, &c);
+	return c.xevt_hdl;
+}
+
+void xocl_subdev_remove_event_cb(struct platform_device *pdev,
+	xocl_event_cb_handle_t hdl)
+{
+	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_REMOVE_EVENT_CB, hdl);
 }
 
 static void
@@ -287,6 +314,12 @@ int xocl_subdev_pool_fini(struct xocl_subdev_pool *spool)
 	struct mutex *lk = &spool->xpool_lock;
 
 	mutex_lock(lk);
+
+	if (spool->xpool_closing) {
+		mutex_unlock(lk);
+		return 0;
+	}
+
 	spool->xpool_closing = true;
 	/* Remove subdev in the reverse order of added. */
 	while (!ret && !list_empty(dl)) {
@@ -298,6 +331,7 @@ int xocl_subdev_pool_fini(struct xocl_subdev_pool *spool)
 		xocl_subdev_destroy(sdev);
 		mutex_lock(lk);
 	}
+
 	mutex_unlock(lk);
 
 	return ret;
@@ -451,28 +485,87 @@ int xocl_subdev_pool_del(struct xocl_subdev_pool *spool, enum xocl_subdev_id id,
 	return 0;
 }
 
-int xocl_subdev_pool_get(struct xocl_subdev_pool *spool,
-	xocl_subdev_match_t match, u64 arg, struct device *holder_dev,
-	struct platform_device **pdevp)
+static int xocl_subdev_pool_get_sdev(struct xocl_subdev_pool *spool,
+	xocl_subdev_match_t match, void *arg, struct device *holder_dev,
+	struct xocl_subdev **sdevp)
 {
 	const struct list_head *ptr;
 	struct mutex *lk = &spool->xpool_lock;
 	struct list_head *dl = &spool->xpool_dev_list;
-	struct xocl_subdev *sdev;
+	struct xocl_subdev *sdev = NULL;
 	int ret = -ENOENT;
 
 	mutex_lock(lk);
-	list_for_each(ptr, dl) {
-		sdev = list_entry(ptr, struct xocl_subdev, xs_dev_list);
-		if (!match(sdev->xs_id, sdev->xs_pdev, arg))
-			continue;
-		ret = xocl_subdev_hold(sdev, holder_dev);
-		break;
+
+	if (match == XOCL_SUBDEV_MATCH_PREV) {
+		struct platform_device *pdev = (struct platform_device *)arg;
+		struct xocl_subdev *d = NULL;
+
+		if (!pdev) {
+			sdev = list_empty(dl) ? NULL : list_last_entry(dl,
+				struct xocl_subdev, xs_dev_list);
+		} else {
+			list_for_each(ptr, dl) {
+				d = list_entry(ptr, struct xocl_subdev,
+					xs_dev_list);
+				if (d->xs_pdev != pdev)
+					continue;
+				if (!list_is_first(ptr, dl))
+					sdev = list_prev_entry(d, xs_dev_list);
+				break;
+			}
+		}
+	} else if (match == XOCL_SUBDEV_MATCH_NEXT) {
+		struct platform_device *pdev = (struct platform_device *)arg;
+		struct xocl_subdev *d = NULL;
+
+		if (!pdev) {
+			sdev = list_first_entry_or_null(dl,
+				struct xocl_subdev, xs_dev_list);
+		} else {
+			list_for_each(ptr, dl) {
+				d = list_entry(ptr, struct xocl_subdev,
+					xs_dev_list);
+				if (d->xs_pdev != pdev)
+					continue;
+				if (!list_is_last(ptr, dl))
+					sdev = list_next_entry(d, xs_dev_list);
+				break;
+			}
+		}
+	} else {
+		list_for_each(ptr, dl) {
+			struct xocl_subdev *d = NULL;
+			d = list_entry(ptr, struct xocl_subdev, xs_dev_list);
+			if (!match(d->xs_id, d->xs_pdev, arg))
+				continue;
+			sdev = d;
+			break;
+		}
 	}
+
+	if (sdev)
+		ret = xocl_subdev_hold(sdev, holder_dev);
+
 	mutex_unlock(lk);
+
 	if (!ret)
-		*pdevp = sdev->xs_pdev;
+		*sdevp = sdev;
 	return ret;
+}
+
+int xocl_subdev_pool_get(struct xocl_subdev_pool *spool,
+	xocl_subdev_match_t match, void *arg, struct device *holder_dev,
+	struct platform_device **pdevp)
+{
+	int rc;
+	struct xocl_subdev *sdev;
+
+	rc = xocl_subdev_pool_get_sdev(spool, match, arg, holder_dev, &sdev);
+	if (rc)
+		return rc;
+	*pdevp = sdev->xs_pdev;
+	return 0;
 }
 
 int xocl_subdev_pool_put(struct xocl_subdev_pool *spool,
@@ -494,6 +587,24 @@ int xocl_subdev_pool_put(struct xocl_subdev_pool *spool,
 	}
 	mutex_unlock(lk);
 	return ret;
+}
+
+int xocl_subdev_pool_event(struct xocl_subdev_pool *spool,
+	struct platform_device *pdev, xocl_subdev_match_t match, void *arg,
+	xocl_event_cb_t xevt_cb, enum xocl_events evt)
+{
+	int rc = 0;
+	struct platform_device *tgt = NULL;
+	struct xocl_subdev *sdev = NULL;
+
+	while (!rc && xocl_subdev_pool_get_sdev(spool, XOCL_SUBDEV_MATCH_NEXT,
+		tgt, DEV(pdev), &sdev) != -ENOENT) {
+		tgt = sdev->xs_pdev;
+		if (match(sdev->xs_id, sdev->xs_pdev, arg))
+			rc = xevt_cb(pdev, sdev->xs_id, tgt->id, evt);
+		(void) xocl_subdev_pool_put(spool, tgt, DEV(pdev));
+	}
+	return rc;
 }
 
 EXPORT_SYMBOL_GPL(xocl_subdev_ioctl);

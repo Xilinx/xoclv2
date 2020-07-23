@@ -128,7 +128,7 @@ static void xocl_drv_unregister_driver(enum xocl_subdev_id id)
 static __init int xocl_drv_register_drivers(void)
 {
 	int i;
-	int rc;
+	int rc = 0;
 
 	xocl_class = class_create(THIS_MODULE, XOCL_IPLIB_MODULE_NAME);
 	if (IS_ERR(xocl_class))

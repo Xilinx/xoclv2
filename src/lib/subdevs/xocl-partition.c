@@ -16,14 +16,22 @@
 
 #define	XOCL_PART "xocl_partition"
 
+extern int xocl_subdev_parent_ioctl(struct platform_device *pdev,
+	u32 cmd, void *arg);
+
+enum xocl_part_states {
+	XOCL_PART_STATE_INIT = 0,
+	XOCL_PART_STATE_BUSY,
+	XOCL_PART_STATE_CHILDREN_CREATED,
+	XOCL_PART_STATE_CHILDREN_REMOVED,
+};
+
 struct xocl_partition {
 	struct platform_device *pdev;
 	struct xocl_subdev_pool leaves;
-	bool dev_created;
-	struct mutex lock;
 };
 
-static long xocl_part_parent_cb(struct device *dev, u32 cmd, u64 arg)
+static int xocl_part_parent_cb(struct device *dev, u32 cmd, void *arg)
 {
 	struct platform_device *pdev =
 		container_of(dev, struct platform_device, dev);
@@ -31,22 +39,22 @@ static long xocl_part_parent_cb(struct device *dev, u32 cmd, u64 arg)
 	return xocl_subdev_parent_ioctl(pdev, cmd, arg);
 }
 
-static int xocl_part_create_subdevs(struct xocl_partition *xp)
+static int xocl_part_create_leaves(struct xocl_partition *xp)
 {
-	bool created;
+	xocl_info(xp->pdev, "bringing up leaves ...");
+	xocl_subdev_pool_init(DEV(xp->pdev), &xp->leaves);
 
-	mutex_lock(&xp->lock);
-	created = xp->dev_created;
-	xp->dev_created = true;
-	mutex_unlock(&xp->lock);
-	if (created)
-		return 0;
+	/* TODO: Create all leaves based on dtb. */
 
-	/* Create 1st leaf. */
-	xocl_info(xp->pdev, "bringing up subdevs ...");
 	(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_TEST,
 		PLATFORM_DEVID_AUTO, xocl_part_parent_cb, NULL);
 	return 0;
+}
+
+static int xocl_part_remove_leaves(struct xocl_partition *xp)
+{
+	xocl_info(xp->pdev, "tearing down leaves ...");
+	return xocl_subdev_pool_fini(&xp->leaves);
 }
 
 static int xocl_part_probe(struct platform_device *pdev)
@@ -61,8 +69,6 @@ static int xocl_part_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	xp->pdev = pdev;
-	xocl_subdev_pool_init(DEV(xp->pdev), &xp->leaves);
-	mutex_init(&xp->lock);
 	platform_set_drvdata(pdev, xp);
 
 	return 0;
@@ -73,13 +79,12 @@ static int xocl_part_remove(struct platform_device *pdev)
 	struct xocl_partition *xp = platform_get_drvdata(pdev);
 
 	xocl_info(pdev, "leaving...");
-	(void) xocl_subdev_pool_fini(&xp->leaves);
-	return 0;
+	return xocl_part_remove_leaves(xp);
 }
 
-static long xocl_part_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
+static int xocl_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	long rc = 0;
+	int rc = 0;
 	struct xocl_partition *xp = platform_get_drvdata(pdev);
 
 	xocl_info(pdev, "handling IOCTL cmd %d", cmd);
@@ -100,6 +105,21 @@ static long xocl_part_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
 			DEV(put_leaf->xpipl_pdev));
 		break;
 	}
+	case XOCL_PARTITION_INIT_CHILDREN:
+		rc = xocl_part_create_leaves(xp);
+		break;
+	case XOCL_PARTITION_FINI_CHILDREN:
+		rc = xocl_part_remove_leaves(xp);
+		break;
+	case XOCL_PARTITION_EVENT: {
+		struct xocl_partition_ioctl_event *evt =
+			(struct xocl_partition_ioctl_event *)arg;
+		struct xocl_parent_ioctl_add_evt_cb *cb = evt->xpie_cb;
+		rc = xocl_subdev_pool_event(&xp->leaves, cb->xevt_pdev,
+			cb->xevt_match_cb, cb->xevt_match_arg, cb->xevt_cb,
+			evt->xpie_evt);
+		break;
+	}
 	default:
 		xocl_err(pdev, "unknown IOCTL cmd %d", cmd);
 		rc = -EINVAL;
@@ -108,14 +128,15 @@ static long xocl_part_ioctl(struct platform_device *pdev, u32 cmd, u64 arg)
 	return rc;
 }
 
+static int xocl_part_offline(struct platform_device *pdev)
+{
+	/* TODO: add offline support. */
+	return 0;
+}
+
 static int xocl_part_online(struct platform_device *pdev)
 {
-	int rc;
-	struct xocl_partition *xp = platform_get_drvdata(pdev);
-
-	rc = xocl_part_create_subdevs(xp);
-	if (rc)
-		return rc;
+	/* TODO: add online support. */
 	return 0;
 }
 
@@ -123,6 +144,7 @@ struct xocl_subdev_drvdata xocl_part_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xocl_part_ioctl,
 		.xsd_online = xocl_part_online,
+		.xsd_offline = xocl_part_offline,
 	},
 };
 
