@@ -39,7 +39,6 @@ ccflags-y += -DDEBUG -g -Og
 endif
 
 all:
-	echo $(PWD)
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
 
 clean:

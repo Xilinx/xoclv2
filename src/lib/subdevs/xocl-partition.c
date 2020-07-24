@@ -5,7 +5,7 @@
  * Copyright (C) 2020 Xilinx, Inc.
  *
  * Authors:
- * 	Cheng Zhen <maxz@xilinx.com>
+ *	Cheng Zhen <maxz@xilinx.com>
  */
 
 #include <linux/mod_devicetable.h>
@@ -15,9 +15,6 @@
 #include "xocl-partition.h"
 
 #define	XOCL_PART "xocl_partition"
-
-extern int xocl_subdev_parent_ioctl(struct platform_device *pdev,
-	u32 cmd, void *arg);
 
 enum xocl_part_states {
 	XOCL_PART_STATE_INIT = 0,
@@ -64,10 +61,9 @@ static int xocl_part_probe(struct platform_device *pdev)
 	xocl_info(pdev, "probing...");
 
 	xp = devm_kzalloc(&pdev->dev, sizeof(*xp), GFP_KERNEL);
-	if (!xp) {
-		xocl_info(pdev, "failed to alloc xocl_partition");
+	if (!xp)
 		return -ENOMEM;
-	}
+
 	xp->pdev = pdev;
 	platform_set_drvdata(pdev, xp);
 
@@ -93,7 +89,8 @@ static int xocl_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	case XOCL_PARTITION_GET_LEAF: {
 		struct xocl_parent_ioctl_get_leaf *get_leaf =
 			(struct xocl_parent_ioctl_get_leaf *)arg;
-		rc = xocl_subdev_pool_get(&xp->leaves, get_leaf->xpigl_match_cb, 
+
+		rc = xocl_subdev_pool_get(&xp->leaves, get_leaf->xpigl_match_cb,
 			get_leaf->xpigl_match_arg, DEV(get_leaf->xpigl_pdev),
 			&get_leaf->xpigl_leaf);
 		break;
@@ -101,6 +98,7 @@ static int xocl_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	case XOCL_PARTITION_PUT_LEAF: {
 		struct xocl_parent_ioctl_put_leaf *put_leaf =
 			(struct xocl_parent_ioctl_put_leaf *)arg;
+
 		rc = xocl_subdev_pool_put(&xp->leaves, put_leaf->xpipl_leaf,
 			DEV(put_leaf->xpipl_pdev));
 		break;
@@ -115,6 +113,7 @@ static int xocl_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		struct xocl_partition_ioctl_event *evt =
 			(struct xocl_partition_ioctl_event *)arg;
 		struct xocl_parent_ioctl_add_evt_cb *cb = evt->xpie_cb;
+
 		rc = xocl_subdev_pool_event(&xp->leaves, cb->xevt_pdev,
 			cb->xevt_match_cb, cb->xevt_match_arg, cb->xevt_cb,
 			evt->xpie_evt);

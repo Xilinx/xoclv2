@@ -3,7 +3,7 @@
  * Copyright (C) 2020 Xilinx, Inc.
  *
  * Authors:
- * 	Cheng Zhen <maxz@xilinx.com>
+ *	Cheng Zhen <maxz@xilinx.com>
  */
 
 #ifndef	_XOCL_SUBDEV_H_
@@ -152,9 +152,10 @@ typedef bool (*xocl_subdev_match_t)(enum xocl_subdev_id,
 /* All subdev drivers should use below common routines to print out msg. */
 #define	DEV(pdev)	(&(pdev)->dev)
 #define	DEV_PDATA(pdev)					\
-	((struct xocl_subdev_platdata*)dev_get_platdata(DEV(pdev)))
+	((struct xocl_subdev_platdata *)dev_get_platdata(DEV(pdev)))
 #define	DEV_DRVDATA(pdev)				\
-	((struct xocl_subdev_drvdata*)platform_get_device_id(pdev)->driver_data)
+	((struct xocl_subdev_drvdata *)			\
+	platform_get_device_id(pdev)->driver_data)
 #define	FMT_PRT(prt_fn, pdev, fmt, args...)		\
 	prt_fn(DEV(pdev), "%s %s: "fmt,			\
 	DEV_PDATA(pdev)->xsp_root_name, __func__, ##args)
@@ -173,7 +174,6 @@ enum xocl_events {
 
 typedef int (*xocl_event_cb_t)(struct platform_device *pdev,
 	enum xocl_subdev_id id, int instance, enum xocl_events evt);
-typedef void * xocl_event_cb_handle_t;
 
 /*
  * Online and offline routines are for root and partition drivers only.
@@ -194,7 +194,7 @@ extern int xocl_subdev_pool_put(struct xocl_subdev_pool *spool,
 	struct platform_device *pdev, struct device *holder_dev);
 extern int xocl_subdev_pool_add(struct xocl_subdev_pool *spool,
 	enum xocl_subdev_id id, int instance, xocl_subdev_parent_cb_t pcb,
-	void *dtb);
+	char *dtb);
 extern int xocl_subdev_pool_del(struct xocl_subdev_pool *spool,
 	enum xocl_subdev_id id, int instance);
 extern int xocl_subdev_pool_event(struct xocl_subdev_pool *spool,
@@ -211,14 +211,13 @@ extern struct platform_device *xocl_subdev_get_leaf_by_id(
 extern int xocl_subdev_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf);
 extern int xocl_subdev_create_partition(struct platform_device *pdev,
-	enum xocl_partition_id id, void *dtb);
+	enum xocl_partition_id id, char *dtb);
 extern int xocl_subdev_destroy_partition(struct platform_device *pdev,
 	enum xocl_partition_id id);
-extern xocl_event_cb_handle_t xocl_subdev_add_event_cb(
-	struct platform_device *pdev, xocl_subdev_match_t match,
-	void *match_arg, xocl_event_cb_t cb);
-extern void xocl_subdev_remove_event_cb(struct platform_device *pdev,
-	xocl_event_cb_handle_t hdl);
+extern void *xocl_subdev_add_event_cb(struct platform_device *pdev,
+	xocl_subdev_match_t match, void *match_arg, xocl_event_cb_t cb);
+extern void xocl_subdev_remove_event_cb(
+	struct platform_device *pdev, void *hdl);
 extern int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
 
 /*

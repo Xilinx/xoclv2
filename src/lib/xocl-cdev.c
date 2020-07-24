@@ -5,7 +5,7 @@
  * Copyright (C) 2020 Xilinx, Inc.
  *
  * Authors:
- * 	Cheng Zhen <maxz@xilinx.com>
+ *	Cheng Zhen <maxz@xilinx.com>
  */
 
 #include "xocl-subdev.h"

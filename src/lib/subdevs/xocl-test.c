@@ -5,7 +5,7 @@
  * Copyright (C) 2020 Xilinx, Inc.
  *
  * Authors:
- * 	Cheng Zhen <maxz@xilinx.com>
+ *	Cheng Zhen <maxz@xilinx.com>
  */
 
 #include <linux/delay.h>
@@ -16,7 +16,7 @@
 struct xocl_test {
 	struct platform_device *pdev;
 	struct platform_device *leaf;
-	xocl_event_cb_handle_t evt_hdl;
+	void *evt_hdl;
 };
 
 static bool xocl_test_leaf_match(enum xocl_subdev_id id,
@@ -76,7 +76,7 @@ static int xocl_test_event_cb(struct platform_device *pdev,
 	default:
 		return 0;
 	}
-	
+
 	leaf = xocl_subdev_get_leaf_by_id(pdev, id, instance);
 	if (leaf) {
 		(void) xocl_subdev_ioctl(leaf, 1, NULL);
@@ -92,10 +92,9 @@ static int xocl_test_probe(struct platform_device *pdev)
 	xocl_info(pdev, "probing...");
 
 	xt = devm_kzalloc(DEV(pdev), sizeof(*xt), GFP_KERNEL);
-	if (!xt) {
-		xocl_err(pdev, "failed to alloc xocl_test");
+	if (!xt)
 		return -ENOMEM;
-	}
+
 	xt->pdev = pdev;
 	platform_set_drvdata(pdev, xt);
 

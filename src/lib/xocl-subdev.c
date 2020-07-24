@@ -3,7 +3,7 @@
  * Copyright (C) 2020 Xilinx, Inc.
  *
  * Authors:
- * 	Cheng Zhen <maxz@xilinx.com>
+ *	Cheng Zhen <maxz@xilinx.com>
  */
 
 #include <linux/platform_device.h>
@@ -11,6 +11,7 @@
 #include <linux/vmalloc.h>
 #include "xocl-subdev.h"
 #include "xocl-parent.h"
+#include "xocl-main.h"
 
 #define DEV_IS_PCI(dev) ((dev)->bus == &pci_bus_type)
 
@@ -36,10 +37,6 @@ struct xocl_subdev {
 	struct completion xs_holder_comp;
 };
 
-extern const char *xocl_drv_name(enum xocl_subdev_id id);
-extern int xocl_drv_get_instance(enum xocl_subdev_id id, int instance);
-extern void xocl_drv_put_instance(enum xocl_subdev_id id, int instance);
-
 static struct xocl_subdev *xocl_subdev_alloc(void)
 {
 	struct xocl_subdev *sdev = vzalloc(sizeof(struct xocl_subdev));
@@ -60,7 +57,7 @@ static void xocl_subdev_free(struct xocl_subdev *sdev)
 
 struct xocl_subdev *
 xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
-	int instance, xocl_subdev_parent_cb_t pcb, void *dtb)
+	int instance, xocl_subdev_parent_cb_t pcb, char *dtb)
 {
 	struct xocl_subdev *sdev = NULL;
 	struct platform_device *pdev = NULL;
@@ -78,10 +75,9 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 
 	/* Prepare platform data passed to subdev. */
 	pdata = vzalloc(pdata_sz);
-	if (!pdata) {
-		dev_err(parent, "failed to alloc platform data");
+	if (!pdata)
 		goto fail;
-	}
+
 	pdata->xsp_parent_cb = pcb;
 	(void) memcpy(pdata->xsp_dtb, dtb, dtb_len);
 	if (id == XOCL_SUBDEV_PART) {
@@ -166,6 +162,7 @@ int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
 
 	return (*drvdata->xsd_dev_ops.xsd_ioctl)(tgt, cmd, arg);
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_ioctl);
 
 int xocl_subdev_online(struct platform_device *pdev)
 {
@@ -173,6 +170,7 @@ int xocl_subdev_online(struct platform_device *pdev)
 
 	return (*drvdata->xsd_dev_ops.xsd_online)(pdev);
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_online);
 
 int xocl_subdev_offline(struct platform_device *pdev)
 {
@@ -180,14 +178,15 @@ int xocl_subdev_offline(struct platform_device *pdev)
 
 	return (*drvdata->xsd_dev_ops.xsd_offline)(pdev);
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_offline);
 
 struct platform_device *
 xocl_subdev_get_leaf(struct platform_device *pdev,
 	xocl_subdev_match_t match_cb, void *match_arg)
 {
 	int rc;
-	struct xocl_parent_ioctl_get_leaf get_leaf =
-		{ pdev, match_cb, match_arg, };
+	struct xocl_parent_ioctl_get_leaf get_leaf = {
+		pdev, match_cb, match_arg, };
 
 	rc = xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_LEAF, &get_leaf);
 	if (rc)
@@ -200,8 +199,8 @@ xocl_subdev_get_leaf_by_id(struct platform_device *pdev,
 	enum xocl_subdev_id id, int instance)
 {
 	int rc;
-	struct xocl_parent_ioctl_get_leaf_by_id get_leaf =
-		{ pdev, id, instance, };
+	struct xocl_parent_ioctl_get_leaf_by_id get_leaf = {
+		pdev, id, instance, };
 
 	rc = xocl_subdev_parent_ioctl(
 		pdev, XOCL_PARENT_GET_LEAF_BY_ID, &get_leaf);
@@ -219,7 +218,7 @@ int xocl_subdev_put_leaf(struct platform_device *pdev,
 }
 
 int xocl_subdev_create_partition(struct platform_device *pdev,
-	enum xocl_partition_id id, void *dtb)
+	enum xocl_partition_id id, char *dtb)
 {
 	struct xocl_parent_ioctl_create_partition cp = { id, dtb };
 
@@ -234,7 +233,7 @@ int xocl_subdev_destroy_partition(struct platform_device *pdev,
 		XOCL_PARENT_REMOVE_PARTITION, (void *)(uintptr_t)id);
 }
 
-xocl_event_cb_handle_t xocl_subdev_add_event_cb(struct platform_device *pdev,
+void *xocl_subdev_add_event_cb(struct platform_device *pdev,
 	xocl_subdev_match_t match, void *match_arg, xocl_event_cb_t cb)
 {
 	struct xocl_parent_ioctl_add_evt_cb c = { pdev, match, match_arg, cb };
@@ -243,8 +242,7 @@ xocl_event_cb_handle_t xocl_subdev_add_event_cb(struct platform_device *pdev,
 	return c.xevt_hdl;
 }
 
-void xocl_subdev_remove_event_cb(struct platform_device *pdev,
-	xocl_event_cb_handle_t hdl)
+void xocl_subdev_remove_event_cb(struct platform_device *pdev, void *hdl)
 {
 	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_REMOVE_EVENT_CB, hdl);
 }
@@ -273,6 +271,7 @@ void xocl_subdev_pool_init(struct device *dev, struct xocl_subdev_pool *spool)
 	mutex_init(&spool->xpool_lock);
 	spool->xpool_closing = false;
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_pool_init);
 
 static void xocl_subdev_pool_wait_for_holders(struct xocl_subdev_pool *spool,
 	struct xocl_subdev *sdev)
@@ -336,6 +335,7 @@ int xocl_subdev_pool_fini(struct xocl_subdev_pool *spool)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_pool_fini);
 
 static int xocl_subdev_hold(struct xocl_subdev *sdev, struct device *holder_dev)
 {
@@ -356,26 +356,14 @@ static int xocl_subdev_hold(struct xocl_subdev *sdev, struct device *holder_dev)
 
 	if (!found) {
 		holder = vzalloc(sizeof(*holder));
-		if (!holder) {
-			dev_err(holder_dev, "failed to alloc holder");
+		if (!holder)
 			return -ENOMEM;
-		}
 		holder->xsh_holder = holder_dev;
 		holder->xsh_count = 1;
 		list_add_tail(&holder->xsh_holder_list, hl);
 	}
 
-	if (DEV_IS_PCI(holder_dev)) {
-		dev_info(holder_dev, "%s: %s <<==== %s, ref=%d", __func__,
-			dev_name(holder_dev), dev_name(DEV(sdev->xs_pdev)),
-			holder->xsh_count);
-	} else {
-		xocl_info(to_platform_device(holder_dev),
-			"%s <<==== %s, ref=%d",
-			dev_name(holder_dev), dev_name(DEV(sdev->xs_pdev)),
-			holder->xsh_count);
-	}
-	return 0;
+	return holder->xsh_count;
 }
 
 static int
@@ -404,34 +392,16 @@ xocl_subdev_release(struct xocl_subdev *sdev, struct device *holder_dev)
 			break;
 		}
 	}
-
-	if (DEV_IS_PCI(holder_dev)) {
-		if (found) {
-			dev_info(holder_dev, "%s: %s <<==X== %s, ref=%d",
-				__func__, dev_name(holder_dev),
-				dev_name(DEV(sdev->xs_pdev)), count);
-		} else {
-			dev_err(holder_dev, "can't release, %s did not hold %s",
-				dev_name(holder_dev),
-				dev_name(DEV(sdev->xs_pdev)));
-		}
-	} else {
-		struct platform_device *d = to_platform_device(holder_dev);
-		if (found) {
-			xocl_info(d, "%s <<==X== %s, ref=%d",
-				dev_name(holder_dev),
-				dev_name(DEV(sdev->xs_pdev)), count);
-		} else {
-			xocl_err(d, "can't release, %s did not hold %s",
-				dev_name(holder_dev),
-				dev_name(DEV(sdev->xs_pdev)));
-		}
+	if (!found) {
+		dev_err(holder_dev, "can't release, %s did not hold %s",
+			dev_name(holder_dev),
+			dev_name(DEV(sdev->xs_pdev)));
 	}
-	return found ? 0 : -ENOENT;
+	return found ? count : -EINVAL;
 }
 
 int xocl_subdev_pool_add(struct xocl_subdev_pool *spool, enum xocl_subdev_id id,
-	int instance, xocl_subdev_parent_cb_t pcb, void *dtb)
+	int instance, xocl_subdev_parent_cb_t pcb, char *dtb)
 {
 	struct mutex *lk = &spool->xpool_lock;
 	struct list_head *dl = &spool->xpool_dev_list;
@@ -457,6 +427,7 @@ int xocl_subdev_pool_add(struct xocl_subdev_pool *spool, enum xocl_subdev_id id,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_pool_add);
 
 int xocl_subdev_pool_del(struct xocl_subdev_pool *spool, enum xocl_subdev_id id,
 	int instance)
@@ -484,8 +455,9 @@ int xocl_subdev_pool_del(struct xocl_subdev_pool *spool, enum xocl_subdev_id id,
 	xocl_subdev_destroy(sdev);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_pool_del);
 
-static int xocl_subdev_pool_get_sdev(struct xocl_subdev_pool *spool,
+static int xocl_subdev_pool_get_impl(struct xocl_subdev_pool *spool,
 	xocl_subdev_match_t match, void *arg, struct device *holder_dev,
 	struct xocl_subdev **sdevp)
 {
@@ -536,6 +508,7 @@ static int xocl_subdev_pool_get_sdev(struct xocl_subdev_pool *spool,
 	} else {
 		list_for_each(ptr, dl) {
 			struct xocl_subdev *d = NULL;
+
 			d = list_entry(ptr, struct xocl_subdev, xs_dev_list);
 			if (!match(d->xs_id, d->xs_pdev, arg))
 				continue;
@@ -549,10 +522,11 @@ static int xocl_subdev_pool_get_sdev(struct xocl_subdev_pool *spool,
 
 	mutex_unlock(lk);
 
-	if (!ret)
+	if (ret >= 0)
 		*sdevp = sdev;
 	return ret;
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_pool_get);
 
 int xocl_subdev_pool_get(struct xocl_subdev_pool *spool,
 	xocl_subdev_match_t match, void *arg, struct device *holder_dev,
@@ -561,14 +535,28 @@ int xocl_subdev_pool_get(struct xocl_subdev_pool *spool,
 	int rc;
 	struct xocl_subdev *sdev;
 
-	rc = xocl_subdev_pool_get_sdev(spool, match, arg, holder_dev, &sdev);
-	if (rc)
+	rc = xocl_subdev_pool_get_impl(spool, match, arg, holder_dev, &sdev);
+	if (rc < 0) {
+		if (rc != -ENOENT)
+			dev_err(holder_dev, "failed to hold device: %d", rc);
 		return rc;
+	}
+
+	if (DEV_IS_PCI(holder_dev)) {
+#ifdef	SUBDEV_DEBUG
+		dev_info(holder_dev, "%s: %s <<==== %s, ref=%d", __func__,
+			dev_name(holder_dev), dev_name(DEV(sdev->xs_pdev)), rc);
+#endif
+	} else {
+		xocl_info(to_platform_device(holder_dev), "%s <<==== %s",
+			dev_name(holder_dev), dev_name(DEV(sdev->xs_pdev)));
+	}
+
 	*pdevp = sdev->xs_pdev;
 	return 0;
 }
 
-int xocl_subdev_pool_put(struct xocl_subdev_pool *spool,
+static int xocl_subdev_pool_put_impl(struct xocl_subdev_pool *spool,
 	struct platform_device *pdev, struct device *holder_dev)
 {
 	const struct list_head *ptr;
@@ -586,8 +574,34 @@ int xocl_subdev_pool_put(struct xocl_subdev_pool *spool,
 		break;
 	}
 	mutex_unlock(lk);
+
+	if (ret < 0 && ret != -ENOENT)
+		dev_err(holder_dev, "failed to release device: %d", ret);
 	return ret;
 }
+
+int xocl_subdev_pool_put(struct xocl_subdev_pool *spool,
+	struct platform_device *pdev, struct device *holder_dev)
+{
+	int ret = xocl_subdev_pool_put_impl(spool, pdev, holder_dev);
+
+	if (ret < 0)
+		return ret;
+
+	if (DEV_IS_PCI(holder_dev)) {
+#ifdef	SUBDEV_DEBUG
+		dev_info(holder_dev, "%s: %s <<==X== %s, ref=%d", __func__,
+			dev_name(holder_dev), dev_name(DEV(spdev)), ret);
+#endif
+	} else {
+		struct platform_device *d = to_platform_device(holder_dev);
+
+		xocl_info(d, "%s <<==X== %s",
+			dev_name(holder_dev), dev_name(DEV(pdev)));
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(xocl_subdev_pool_put);
 
 int xocl_subdev_pool_event(struct xocl_subdev_pool *spool,
 	struct platform_device *pdev, xocl_subdev_match_t match, void *arg,
@@ -597,22 +611,12 @@ int xocl_subdev_pool_event(struct xocl_subdev_pool *spool,
 	struct platform_device *tgt = NULL;
 	struct xocl_subdev *sdev = NULL;
 
-	while (!rc && xocl_subdev_pool_get_sdev(spool, XOCL_SUBDEV_MATCH_NEXT,
+	while (!rc && xocl_subdev_pool_get_impl(spool, XOCL_SUBDEV_MATCH_NEXT,
 		tgt, DEV(pdev), &sdev) != -ENOENT) {
 		tgt = sdev->xs_pdev;
 		if (match(sdev->xs_id, sdev->xs_pdev, arg))
 			rc = xevt_cb(pdev, sdev->xs_id, tgt->id, evt);
-		(void) xocl_subdev_pool_put(spool, tgt, DEV(pdev));
+		(void) xocl_subdev_pool_put_impl(spool, tgt, DEV(pdev));
 	}
 	return rc;
 }
-
-EXPORT_SYMBOL_GPL(xocl_subdev_ioctl);
-EXPORT_SYMBOL_GPL(xocl_subdev_online);
-EXPORT_SYMBOL_GPL(xocl_subdev_offline);
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_add);
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_del);
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_init);
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_fini);
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_get);
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_put);

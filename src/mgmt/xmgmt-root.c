@@ -5,7 +5,7 @@
  * Copyright (C) 2020 Xilinx, Inc.
  *
  * Authors:
- * 	Cheng Zhen <maxz@xilinx.com>
+ *	Cheng Zhen <maxz@xilinx.com>
  */
 
 #include <linux/module.h>
@@ -31,7 +31,6 @@
 
 static struct class *xmgmt_class;
 static const struct pci_device_id xmgmt_pci_ids[] = {
-	{ PCI_DEVICE(0x10EE, 0x5000), },
 	{ PCI_DEVICE(0x10EE, 0x5020), },
 	{ 0, }
 };
@@ -40,6 +39,7 @@ static int xmgmt_parent_cb(struct device *, u32, void *);
 
 struct xmgmt_event_cb {
 	struct list_head list;
+	bool initialized;
 	struct xocl_parent_ioctl_add_evt_cb cb;
 };
 
@@ -67,92 +67,6 @@ static bool xmgmt_subdev_match(enum xocl_subdev_id id,
 	return id == a->id && pdev->id == a->instance;
 }
 
-static void xmgmt_evt_cbs_init(struct xmgmt *xm)
-{
-	INIT_LIST_HEAD(&xm->evt_cbs.cb_list);
-	mutex_init(&xm->evt_cbs.cb_lock);
-}
-
-static void xmgmt_evt_cbs_fini(struct xmgmt *xm)
-{
-	const struct list_head *ptr, *next;
-	struct xmgmt_event_cb *tmp;
-
-	mutex_lock(&xm->evt_cbs.cb_lock);
-	list_for_each_safe(ptr, next, &xm->evt_cbs.cb_list) {
-		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
-		list_del(&tmp->list);
-		vfree(tmp);
-	}
-	mutex_unlock(&xm->evt_cbs.cb_lock);
-}
-
-static int xmgmt_evt_cbs_add(struct xmgmt *xm,
-	struct xocl_parent_ioctl_add_evt_cb *cb)
-{
-	struct xmgmt_event_cb *new = vzalloc(sizeof(*new));
-
-	if (!new)
-		return -ENOMEM;
-
-	cb->xevt_hdl = new;
-	new->cb = *cb;
-	mutex_lock(&xm->evt_cbs.cb_lock);
-	list_add(&new->list, &xm->evt_cbs.cb_list);
-	mutex_unlock(&xm->evt_cbs.cb_lock);
-	return 0;
-}
-
-static void xmgmt_evt_cbs_del(struct xmgmt *xm, xocl_event_cb_handle_t hdl)
-{
-	struct xmgmt_event_cb *cb = (struct xmgmt_event_cb *)hdl;
-	const struct list_head *ptr;
-	struct xmgmt_event_cb *tmp;
-
-	mutex_lock(&xm->evt_cbs.cb_lock);
-	list_for_each(ptr, &xm->evt_cbs.cb_list) {
-		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
-		if (tmp == cb)
-			break;
-	}
-	list_del(&cb->list);
-	mutex_unlock(&xm->evt_cbs.cb_lock);
-	vfree(cb);
-}
-
-static int xmgmt_config_pci(struct xmgmt *xm)
-{
-	struct pci_dev *pdev = XMGMT_PDEV(xm);
-	int rc;
-
-	rc = pcim_enable_device(pdev);
-	if (rc < 0) {
-		xmgmt_err(xm, "failed to enable device: %d", rc);
-		return rc;
-	}
-
-	rc = pci_enable_pcie_error_reporting(pdev);
-	if (rc)
-		xmgmt_warn(xm, "failed to enable AER: %d", rc);
-
-	pci_set_master(pdev);
-
-	rc = pcie_get_readrq(pdev);
-	if (rc < 0) {
-		xmgmt_err(xm, "failed to read mrrs %d", rc);
-		return rc;
-	}
-	if (rc > 512) {
-		rc = pcie_set_readrq(pdev, 512);
-		if (rc) {
-			xmgmt_err(xm, "failed to force mrrs %d", rc);
-			return rc;
-		}
-	}
-
-	return 0;
-}
-
 static int xmgmt_get_partition(struct xmgmt *xm, enum xocl_partition_id id,
 	struct platform_device **partp)
 {
@@ -178,6 +92,7 @@ static void xmgmt_put_partition(struct xmgmt *xm, struct platform_device *part)
 {
 	int inst = part->id;
 	int rc = xocl_subdev_pool_put(&xm->parts, part, DEV(xm->pdev));
+
 	if (rc)
 		xmgmt_err(xm, "failed to release partition %d: %d", inst, rc);
 }
@@ -217,6 +132,9 @@ xmgmt_event(struct xmgmt *xm, enum xocl_partition_id id, enum xocl_events evt)
 		int rc;
 
 		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
+		if (!tmp->initialized)
+			continue;
+
 		rc = xmgmt_event_partition(xm, tmp, pdev, evt);
 		if (rc) {
 			list_del(&tmp->list);
@@ -264,6 +182,130 @@ static int xmgmt_destroy_partition(struct xmgmt *xm, enum xocl_partition_id id)
 	ret = xocl_subdev_ioctl(pdev, XOCL_PARTITION_FINI_CHILDREN, 0);
 	(void) xmgmt_put_partition(xm, pdev);
 	return xocl_subdev_pool_del(&xm->parts, XOCL_SUBDEV_PART, id);
+}
+
+static void xmgmt_evt_work(struct work_struct *work)
+{
+	const struct list_head *ptr, *next;
+	struct xmgmt_event_cb *tmp;
+	struct platform_device *part = NULL;
+	struct xmgmt *xm = container_of(work, struct xmgmt, evt_work);
+
+	mutex_lock(&xm->evt_cbs.cb_lock);
+
+	list_for_each_safe(ptr, next, &xm->evt_cbs.cb_list) {
+		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
+		if (tmp->initialized)
+			continue;
+
+		while (xmgmt_get_partition(xm, -1, &part) != -ENOENT) {
+			if (xmgmt_event_partition(xm, tmp, part,
+				XOCL_EVENT_POST_CREATION)) {
+				list_del(&tmp->list);
+				vfree(tmp);
+				tmp = NULL;
+			}
+			xmgmt_put_partition(xm, part);
+		}
+
+		if (tmp)
+			tmp->initialized = true;
+	}
+
+	mutex_unlock(&xm->evt_cbs.cb_lock);
+}
+
+static void xmgmt_evt_init(struct xmgmt *xm)
+{
+	INIT_LIST_HEAD(&xm->evt_cbs.cb_list);
+	mutex_init(&xm->evt_cbs.cb_lock);
+	INIT_WORK(&xm->evt_work, xmgmt_evt_work);
+}
+
+static void xmgmt_evt_fini(struct xmgmt *xm)
+{
+	const struct list_head *ptr, *next;
+	struct xmgmt_event_cb *tmp;
+
+	flush_scheduled_work();
+
+	mutex_lock(&xm->evt_cbs.cb_lock);
+	list_for_each_safe(ptr, next, &xm->evt_cbs.cb_list) {
+		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
+		list_del(&tmp->list);
+		vfree(tmp);
+	}
+	mutex_unlock(&xm->evt_cbs.cb_lock);
+}
+
+static int xmgmt_evt_cb_add(struct xmgmt *xm,
+	struct xocl_parent_ioctl_add_evt_cb *cb)
+{
+	struct xmgmt_event_cb *new = vzalloc(sizeof(*new));
+
+	if (!new)
+		return -ENOMEM;
+
+	cb->xevt_hdl = new;
+	new->cb = *cb;
+	new->initialized = false;
+
+	mutex_lock(&xm->evt_cbs.cb_lock);
+	list_add(&new->list, &xm->evt_cbs.cb_list);
+	mutex_unlock(&xm->evt_cbs.cb_lock);
+
+	schedule_work(&xm->evt_work);
+	return 0;
+}
+
+static void xmgmt_evt_cb_del(struct xmgmt *xm, void *hdl)
+{
+	struct xmgmt_event_cb *cb = (struct xmgmt_event_cb *)hdl;
+	const struct list_head *ptr;
+	struct xmgmt_event_cb *tmp;
+
+	mutex_lock(&xm->evt_cbs.cb_lock);
+	list_for_each(ptr, &xm->evt_cbs.cb_list) {
+		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
+		if (tmp == cb)
+			break;
+	}
+	list_del(&cb->list);
+	mutex_unlock(&xm->evt_cbs.cb_lock);
+	vfree(cb);
+}
+
+static int xmgmt_config_pci(struct xmgmt *xm)
+{
+	struct pci_dev *pdev = XMGMT_PDEV(xm);
+	int rc;
+
+	rc = pcim_enable_device(pdev);
+	if (rc < 0) {
+		xmgmt_err(xm, "failed to enable device: %d", rc);
+		return rc;
+	}
+
+	rc = pci_enable_pcie_error_reporting(pdev);
+	if (rc)
+		xmgmt_warn(xm, "failed to enable AER: %d", rc);
+
+	pci_set_master(pdev);
+
+	rc = pcie_get_readrq(pdev);
+	if (rc < 0) {
+		xmgmt_err(xm, "failed to read mrrs %d", rc);
+		return rc;
+	}
+	if (rc > 512) {
+		rc = pcie_set_readrq(pdev, 512);
+		if (rc) {
+			xmgmt_err(xm, "failed to force mrrs %d", rc);
+			return rc;
+		}
+	}
+
+	return 0;
 }
 
 static int xmgmt_get_leaf(struct xmgmt *xm,
@@ -350,11 +392,11 @@ static int xmgmt_parent_cb(struct device *dev, u32 cmd, void *arg)
 	case XOCL_PARENT_ADD_EVENT_CB: {
 		struct xocl_parent_ioctl_add_evt_cb *cb =
 			(struct xocl_parent_ioctl_add_evt_cb *)arg;
-		rc = xmgmt_evt_cbs_add(xm, cb);
+		rc = xmgmt_evt_cb_add(xm, cb);
 		break;
 	}
 	case XOCL_PARENT_REMOVE_EVENT_CB:
-		xmgmt_evt_cbs_del(xm, arg);
+		xmgmt_evt_cb_del(xm, arg);
 		rc = 0;
 		break;
 	default:
@@ -374,13 +416,11 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	dev_info(dev, "%s: probing...", __func__);
 
 	xm = devm_kzalloc(dev, sizeof(*xm), GFP_KERNEL);
-	if (!xm) {
-		dev_err(dev, "failed to alloc xmgmt");
+	if (!xm)
 		return -ENOMEM;
-	}
 	xm->pdev = pdev;
 	xocl_subdev_pool_init(DEV(xm->pdev), &xm->parts);
-	xmgmt_evt_cbs_init(xm);
+	xmgmt_evt_init(xm);
 
 	xmgmt_config_pci(xm);
 	pci_set_drvdata(pdev, xm);
@@ -402,12 +442,13 @@ static void xmgmt_remove(struct pci_dev *pdev)
 	 */
 	while (xmgmt_get_partition(xm, -1, &part) != -ENOENT) {
 		enum xocl_partition_id partid = part->id;
+
 		xmgmt_put_partition(xm, part);
 		(void) xmgmt_destroy_partition(xm, partid);
 		part = NULL;
 	}
 
-	xmgmt_evt_cbs_fini(xm);
+	xmgmt_evt_fini(xm);
 
 	(void) xocl_subdev_pool_fini(&xm->parts);
 	pci_disable_pcie_error_reporting(pdev);

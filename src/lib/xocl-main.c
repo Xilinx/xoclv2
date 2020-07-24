@@ -3,11 +3,12 @@
  * Copyright (C) 2020 Xilinx, Inc.
  *
  * Authors:
- * 	Cheng Zhen <maxz@xilinx.com>
+ *	Cheng Zhen <maxz@xilinx.com>
  */
 
 #include <linux/module.h>
 #include "xocl-subdev.h"
+#include "xocl-main.h"
 
 #define	XOCL_IPLIB_MODULE_NAME		"xocl-lib"
 #define	XOCL_IPLIB_MODULE_VERSION	"4.0.0"
@@ -22,8 +23,6 @@ struct class *xocl_class;
  * We also map it to the endpoint name in DTB as well, if it's different
  * than the driver's binding name.
  */
-extern struct platform_driver xocl_partition_driver;
-extern struct platform_driver xocl_test_driver;
 static struct xocl_drv_map {
 	enum xocl_subdev_id id;
 	struct platform_driver *drv;
@@ -47,6 +46,7 @@ xocl_drv_find_map_by_id(enum xocl_subdev_id id)
 
 	for (i = 0; i < ARRAY_SIZE(xocl_drv_maps); i++) {
 		struct xocl_drv_map *map = &xocl_drv_maps[i];
+
 		if (map->id == id)
 			return map;
 	}

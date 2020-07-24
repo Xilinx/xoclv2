@@ -3,7 +3,7 @@
  * Copyright (C) 2020 Xilinx, Inc.
  *
  * Authors:
- * 	Cheng Zhen <maxz@xilinx.com>
+ *	Cheng Zhen <maxz@xilinx.com>
  */
 
 #ifndef	_XOCL_PARENT_H_
@@ -54,7 +54,7 @@ struct xocl_parent_ioctl_add_evt_cb {
 	xocl_subdev_match_t xevt_match_cb;
 	void *xevt_match_arg;
 	xocl_event_cb_t xevt_cb;
-	xocl_event_cb_handle_t xevt_hdl;
+	void *xevt_hdl;
 };
 
 #endif	/* _XOCL_PARENT_H_ */

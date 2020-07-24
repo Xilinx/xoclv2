@@ -3,7 +3,7 @@
  * Copyright (C) 2020 Xilinx, Inc.
  *
  * Authors:
- * 	Cheng Zhen <maxz@xilinx.com>
+ *	Cheng Zhen <maxz@xilinx.com>
  */
 
 #ifndef	_XOCL_PARTITION_H_
@@ -26,5 +26,8 @@ struct xocl_partition_ioctl_event {
 	enum xocl_events xpie_evt;
 	struct xocl_parent_ioctl_add_evt_cb *xpie_cb;
 };
+
+extern int xocl_subdev_parent_ioctl(struct platform_device *pdev,
+	u32 cmd, void *arg);
 
 #endif	/* _XOCL_PARTITION_H_ */
