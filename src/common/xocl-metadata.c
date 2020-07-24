@@ -212,7 +212,7 @@ static int xocl_md_setprop(struct device *dev, char **blob, int offset,
 	 const char *prop, const void *val, int size)
 {
 	int ret;
-	char *buf;
+	char *buf = NULL;
 	int bufsz;
 
 	ret = fdt_setprop(*blob, offset, prop, val, size);
