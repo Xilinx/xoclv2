@@ -223,7 +223,8 @@ extern int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
 /*
  * Char dev APIs.
  */
-extern int xocl_devnode_create(struct platform_device *pdev, const char *name);
+extern int xocl_devnode_create(struct platform_device *pdev,
+	const char *file_name, const char *inst_name);
 extern int xocl_devnode_destroy(struct platform_device *pdev);
 extern struct platform_device *xocl_devnode_open_excl(struct inode *inode);
 extern struct platform_device *xocl_devnode_open(struct inode *inode);
