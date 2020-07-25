@@ -55,15 +55,15 @@ struct xmgmt {
 	struct work_struct evt_work;
 };
 
-struct xmgmt_subdev_match_arg {
+struct xmgmt_part_match_arg {
 	enum xocl_subdev_id id;
 	int instance;
 };
 
-static bool xmgmt_subdev_match(enum xocl_subdev_id id,
+static bool xmgmt_part_match(enum xocl_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
-	struct xmgmt_subdev_match_arg *a = (struct xmgmt_subdev_match_arg *)arg;
+	struct xmgmt_part_match_arg *a = (struct xmgmt_part_match_arg *)arg;
 	return id == a->id && pdev->id == a->instance;
 }
 
@@ -73,13 +73,13 @@ static int xmgmt_get_partition(struct xmgmt *xm, enum xocl_partition_id id,
 	int rc = 0;
 	struct xocl_subdev_pool *parts = &xm->parts;
 	struct device *dev = DEV(xm->pdev);
-	struct xmgmt_subdev_match_arg arg = { XOCL_SUBDEV_PART, id };
+	struct xmgmt_part_match_arg arg = { XOCL_SUBDEV_PART, id };
 
 	if (id == (enum xocl_partition_id)-1) {
 		rc = xocl_subdev_pool_get(parts, XOCL_SUBDEV_MATCH_NEXT,
 			*partp, dev, partp);
 	} else {
-		rc = xocl_subdev_pool_get(parts, xmgmt_subdev_match,
+		rc = xocl_subdev_pool_get(parts, xmgmt_part_match,
 			&arg, dev, partp);
 	}
 
@@ -321,23 +321,6 @@ static int xmgmt_get_leaf(struct xmgmt *xm,
 	return rc;
 }
 
-static int xmgmt_get_leaf_by_id(struct xmgmt *xm,
-	struct xocl_parent_ioctl_get_leaf_by_id *arg)
-{
-	int rc = -ENOENT;
-	struct xmgmt_subdev_match_arg marg = {
-		arg->xpiglbi_id, arg->xpiglbi_instance };
-	struct xocl_parent_ioctl_get_leaf glarg;
-
-	glarg.xpigl_pdev = arg->xpiglbi_pdev;
-	glarg.xpigl_match_cb = xmgmt_subdev_match;
-	glarg.xpigl_match_arg = &marg;
-	rc = xmgmt_get_leaf(xm, &glarg);
-	if (!rc)
-		arg->xpiglbi_leaf = glarg.xpigl_leaf;
-	return rc;
-}
-
 static int xmgmt_put_leaf(struct xmgmt *xm,
 	struct xocl_parent_ioctl_put_leaf *arg)
 {
@@ -364,12 +347,6 @@ static int xmgmt_parent_cb(struct device *dev, u32 cmd, void *arg)
 		struct xocl_parent_ioctl_get_leaf *getleaf =
 			(struct xocl_parent_ioctl_get_leaf *)arg;
 		rc = xmgmt_get_leaf(xm, getleaf);
-		break;
-	}
-	case XOCL_PARENT_GET_LEAF_BY_ID: {
-		struct xocl_parent_ioctl_get_leaf_by_id *getleaf =
-			(struct xocl_parent_ioctl_get_leaf_by_id *)arg;
-		rc = xmgmt_get_leaf_by_id(xm, getleaf);
 		break;
 	}
 	case XOCL_PARENT_PUT_LEAF: {

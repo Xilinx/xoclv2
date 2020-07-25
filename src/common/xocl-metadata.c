@@ -18,7 +18,7 @@
 #define md_info		dev_info
 
 static int xocl_md_setprop(struct device *dev, char **blob, int offset,
-		         const char *prop, const void *val, int size);
+	const char *prop, const void *val, int size);
 
 long xocl_md_size(struct device *dev, char *blob)
 {
@@ -69,8 +69,8 @@ int xocl_md_add_node(struct device *dev, char **blob, int parent_offset,
 
 		ret = fdt_resize(*blob, buf, bufsz);
 		if (ret) {
-			 md_err(dev, "resize failed, ret = %d", ret);
-			 goto failed;
+			md_err(dev, "resize failed, ret = %d", ret);
+			goto failed;
 		}
 		ret = fdt_add_subnode(*blob, parent_offset, ep_name);
 		if (ret) {
@@ -126,8 +126,8 @@ int xocl_md_add_endpoint(struct device *dev, char **blob, struct xocl_md_endpoin
 
 	ep_offset = xocl_md_add_node(dev, blob, ep_offset, ep->ep_name);
 	if (ep_offset < 0) {
-		 md_err(dev, "add endpoint failed, ret = %d", ret);
-		 return -EINVAL;
+		md_err(dev, "add endpoint failed, ret = %d", ret);
+		return -EINVAL;
 	}
 
 	if (ep->size != 0) {
@@ -194,15 +194,15 @@ int xocl_md_get_prop(struct device *dev, char *blob, char *ep_name,
 	} else {
 		offset = fdt_next_node(blob, -1, NULL);
 		if (offset < 0) {
-			 md_err(dev, "internal error, ret = %d", offset);
-			 return -EINVAL;
+			md_err(dev, "internal error, ret = %d", offset);
+			return -EINVAL;
 		}
 	}
 
 	*val = fdt_getprop(blob, offset, prop, size);
 	if (!*val) {
-		 md_err(dev, "get prop failed");
-		 return -EINVAL;
+		md_err(dev, "get prop failed");
+		return -EINVAL;
 	}
 
 	return 0;
@@ -223,8 +223,8 @@ static int xocl_md_setprop(struct device *dev, char **blob, int offset,
 			return -ENOMEM;
 		ret = fdt_resize(*blob, buf, bufsz);
 		if (ret) {
-			 md_err(dev, "resize failed, ret = %d", ret);
-			 goto failed;
+			md_err(dev, "resize failed, ret = %d", ret);
+			goto failed;
 		}
 		vfree(*blob);
 		*blob = buf;
@@ -232,8 +232,8 @@ static int xocl_md_setprop(struct device *dev, char **blob, int offset,
 
 		ret = fdt_setprop(*blob, offset, prop, val, size);
 		if (ret) {
-			 md_err(dev, "set prop failed, ret = %d",ret);
-			 goto failed;
+			md_err(dev, "set prop failed, ret = %d", ret);
+			goto failed;
 		}
 	}
 
@@ -260,14 +260,14 @@ int xocl_md_setprop_by_nodename(struct device *dev, char **blob,
 	} else {
 		offset = fdt_next_node(blob, -1, NULL);
 		if (offset < 0) {
-			 md_err(dev, "internal error, ret = %d", offset);
-			 return -EINVAL;
+			md_err(dev, "internal error, ret = %d", offset);
+			return -EINVAL;
 		}
 	}
 
 	ret = xocl_md_setprop(dev, blob, offset, prop, val, size);
 	if (ret)
-		 md_err(dev, "set prop failed, ret = %d", ret);
+		md_err(dev, "set prop failed, ret = %d", ret);
 
 	return ret;
 }

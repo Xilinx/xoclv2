@@ -140,7 +140,7 @@ static int xocl_vsec_create_metadata(struct xocl_vsec *vsec)
 		return ret;
 	}
 
-	for(p_entry = vsec->base + sizeof(struct xocl_vsec_header);
+	for (p_entry = vsec->base + sizeof(struct xocl_vsec_header);
 	    (ulong)p_entry < (ulong)vsec->base + vsec->length;
 	    p_entry++) {
 		offset = (((u64)p_entry->off_hi) << 16) | p_entry->off_lo;
@@ -261,14 +261,12 @@ static int xocl_vsec_probe(struct platform_device *pdev)
 	}
 	ret = xocl_subdev_create_partition(pdev, XOCL_PART_VSEC,
 		vsec->metadata);
-	if (ret) {
+	if (ret)
 		xocl_err(pdev, "create partition failed, ret %d", ret);
-	}
 
 	ret = sysfs_create_group(&DEV(pdev)->kobj, &vsec_attr_group);
-	if (ret) {
+	if (ret)
 		xocl_err(pdev, "create sysfs failed, ret %d", ret);
-	}
 
 failed:
 	if (ret)

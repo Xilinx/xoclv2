@@ -103,7 +103,7 @@ static int xocl_test_probe(struct platform_device *pdev)
 		xocl_err(pdev, "failed to create sysfs group");
 
 	/* Ready to handle req thru cdev. */
-	(void) xocl_devnode_create(pdev, "test");
+	(void) xocl_devnode_create(pdev, "test", NULL);
 
 	/* Add event callback to wait for the peer instance. */
 	xt->evt_hdl = xocl_subdev_add_event_cb(pdev, xocl_test_leaf_match,

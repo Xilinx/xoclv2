@@ -17,7 +17,6 @@
  */
 enum xocl_parent_ioctl_cmd {
 	XOCL_PARENT_GET_LEAF = 0,
-	XOCL_PARENT_GET_LEAF_BY_ID,
 	XOCL_PARENT_PUT_LEAF,
 	XOCL_PARENT_CREATE_PARTITION,
 	XOCL_PARENT_REMOVE_PARTITION,
@@ -30,13 +29,6 @@ struct xocl_parent_ioctl_get_leaf {
 	xocl_subdev_match_t xpigl_match_cb;
 	void *xpigl_match_arg;
 	struct platform_device *xpigl_leaf; /* target leaf pdev */
-};
-
-struct xocl_parent_ioctl_get_leaf_by_id {
-	struct platform_device *xpiglbi_pdev; /* caller's pdev */
-	enum xocl_subdev_id xpiglbi_id;
-	int xpiglbi_instance;
-	struct platform_device *xpiglbi_leaf; /* target leaf pdev */
 };
 
 struct xocl_parent_ioctl_create_partition {

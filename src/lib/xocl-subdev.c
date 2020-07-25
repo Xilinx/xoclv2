@@ -194,19 +194,25 @@ xocl_subdev_get_leaf(struct platform_device *pdev,
 	return get_leaf.xpigl_leaf;
 }
 
+struct subdev_match_arg {
+	enum xocl_subdev_id id;
+	int instance;
+};
+
+static bool subdev_match(enum xocl_subdev_id id,
+	struct platform_device *pdev, void *arg)
+{
+	struct subdev_match_arg *a = (struct subdev_match_arg *)arg;
+	return id == a->id && pdev->id == a->instance;
+}
+
 struct platform_device *
 xocl_subdev_get_leaf_by_id(struct platform_device *pdev,
 	enum xocl_subdev_id id, int instance)
 {
-	int rc;
-	struct xocl_parent_ioctl_get_leaf_by_id get_leaf = {
-		pdev, id, instance, };
+	struct subdev_match_arg arg = { id, instance };
 
-	rc = xocl_subdev_parent_ioctl(
-		pdev, XOCL_PARENT_GET_LEAF_BY_ID, &get_leaf);
-	if (rc)
-		return NULL;
-	return get_leaf.xpiglbi_leaf;
+	return xocl_subdev_get_leaf(pdev, subdev_match, &arg);
 }
 
 int xocl_subdev_put_leaf(struct platform_device *pdev,

@@ -135,7 +135,8 @@ void xocl_devnode_close(struct inode *inode)
 		complete(&pdata->xsp_devnode_comp);
 }
 
-int xocl_devnode_create(struct platform_device *pdev, const char *name)
+int xocl_devnode_create(struct platform_device *pdev, const char *file_name,
+	const char *inst_name)
 {
 	struct xocl_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
 	struct xocl_subdev_file_ops *fops = &drvdata->xsd_file_ops;
@@ -166,8 +167,13 @@ int xocl_devnode_create(struct platform_device *pdev, const char *name)
 		xocl_err(pdev, "failed to add cdev: %d", ret);
 		goto failed;
 	}
-	snprintf(fname, sizeof(fname), "%s/%s.%s-%u", XOCL_CDEV_DIR, name,
-		DEV_PDATA(pdev)->xsp_root_name, pdev->id);
+	if (!inst_name) {
+		snprintf(fname, sizeof(fname), "%s/%s.%s-%u", XOCL_CDEV_DIR,
+			file_name, DEV_PDATA(pdev)->xsp_root_name, pdev->id);
+	} else {
+		snprintf(fname, sizeof(fname), "%s/%s.%s-%s", XOCL_CDEV_DIR,
+			file_name, DEV_PDATA(pdev)->xsp_root_name, inst_name);
+	}
 	sysdev = device_create(xocl_class, NULL, cdevp->dev, NULL, "%s", fname);
 	if (IS_ERR(sysdev)) {
 		ret = PTR_ERR(sysdev);
