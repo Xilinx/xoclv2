@@ -19,6 +19,8 @@
 struct xocl_partition {
 	struct platform_device *pdev;
 	struct xocl_subdev_pool leaves;
+	bool leaves_created;
+	struct mutex lock;
 };
 
 static int xocl_part_parent_cb(struct device *dev, u32 cmd, void *arg)
@@ -33,17 +35,34 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 {
 	xocl_info(xp->pdev, "bringing up leaves ...");
 
+	mutex_lock(&xp->lock);
+
+	if (xp->leaves_created) {
+		mutex_unlock(&xp->lock);
+		return -EEXIST;
+	}
+
 	/* TODO: Create all leaves based on dtb. */
 
 	(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_TEST,
 		xocl_part_parent_cb, NULL);
+	xp->leaves_created = true;
+
+	mutex_unlock(&xp->lock);
+
 	return 0;
 }
 
 static int xocl_part_remove_leaves(struct xocl_partition *xp)
 {
+	int rc;
 	xocl_info(xp->pdev, "tearing down leaves ...");
-	return xocl_subdev_pool_fini(&xp->leaves);
+
+	mutex_lock(&xp->lock);
+	rc = xocl_subdev_pool_fini(&xp->leaves);
+	xp->leaves_created = false;
+	mutex_unlock(&xp->lock);
+	return rc;
 }
 
 static int xocl_part_probe(struct platform_device *pdev)
@@ -57,6 +76,7 @@ static int xocl_part_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	xp->pdev = pdev;
+	mutex_init(&xp->lock);
 	xocl_subdev_pool_init(DEV(pdev), &xp->leaves);
 	platform_set_drvdata(pdev, xp);
 

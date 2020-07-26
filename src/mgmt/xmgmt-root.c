@@ -43,16 +43,21 @@ struct xmgmt_event_cb {
 	struct xocl_parent_ioctl_add_evt_cb cb;
 };
 
-struct xmgmt_event_cbs {
+struct xmgmt_events {
 	struct list_head cb_list;
 	struct mutex cb_lock;
+	struct work_struct cb_work;
+};
+
+struct xmgmt_parts {
+	struct xocl_subdev_pool pool;
+	struct work_struct bringup_work;
 };
 
 struct xmgmt {
 	struct pci_dev *pdev;
-	struct xocl_subdev_pool parts;
-	struct xmgmt_event_cbs evt_cbs;
-	struct work_struct evt_work;
+	struct xmgmt_events events;
+	struct xmgmt_parts parts;
 };
 
 struct xmgmt_part_match_arg {
@@ -71,7 +76,7 @@ static int xmgmt_get_partition(struct xmgmt *xm, int instance,
 	struct platform_device **partp)
 {
 	int rc = 0;
-	struct xocl_subdev_pool *parts = &xm->parts;
+	struct xocl_subdev_pool *parts = &xm->parts.pool;
 	struct device *dev = DEV(xm->pdev);
 	struct xmgmt_part_match_arg arg = { XOCL_SUBDEV_PART, instance };
 
@@ -91,13 +96,14 @@ static int xmgmt_get_partition(struct xmgmt *xm, int instance,
 static void xmgmt_put_partition(struct xmgmt *xm, struct platform_device *part)
 {
 	int inst = part->id;
-	int rc = xocl_subdev_pool_put(&xm->parts, part, DEV(xm->pdev));
+	int rc = xocl_subdev_pool_put(&xm->parts.pool, part, DEV(xm->pdev));
 
 	if (rc)
 		xmgmt_err(xm, "failed to release partition %d: %d", inst, rc);
 }
 
-static int xmgmt_event_partition(struct xmgmt *xm, struct xmgmt_event_cb *cb,
+static int
+xmgmt_partition_trigger_evt(struct xmgmt *xm, struct xmgmt_event_cb *cb,
 	struct platform_device *part, enum xocl_events evt)
 {
 	xocl_subdev_match_t match = cb->cb.xevt_match_cb;
@@ -116,7 +122,7 @@ static int xmgmt_event_partition(struct xmgmt *xm, struct xmgmt_event_cb *cb,
 }
 
 static void
-xmgmt_event(struct xmgmt *xm, int instance, enum xocl_events evt)
+xmgmt_event_partition(struct xmgmt *xm, int instance, enum xocl_events evt)
 {
 	int ret;
 	struct platform_device *pdev = NULL;
@@ -127,44 +133,32 @@ xmgmt_event(struct xmgmt *xm, int instance, enum xocl_events evt)
 	if (ret)
 		return;
 
-	mutex_lock(&xm->evt_cbs.cb_lock);
-	list_for_each_safe(ptr, next, &xm->evt_cbs.cb_list) {
+	mutex_lock(&xm->events.cb_lock);
+	list_for_each_safe(ptr, next, &xm->events.cb_list) {
 		int rc;
 
 		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
 		if (!tmp->initialized)
 			continue;
 
-		rc = xmgmt_event_partition(xm, tmp, pdev, evt);
+		rc = xmgmt_partition_trigger_evt(xm, tmp, pdev, evt);
 		if (rc) {
 			list_del(&tmp->list);
 			vfree(tmp);
 		}
 	}
-	mutex_unlock(&xm->evt_cbs.cb_lock);
+	mutex_unlock(&xm->events.cb_lock);
 
 	(void) xmgmt_put_partition(xm, pdev);
 }
 
 static int xmgmt_create_partition(struct xmgmt *xm, char *dtb)
 {
-	struct platform_device *pdev = NULL;
-	int ret = xocl_subdev_pool_add(&xm->parts,
+	int ret = xocl_subdev_pool_add(&xm->parts.pool,
 		XOCL_SUBDEV_PART, xmgmt_parent_cb, dtb);
-	int inst;
 
-	if (ret < 0)
-		return ret;
-	inst = ret;
-
-	ret = xmgmt_get_partition(xm, inst, &pdev);
-	if (ret)
-		return ret;
-
-	/* Now bring up all children in this partition. */
-	ret = xocl_subdev_ioctl(pdev, XOCL_PARTITION_INIT_CHILDREN, 0);
-	(void) xmgmt_put_partition(xm, pdev);
-	xmgmt_event(xm, inst, XOCL_EVENT_POST_CREATION);
+	if (ret >= 0)
+		schedule_work(&xm->parts.bringup_work);
 	return ret;
 }
 
@@ -177,12 +171,17 @@ static int xmgmt_destroy_partition(struct xmgmt *xm, int instance)
 	if (ret)
 		return ret;
 
-	xmgmt_event(xm, instance, XOCL_EVENT_PRE_REMOVAL);
+	xmgmt_event_partition(xm, instance, XOCL_EVENT_PRE_REMOVAL);
 
 	/* Now tear down all children in this partition. */
-	ret = xocl_subdev_ioctl(pdev, XOCL_PARTITION_FINI_CHILDREN, 0);
+	ret = xocl_subdev_ioctl(pdev, XOCL_PARTITION_FINI_CHILDREN, NULL);
 	(void) xmgmt_put_partition(xm, pdev);
-	return xocl_subdev_pool_del(&xm->parts, XOCL_SUBDEV_PART, instance);
+	if (!ret) {
+		ret = xocl_subdev_pool_del(&xm->parts.pool,
+			XOCL_SUBDEV_PART, instance);
+	}
+
+	return ret;
 }
 
 static void xmgmt_evt_work(struct work_struct *work)
@@ -190,18 +189,18 @@ static void xmgmt_evt_work(struct work_struct *work)
 	const struct list_head *ptr, *next;
 	struct xmgmt_event_cb *tmp;
 	struct platform_device *part = NULL;
-	struct xmgmt *xm = container_of(work, struct xmgmt, evt_work);
+	struct xmgmt *xm = container_of(work, struct xmgmt, events.cb_work);
 
-	mutex_lock(&xm->evt_cbs.cb_lock);
+	mutex_lock(&xm->events.cb_lock);
 
-	list_for_each_safe(ptr, next, &xm->evt_cbs.cb_list) {
+	list_for_each_safe(ptr, next, &xm->events.cb_list) {
 		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
 		if (tmp->initialized)
 			continue;
 
 		while (xmgmt_get_partition(xm, PLATFORM_DEVID_NONE,
 			&part) != -ENOENT) {
-			if (xmgmt_event_partition(xm, tmp, part,
+			if (xmgmt_partition_trigger_evt(xm, tmp, part,
 				XOCL_EVENT_POST_CREATION)) {
 				list_del(&tmp->list);
 				vfree(tmp);
@@ -214,14 +213,14 @@ static void xmgmt_evt_work(struct work_struct *work)
 			tmp->initialized = true;
 	}
 
-	mutex_unlock(&xm->evt_cbs.cb_lock);
+	mutex_unlock(&xm->events.cb_lock);
 }
 
 static void xmgmt_evt_init(struct xmgmt *xm)
 {
-	INIT_LIST_HEAD(&xm->evt_cbs.cb_list);
-	mutex_init(&xm->evt_cbs.cb_lock);
-	INIT_WORK(&xm->evt_work, xmgmt_evt_work);
+	INIT_LIST_HEAD(&xm->events.cb_list);
+	mutex_init(&xm->events.cb_lock);
+	INIT_WORK(&xm->events.cb_work, xmgmt_evt_work);
 }
 
 static void xmgmt_evt_fini(struct xmgmt *xm)
@@ -231,13 +230,13 @@ static void xmgmt_evt_fini(struct xmgmt *xm)
 
 	flush_scheduled_work();
 
-	mutex_lock(&xm->evt_cbs.cb_lock);
-	list_for_each_safe(ptr, next, &xm->evt_cbs.cb_list) {
+	mutex_lock(&xm->events.cb_lock);
+	list_for_each_safe(ptr, next, &xm->events.cb_list) {
 		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
 		list_del(&tmp->list);
 		vfree(tmp);
 	}
-	mutex_unlock(&xm->evt_cbs.cb_lock);
+	mutex_unlock(&xm->events.cb_lock);
 }
 
 static int xmgmt_evt_cb_add(struct xmgmt *xm,
@@ -252,11 +251,11 @@ static int xmgmt_evt_cb_add(struct xmgmt *xm,
 	new->cb = *cb;
 	new->initialized = false;
 
-	mutex_lock(&xm->evt_cbs.cb_lock);
-	list_add(&new->list, &xm->evt_cbs.cb_list);
-	mutex_unlock(&xm->evt_cbs.cb_lock);
+	mutex_lock(&xm->events.cb_lock);
+	list_add(&new->list, &xm->events.cb_list);
+	mutex_unlock(&xm->events.cb_lock);
 
-	schedule_work(&xm->evt_work);
+	schedule_work(&xm->events.cb_work);
 	return 0;
 }
 
@@ -266,14 +265,14 @@ static void xmgmt_evt_cb_del(struct xmgmt *xm, void *hdl)
 	const struct list_head *ptr;
 	struct xmgmt_event_cb *tmp;
 
-	mutex_lock(&xm->evt_cbs.cb_lock);
-	list_for_each(ptr, &xm->evt_cbs.cb_list) {
+	mutex_lock(&xm->events.cb_lock);
+	list_for_each(ptr, &xm->events.cb_list) {
 		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
 		if (tmp == cb)
 			break;
 	}
 	list_del(&cb->list);
-	mutex_unlock(&xm->evt_cbs.cb_lock);
+	mutex_unlock(&xm->events.cb_lock);
 	vfree(cb);
 }
 
@@ -384,6 +383,34 @@ static int xmgmt_parent_cb(struct device *dev, u32 cmd, void *arg)
 	return rc;
 }
 
+static void xmgmt_bringup_partition_work(struct work_struct *work)
+{
+	struct platform_device *pdev = NULL;
+	struct xmgmt *xm = container_of(work, struct xmgmt, parts.bringup_work);
+
+	while (xmgmt_get_partition(xm, PLATFORM_DEVID_NONE, &pdev) != -ENOENT) {
+		int r, i;
+
+		i = pdev->id;
+		r = xocl_subdev_ioctl(pdev, XOCL_PARTITION_INIT_CHILDREN, NULL);
+		(void) xmgmt_put_partition(xm, pdev);
+		if (!r)
+			xmgmt_event_partition(xm, i, XOCL_EVENT_POST_CREATION);
+	}
+}
+
+static void xmgmt_parts_init(struct xmgmt *xm)
+{
+	xocl_subdev_pool_init(DEV(xm->pdev), &xm->parts.pool);
+	INIT_WORK(&xm->parts.bringup_work, xmgmt_bringup_partition_work);
+}
+
+static void xmgmt_parts_fini(struct xmgmt *xm)
+{
+	flush_scheduled_work();
+	(void) xocl_subdev_pool_fini(&xm->parts.pool);
+}
+
 static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	struct xmgmt *xm;
@@ -395,7 +422,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (!xm)
 		return -ENOMEM;
 	xm->pdev = pdev;
-	xocl_subdev_pool_init(DEV(xm->pdev), &xm->parts);
+	xmgmt_parts_init(xm);
 	xmgmt_evt_init(xm);
 
 	xmgmt_config_pci(xm);
@@ -425,8 +452,8 @@ static void xmgmt_remove(struct pci_dev *pdev)
 	}
 
 	xmgmt_evt_fini(xm);
+	xmgmt_parts_fini(xm);
 
-	(void) xocl_subdev_pool_fini(&xm->parts);
 	pci_disable_pcie_error_reporting(pdev);
 }
 
