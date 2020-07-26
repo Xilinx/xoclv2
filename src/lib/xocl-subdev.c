@@ -160,22 +160,6 @@ int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
 }
 EXPORT_SYMBOL_GPL(xocl_subdev_ioctl);
 
-int xocl_subdev_online(struct platform_device *pdev)
-{
-	struct xocl_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
-
-	return (*drvdata->xsd_dev_ops.xsd_online)(pdev);
-}
-EXPORT_SYMBOL_GPL(xocl_subdev_online);
-
-int xocl_subdev_offline(struct platform_device *pdev)
-{
-	struct xocl_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
-
-	return (*drvdata->xsd_dev_ops.xsd_offline)(pdev);
-}
-EXPORT_SYMBOL_GPL(xocl_subdev_offline);
-
 struct platform_device *
 xocl_subdev_get_leaf(struct platform_device *pdev,
 	xocl_subdev_match_t match_cb, void *match_arg)
@@ -614,8 +598,15 @@ int xocl_subdev_pool_event(struct xocl_subdev_pool *spool,
 		tgt, DEV(pdev), &sdev) != -ENOENT) {
 		tgt = sdev->xs_pdev;
 		if (match(sdev->xs_id, sdev->xs_pdev, arg))
-			rc = xevt_cb(pdev, sdev->xs_id, tgt->id, evt);
+			rc = xevt_cb(pdev, evt, sdev->xs_id, tgt->id);
 		(void) xocl_subdev_pool_put_impl(spool, tgt, DEV(pdev));
 	}
 	return rc;
+}
+
+void xocl_subdev_broadcast_event(struct platform_device *pdev,
+	enum xocl_events evt)
+{
+	(void) xocl_subdev_parent_ioctl(pdev,
+		XOCL_PARENT_BOARDCAST_EVENT, (void *)evt);
 }

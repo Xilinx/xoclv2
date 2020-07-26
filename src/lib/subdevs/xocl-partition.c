@@ -140,23 +140,9 @@ static int xocl_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	return rc;
 }
 
-static int xocl_part_offline(struct platform_device *pdev)
-{
-	/* TODO: add offline support. */
-	return 0;
-}
-
-static int xocl_part_online(struct platform_device *pdev)
-{
-	/* TODO: add online support. */
-	return 0;
-}
-
 struct xocl_subdev_drvdata xocl_part_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xocl_part_ioctl,
-		.xsd_online = xocl_part_online,
-		.xsd_offline = xocl_part_offline,
 	},
 };
 

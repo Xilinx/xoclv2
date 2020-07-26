@@ -64,7 +64,7 @@ static const struct attribute_group xocl_test_attrgroup = {
 };
 
 static int xocl_test_event_cb(struct platform_device *pdev,
-	enum xocl_subdev_id id, int instance, enum xocl_events evt)
+	enum xocl_events evt, enum xocl_subdev_id id, int instance)
 {
 	struct platform_device *leaf;
 
@@ -112,6 +112,10 @@ static int xocl_test_probe(struct platform_device *pdev)
 	/* Trigger partition creation, only when this is the first instance. */
 	if (pdev->id == 0)
 		(void) xocl_subdev_create_partition(pdev, NULL);
+
+	/* Broadcast event. */
+	if (pdev->id == 1)
+		xocl_subdev_broadcast_event(pdev, XOCL_BROADCAST_EVENT_TEST);
 
 	/* After we return here, we'll get inter-leaf calls. */
 	return 0;

@@ -45,8 +45,8 @@ struct xmgmt_event_cb {
 
 struct xmgmt_events {
 	struct list_head cb_list;
-	struct mutex cb_lock;
-	struct work_struct cb_work;
+	struct mutex lock;
+	struct work_struct cb_init_work;
 };
 
 struct xmgmt_parts {
@@ -110,10 +110,10 @@ xmgmt_partition_trigger_evt(struct xmgmt *xm, struct xmgmt_event_cb *cb,
 	xocl_event_cb_t evtcb = cb->cb.xevt_cb;
 	void *arg = cb->cb.xevt_match_arg;
 	struct xocl_partition_ioctl_event e = { evt, &cb->cb };
+	int rc;
 
 	if (match(XOCL_SUBDEV_PART, part, arg)) {
-		int rc = evtcb(cb->cb.xevt_pdev,
-			XOCL_SUBDEV_PART, part->id, evt);
+		rc = evtcb(cb->cb.xevt_pdev, evt, XOCL_SUBDEV_PART, part->id);
 		if (rc)
 			return rc;
 	}
@@ -133,7 +133,7 @@ xmgmt_event_partition(struct xmgmt *xm, int instance, enum xocl_events evt)
 	if (ret)
 		return;
 
-	mutex_lock(&xm->events.cb_lock);
+	mutex_lock(&xm->events.lock);
 	list_for_each_safe(ptr, next, &xm->events.cb_list) {
 		int rc;
 
@@ -147,7 +147,7 @@ xmgmt_event_partition(struct xmgmt *xm, int instance, enum xocl_events evt)
 			vfree(tmp);
 		}
 	}
-	mutex_unlock(&xm->events.cb_lock);
+	mutex_unlock(&xm->events.lock);
 
 	(void) xmgmt_put_partition(xm, pdev);
 }
@@ -184,14 +184,15 @@ static int xmgmt_destroy_partition(struct xmgmt *xm, int instance)
 	return ret;
 }
 
-static void xmgmt_evt_work(struct work_struct *work)
+static void xmgmt_evt_cb_init_work(struct work_struct *work)
 {
 	const struct list_head *ptr, *next;
 	struct xmgmt_event_cb *tmp;
 	struct platform_device *part = NULL;
-	struct xmgmt *xm = container_of(work, struct xmgmt, events.cb_work);
+	struct xmgmt *xm =
+		container_of(work, struct xmgmt, events.cb_init_work);
 
-	mutex_lock(&xm->events.cb_lock);
+	mutex_lock(&xm->events.lock);
 
 	list_for_each_safe(ptr, next, &xm->events.cb_list) {
 		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
@@ -213,14 +214,34 @@ static void xmgmt_evt_work(struct work_struct *work)
 			tmp->initialized = true;
 	}
 
-	mutex_unlock(&xm->events.cb_lock);
+	mutex_unlock(&xm->events.lock);
+}
+
+static void xmgmt_evt_broadcast(struct xmgmt *xm, enum xocl_events evt)
+{
+	const struct list_head *ptr, *next;
+	struct xmgmt_event_cb *tmp;
+	int rc;
+
+	mutex_lock(&xm->events.lock);
+
+	list_for_each_safe(ptr, next, &xm->events.cb_list) {
+		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
+		rc = tmp->cb.xevt_cb(tmp->cb.xevt_pdev, evt, -1, -1);
+		if (rc) {
+			list_del(&tmp->list);
+			vfree(tmp);
+		}
+	}
+
+	mutex_unlock(&xm->events.lock);
 }
 
 static void xmgmt_evt_init(struct xmgmt *xm)
 {
 	INIT_LIST_HEAD(&xm->events.cb_list);
-	mutex_init(&xm->events.cb_lock);
-	INIT_WORK(&xm->events.cb_work, xmgmt_evt_work);
+	mutex_init(&xm->events.lock);
+	INIT_WORK(&xm->events.cb_init_work, xmgmt_evt_cb_init_work);
 }
 
 static void xmgmt_evt_fini(struct xmgmt *xm)
@@ -230,13 +251,13 @@ static void xmgmt_evt_fini(struct xmgmt *xm)
 
 	flush_scheduled_work();
 
-	mutex_lock(&xm->events.cb_lock);
+	mutex_lock(&xm->events.lock);
 	list_for_each_safe(ptr, next, &xm->events.cb_list) {
 		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
 		list_del(&tmp->list);
 		vfree(tmp);
 	}
-	mutex_unlock(&xm->events.cb_lock);
+	mutex_unlock(&xm->events.lock);
 }
 
 static int xmgmt_evt_cb_add(struct xmgmt *xm,
@@ -251,11 +272,11 @@ static int xmgmt_evt_cb_add(struct xmgmt *xm,
 	new->cb = *cb;
 	new->initialized = false;
 
-	mutex_lock(&xm->events.cb_lock);
+	mutex_lock(&xm->events.lock);
 	list_add(&new->list, &xm->events.cb_list);
-	mutex_unlock(&xm->events.cb_lock);
+	mutex_unlock(&xm->events.lock);
 
-	schedule_work(&xm->events.cb_work);
+	schedule_work(&xm->events.cb_init_work);
 	return 0;
 }
 
@@ -265,14 +286,14 @@ static void xmgmt_evt_cb_del(struct xmgmt *xm, void *hdl)
 	const struct list_head *ptr;
 	struct xmgmt_event_cb *tmp;
 
-	mutex_lock(&xm->events.cb_lock);
+	mutex_lock(&xm->events.lock);
 	list_for_each(ptr, &xm->events.cb_list) {
 		tmp = list_entry(ptr, struct xmgmt_event_cb, list);
 		if (tmp == cb)
 			break;
 	}
 	list_del(&cb->list);
-	mutex_unlock(&xm->events.cb_lock);
+	mutex_unlock(&xm->events.lock);
 	vfree(cb);
 }
 
@@ -373,6 +394,9 @@ static int xmgmt_parent_cb(struct device *dev, u32 cmd, void *arg)
 	case XOCL_PARENT_REMOVE_EVENT_CB:
 		xmgmt_evt_cb_del(xm, arg);
 		rc = 0;
+		break;
+	case XOCL_PARENT_BOARDCAST_EVENT:
+		xmgmt_evt_broadcast(xm, (enum xocl_events)(uintptr_t)arg);
 		break;
 	default:
 		xmgmt_err(xm, "unknown IOCTL cmd %d", cmd);

@@ -51,13 +51,6 @@ struct xocl_subdev_drv_ops {
 	 * Note that root driver may call into xsd_ioctl of a partition driver.
 	 */
 	int (*xsd_ioctl)(struct platform_device *pdev, u32 cmd, void *arg);
-
-	/*
-	 * Per driver instance callback. The pdev points to the instance.
-	 * If defined these are called by partition or root drivers.
-	 */
-	int (*xsd_online)(struct platform_device *pdev);
-	int (*xsd_offline)(struct platform_device *pdev);
 };
 
 /*
@@ -157,18 +150,16 @@ typedef bool (*xocl_subdev_match_t)(enum xocl_subdev_id,
  * Event notification.
  */
 enum xocl_events {
+	/* Events triggered when subdev is created or removed. */
+	XOCL_EVENT_POST_CREATION,
 	XOCL_EVENT_PRE_REMOVAL,
-	XOCL_EVENT_POST_CREATION
+
+	/* Broadcast'able events from leaf. */
+	XOCL_BROADCAST_EVENT_TEST
 };
 
 typedef int (*xocl_event_cb_t)(struct platform_device *pdev,
-	enum xocl_subdev_id id, int instance, enum xocl_events evt);
-
-/*
- * Online and offline routines are for root and partition drivers only.
- */
-extern int xocl_subdev_online(struct platform_device *pdev);
-extern int xocl_subdev_offline(struct platform_device *pdev);
+	enum xocl_events evt, enum xocl_subdev_id id, int instance);
 
 /*
  * Subdev pool API for root and partition drivers only.
@@ -207,6 +198,8 @@ extern void *xocl_subdev_add_event_cb(struct platform_device *pdev,
 extern void xocl_subdev_remove_event_cb(
 	struct platform_device *pdev, void *hdl);
 extern int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
+extern void xocl_subdev_broadcast_event(struct platform_device *pdev,
+	enum xocl_events evt);
 
 /*
  * Char dev APIs.
