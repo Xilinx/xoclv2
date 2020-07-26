@@ -31,11 +31,6 @@ struct xocl_parent_ioctl_get_leaf {
 	struct platform_device *xpigl_leaf; /* target leaf pdev */
 };
 
-struct xocl_parent_ioctl_create_partition {
-	enum xocl_partition_id xpicp_id;
-	void *xpicp_dtb;
-};
-
 struct xocl_parent_ioctl_put_leaf {
 	struct platform_device *xpipl_pdev; /* caller's pdev */
 	struct platform_device *xpipl_leaf; /* target's pdev */

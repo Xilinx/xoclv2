@@ -109,8 +109,9 @@ static int xocl_test_probe(struct platform_device *pdev)
 	xt->evt_hdl = xocl_subdev_add_event_cb(pdev, xocl_test_leaf_match,
 		(void *)(uintptr_t)pdev->id, xocl_test_event_cb);
 
-	/* Trigger partition creation. */
-	(void) xocl_subdev_create_partition(pdev, XOCL_PART_TEST_1, NULL);
+	/* Trigger partition creation, only when this is the first instance. */
+	if (pdev->id == 0)
+		(void) xocl_subdev_create_partition(pdev, NULL);
 
 	/* After we return here, we'll get inter-leaf calls. */
 	return 0;

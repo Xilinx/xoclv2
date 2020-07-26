@@ -16,13 +16,6 @@
 
 #define	XOCL_PART "xocl_partition"
 
-enum xocl_part_states {
-	XOCL_PART_STATE_INIT = 0,
-	XOCL_PART_STATE_BUSY,
-	XOCL_PART_STATE_CHILDREN_CREATED,
-	XOCL_PART_STATE_CHILDREN_REMOVED,
-};
-
 struct xocl_partition {
 	struct platform_device *pdev;
 	struct xocl_subdev_pool leaves;
@@ -39,12 +32,11 @@ static int xocl_part_parent_cb(struct device *dev, u32 cmd, void *arg)
 static int xocl_part_create_leaves(struct xocl_partition *xp)
 {
 	xocl_info(xp->pdev, "bringing up leaves ...");
-	xocl_subdev_pool_init(DEV(xp->pdev), &xp->leaves);
 
 	/* TODO: Create all leaves based on dtb. */
 
 	(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_TEST,
-		PLATFORM_DEVID_AUTO, xocl_part_parent_cb, NULL);
+		xocl_part_parent_cb, NULL);
 	return 0;
 }
 
@@ -65,6 +57,7 @@ static int xocl_part_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	xp->pdev = pdev;
+	xocl_subdev_pool_init(DEV(pdev), &xp->leaves);
 	platform_set_drvdata(pdev, xp);
 
 	return 0;
