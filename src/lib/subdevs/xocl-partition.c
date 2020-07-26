@@ -16,16 +16,11 @@
 
 #define	XOCL_PART "xocl_partition"
 
-enum xocl_part_states {
-	XOCL_PART_STATE_INIT = 0,
-	XOCL_PART_STATE_BUSY,
-	XOCL_PART_STATE_CHILDREN_CREATED,
-	XOCL_PART_STATE_CHILDREN_REMOVED,
-};
-
 struct xocl_partition {
 	struct platform_device *pdev;
 	struct xocl_subdev_pool leaves;
+	bool leaves_created;
+	struct mutex lock;
 };
 
 static int xocl_part_parent_cb(struct device *dev, u32 cmd, void *arg)
@@ -39,19 +34,36 @@ static int xocl_part_parent_cb(struct device *dev, u32 cmd, void *arg)
 static int xocl_part_create_leaves(struct xocl_partition *xp)
 {
 	xocl_info(xp->pdev, "bringing up leaves ...");
-	xocl_subdev_pool_init(DEV(xp->pdev), &xp->leaves);
+
+	mutex_lock(&xp->lock);
+
+	if (xp->leaves_created) {
+		mutex_unlock(&xp->lock);
+		return -EEXIST;
+	}
 
 	/* TODO: Create all leaves based on dtb. */
 
 	(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_TEST,
-		PLATFORM_DEVID_AUTO, xocl_part_parent_cb, NULL);
+		xocl_part_parent_cb, NULL);
+	xp->leaves_created = true;
+
+	mutex_unlock(&xp->lock);
+
 	return 0;
 }
 
 static int xocl_part_remove_leaves(struct xocl_partition *xp)
 {
+	int rc;
+
 	xocl_info(xp->pdev, "tearing down leaves ...");
-	return xocl_subdev_pool_fini(&xp->leaves);
+
+	mutex_lock(&xp->lock);
+	rc = xocl_subdev_pool_fini(&xp->leaves);
+	xp->leaves_created = false;
+	mutex_unlock(&xp->lock);
+	return rc;
 }
 
 static int xocl_part_probe(struct platform_device *pdev)
@@ -65,6 +77,8 @@ static int xocl_part_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	xp->pdev = pdev;
+	mutex_init(&xp->lock);
+	xocl_subdev_pool_init(DEV(pdev), &xp->leaves);
 	platform_set_drvdata(pdev, xp);
 
 	return 0;
@@ -127,23 +141,9 @@ static int xocl_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	return rc;
 }
 
-static int xocl_part_offline(struct platform_device *pdev)
-{
-	/* TODO: add offline support. */
-	return 0;
-}
-
-static int xocl_part_online(struct platform_device *pdev)
-{
-	/* TODO: add online support. */
-	return 0;
-}
-
 struct xocl_subdev_drvdata xocl_part_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xocl_part_ioctl,
-		.xsd_online = xocl_part_online,
-		.xsd_offline = xocl_part_offline,
 	},
 };
 

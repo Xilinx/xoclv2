@@ -259,9 +259,8 @@ static int xocl_vsec_probe(struct platform_device *pdev)
 		xocl_err(pdev, "create metadata failed, ret %d", ret);
 		goto failed;
 	}
-	ret = xocl_subdev_create_partition(pdev, XOCL_PART_VSEC,
-		vsec->metadata);
-	if (ret)
+	ret = xocl_subdev_create_partition(pdev, vsec->metadata);
+	if (ret < 0)
 		xocl_err(pdev, "create partition failed, ret %d", ret);
 
 	ret = sysfs_create_group(&DEV(pdev)->kobj, &vsec_attr_group);

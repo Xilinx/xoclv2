@@ -13,7 +13,7 @@ extern struct platform_driver xocl_partition_driver;
 extern struct platform_driver xocl_test_driver;
 
 extern const char *xocl_drv_name(enum xocl_subdev_id id);
-extern int xocl_drv_get_instance(enum xocl_subdev_id id, int instance);
+extern int xocl_drv_get_instance(enum xocl_subdev_id id);
 extern void xocl_drv_put_instance(enum xocl_subdev_id id, int instance);
 
 #endif	/* _XOCL_PARTITION_H_ */

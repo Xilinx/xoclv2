@@ -57,7 +57,7 @@ static void xocl_subdev_free(struct xocl_subdev *sdev)
 
 struct xocl_subdev *
 xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
-	int instance, xocl_subdev_parent_cb_t pcb, char *dtb)
+	xocl_subdev_parent_cb_t pcb, char *dtb)
 {
 	struct xocl_subdev *sdev = NULL;
 	struct platform_device *pdev = NULL;
@@ -94,13 +94,9 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	}
 
 	/* Obtain dev instance number. */
-	if (instance == PLATFORM_DEVID_AUTO)
-		inst = xocl_drv_get_instance(id, -1);
-	else
-		inst = xocl_drv_get_instance(id, instance);
+	inst = xocl_drv_get_instance(id);
 	if (inst < 0) {
-		dev_err(parent, "failed to obtain instance %d: %d",
-			instance, inst);
+		dev_err(parent, "failed to obtain instance: %d", inst);
 		goto fail;
 	}
 
@@ -164,22 +160,6 @@ int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
 }
 EXPORT_SYMBOL_GPL(xocl_subdev_ioctl);
 
-int xocl_subdev_online(struct platform_device *pdev)
-{
-	struct xocl_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
-
-	return (*drvdata->xsd_dev_ops.xsd_online)(pdev);
-}
-EXPORT_SYMBOL_GPL(xocl_subdev_online);
-
-int xocl_subdev_offline(struct platform_device *pdev)
-{
-	struct xocl_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
-
-	return (*drvdata->xsd_dev_ops.xsd_offline)(pdev);
-}
-EXPORT_SYMBOL_GPL(xocl_subdev_offline);
-
 struct platform_device *
 xocl_subdev_get_leaf(struct platform_device *pdev,
 	xocl_subdev_match_t match_cb, void *match_arg)
@@ -203,7 +183,8 @@ static bool subdev_match(enum xocl_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	struct subdev_match_arg *a = (struct subdev_match_arg *)arg;
-	return id == a->id && pdev->id == a->instance;
+	return id == a->id &&
+		(pdev->id == a->instance || PLATFORM_DEVID_NONE == a->instance);
 }
 
 struct platform_device *
@@ -223,20 +204,16 @@ int xocl_subdev_put_leaf(struct platform_device *pdev,
 	return xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_PUT_LEAF, &put_leaf);
 }
 
-int xocl_subdev_create_partition(struct platform_device *pdev,
-	enum xocl_partition_id id, char *dtb)
+int xocl_subdev_create_partition(struct platform_device *pdev, char *dtb)
 {
-	struct xocl_parent_ioctl_create_partition cp = { id, dtb };
-
 	return xocl_subdev_parent_ioctl(pdev,
-		XOCL_PARENT_CREATE_PARTITION, &cp);
+		XOCL_PARENT_CREATE_PARTITION, dtb);
 }
 
-int xocl_subdev_destroy_partition(struct platform_device *pdev,
-	enum xocl_partition_id id)
+int xocl_subdev_destroy_partition(struct platform_device *pdev, int instance)
 {
 	return xocl_subdev_parent_ioctl(pdev,
-		XOCL_PARENT_REMOVE_PARTITION, (void *)(uintptr_t)id);
+		XOCL_PARENT_REMOVE_PARTITION, (void *)(uintptr_t)instance);
 }
 
 void *xocl_subdev_add_event_cb(struct platform_device *pdev,
@@ -407,14 +384,14 @@ xocl_subdev_release(struct xocl_subdev *sdev, struct device *holder_dev)
 }
 
 int xocl_subdev_pool_add(struct xocl_subdev_pool *spool, enum xocl_subdev_id id,
-	int instance, xocl_subdev_parent_cb_t pcb, char *dtb)
+	xocl_subdev_parent_cb_t pcb, char *dtb)
 {
 	struct mutex *lk = &spool->xpool_lock;
 	struct list_head *dl = &spool->xpool_dev_list;
 	struct xocl_subdev *sdev;
 	int ret = 0;
 
-	sdev = xocl_subdev_create(spool->xpool_owner, id, instance, pcb, dtb);
+	sdev = xocl_subdev_create(spool->xpool_owner, id, pcb, dtb);
 	if (sdev) {
 		mutex_lock(lk);
 		if (spool->xpool_closing) {
@@ -431,7 +408,7 @@ int xocl_subdev_pool_add(struct xocl_subdev_pool *spool, enum xocl_subdev_id id,
 		ret = -EINVAL;
 	}
 
-	return ret;
+	return ret ? ret : sdev->xs_pdev->id;
 }
 EXPORT_SYMBOL_GPL(xocl_subdev_pool_add);
 
@@ -516,7 +493,7 @@ static int xocl_subdev_pool_get_impl(struct xocl_subdev_pool *spool,
 			struct xocl_subdev *d = NULL;
 
 			d = list_entry(ptr, struct xocl_subdev, xs_dev_list);
-			if (!match(d->xs_id, d->xs_pdev, arg))
+			if (d && !match(d->xs_id, d->xs_pdev, arg))
 				continue;
 			sdev = d;
 			break;
@@ -621,8 +598,15 @@ int xocl_subdev_pool_event(struct xocl_subdev_pool *spool,
 		tgt, DEV(pdev), &sdev) != -ENOENT) {
 		tgt = sdev->xs_pdev;
 		if (match(sdev->xs_id, sdev->xs_pdev, arg))
-			rc = xevt_cb(pdev, sdev->xs_id, tgt->id, evt);
+			rc = xevt_cb(pdev, evt, sdev->xs_id, tgt->id);
 		(void) xocl_subdev_pool_put_impl(spool, tgt, DEV(pdev));
 	}
 	return rc;
+}
+
+void xocl_subdev_broadcast_event(struct platform_device *pdev,
+	enum xocl_events evt)
+{
+	(void) xocl_subdev_parent_ioctl(pdev,
+		XOCL_PARENT_BOARDCAST_EVENT, (void *)evt);
 }

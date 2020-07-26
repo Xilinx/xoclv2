@@ -21,7 +21,8 @@ enum xocl_parent_ioctl_cmd {
 	XOCL_PARENT_CREATE_PARTITION,
 	XOCL_PARENT_REMOVE_PARTITION,
 	XOCL_PARENT_ADD_EVENT_CB,
-	XOCL_PARENT_REMOVE_EVENT_CB
+	XOCL_PARENT_REMOVE_EVENT_CB,
+	XOCL_PARENT_BOARDCAST_EVENT
 };
 
 struct xocl_parent_ioctl_get_leaf {
@@ -29,11 +30,6 @@ struct xocl_parent_ioctl_get_leaf {
 	xocl_subdev_match_t xpigl_match_cb;
 	void *xpigl_match_arg;
 	struct platform_device *xpigl_leaf; /* target leaf pdev */
-};
-
-struct xocl_parent_ioctl_create_partition {
-	enum xocl_partition_id xpicp_id;
-	void *xpicp_dtb;
 };
 
 struct xocl_parent_ioctl_put_leaf {

@@ -26,17 +26,6 @@ enum xocl_subdev_id {
 };
 
 /*
- * Defines all flavors of partitions. This also serves as instance ID for
- * partition subdev. An instance of partition subdev can be identified by
- * <XOCL_SUBDEV_PART, xocl_partition_id>.
- */
-enum xocl_partition_id {
-	XOCL_PART_TEST = 0,
-	XOCL_PART_VSEC,
-	XOCL_PART_TEST_1,
-};
-
-/*
  * If populated by subdev driver, parent will handle the mechanics of
  * char device (un)registration.
  */
@@ -62,13 +51,6 @@ struct xocl_subdev_drv_ops {
 	 * Note that root driver may call into xsd_ioctl of a partition driver.
 	 */
 	int (*xsd_ioctl)(struct platform_device *pdev, u32 cmd, void *arg);
-
-	/*
-	 * Per driver instance callback. The pdev points to the instance.
-	 * If defined these are called by partition or root drivers.
-	 */
-	int (*xsd_online)(struct platform_device *pdev);
-	int (*xsd_offline)(struct platform_device *pdev);
 };
 
 /*
@@ -168,18 +150,16 @@ typedef bool (*xocl_subdev_match_t)(enum xocl_subdev_id,
  * Event notification.
  */
 enum xocl_events {
+	/* Events triggered when subdev is created or removed. */
+	XOCL_EVENT_POST_CREATION,
 	XOCL_EVENT_PRE_REMOVAL,
-	XOCL_EVENT_POST_CREATION
+
+	/* Broadcast'able events from leaf. */
+	XOCL_BROADCAST_EVENT_TEST
 };
 
 typedef int (*xocl_event_cb_t)(struct platform_device *pdev,
-	enum xocl_subdev_id id, int instance, enum xocl_events evt);
-
-/*
- * Online and offline routines are for root and partition drivers only.
- */
-extern int xocl_subdev_online(struct platform_device *pdev);
-extern int xocl_subdev_offline(struct platform_device *pdev);
+	enum xocl_events evt, enum xocl_subdev_id id, int instance);
 
 /*
  * Subdev pool API for root and partition drivers only.
@@ -193,8 +173,7 @@ extern int xocl_subdev_pool_get(struct xocl_subdev_pool *spool,
 extern int xocl_subdev_pool_put(struct xocl_subdev_pool *spool,
 	struct platform_device *pdev, struct device *holder_dev);
 extern int xocl_subdev_pool_add(struct xocl_subdev_pool *spool,
-	enum xocl_subdev_id id, int instance, xocl_subdev_parent_cb_t pcb,
-	char *dtb);
+	enum xocl_subdev_id id, xocl_subdev_parent_cb_t pcb, char *dtb);
 extern int xocl_subdev_pool_del(struct xocl_subdev_pool *spool,
 	enum xocl_subdev_id id, int instance);
 extern int xocl_subdev_pool_event(struct xocl_subdev_pool *spool,
@@ -211,14 +190,16 @@ extern struct platform_device *xocl_subdev_get_leaf_by_id(
 extern int xocl_subdev_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf);
 extern int xocl_subdev_create_partition(struct platform_device *pdev,
-	enum xocl_partition_id id, char *dtb);
+	char *dtb);
 extern int xocl_subdev_destroy_partition(struct platform_device *pdev,
-	enum xocl_partition_id id);
+	int instance);
 extern void *xocl_subdev_add_event_cb(struct platform_device *pdev,
 	xocl_subdev_match_t match, void *match_arg, xocl_event_cb_t cb);
 extern void xocl_subdev_remove_event_cb(
 	struct platform_device *pdev, void *hdl);
 extern int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
+extern void xocl_subdev_broadcast_event(struct platform_device *pdev,
+	enum xocl_events evt);
 
 /*
  * Char dev APIs.
