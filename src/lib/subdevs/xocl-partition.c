@@ -56,6 +56,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 static int xocl_part_remove_leaves(struct xocl_partition *xp)
 {
 	int rc;
+
 	xocl_info(xp->pdev, "tearing down leaves ...");
 
 	mutex_lock(&xp->lock);
