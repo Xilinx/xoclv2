@@ -14,8 +14,14 @@
 
 #define BLOB_DELTA	4096
 
-#define md_err		dev_err
-#define md_info		dev_info
+#define md_err(dev, fmt, args...)			\
+	dev_err(dev, "%s: "fmt, __func__, ##args)
+#define md_warn(dev, fmt, args...)			\
+	dev_warn(dev, "%s: "fmt, __func__, ##args)
+#define md_info(dev, fmt, args...)			\
+	dev_info(dev, "%s: "fmt, __func__, ##args)
+#define md_dbg(dev, fmt, args...)			\
+	dev_dbg(dev, "%s: "fmt, __func__, ##args)
 
 static int xocl_md_setprop(struct device *dev, char **blob, int offset,
 	const char *prop, const void *val, int size);
@@ -41,15 +47,23 @@ int xocl_md_create(struct device *dev, char **blob)
 		goto failed;
 	}
 
-	ret = fdt_add_subnode(blob, 0, NODE_ENDPOINTS);
-	if (ret)
+	ret = fdt_next_node(*blob, -1, NULL);
+	if (ret < 0) {
+		md_err(dev, "No Node, ret = %d", ret);
+		goto failed;
+	}
+
+	ret = fdt_add_subnode(*blob, ret, NODE_ENDPOINTS);
+	if (ret < 0)
 		md_err(dev, "add node failed, ret = %d", ret);
 
 failed:
-	if (ret) {
+	if (ret < 0) {
 		vfree(*blob);
 		*blob = NULL;
-	}
+	} else
+		ret = 0;
+
 	return ret;
 }
 
@@ -73,7 +87,7 @@ int xocl_md_add_node(struct device *dev, char **blob, int parent_offset,
 			goto failed;
 		}
 		ret = fdt_add_subnode(*blob, parent_offset, ep_name);
-		if (ret) {
+		if (ret < 0) {
 			md_err(dev, "add node failed, ret = %d", ret);
 			goto failed;
 		}
@@ -85,6 +99,9 @@ int xocl_md_add_node(struct device *dev, char **blob, int parent_offset,
 failed:
 	if (ret < 0 && buf)
 		vfree(buf);
+	else
+		ret = 0;
+
 	return ret;
 }
 

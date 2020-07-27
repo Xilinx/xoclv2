@@ -14,6 +14,7 @@
 #include "xocl-subdev.h"
 #include "xocl-parent.h"
 #include "xocl-partition.h"
+#include "xocl-metadata.h"
 
 #define	XMGMT_MODULE_NAME	"xmgmt"
 #define	XMGMT_DRIVER_VERSION	"4.0.0"
@@ -58,6 +59,8 @@ struct xmgmt {
 	struct pci_dev *pdev;
 	struct xmgmt_events events;
 	struct xmgmt_parts parts;
+
+	char *root_dtb;
 };
 
 struct xmgmt_part_match_arg {
@@ -435,10 +438,77 @@ static void xmgmt_parts_fini(struct xmgmt *xm)
 	(void) xocl_subdev_pool_fini(&xm->parts.pool);
 }
 
+static int xmgmt_add_vsec_node(struct xmgmt *xm)
+{
+	struct device *dev = DEV(xm->pdev);
+	struct xocl_md_endpoint ep;
+	int cap, ret = 0;
+	u32 off_low, off_high, vsec_bar;
+	u64 vsec_off;
+
+	cap = pci_find_ext_capability(xm->pdev, PCI_EXT_CAP_ID_VNDR);
+	if (!cap) {
+		xmgmt_info(xm, "No Vendor Specific Capability.");
+		return 0;
+	}
+
+	if (pci_read_config_dword(xm->pdev, cap+8, &off_low) ||
+	    pci_read_config_dword(xm->pdev, cap+12, &off_high)) {
+		xmgmt_err(xm, "pci_read vendor specific failed.");
+		return -EINVAL;
+	}
+
+	memset(&ep, 0, sizeof(ep));
+	ep.ep_name = NODE_VSEC;
+	ret = xocl_md_add_endpoint(dev, &xm->root_dtb, &ep);
+	if (ret) {
+		xmgmt_err(xm, "add vsec metadata failed, ret %d", ret);
+		goto failed;
+	}
+
+	vsec_bar = cpu_to_be32(off_low & 0xf);
+	vsec_off = cpu_to_be64(((u64)off_high << 32) | (off_low & ~0xfU));
+	ret = xocl_md_setprop_by_nodename(dev, &xm->root_dtb, NODE_VSEC,
+		PROP_OFFSET, &vsec_off, sizeof(vsec_off));
+	if (ret) {
+		xmgmt_err(xm, "add vsec offset failed, ret %d", ret);
+		goto failed;
+	}
+
+failed:
+	return ret;
+}
+
+static int xmgmt_create_root_metadata(struct xmgmt *xm)
+{
+	struct device *dev = DEV(xm->pdev);
+	int ret;
+
+	ret = xocl_md_create(dev, &xm->root_dtb);
+	if (ret) {
+		xmgmt_err(xm, "create metadata failed, ret %d", ret);
+		goto failed;
+	}
+
+	ret = xmgmt_add_vsec_node(xm);
+	if (ret)
+		goto failed;
+
+	return 0;
+
+failed:
+	if (xm->root_dtb) {
+		vfree(xm->root_dtb);
+		xm->root_dtb = NULL;
+	}
+	return ret;
+}
+
 static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	struct xmgmt *xm;
 	struct device *dev = DEV(pdev);
+	int ret = 0;
 
 	dev_info(dev, "%s: probing...", __func__);
 
@@ -452,7 +522,11 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	xmgmt_config_pci(xm);
 	pci_set_drvdata(pdev, xm);
 
-	(void) xmgmt_create_partition(xm, NULL);
+	ret = xmgmt_create_root_metadata(xm);
+	if (ret)
+		return ret;
+
+	(void) xmgmt_create_partition(xm, xm->root_dtb);
 	return 0;
 }
 
@@ -479,6 +553,11 @@ static void xmgmt_remove(struct pci_dev *pdev)
 	xmgmt_parts_fini(xm);
 
 	pci_disable_pcie_error_reporting(pdev);
+
+	if (xm->root_dtb) {
+		vfree(xm->root_dtb);
+		xm->root_dtb = NULL;
+	}
 }
 
 static struct pci_driver xmgmt_driver = {
