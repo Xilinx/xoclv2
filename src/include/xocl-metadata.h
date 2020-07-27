@@ -90,12 +90,14 @@
 #define NODE_PMC_MUX    "ep_pmc_mux_00"
 
 /* driver defined endpoints */
-#define NODE_BLP_ROM "ep_blp_rom_00"
-#define NODE_PLAT_INFO "ep_platform_info_mgmt_00"
+#define NODE_VSEC "drv_ep_vsec_00"
+#define NODE_BLP_ROM "drv_ep_blp_rom_00"
+#define NODE_PLAT_INFO "drv_ep_platform_info_mgmt_00"
+
+#define PROP_OFFSET "offset"
 
 struct xocl_md_endpoint {
 	char	*ep_name;
-	u32	pf_num;
 	u32	bar;
 	long	bar_off;
 	ulong	size;

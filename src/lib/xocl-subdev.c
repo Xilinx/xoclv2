@@ -12,6 +12,7 @@
 #include "xocl-subdev.h"
 #include "xocl-parent.h"
 #include "xocl-main.h"
+#include "xocl-metadata.h"
 
 #define DEV_IS_PCI(dev) ((dev)->bus == &pci_bus_type)
 
@@ -62,7 +63,7 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	struct xocl_subdev *sdev = NULL;
 	struct platform_device *pdev = NULL;
 	struct xocl_subdev_platdata *pdata = NULL;
-	size_t dtb_len = 0; /* TODO: comes from dtb. */
+	size_t dtb_len = dtb ? xocl_md_size(parent, dtb) : 0;
 	size_t pdata_sz = sizeof(struct xocl_subdev_platdata) + dtb_len - 1;
 	int inst = PLATFORM_DEVID_NONE;
 

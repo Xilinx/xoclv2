@@ -9,6 +9,7 @@ obj-m	+= xmgmt.o
 
 fdtdir := ../common/libfdt
 xmgmt-y := xmgmt-root.o				\
+	   ../common/xocl-metadata.o		\
 	   $(fdtdir)/fdt.o			\
 	   $(fdtdir)/fdt_addresses.o		\
 	   $(fdtdir)/fdt_empty_tree.o		\
@@ -25,7 +26,7 @@ KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 
 PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))
-XILINXINCLUDE := -I$(ROOT)/include -I$(ROOT)/include/uapi
+XILINXINCLUDE := -I$(ROOT)/include -I$(ROOT)/include/uapi -I$(ROOT)/common/libfdt
 
 ccflags-y += $(XILINXINCLUDE)
 ifeq ($(DEBUG),1)
