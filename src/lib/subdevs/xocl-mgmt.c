@@ -111,10 +111,6 @@ static int xocl_mgmt_probe(struct platform_device *pdev)
 	xt->evt_hdl = xocl_subdev_add_event_cb(pdev, xocl_mgmt_leaf_match,
 		(void *)(uintptr_t)pdev->id, xocl_mgmt_event_cb);
 
-	/* Broadcast event. */
-	if (pdev->id == 1)
-		xocl_subdev_broadcast_event(pdev, XOCL_BROADCAST_EVENT_MGMT);
-
 	/* After we return here, we'll get inter-leaf calls. */
 	return 0;
 }

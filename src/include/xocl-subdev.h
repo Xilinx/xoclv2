@@ -158,7 +158,6 @@ enum xocl_events {
 
 	/* Broadcast'able events from leaf. */
 	XOCL_BROADCAST_EVENT_TEST,
-	XOCL_BROADCAST_EVENT_MGMT
 };
 
 typedef int (*xocl_event_cb_t)(struct platform_device *pdev,
