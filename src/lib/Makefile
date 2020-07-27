@@ -15,6 +15,7 @@ xocl-lib-y := 				\
 	../common/xocl-metadata.o	\
 	subdevs/xocl-partition.o	\
 	subdevs/xocl-test.o		\
+	subdevs/xocl-mgmt.o		\
 	subdevs/xocl-vsec.o		\
 	$(fdtdir)/fdt.o			\
 	$(fdtdir)/fdt_addresses.o	\
@@ -43,4 +44,5 @@ all:
 
 clean:
 	rm -rf *.o *.o.d *~ core .depend .*.cmd *.ko *.ko.unsigned *.mod.c \
+	rm -rf subdevs/*.o subdevs/*.o.d subdevs/*~ core subdevs/.depend subdevs/.*.cmd subdevs/*.mod.c \
 	.tmp_versions *.symvers modules.order *.mod .cache.mk

@@ -31,6 +31,7 @@ static struct xocl_drv_map {
 } xocl_drv_maps[] = {
 	{ XOCL_SUBDEV_PART, &xocl_partition_driver, },
 	{ XOCL_SUBDEV_TEST, &xocl_test_driver, },
+	{ XOCL_SUBDEV_MGMT, &xocl_mgmt_driver, },
 };
 
 static inline struct xocl_subdev_drvdata *

@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/aer.h>
+#include <linux/vmalloc.h>
 
 #include "xocl-root.h"
 #include "xocl-subdev.h"

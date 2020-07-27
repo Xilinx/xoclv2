@@ -11,6 +11,7 @@
 
 extern struct platform_driver xocl_partition_driver;
 extern struct platform_driver xocl_test_driver;
+extern struct platform_driver xocl_mgmt_driver;
 
 extern const char *xocl_drv_name(enum xocl_subdev_id id);
 extern int xocl_drv_get_instance(enum xocl_subdev_id id);

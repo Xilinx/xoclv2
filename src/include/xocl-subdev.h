@@ -23,6 +23,7 @@
 enum xocl_subdev_id {
 	XOCL_SUBDEV_PART = 0,
 	XOCL_SUBDEV_TEST,
+	XOCL_SUBDEV_MGMT,
 };
 
 /*
@@ -156,7 +157,8 @@ enum xocl_events {
 	XOCL_EVENT_PRE_REMOVAL,
 
 	/* Broadcast'able events from leaf. */
-	XOCL_BROADCAST_EVENT_TEST
+	XOCL_BROADCAST_EVENT_TEST,
+	XOCL_BROADCAST_EVENT_MGMT
 };
 
 typedef int (*xocl_event_cb_t)(struct platform_device *pdev,

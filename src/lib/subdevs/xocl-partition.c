@@ -64,6 +64,15 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 
 	(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_TEST,
 		xocl_part_parent_cb, xp, NULL);
+
+	/*
+	 * TODO: How do we boot strap the primary device node "xmgmt" which would
+	 * handle all the key ioctls?
+	 */
+	if (xp->pdev->id == 0)
+		(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_MGMT,
+					    xocl_part_parent_cb, NULL);
+
 	xp->leaves_created = true;
 
 	mutex_unlock(&xp->lock);
