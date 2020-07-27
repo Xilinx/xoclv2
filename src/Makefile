@@ -8,6 +8,7 @@
 all:
 	$(MAKE) -C lib all
 	$(MAKE) -C mgmt all
+	$(MAKE) lint
 
 tags:
 	../scripts/tags.sh

@@ -32,6 +32,6 @@ do
     fi
     regex="^.+[c|h]$"
     if [[ $item =~ $regex ]]; then
-	$ROOT/scripts/checkpatch.pl --no-tree --emacs --color=never -f $ROOT/$item || true
+	$ROOT/scripts/checkpatch.pl --no-tree --emacs --color=never -f $ROOT/$item
     fi
 done
