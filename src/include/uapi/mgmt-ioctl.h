@@ -1,34 +1,7 @@
+/* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0 */
 /*
  *  Copyright (C) 2015-2020, Xilinx Inc
  *
- *  This file is dual licensed.  It may be redistributed and/or modified
- *  under the terms of the Apache 2.0 License OR version 2 of the GNU
- *  General Public License.
- *
- *  Apache License Verbiage
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *  http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- *  GPL license Verbiage:
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by the Free Software Foundation;
- *  either version 2 of the License, or (at your option) any later version.
- *  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
- *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *  See the GNU General Public License for more details.
- *  You should have received a copy of the GNU General Public License along with this program;
- *  if not, write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
 /**
@@ -55,7 +28,6 @@
 #define _XCLMGMT_IOCALLS_POSIX_H_
 
 #include <linux/ioctl.h>
-#include "xclerr.h"
 
 #define XCLMGMT_IOC_MAGIC	'X'
 #define XCLMGMT_NUM_SUPPORTED_CLOCKS 4
@@ -87,8 +59,8 @@ struct xclmgmt_ioc_info {
 	unsigned short device;
 	unsigned short subsystem_vendor;
 	unsigned short subsystem_device;
-	unsigned driver_version;
-	unsigned device_version;
+	unsigned int driver_version;
+	unsigned int device_version;
 	unsigned long long feature_id;
 	unsigned long long time_stamp;
 	unsigned short ddr_channel_num;
@@ -107,7 +79,7 @@ struct xclmgmt_ioc_info {
 	bool mig_calibration[4];
 	unsigned short num_clocks;
 	bool isXPR;
-	unsigned pci_slot;
+	unsigned int pci_slot;
 	unsigned long long xmc_version;
 	unsigned short twelve_vol_pex;
 	unsigned short twelve_vol_aux;
@@ -129,21 +101,6 @@ struct xclmgmt_ioc_info {
 	short dimm_temp[4];
 };
 
-struct xclmgmt_ioc_bitstream {
-};
-
-/*
- * struct xclmgmt_err_info - Obtain Error information from the device
- * used with XCLMGMT_IOCERRINFO ioctl
- *
- * Note that this structure will be obsoleted in future and the same functionality will be exposed via sysfs nodes
- */
-struct xclmgmt_err_info {
-	unsigned mNumFirewalls;
-	struct xclAXIErrorStatus mAXIErrorStatus[8];
-	struct xclPCIErrorStatus mPCIErrorStatus;
-};
-
 /**
  * struct xclmgmt_ioc_bitstream_axlf - load xclbin (AXLF) device image
  * used with XCLMGMT_IOCICAPDOWNLOAD_AXLF ioctl
@@ -162,7 +119,7 @@ struct xclmgmt_ioc_bitstream_axlf {
  * @ocl_target_freq:	Array of requested frequencies, a value o zero in the array indicates leave untouched
  */
 struct xclmgmt_ioc_freqscaling {
-	unsigned ocl_region;
+	unsigned int ocl_region;
 	unsigned short ocl_target_freq[XCLMGMT_NUM_SUPPORTED_CLOCKS];
 };
 #define DATA_CLK			0
@@ -170,10 +127,7 @@ struct xclmgmt_ioc_freqscaling {
 #define SYSTEM_CLK			2
 
 #define XCLMGMT_IOCINFO			_IOR(XCLMGMT_IOC_MAGIC, XCLMGMT_IOC_INFO, struct xclmgmt_ioc_info)
-#define XCLMGMT_IOCICAPDOWNLOAD		_IOW(XCLMGMT_IOC_MAGIC, XCLMGMT_IOC_ICAP_DOWNLOAD, struct xclmgmt_ioc_bitstream)
 #define XCLMGMT_IOCICAPDOWNLOAD_AXLF	_IOW(XCLMGMT_IOC_MAGIC, XCLMGMT_IOC_ICAP_DOWNLOAD_AXLF, struct xclmgmt_ioc_bitstream_axlf)
 #define XCLMGMT_IOCFREQSCALE		_IOW(XCLMGMT_IOC_MAGIC, XCLMGMT_IOC_FREQ_SCALE, struct xclmgmt_ioc_freqscaling)
-#define XCLMGMT_IOCREBOOT		_IO(XCLMGMT_IOC_MAGIC, XCLMGMT_IOC_REBOOT)
-#define XCLMGMT_IOCERRINFO		_IOR(XCLMGMT_IOC_MAGIC, XCLMGMT_IOC_ERR_INFO, struct xclErrorStatus)
 
 #endif

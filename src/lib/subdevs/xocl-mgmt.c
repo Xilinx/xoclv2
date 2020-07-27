@@ -10,6 +10,7 @@
 
 #include <linux/delay.h>
 #include "xocl-subdev.h"
+#include "uapi/mgmt-ioctl.h"
 
 #define	XOCL_MGMT "xocl_mgmt"
 
@@ -17,6 +18,7 @@ struct xocl_mgmt {
 	struct platform_device *pdev;
 	struct platform_device *leaf;
 	void *evt_hdl;
+	struct mutex busy_mutex;
 };
 
 static bool xocl_mgmt_leaf_match(enum xocl_subdev_id id,
@@ -97,7 +99,7 @@ static int xocl_mgmt_probe(struct platform_device *pdev)
 
 	xt->pdev = pdev;
 	platform_set_drvdata(pdev, xt);
-
+	mutex_init(&xt->busy_mutex);
 	/* Ready to handle req thru sysfs nodes. */
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xocl_mgmt_attrgroup))
 		xocl_err(pdev, "failed to create sysfs group");
@@ -108,10 +110,6 @@ static int xocl_mgmt_probe(struct platform_device *pdev)
 	/* Add event callback to wait for the peer instance. */
 	xt->evt_hdl = xocl_subdev_add_event_cb(pdev, xocl_mgmt_leaf_match,
 		(void *)(uintptr_t)pdev->id, xocl_mgmt_event_cb);
-
-	/* Trigger partition creation, only when this is the first instance. */
-	if (pdev->id == 0)
-		(void) xocl_subdev_create_partition(pdev, NULL);
 
 	/* Broadcast event. */
 	if (pdev->id == 1)
@@ -187,6 +185,37 @@ static int xocl_mgmt_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static long xocl_mgmt_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	long result = 0;
+	struct xocl_mgmt *xt = filp->private_data;
+
+	BUG_ON(!xt);
+
+	if (_IOC_TYPE(cmd) != XCLMGMT_IOC_MAGIC)
+		return -ENOTTY;
+
+	if (result)
+		return -EFAULT;
+
+	mutex_lock(&xt->busy_mutex);
+
+	xocl_info(xt->pdev, "ioctl cmd %d, arg %ld", cmd, arg);
+	switch (cmd) {
+	case XCLMGMT_IOCINFO:
+		break;
+	case XCLMGMT_IOCICAPDOWNLOAD_AXLF:
+		break;
+	case XCLMGMT_IOCFREQSCALE:
+		break;
+	default:
+		result = -ENOTTY;
+	}
+	mutex_unlock(&xt->busy_mutex);
+	return result;
+}
+
+
 struct xocl_subdev_drvdata xocl_mgmt_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xocl_mgmt_leaf_ioctl,
@@ -197,6 +226,7 @@ struct xocl_subdev_drvdata xocl_mgmt_data = {
 			.open = xocl_mgmt_open,
 			.release = xocl_mgmt_close,
 			.read = xocl_mgmt_read,
+			.unlocked_ioctl = xocl_mgmt_ioctl,
 		},
 	},
 };
