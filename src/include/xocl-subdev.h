@@ -179,7 +179,8 @@ extern int xocl_subdev_pool_del(struct xocl_subdev_pool *spool,
 extern int xocl_subdev_pool_event(struct xocl_subdev_pool *spool,
 	struct platform_device *pdev, xocl_subdev_match_t match, void *arg,
 	xocl_event_cb_t xevt_cb, enum xocl_events evt);
-
+extern ssize_t xocl_subdev_pool_get_holders(struct xocl_subdev_pool *spool,
+	struct platform_device *pdev, char *buf, size_t len);
 /*
  * For leaf drivers.
  */

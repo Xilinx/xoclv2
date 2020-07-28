@@ -24,7 +24,7 @@ enum xocl_partition_ioctl_cmd {
 
 struct xocl_partition_ioctl_event {
 	enum xocl_events xpie_evt;
-	struct xocl_parent_ioctl_add_evt_cb *xpie_cb;
+	struct xocl_parent_ioctl_evt_cb *xpie_cb;
 };
 
 extern int xocl_subdev_parent_ioctl(struct platform_device *pdev,

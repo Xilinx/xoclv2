@@ -56,6 +56,33 @@ static void xocl_subdev_free(struct xocl_subdev *sdev)
 	vfree(sdev);
 }
 
+/*
+ * Subdev common sysfs nodes.
+ */
+static ssize_t holders_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t len;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct xocl_parent_ioctl_get_holders holders = { pdev, buf, 1024 };
+
+	len = xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_HOLDERS, &holders);
+	if (len >= holders.xpigh_holder_buf_len)
+		return len;
+	buf[len] = '\n';
+	return len + 1;
+}
+static DEVICE_ATTR_RO(holders);
+
+static struct attribute *xocl_subdev_attrs[] = {
+	&dev_attr_holders.attr,
+	NULL,
+};
+
+static const struct attribute_group xocl_subdev_attrgroup = {
+	.attrs = xocl_subdev_attrs,
+};
+
 struct xocl_subdev *
 xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	xocl_subdev_parent_cb_t pcb, char *dtb)
@@ -123,6 +150,9 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 		goto fail;
 	}
 
+	if (sysfs_create_group(&DEV(pdev)->kobj, &xocl_subdev_attrgroup))
+		xocl_err(pdev, "failed to create sysfs group");
+
 	vfree(pdata);
 	return sdev;
 
@@ -138,9 +168,11 @@ fail:
 
 void xocl_subdev_destroy(struct xocl_subdev *sdev)
 {
-	int inst = sdev->xs_pdev->id;
+	struct platform_device *pdev = sdev->xs_pdev;
+	int inst = pdev->id;
 
-	platform_device_unregister(sdev->xs_pdev);
+	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xocl_subdev_attrgroup);
+	platform_device_unregister(pdev);
 	xocl_drv_put_instance(sdev->xs_id, inst);
 	xocl_subdev_free(sdev);
 }
@@ -220,7 +252,7 @@ int xocl_subdev_destroy_partition(struct platform_device *pdev, int instance)
 void *xocl_subdev_add_event_cb(struct platform_device *pdev,
 	xocl_subdev_match_t match, void *match_arg, xocl_event_cb_t cb)
 {
-	struct xocl_parent_ioctl_add_evt_cb c = { pdev, match, match_arg, cb };
+	struct xocl_parent_ioctl_evt_cb c = { pdev, match, match_arg, cb };
 
 	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_ADD_EVENT_CB, &c);
 	return c.xevt_hdl;
@@ -231,21 +263,21 @@ void xocl_subdev_remove_event_cb(struct platform_device *pdev, void *hdl)
 	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_REMOVE_EVENT_CB, hdl);
 }
 
-static void
+static ssize_t
 xocl_subdev_get_holders(struct xocl_subdev *sdev, char *buf, size_t len)
 {
 	const struct list_head *ptr;
 	struct xocl_subdev_holder *h;
-	size_t n = 0;
+	ssize_t n = 0;
 
 	list_for_each(ptr, &sdev->xs_holder_list) {
 		h = list_entry(ptr, struct xocl_subdev_holder, xsh_holder_list);
 		n += snprintf(buf + n, len - n, "%s:%d ",
 			dev_name(h->xsh_holder), h->xsh_count);
 		if (n >= len)
-			return;
+			break;
 	}
-	*(buf + n) = '\0'; // eat last space
+	return n;
 }
 
 void xocl_subdev_pool_init(struct device *dev, struct xocl_subdev_pool *spool)
@@ -271,7 +303,7 @@ static void xocl_subdev_pool_wait_for_holders(struct xocl_subdev_pool *spool,
 		int rc;
 
 		/* It's most likely a bug if we ever enters this loop. */
-		xocl_subdev_get_holders(sdev, holders, sizeof(holders));
+		(void) xocl_subdev_get_holders(sdev, holders, sizeof(holders));
 		xocl_err(sdev->xs_pdev, "awaits holders: %s", holders);
 		mutex_unlock(lk);
 		rc = wait_for_completion_killable(&sdev->xs_holder_comp);
@@ -604,6 +636,29 @@ int xocl_subdev_pool_event(struct xocl_subdev_pool *spool,
 	}
 	return rc;
 }
+
+ssize_t xocl_subdev_pool_get_holders(struct xocl_subdev_pool *spool,
+	struct platform_device *pdev, char *buf, size_t len)
+{
+	const struct list_head *ptr;
+	struct mutex *lk = &spool->xpool_lock;
+	struct list_head *dl = &spool->xpool_dev_list;
+	struct xocl_subdev *sdev;
+	ssize_t ret = 0;
+
+	mutex_lock(lk);
+	list_for_each(ptr, dl) {
+		sdev = list_entry(ptr, struct xocl_subdev, xs_dev_list);
+		if (sdev->xs_pdev != pdev)
+			continue;
+		ret = xocl_subdev_get_holders(sdev, buf, len);
+		break;
+	}
+	mutex_unlock(lk);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(xocl_subdev_pool_get_holders);
 
 void xocl_subdev_broadcast_event(struct platform_device *pdev,
 	enum xocl_events evt)

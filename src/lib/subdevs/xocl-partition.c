@@ -25,22 +25,39 @@ struct xocl_partition {
 
 static int xocl_part_parent_cb(struct device *dev, u32 cmd, void *arg)
 {
+	int rc;
 	struct platform_device *pdev =
 		container_of(dev, struct platform_device, dev);
-	/* Forward parent call to root. */
-	return xocl_subdev_parent_ioctl(pdev, cmd, arg);
+	struct xocl_partition *xp = platform_get_drvdata(pdev);
+
+	switch (cmd) {
+	case XOCL_PARENT_GET_HOLDERS: {
+		struct xocl_parent_ioctl_get_holders *holders =
+			(struct xocl_parent_ioctl_get_holders *)arg;
+		rc = xocl_subdev_pool_get_holders(&xp->leaves,
+			holders->xpigh_pdev, holders->xpigh_holder_buf,
+			holders->xpigh_holder_buf_len);
+		break;
+	}
+	default:
+		/* Forward parent call to root. */
+		rc = xocl_subdev_parent_ioctl(pdev, cmd, arg);
+		break;
+	}
+
+	return rc;
 }
 
 static int xocl_part_create_leaves(struct xocl_partition *xp)
 {
-	xocl_info(xp->pdev, "bringing up leaves ...");
-
 	mutex_lock(&xp->lock);
 
 	if (xp->leaves_created) {
 		mutex_unlock(&xp->lock);
 		return -EEXIST;
 	}
+
+	xocl_info(xp->pdev, "bringing up leaves...");
 
 	/* TODO: Create all leaves based on dtb. */
 
@@ -57,12 +74,19 @@ static int xocl_part_remove_leaves(struct xocl_partition *xp)
 {
 	int rc;
 
-	xocl_info(xp->pdev, "tearing down leaves ...");
-
 	mutex_lock(&xp->lock);
+
+	if (!xp->leaves_created) {
+		mutex_unlock(&xp->lock);
+		return 0;
+	}
+
+	xocl_info(xp->pdev, "tearing down leaves...");
 	rc = xocl_subdev_pool_fini(&xp->leaves);
 	xp->leaves_created = false;
+
 	mutex_unlock(&xp->lock);
+
 	return rc;
 }
 
@@ -97,8 +121,6 @@ static int xocl_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	int rc = 0;
 	struct xocl_partition *xp = platform_get_drvdata(pdev);
 
-	xocl_info(pdev, "handling IOCTL cmd %d", cmd);
-
 	switch (cmd) {
 	case XOCL_PARTITION_GET_LEAF: {
 		struct xocl_parent_ioctl_get_leaf *get_leaf =
@@ -126,7 +148,7 @@ static int xocl_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	case XOCL_PARTITION_EVENT: {
 		struct xocl_partition_ioctl_event *evt =
 			(struct xocl_partition_ioctl_event *)arg;
-		struct xocl_parent_ioctl_add_evt_cb *cb = evt->xpie_cb;
+		struct xocl_parent_ioctl_evt_cb *cb = evt->xpie_cb;
 
 		rc = xocl_subdev_pool_event(&xp->leaves, cb->xevt_pdev,
 			cb->xevt_match_cb, cb->xevt_match_arg, cb->xevt_cb,
