@@ -50,14 +50,14 @@ static int xocl_part_parent_cb(struct device *dev, u32 cmd, void *arg)
 
 static int xocl_part_create_leaves(struct xocl_partition *xp)
 {
-	xocl_info(xp->pdev, "bringing up leaves ...");
-
 	mutex_lock(&xp->lock);
 
 	if (xp->leaves_created) {
 		mutex_unlock(&xp->lock);
 		return -EEXIST;
 	}
+
+	xocl_info(xp->pdev, "bringing up leaves...");
 
 	/* TODO: Create all leaves based on dtb. */
 
@@ -74,12 +74,19 @@ static int xocl_part_remove_leaves(struct xocl_partition *xp)
 {
 	int rc;
 
-	xocl_info(xp->pdev, "tearing down leaves ...");
-
 	mutex_lock(&xp->lock);
+
+	if (!xp->leaves_created) {
+		mutex_unlock(&xp->lock);
+		return 0;
+	}
+
+	xocl_info(xp->pdev, "tearing down leaves...");
 	rc = xocl_subdev_pool_fini(&xp->leaves);
 	xp->leaves_created = false;
+
 	mutex_unlock(&xp->lock);
+
 	return rc;
 }
 
@@ -113,8 +120,6 @@ static int xocl_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	int rc = 0;
 	struct xocl_partition *xp = platform_get_drvdata(pdev);
-
-	xocl_info(pdev, "handling IOCTL cmd %d", cmd);
 
 	switch (cmd) {
 	case XOCL_PARTITION_GET_LEAF: {

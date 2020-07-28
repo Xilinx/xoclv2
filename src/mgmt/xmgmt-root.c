@@ -367,8 +367,6 @@ static int xmgmt_parent_cb(struct device *dev, u32 cmd, void *arg)
 	struct xmgmt *xm = pci_get_drvdata(pdev);
 	int rc = 0;
 
-	xmgmt_info(xm, "handling parent call, cmd %d", cmd);
-
 	switch (cmd) {
 	case XOCL_PARENT_GET_LEAF: {
 		struct xocl_parent_ioctl_get_leaf *getleaf =
