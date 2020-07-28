@@ -41,7 +41,7 @@ static int xmgmt_parent_cb(struct device *, u32, void *);
 struct xmgmt_event_cb {
 	struct list_head list;
 	bool initialized;
-	struct xocl_parent_ioctl_add_evt_cb cb;
+	struct xocl_parent_ioctl_evt_cb cb;
 };
 
 struct xmgmt_events {
@@ -264,7 +264,7 @@ static void xmgmt_evt_fini(struct xmgmt *xm)
 }
 
 static int xmgmt_evt_cb_add(struct xmgmt *xm,
-	struct xocl_parent_ioctl_add_evt_cb *cb)
+	struct xocl_parent_ioctl_evt_cb *cb)
 {
 	struct xmgmt_event_cb *new = vzalloc(sizeof(*new));
 
@@ -389,8 +389,8 @@ static int xmgmt_parent_cb(struct device *dev, u32 cmd, void *arg)
 		rc = xmgmt_destroy_partition(xm, (int)(uintptr_t)arg);
 		break;
 	case XOCL_PARENT_ADD_EVENT_CB: {
-		struct xocl_parent_ioctl_add_evt_cb *cb =
-			(struct xocl_parent_ioctl_add_evt_cb *)arg;
+		struct xocl_parent_ioctl_evt_cb *cb =
+			(struct xocl_parent_ioctl_evt_cb *)arg;
 		rc = xmgmt_evt_cb_add(xm, cb);
 		break;
 	}
@@ -401,6 +401,14 @@ static int xmgmt_parent_cb(struct device *dev, u32 cmd, void *arg)
 	case XOCL_PARENT_BOARDCAST_EVENT:
 		xmgmt_evt_broadcast(xm, (enum xocl_events)(uintptr_t)arg);
 		break;
+	case XOCL_PARENT_GET_HOLDERS: {
+		struct xocl_parent_ioctl_get_holders *holders =
+			(struct xocl_parent_ioctl_get_holders *)arg;
+		rc = xocl_subdev_pool_get_holders(&xm->parts.pool,
+			holders->xpigh_pdev, holders->xpigh_holder_buf,
+			holders->xpigh_holder_buf_len);
+		break;
+	}
 	default:
 		xmgmt_err(xm, "unknown IOCTL cmd %d", cmd);
 		rc = -EINVAL;

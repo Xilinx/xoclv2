@@ -22,7 +22,8 @@ enum xocl_parent_ioctl_cmd {
 	XOCL_PARENT_REMOVE_PARTITION,
 	XOCL_PARENT_ADD_EVENT_CB,
 	XOCL_PARENT_REMOVE_EVENT_CB,
-	XOCL_PARENT_BOARDCAST_EVENT
+	XOCL_PARENT_BOARDCAST_EVENT,
+	XOCL_PARENT_GET_HOLDERS
 };
 
 struct xocl_parent_ioctl_get_leaf {
@@ -37,12 +38,18 @@ struct xocl_parent_ioctl_put_leaf {
 	struct platform_device *xpipl_leaf; /* target's pdev */
 };
 
-struct xocl_parent_ioctl_add_evt_cb {
+struct xocl_parent_ioctl_evt_cb {
 	struct platform_device *xevt_pdev; /* caller's pdev */
 	xocl_subdev_match_t xevt_match_cb;
 	void *xevt_match_arg;
 	xocl_event_cb_t xevt_cb;
 	void *xevt_hdl;
+};
+
+struct xocl_parent_ioctl_get_holders {
+	struct platform_device *xpigh_pdev; /* caller's pdev */
+	char *xpigh_holder_buf;
+	size_t xpigh_holder_buf_len;
 };
 
 #endif	/* _XOCL_PARENT_H_ */
