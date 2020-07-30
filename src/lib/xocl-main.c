@@ -15,6 +15,7 @@
 #define	XOCL_DRVNAME(drv)		((drv)->driver.name)
 #define	XOCL_MAX_DEVICE_NODES		128
 
+struct mutex xocl_class_lock;
 struct class *xocl_class;
 
 /*
@@ -31,7 +32,7 @@ static struct xocl_drv_map {
 } xocl_drv_maps[] = {
 	{ XOCL_SUBDEV_PART, &xocl_partition_driver, },
 	{ XOCL_SUBDEV_TEST, &xocl_test_driver, },
-	{ XOCL_SUBDEV_MGMT, &xocl_mgmt_driver, },
+	{ XOCL_SUBDEV_MGMT, NULL, },
 };
 
 static inline struct xocl_subdev_drvdata *
@@ -44,14 +45,20 @@ static struct xocl_drv_map *
 xocl_drv_find_map_by_id(enum xocl_subdev_id id)
 {
 	int i;
+	struct xocl_drv_map *map = NULL;
+
+	mutex_lock(&xocl_class_lock);
 
 	for (i = 0; i < ARRAY_SIZE(xocl_drv_maps); i++) {
-		struct xocl_drv_map *map = &xocl_drv_maps[i];
+		struct xocl_drv_map *tmap = &xocl_drv_maps[i];
 
-		if (map->id == id)
-			return map;
+		if (tmap->id != id)
+			continue;
+		map = tmap;
+		break;
 	}
-	return NULL;
+	mutex_unlock(&xocl_class_lock);
+	return map;
 }
 
 static int xocl_drv_register_driver(enum xocl_subdev_id id)
@@ -126,11 +133,52 @@ static void xocl_drv_unregister_driver(enum xocl_subdev_id id)
 	pr_info("unregistered %s subdev driver\n", drvname);
 }
 
+int xocl_subdev_register_external_driver(enum xocl_subdev_id id, struct platform_driver *drv)
+{
+	int i;
+	int result = 0;
+
+	mutex_lock(&xocl_class_lock);
+	for (i = 0; i < ARRAY_SIZE(xocl_drv_maps); i++) {
+		struct xocl_drv_map *map = &xocl_drv_maps[i];
+
+		if (map->id != id)
+			continue;
+		if (map->drv) {
+			result = -EEXIST;
+			goto out;
+		}
+		map->drv = drv;
+	}
+out:
+	mutex_unlock(&xocl_class_lock);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(xocl_subdev_register_external_driver);
+
+void xocl_subdev_unregister_external_driver(enum xocl_subdev_id id)
+{
+	int i;
+
+	mutex_lock(&xocl_class_lock);
+	for (i = 0; i < ARRAY_SIZE(xocl_drv_maps); i++) {
+		struct xocl_drv_map *map = &xocl_drv_maps[i];
+
+		if (map->id != id)
+			continue;
+		map->drv = NULL;
+		break;
+	}
+	mutex_unlock(&xocl_class_lock);
+}
+EXPORT_SYMBOL_GPL(xocl_subdev_unregister_external_driver);
+
 static __init int xocl_drv_register_drivers(void)
 {
 	int i;
 	int rc = 0;
 
+	mutex_init(&xocl_class_lock);
 	xocl_class = class_create(THIS_MODULE, XOCL_IPLIB_MODULE_NAME);
 	if (IS_ERR(xocl_class))
 		return PTR_ERR(xocl_class);

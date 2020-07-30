@@ -24,8 +24,8 @@
  *
  */
 
-#ifndef _XCLMGMT_IOCALLS_POSIX_H_
-#define _XCLMGMT_IOCALLS_POSIX_H_
+#ifndef _XMGMT_IOCALLS_POSIX_H_
+#define _XMGMT_IOCALLS_POSIX_H_
 
 #include <linux/ioctl.h>
 
@@ -48,58 +48,6 @@ enum XCLMGMT_IOC_TYPES {
 	XCLMGMT_IOC_MAX
 };
 
-/**
- * struct xclmgmt_ioc_info - Obtain information from the device
- * used with XCLMGMT_IOCINFO ioctl
- *
- * Note that this structure will be obsoleted in future and the same functionality will be exposed via sysfs nodes
- */
-struct xclmgmt_ioc_info {
-	unsigned short vendor;
-	unsigned short device;
-	unsigned short subsystem_vendor;
-	unsigned short subsystem_device;
-	unsigned int driver_version;
-	unsigned int device_version;
-	unsigned long long feature_id;
-	unsigned long long time_stamp;
-	unsigned short ddr_channel_num;
-	unsigned short ddr_channel_size;
-	unsigned short pcie_link_width;
-	unsigned short pcie_link_speed;
-	char vbnv[64];
-	char fpga[64];
-	unsigned short onchip_temp;
-	unsigned short fan_temp;
-	unsigned short fan_speed;
-	unsigned short vcc_int;
-	unsigned short vcc_aux;
-	unsigned short vcc_bram;
-	unsigned short ocl_frequency[XCLMGMT_NUM_SUPPORTED_CLOCKS];
-	bool mig_calibration[4];
-	unsigned short num_clocks;
-	bool isXPR;
-	unsigned int pci_slot;
-	unsigned long long xmc_version;
-	unsigned short twelve_vol_pex;
-	unsigned short twelve_vol_aux;
-	unsigned long long pex_curr;
-	unsigned long long aux_curr;
-	unsigned short three_vol_three_pex;
-	unsigned short three_vol_three_aux;
-	unsigned short ddr_vpp_btm;
-	unsigned short sys_5v5;
-	unsigned short one_vol_two_top;
-	unsigned short one_vol_eight_top;
-	unsigned short zero_vol_eight;
-	unsigned short ddr_vpp_top;
-	unsigned short mgt0v9avcc;
-	unsigned short twelve_vol_sw;
-	unsigned short mgtavtt;
-	unsigned short vcc1v2_btm;
-	short se98_temp[4];
-	short dimm_temp[4];
-};
 
 /**
  * struct xclmgmt_ioc_bitstream_axlf - load xclbin (AXLF) device image
@@ -122,11 +70,11 @@ struct xclmgmt_ioc_freqscaling {
 	unsigned int ocl_region;
 	unsigned short ocl_target_freq[XCLMGMT_NUM_SUPPORTED_CLOCKS];
 };
+
 #define DATA_CLK			0
 #define KERNEL_CLK			1
 #define SYSTEM_CLK			2
 
-#define XCLMGMT_IOCINFO			_IOR(XCLMGMT_IOC_MAGIC, XCLMGMT_IOC_INFO, struct xclmgmt_ioc_info)
 #define XCLMGMT_IOCICAPDOWNLOAD_AXLF	_IOW(XCLMGMT_IOC_MAGIC, XCLMGMT_IOC_ICAP_DOWNLOAD_AXLF, struct xclmgmt_ioc_bitstream_axlf)
 #define XCLMGMT_IOCFREQSCALE		_IOW(XCLMGMT_IOC_MAGIC, XCLMGMT_IOC_FREQ_SCALE, struct xclmgmt_ioc_freqscaling)
 

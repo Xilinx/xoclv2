@@ -204,6 +204,9 @@ extern void xocl_subdev_remove_event_cb(
 extern int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
 extern void xocl_subdev_broadcast_event(struct platform_device *pdev,
 	enum xocl_events evt);
+extern int xocl_subdev_register_external_driver(enum xocl_subdev_id id,
+	struct platform_driver *drv);
+extern void xocl_subdev_unregister_external_driver(enum xocl_subdev_id id);
 
 /*
  * Char dev APIs.

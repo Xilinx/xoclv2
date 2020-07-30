@@ -107,6 +107,7 @@ xocl_devnode_open(struct inode *inode)
 {
 	return __xocl_devnode_open(inode, false);
 }
+EXPORT_SYMBOL_GPL(xocl_devnode_open);
 
 void xocl_devnode_close(struct inode *inode)
 {
@@ -134,6 +135,7 @@ void xocl_devnode_close(struct inode *inode)
 	if (notify)
 		complete(&pdata->xsp_devnode_comp);
 }
+EXPORT_SYMBOL_GPL(xocl_devnode_close);
 
 int xocl_devnode_create(struct platform_device *pdev, const char *file_name,
 	const char *inst_name)
@@ -194,6 +196,7 @@ failed:
 	cdevp->owner = NULL;
 	return ret;
 }
+EXPORT_SYMBOL_GPL(xocl_devnode_create);
 
 int xocl_devnode_destroy(struct platform_device *pdev)
 {
@@ -215,3 +218,4 @@ int xocl_devnode_destroy(struct platform_device *pdev)
 	cdev_del(cdevp);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xocl_devnode_destroy);

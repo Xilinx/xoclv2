@@ -15,7 +15,6 @@ xocl-lib-y := 				\
 	../common/xocl-metadata.o	\
 	subdevs/xocl-partition.o	\
 	subdevs/xocl-test.o		\
-	subdevs/xocl-mgmt.o		\
 	subdevs/xocl-vsec.o		\
 	$(fdtdir)/fdt.o			\
 	$(fdtdir)/fdt_addresses.o	\
