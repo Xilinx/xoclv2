@@ -105,12 +105,13 @@ failed:
 	return ret;
 }
 
-int xocl_md_del_endpoint(struct device *dev, char **blob, char *ep_name)
+int xocl_md_del_endpoint(struct device *dev, char **blob, char *ep_name,
+	char *regmap_name)
 {
 	int ret;
 	int ep_offset;
 
-	ret = xocl_md_get_endpoint(dev, *blob, ep_name, &ep_offset);
+	ret = xocl_md_get_endpoint(dev, *blob, ep_name, regmap_name, &ep_offset);
 	if (ret) {
 		md_err(dev, "can not find ep %s", ep_name);
 		return -EINVAL;
@@ -135,7 +136,7 @@ int xocl_md_add_endpoint(struct device *dev, char **blob, struct xocl_md_endpoin
 		return -EINVAL;
 	}
 
-	ret = xocl_md_get_endpoint(dev, *blob, NODE_ENDPOINTS, &ep_offset);
+	ret = xocl_md_get_endpoint(dev, *blob, NODE_ENDPOINTS, NULL, &ep_offset);
 	if (ret) {
 		md_err(dev, "invalid blob, ret = %d", ret);
 		return -EINVAL;
@@ -169,13 +170,13 @@ int xocl_md_add_endpoint(struct device *dev, char **blob, struct xocl_md_endpoin
 
 failed:
 	if (ret)
-		xocl_md_del_endpoint(dev, blob, ep->ep_name);
+		xocl_md_del_endpoint(dev, blob, ep->ep_name, NULL);
 
 	return ret;
 }
 
 int xocl_md_get_endpoint(struct device *dev, char *blob, char *ep_name,
-	int *ep_offset)
+	char *regmap_name, int *ep_offset)
 {
 	int offset;
 	const char *name;
@@ -184,7 +185,10 @@ int xocl_md_get_endpoint(struct device *dev, char *blob, char *ep_name,
 	    offset >= 0;
 	    offset = fdt_next_node(blob, offset, NULL)) {
 		name = fdt_get_name(blob, offset, NULL);
-		if (name && strncmp(name, ep_name, strlen(ep_name)) == 0)
+		if (!name || strncmp(name, ep_name, strlen(ep_name)))
+			continue;
+		if (!regmap_name ||
+		    fdt_node_check_compatible(blob, offset, regmap_name))
 			break;
 	}
 	if (offset < 0)
@@ -196,13 +200,14 @@ int xocl_md_get_endpoint(struct device *dev, char *blob, char *ep_name,
 }
 
 int xocl_md_get_prop(struct device *dev, char *blob, char *ep_name,
-	char *prop, const void **val, int *size)
+	char *regmap_name, char *prop, const void **val, int *size)
 {
 	int offset;
 	int ret;
 
 	if (ep_name) {
-		ret = xocl_md_get_endpoint(dev, blob, ep_name, &offset);
+		ret = xocl_md_get_endpoint(dev, blob, ep_name, regmap_name,
+			&offset);
 		if (ret) {
 			md_err(dev, "cannot get ep %s, ret = %d",
 				ep_name, ret);
@@ -262,13 +267,14 @@ failed:
 }
 
 int xocl_md_setprop_by_nodename(struct device *dev, char **blob,
-	char *node_name, char *prop, void *val, int size)
+	char *node_name, char *regmap_name, char *prop, void *val, int size)
 {
 	int offset;
 	int ret;
 
 	if (node_name) {
-		ret = xocl_md_get_endpoint(dev, *blob, node_name, &offset);
+		ret = xocl_md_get_endpoint(dev, *blob, node_name,
+			regmap_name, &offset);
 		if (ret) {
 			md_err(dev, "cannot get node %s, ret = %d",
 				node_name, ret);
@@ -290,18 +296,19 @@ int xocl_md_setprop_by_nodename(struct device *dev, char **blob,
 }
 
 int xocl_md_copy_endpoint(struct device *dev, char **blob, char *src_blob,
-	char *ep_name)
+	char *regmap_name, char *ep_name)
 {
 	int offset, target;
 	int ret;
 
-	ret = xocl_md_get_endpoint(dev, src_blob, ep_name, &offset);
+	ret = xocl_md_get_endpoint(dev, src_blob, ep_name, regmap_name,
+		&offset);
 	if (ret) {
 		md_err(dev, "ep %s is not found", ep_name);
 		return -EINVAL;
 	}
 
-	ret = xocl_md_get_endpoint(dev, *blob, NODE_ENDPOINTS, &target);
+	ret = xocl_md_get_endpoint(dev, *blob, NODE_ENDPOINTS, NULL, &target);
 	if (ret) {
 		md_err(dev, "%s is not found", NODE_ENDPOINTS);
 		return -EINVAL;

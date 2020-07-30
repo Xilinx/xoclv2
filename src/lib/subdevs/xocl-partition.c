@@ -60,6 +60,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 	xocl_info(xp->pdev, "bringing up leaves...");
 
 	/* TODO: Create all leaves based on dtb. */
+	(void) xocl_subdev_add_by_metadata(xp->pdev, &xp->leaves);
 
 	(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_TEST,
 		xocl_part_parent_cb, NULL);

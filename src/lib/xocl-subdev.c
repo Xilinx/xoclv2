@@ -666,3 +666,50 @@ void xocl_subdev_broadcast_event(struct platform_device *pdev,
 	(void) xocl_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_BOARDCAST_EVENT, (void *)evt);
 }
+
+int xocl_subdev_add_by_metadata(struct platform_device *pdev,
+	struct xocl_subdev_pool *spool)
+{
+	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
+	enum xocl_subdev_id did;
+	struct xocl_subdev_endpoints *eps;
+	int ep_count = 0, i, ret;
+	char *dtb, *part_dtb;
+
+	if (!pdata || !pdata->xsp_dtb)
+		return 0;
+
+	part_dtb = vmalloc(xocl_md_size(&pdev->dev, pdata->xsp_dtb));
+	if (!part_dtb)
+		return -ENOMEM;
+	memcpy(part_dtb, pdata->xsp_dtb,
+		xocl_md_size(&pdev->dev, pdata->xsp_dtb));
+
+	for (did = 0; did < XOCL_SUBDEV_NUM; did++) {
+		eps = xocl_drv_get_endpoints(did);
+		if (!eps || !eps->xse_names)
+			continue;
+		ret = xocl_md_create(&pdev->dev, &dtb);
+		if (ret) {
+			xocl_err(pdev, "create md failed, did %s", 
+				xocl_drv_name(did));
+			continue;
+		}
+		for (i = 0; eps->xse_names[i].ep_name; i++) {
+			ret = xocl_md_copy_endpoint(&pdev->dev,
+				&dtb, part_dtb,
+				eps->xse_names[i].ep_name,
+				eps->xse_names[i].regmap_name);
+			if (ret)
+				continue;
+			xocl_md_del_endpoint(&pdev->dev, &part_dtb,
+				eps->xse_names[i].ep_name,
+				eps->xse_names[i].regmap_name);
+			ep_count++;
+		}
+		if (ep_count > eps->xse_min_ep) {
+			xocl_subdev_pool_add(spool, did,
+	}
+
+	return 0;
+}

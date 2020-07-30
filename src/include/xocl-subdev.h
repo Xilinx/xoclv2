@@ -22,7 +22,9 @@
  */
 enum xocl_subdev_id {
 	XOCL_SUBDEV_PART = 0,
+	XOCL_SUBDEV_VSEC,
 	XOCL_SUBDEV_TEST,
+	XOCL_SUBDEV_NUM,
 };
 
 /*
@@ -117,6 +119,20 @@ struct xocl_subdev_platdata {
 };
 
 /*
+ * this struct define the endpoints belong to the same subdevice
+ */
+struct xocl_subdev_ep_names {
+	const char *ep_name;
+	const char *regmap_name;
+};
+
+struct xocl_subdev_endpoints {
+	struct xocl_subdev_ep_names *xse_names;
+	/* minimum number of endpoints to support the subdevice */
+	u32 xse_min_ep;
+};
+
+/*
  * It manages a list of xocl_subdevs for root and partition drivers.
  */
 struct xocl_subdev_pool {
@@ -201,6 +217,8 @@ extern void xocl_subdev_remove_event_cb(
 extern int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
 extern void xocl_subdev_broadcast_event(struct platform_device *pdev,
 	enum xocl_events evt);
+extern int xocl_subdev_add_by_metadata(struct platform_device *pdev,
+	struct xocl_subdev_pool *spool);
 
 /*
  * Char dev APIs.

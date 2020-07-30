@@ -274,6 +274,14 @@ failed:
 	return ret;
 }
 
+struct xocl_subdev_endpoints xocl_vsec_endpoints = {
+	.xse_names = (struct xocl_subdev_ep_names []){
+		{ .ep_name = NODE_VSEC },
+		{ NULL },
+	},
+	.xse_min_ep = 1,
+};
+
 struct xocl_subdev_drvdata xocl_vsec_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xocl_vsec_ioctl,
