@@ -674,16 +674,20 @@ int xocl_subdev_add_by_metadata(struct platform_device *pdev,
 	enum xocl_subdev_id did;
 	struct xocl_subdev_endpoints *eps;
 	int ep_count = 0, i, ret;
+	ulong mlen;
 	char *dtb, *part_dtb;
 
 	if (!pdata || !pdata->xsp_dtb)
 		return 0;
 
-	part_dtb = vmalloc(xocl_md_size(&pdev->dev, pdata->xsp_dtb));
+	mlen = xocl_md_size(&pdev->dev, pdata->xsp_dtb);
+	if (!mlen)
+		return -EINVAL;
+
+	part_dtb = vmalloc(mlen);
 	if (!part_dtb)
 		return -ENOMEM;
-	memcpy(part_dtb, pdata->xsp_dtb,
-		xocl_md_size(&pdev->dev, pdata->xsp_dtb));
+	memcpy(part_dtb, pdata->xsp_dtb, mlen);
 
 	for (did = 0; did < XOCL_SUBDEV_NUM; did++) {
 		eps = xocl_drv_get_endpoints(did);
@@ -707,7 +711,7 @@ int xocl_subdev_add_by_metadata(struct platform_device *pdev,
 				(char *)eps->xse_names[i].regmap_name);
 			ep_count++;
 		}
-		if (ep_count > eps->xse_min_ep)
+		if (ep_count >= eps->xse_min_ep)
 			xocl_subdev_pool_add(spool, did, pcb, dtb);
 		else if (ep_count > 0) {
 			xocl_md_overlay(&pdev->dev, &part_dtb, -1,

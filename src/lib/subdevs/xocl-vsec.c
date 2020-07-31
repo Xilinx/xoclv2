@@ -204,8 +204,14 @@ static struct attribute_group  vsec_attr_group = {
 
 static int xocl_vsec_mapio(struct xocl_vsec *vsec)
 {
+	struct xocl_subdev_platdata *pdata = DEV_PDATA(vsec->pdev);
 	struct xocl_vsec_header *p_hdr;
 	ulong length;
+
+	if (!pdata || !pdata->xsp_dtb) {
+		xocl_err(vsec->pdev, "empty metadata");
+		return -EINVAL;
+	}
 
 	p_hdr = ioremap(0x1f8000, sizeof(*p_hdr));
 	if (!p_hdr) {

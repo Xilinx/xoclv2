@@ -13,6 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
+#include <linux/pci.h>
 
 /*
  * Every subdev driver should have an ID for others to refer to it.
@@ -89,6 +90,9 @@ struct xocl_subdev_platdata {
 
 	/* Something to associate w/ root for msg printing. */
 	const char *xsp_root_name;
+
+	/* Device base physical addresses */
+	void *xsp_bar_addr[PCI_STD_RESOURCE_END + 1];
 
 	/*
 	 * Char dev support for this subdev instance.

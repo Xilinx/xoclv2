@@ -296,7 +296,7 @@ int xocl_md_setprop_by_nodename(struct device *dev, char **blob,
 }
 
 int xocl_md_copy_endpoint(struct device *dev, char **blob, char *src_blob,
-	char *regmap_name, char *ep_name)
+	char *ep_name, char *regmap_name)
 {
 	int offset, target;
 	int ret;
