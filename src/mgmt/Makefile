@@ -7,9 +7,11 @@
 
 obj-m	+= xmgmt.o
 
-fdtdir := ../common/libfdt
+commondir := ../common
+fdtdir := $(commondir)/libfdt
 xmgmt-y := xmgmt-root.o				\
-	   ../common/xocl-metadata.o		\
+	   $(commondir)/xocl-root.o		\
+	   $(commondir)/xocl-metadata.o		\
 	   $(fdtdir)/fdt.o			\
 	   $(fdtdir)/fdt_addresses.o		\
 	   $(fdtdir)/fdt_empty_tree.o		\
@@ -26,7 +28,7 @@ KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 
 PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))
-XILINXINCLUDE := -I$(ROOT)/include -I$(ROOT)/include/uapi -I$(ROOT)/common/libfdt
+XILINXINCLUDE := -I$(ROOT)/include -I$(ROOT)/include/uapi -I$(ROOT)/common/libfdt -I$(ROOT)/common
 
 ccflags-y += $(XILINXINCLUDE)
 ifeq ($(DEBUG),1)
@@ -39,4 +41,4 @@ all:
 clean:
 	rm -rf *.o *.o.d *~ core .depend .*.cmd *.ko *.ko.unsigned *.mod.c \
 	.tmp_versions *.symvers modules.order *.mod .cache.mk \
-	../common/libfdt/*.o
+	$(fdtdir)/*.o $(commondir)/*.o

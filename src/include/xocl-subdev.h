@@ -80,19 +80,21 @@ struct xocl_subdev_drvdata {
  * other or parent drivers since it could have been freed before platform
  * data buffer is freed by platform driver framework.
  */
-typedef int (*xocl_subdev_parent_cb_t)(struct device *, u32, void *);
+typedef int (*xocl_subdev_parent_cb_t)(struct device *, void *, u32, void *);
 struct xocl_subdev_platdata {
 	/*
 	 * Per driver instance callback. The pdev points to the instance.
 	 * Should always be defined for subdev driver to call into its parent.
 	 */
 	xocl_subdev_parent_cb_t xsp_parent_cb;
+	void *xsp_parent_cb_arg;
 
 	/* Something to associate w/ root for msg printing. */
 	const char *xsp_root_name;
 
 	/* Device base physical addresses */
 	void *xsp_bar_addr[PCI_STD_RESOURCE_END + 1];
+	ulong xsp_bar_len[PCI_STD_RESOURCE_END + 1];
 
 	/*
 	 * Char dev support for this subdev instance.
@@ -193,7 +195,8 @@ extern int xocl_subdev_pool_get(struct xocl_subdev_pool *spool,
 extern int xocl_subdev_pool_put(struct xocl_subdev_pool *spool,
 	struct platform_device *pdev, struct device *holder_dev);
 extern int xocl_subdev_pool_add(struct xocl_subdev_pool *spool,
-	enum xocl_subdev_id id, xocl_subdev_parent_cb_t pcb, char *dtb);
+	enum xocl_subdev_id id, xocl_subdev_parent_cb_t pcb,
+	void *pcb_arg, char *dtb);
 extern int xocl_subdev_pool_del(struct xocl_subdev_pool *spool,
 	enum xocl_subdev_id id, int instance);
 extern int xocl_subdev_pool_event(struct xocl_subdev_pool *spool,
@@ -221,8 +224,6 @@ extern void xocl_subdev_remove_event_cb(
 extern int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
 extern void xocl_subdev_broadcast_event(struct platform_device *pdev,
 	enum xocl_events evt);
-extern int xocl_subdev_add_by_metadata(struct platform_device *pdev,
-	struct xocl_subdev_pool *spool, xocl_subdev_parent_cb_t pcb);
 
 /*
  * Char dev APIs.

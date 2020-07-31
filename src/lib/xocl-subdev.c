@@ -83,9 +83,9 @@ static const struct attribute_group xocl_subdev_attrgroup = {
 	.attrs = xocl_subdev_attrs,
 };
 
-struct xocl_subdev *
+static struct xocl_subdev *
 xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
-	xocl_subdev_parent_cb_t pcb, char *dtb)
+	xocl_subdev_parent_cb_t pcb, void *pcb_arg, char *dtb)
 {
 	struct xocl_subdev *sdev = NULL;
 	struct platform_device *pdev = NULL;
@@ -107,6 +107,7 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 		goto fail;
 
 	pdata->xsp_parent_cb = pcb;
+	pdata->xsp_parent_cb_arg = pcb_arg;
 	(void) memcpy(pdata->xsp_dtb, dtb, dtb_len);
 	if (id == XOCL_SUBDEV_PART) {
 		/* Partition can only be created by root driver. */
@@ -166,7 +167,7 @@ fail:
 	return NULL;
 }
 
-void xocl_subdev_destroy(struct xocl_subdev *sdev)
+static void xocl_subdev_destroy(struct xocl_subdev *sdev)
 {
 	struct platform_device *pdev = sdev->xs_pdev;
 	int inst = pdev->id;
@@ -182,7 +183,8 @@ int xocl_subdev_parent_ioctl(struct platform_device *self, u32 cmd, void *arg)
 	struct device *dev = DEV(self);
 	struct xocl_subdev_platdata *pdata = DEV_PDATA(self);
 
-	return (*pdata->xsp_parent_cb)(dev->parent, cmd, arg);
+	return (*pdata->xsp_parent_cb)(dev->parent, pdata->xsp_parent_cb_arg,
+		cmd, arg);
 }
 
 int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
@@ -417,14 +419,14 @@ xocl_subdev_release(struct xocl_subdev *sdev, struct device *holder_dev)
 }
 
 int xocl_subdev_pool_add(struct xocl_subdev_pool *spool, enum xocl_subdev_id id,
-	xocl_subdev_parent_cb_t pcb, char *dtb)
+	xocl_subdev_parent_cb_t pcb, void *pcb_arg, char *dtb)
 {
 	struct mutex *lk = &spool->xpool_lock;
 	struct list_head *dl = &spool->xpool_dev_list;
 	struct xocl_subdev *sdev;
 	int ret = 0;
 
-	sdev = xocl_subdev_create(spool->xpool_owner, id, pcb, dtb);
+	sdev = xocl_subdev_create(spool->xpool_owner, id, pcb, pcb_arg, dtb);
 	if (sdev) {
 		mutex_lock(lk);
 		if (spool->xpool_closing) {
@@ -665,59 +667,4 @@ void xocl_subdev_broadcast_event(struct platform_device *pdev,
 {
 	(void) xocl_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_BOARDCAST_EVENT, (void *)evt);
-}
-
-int xocl_subdev_add_by_metadata(struct platform_device *pdev,
-	struct xocl_subdev_pool *spool, xocl_subdev_parent_cb_t pcb)
-{
-	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
-	enum xocl_subdev_id did;
-	struct xocl_subdev_endpoints *eps;
-	int ep_count = 0, i, ret;
-	ulong mlen;
-	char *dtb, *part_dtb;
-
-	if (!pdata || !pdata->xsp_dtb)
-		return 0;
-
-	mlen = xocl_md_size(&pdev->dev, pdata->xsp_dtb);
-	if (!mlen)
-		return -EINVAL;
-
-	part_dtb = vmalloc(mlen);
-	if (!part_dtb)
-		return -ENOMEM;
-	memcpy(part_dtb, pdata->xsp_dtb, mlen);
-
-	for (did = 0; did < XOCL_SUBDEV_NUM; did++) {
-		eps = xocl_drv_get_endpoints(did);
-		if (!eps || !eps->xse_names)
-			continue;
-		ret = xocl_md_create(&pdev->dev, &dtb);
-		if (ret) {
-			xocl_err(pdev, "create md failed, did %s",
-				xocl_drv_name(did));
-			continue;
-		}
-		for (i = 0; eps->xse_names[i].ep_name; i++) {
-			ret = xocl_md_copy_endpoint(&pdev->dev,
-				&dtb, part_dtb,
-				(char *)eps->xse_names[i].ep_name,
-				(char *)eps->xse_names[i].regmap_name);
-			if (ret)
-				continue;
-			xocl_md_del_endpoint(&pdev->dev, &part_dtb,
-				(char *)eps->xse_names[i].ep_name,
-				(char *)eps->xse_names[i].regmap_name);
-			ep_count++;
-		}
-		if (ep_count >= eps->xse_min_ep)
-			xocl_subdev_pool_add(spool, did, pcb, dtb);
-		else if (ep_count > 0) {
-			xocl_md_overlay(&pdev->dev, &part_dtb, -1,
-				dtb, -1);
-		}
-	}
-
-	return 0;
 }

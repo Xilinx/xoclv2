@@ -53,4 +53,9 @@ struct xocl_parent_ioctl_get_holders {
 	size_t xpigh_holder_buf_len;
 };
 
+struct xocl_parent_ioctl_get_bar {
+	void *xpigb_bar_addrs;
+	ulong *xpigb_bar_len;
+};
+
 #endif	/* _XOCL_PARENT_H_ */
