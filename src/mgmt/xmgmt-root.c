@@ -475,7 +475,7 @@ static int xmgmt_add_vsec_node(struct xmgmt *xm)
 	vsec_bar = cpu_to_be32(off_low & 0xf);
 	vsec_off = cpu_to_be64(((u64)off_high << 32) | (off_low & ~0xfU));
 	ret = xocl_md_setprop_by_nodename(dev, &xm->root_dtb, NODE_VSEC,
-		PROP_OFFSET, &vsec_off, sizeof(vsec_off));
+		NULL, PROP_OFFSET, &vsec_off, sizeof(vsec_off));
 	if (ret) {
 		xmgmt_err(xm, "add vsec offset failed, ret %d", ret);
 		goto failed;

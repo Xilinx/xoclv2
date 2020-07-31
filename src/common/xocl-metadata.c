@@ -334,6 +334,15 @@ int xocl_md_overlay(struct device *dev, char **blob, int target,
 		return -EINVAL;
 	}
 
+	if (target < 0) {
+		xocl_md_get_endpoint(dev, *blob, NODE_ENDPOINTS, NULL,
+			&target);
+	}
+	if (overlay_offset < 0) {
+		xocl_md_get_endpoint(dev, overlay_blob, NODE_ENDPOINTS, NULL,
+			&overlay_offset);
+	}
+
 	fdt_for_each_property_offset(property, overlay_blob, overlay_offset) {
 		const char *name;
 		const void *prop;

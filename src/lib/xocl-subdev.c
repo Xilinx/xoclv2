@@ -668,7 +668,7 @@ void xocl_subdev_broadcast_event(struct platform_device *pdev,
 }
 
 int xocl_subdev_add_by_metadata(struct platform_device *pdev,
-	struct xocl_subdev_pool *spool)
+	struct xocl_subdev_pool *spool, xocl_subdev_parent_cb_t pcb)
 {
 	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
 	enum xocl_subdev_id did;
@@ -691,24 +691,28 @@ int xocl_subdev_add_by_metadata(struct platform_device *pdev,
 			continue;
 		ret = xocl_md_create(&pdev->dev, &dtb);
 		if (ret) {
-			xocl_err(pdev, "create md failed, did %s", 
+			xocl_err(pdev, "create md failed, did %s",
 				xocl_drv_name(did));
 			continue;
 		}
 		for (i = 0; eps->xse_names[i].ep_name; i++) {
 			ret = xocl_md_copy_endpoint(&pdev->dev,
 				&dtb, part_dtb,
-				eps->xse_names[i].ep_name,
-				eps->xse_names[i].regmap_name);
+				(char *)eps->xse_names[i].ep_name,
+				(char *)eps->xse_names[i].regmap_name);
 			if (ret)
 				continue;
 			xocl_md_del_endpoint(&pdev->dev, &part_dtb,
-				eps->xse_names[i].ep_name,
-				eps->xse_names[i].regmap_name);
+				(char *)eps->xse_names[i].ep_name,
+				(char *)eps->xse_names[i].regmap_name);
 			ep_count++;
 		}
-		if (ep_count > eps->xse_min_ep) {
-			xocl_subdev_pool_add(spool, did,
+		if (ep_count > eps->xse_min_ep)
+			xocl_subdev_pool_add(spool, did, pcb, dtb);
+		else if (ep_count > 0) {
+			xocl_md_overlay(&pdev->dev, &part_dtb, -1,
+				dtb, -1);
+		}
 	}
 
 	return 0;

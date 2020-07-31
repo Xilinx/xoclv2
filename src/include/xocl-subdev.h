@@ -218,7 +218,7 @@ extern int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
 extern void xocl_subdev_broadcast_event(struct platform_device *pdev,
 	enum xocl_events evt);
 extern int xocl_subdev_add_by_metadata(struct platform_device *pdev,
-	struct xocl_subdev_pool *spool);
+	struct xocl_subdev_pool *spool, xocl_subdev_parent_cb_t pcb);
 
 /*
  * Char dev APIs.
