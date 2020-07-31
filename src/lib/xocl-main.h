@@ -16,4 +16,4 @@ extern const char *xocl_drv_name(enum xocl_subdev_id id);
 extern int xocl_drv_get_instance(enum xocl_subdev_id id);
 extern void xocl_drv_put_instance(enum xocl_subdev_id id, int instance);
 
-#endif	/* _XOCL_PARTITION_H_ */
+#endif	/* _XOCL_MAIN_H_ */

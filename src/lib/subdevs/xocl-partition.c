@@ -23,12 +23,13 @@ struct xocl_partition {
 	struct mutex lock;
 };
 
-static int xocl_part_parent_cb(struct device *dev, u32 cmd, void *arg)
+static int xocl_part_parent_cb(struct device *dev, void *parg,
+	u32 cmd, void *arg)
 {
 	int rc;
 	struct platform_device *pdev =
 		container_of(dev, struct platform_device, dev);
-	struct xocl_partition *xp = platform_get_drvdata(pdev);
+	struct xocl_partition *xp = (struct xocl_partition *)parg;
 
 	switch (cmd) {
 	case XOCL_PARENT_GET_HOLDERS: {
@@ -62,7 +63,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 	/* TODO: Create all leaves based on dtb. */
 
 	(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_TEST,
-		xocl_part_parent_cb, NULL);
+		xocl_part_parent_cb, xp, NULL);
 	xp->leaves_created = true;
 
 	mutex_unlock(&xp->lock);
