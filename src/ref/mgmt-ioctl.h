@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2015-2017, Xilinx Inc
+ *  Copyright (C) 2015-2020, Xilinx Inc
  *
  *  This file is dual licensed.  It may be redistributed and/or modified
  *  under the terms of the Apache 2.0 License OR version 2 of the GNU

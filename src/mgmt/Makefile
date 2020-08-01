@@ -10,6 +10,7 @@ obj-m	+= xmgmt.o
 commondir := ../common
 fdtdir := $(commondir)/libfdt
 xmgmt-y := xmgmt-root.o				\
+	   xmgmt-main.o				\
 	   $(commondir)/xocl-root.o		\
 	   $(commondir)/xocl-metadata.o		\
 	   $(fdtdir)/fdt.o			\
