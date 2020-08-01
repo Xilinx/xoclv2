@@ -93,7 +93,7 @@ struct xocl_subdev_platdata {
 	const char *xsp_root_name;
 
 	/* Device base physical addresses */
-	void *xsp_bar_addr[PCI_STD_RESOURCE_END + 1];
+	ulong xsp_bar_addr[PCI_STD_RESOURCE_END + 1];
 	ulong xsp_bar_len[PCI_STD_RESOURCE_END + 1];
 
 	/*

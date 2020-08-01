@@ -58,7 +58,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 	struct xocl_subdev_endpoints *eps;
 	int ep_count = 0, i, ret;
 	ulong mlen;
-	char *dtb, *part_dtb;
+	char *dtb, *part_dtb = NULL;
 
 
 	mutex_lock(&xp->lock);
@@ -115,8 +115,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 			xocl_subdev_pool_add(&xp->leaves, did,
 				xocl_part_parent_cb, xp, dtb);
 		} else if (ep_count > 0) {
-			xocl_md_overlay(DEV(xp->pdev), &part_dtb, -1,
-				dtb, -1);
+			xocl_md_copy_all_eps(DEV(xp->pdev), &part_dtb, dtb);
 		}
 		vfree(dtb);
 	}
@@ -153,7 +152,7 @@ static int xocl_part_remove_leaves(struct xocl_partition *xp)
 static int xocl_part_probe(struct platform_device *pdev)
 {
 	struct xocl_partition *xp;
-	struct xocl_parent_ioctl_get_bar *arg;
+	struct xocl_parent_ioctl_get_bar arg;
 	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
 
 	xocl_info(pdev, "probing...");
@@ -167,9 +166,9 @@ static int xocl_part_probe(struct platform_device *pdev)
 	xocl_subdev_pool_init(DEV(pdev), &xp->leaves);
 	platform_set_drvdata(pdev, xp);
 
-	arg->xpigb_bar_addrs = pdata->xsp_bar_addr;
-	arg->xpigb_bar_len = pdata->xsp_bar_len;
-	xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_BAR, arg);
+	arg.xpigb_bar_addrs = pdata->xsp_bar_addr;
+	arg.xpigb_bar_len = pdata->xsp_bar_len;
+	xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_BAR, &arg);
 
 	return 0;
 }

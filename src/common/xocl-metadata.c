@@ -25,6 +25,10 @@
 
 static int xocl_md_setprop(struct device *dev, char **blob, int offset,
 	const char *prop, const void *val, int size);
+static int xocl_md_overlay(struct device *dev, char **blob, int target,
+	char *overlay_blob, int overlay_offset);
+static int xocl_md_get_endpoint(struct device *dev, char *blob, char *ep_name,
+	char *regmap_name, int *ep_offset);
 
 long xocl_md_size(struct device *dev, char *blob)
 {
@@ -99,8 +103,6 @@ int xocl_md_add_node(struct device *dev, char **blob, int parent_offset,
 failed:
 	if (ret < 0 && buf)
 		vfree(buf);
-	else
-		ret = 0;
 
 	return ret;
 }
@@ -175,8 +177,8 @@ failed:
 	return ret;
 }
 
-int xocl_md_get_endpoint(struct device *dev, char *blob, char *ep_name,
-	char *regmap_name, int *ep_offset)
+static int xocl_md_get_endpoint(struct device *dev, char *blob,
+	char *ep_name, char *regmap_name, int *ep_offset)
 {
 	int offset;
 	const char *name;
@@ -266,7 +268,7 @@ failed:
 	return ret;
 }
 
-int xocl_md_setprop_by_nodename(struct device *dev, char **blob,
+int xocl_md_set_prop(struct device *dev, char **blob,
 	char *node_name, char *regmap_name, char *prop, void *val, int size)
 {
 	int offset;
@@ -300,18 +302,21 @@ int xocl_md_copy_endpoint(struct device *dev, char **blob, char *src_blob,
 {
 	int offset, target;
 	int ret;
+	struct xocl_md_endpoint ep = {0};
 
 	ret = xocl_md_get_endpoint(dev, src_blob, ep_name, regmap_name,
 		&offset);
-	if (ret) {
-		md_err(dev, "ep %s is not found", ep_name);
+	if (ret)
 		return -EINVAL;
-	}
 
-	ret = xocl_md_get_endpoint(dev, *blob, NODE_ENDPOINTS, NULL, &target);
+	ret = xocl_md_get_endpoint(dev, *blob, ep_name, regmap_name, &target);
 	if (ret) {
-		md_err(dev, "%s is not found", NODE_ENDPOINTS);
-		return -EINVAL;
+		ep.ep_name = ep_name;
+		xocl_md_add_endpoint(dev, blob, &ep);
+		ret = xocl_md_get_endpoint(dev, *blob, ep_name, regmap_name,
+			&target);
+		if (ret)
+			return -EINVAL;
 	}
 
 	ret = xocl_md_overlay(dev, blob, target, src_blob, offset);
@@ -321,7 +326,12 @@ int xocl_md_copy_endpoint(struct device *dev, char **blob, char *src_blob,
 	return ret;
 }
 
-int xocl_md_overlay(struct device *dev, char **blob, int target,
+int xocl_md_copy_all_eps(struct device *dev, char **blob, char *src_blob)
+{
+	return xocl_md_overlay(dev, blob, -1, src_blob, -1);
+}
+
+static int xocl_md_overlay(struct device *dev, char **blob, int target,
 	char *overlay_blob, int overlay_offset)
 {
 	int	property, subnode;
@@ -379,6 +389,40 @@ int xocl_md_overlay(struct device *dev, char **blob, int target,
 		if (ret)
 			return ret;
 	}
+
+	return 0;
+}
+
+int xocl_md_get_next_endpoint(struct device *dev, char *blob,
+	char *ep_name, char *regmap_name,
+	char **next_ep, char **next_regmap)
+{
+	int offset, ret;
+
+	if (!ep_name) {
+		ret = xocl_md_get_endpoint(dev, blob, NODE_ENDPOINTS, NULL,
+			&offset);
+	} else {
+		ret = xocl_md_get_endpoint(dev, blob, ep_name, regmap_name,
+			&offset);
+	}
+
+	if (ret) {
+		*next_ep = NULL;
+		*next_regmap = NULL;
+		return -EINVAL;
+	}
+
+	offset = fdt_next_subnode(blob, offset);
+	if (offset < 0) {
+		*next_ep = NULL;
+		*next_regmap = NULL;
+		return -EINVAL;
+	}
+
+	*next_ep = (char *)fdt_get_name(blob, offset, NULL);
+	*next_regmap = (char *)fdt_stringlist_get(blob, offset, PROP_COMPATIBLE,
+		1, NULL);
 
 	return 0;
 }

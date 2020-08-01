@@ -440,8 +440,15 @@ static int xroot_add_vsec_node(struct xroot *xr)
 	}
 
 	vsec_bar = cpu_to_be32(off_low & 0xf);
+	ret = xocl_md_set_prop(dev, &xr->root_dtb, NODE_VSEC,
+		NULL, PROP_BAR_IDX, &vsec_bar, sizeof(vsec_bar));
+	if (ret) {
+		xroot_err(xr, "add vsec bar idx failed, ret %d", ret);
+		goto failed;
+	}
+
 	vsec_off = cpu_to_be64(((u64)off_high << 32) | (off_low & ~0xfU));
-	ret = xocl_md_setprop_by_nodename(dev, &xr->root_dtb, NODE_VSEC,
+	ret = xocl_md_set_prop(dev, &xr->root_dtb, NODE_VSEC,
 		NULL, PROP_OFFSET, &vsec_off, sizeof(vsec_off));
 	if (ret) {
 		xroot_err(xr, "add vsec offset failed, ret %d", ret);

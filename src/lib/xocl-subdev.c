@@ -83,6 +83,68 @@ static const struct attribute_group xocl_subdev_attrgroup = {
 	.attrs = xocl_subdev_attrs,
 };
 
+static int
+xocl_subdev_getres(struct device *parent, char *dtb, struct resource **res,
+	int *res_num)
+{
+	struct xocl_subdev_platdata *pdata;
+	const u64 *bar_range;
+	const u32 *bar_idx;
+	char *ep_name = NULL, *regmap = NULL;
+	int count = 0, ret;
+	ulong base_addr;
+
+	if (!dtb)
+		return -EINVAL;
+
+	pdata = DEV_PDATA(to_platform_device(parent));
+
+	for (xocl_md_get_next_endpoint(parent, dtb, NULL, NULL,
+		&ep_name, &regmap);
+		ep_name != NULL;
+		xocl_md_get_next_endpoint(parent, dtb, ep_name, regmap,
+		&ep_name, &regmap)) {
+		ret = xocl_md_get_prop(parent, dtb, ep_name, regmap,
+			PROP_IO_OFFSET, (const void **)&bar_range, NULL);
+		if (!ret)
+			count++;
+	}
+	if (!count)
+		return 0;
+
+	*res = vmalloc(sizeof(struct resource) * count);
+
+	count = 0;
+	for (xocl_md_get_next_endpoint(parent, dtb, NULL, NULL,
+		&ep_name, &regmap);
+		ep_name != NULL;
+		xocl_md_get_next_endpoint(parent, dtb, ep_name, regmap,
+		&ep_name, &regmap)) {
+		ret = xocl_md_get_prop(parent, dtb, ep_name, regmap,
+			PROP_IO_OFFSET, (const void **)&bar_range, NULL);
+		if (ret)
+			continue;
+		xocl_md_get_prop(parent, dtb, ep_name, regmap,
+			PROP_BAR_IDX, (const void **)&bar_idx, NULL);
+		base_addr = bar_idx ?
+			pdata->xsp_bar_addr[be32_to_cpu(*bar_idx)] :
+			pdata->xsp_bar_addr[0];
+		(*res)[count].start = base_addr +
+			be64_to_cpu(bar_range[0]);
+		(*res)[count].end = base_addr +
+			be64_to_cpu(bar_range[0]) +
+			be64_to_cpu(bar_range[1]) - 1;
+		(*res)[count].flags = IORESOURCE_MEM;
+		(*res)[count].name = ep_name;
+
+		count++;
+	}
+
+	*res_num = count;
+
+	return 0;
+}
+
 static struct xocl_subdev *
 xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	xocl_subdev_parent_cb_t pcb, void *pcb_arg, char *dtb)
@@ -93,6 +155,8 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	size_t dtb_len = dtb ? xocl_md_size(parent, dtb) : 0;
 	size_t pdata_sz = sizeof(struct xocl_subdev_platdata) + dtb_len - 1;
 	int inst = PLATFORM_DEVID_NONE;
+	struct resource *res = NULL;
+	int res_num = 0;
 
 	sdev = xocl_subdev_alloc();
 	if (!sdev) {
@@ -120,6 +184,10 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 		BUG_ON(strcmp(xocl_drv_name(XOCL_SUBDEV_PART),
 			platform_get_device_id(part)->name));
 		pdata->xsp_root_name = DEV_PDATA(part)->xsp_root_name;
+		memcpy(pdata->xsp_bar_addr, DEV_PDATA(part)->xsp_bar_addr,
+			sizeof(pdata->xsp_bar_addr));
+		memcpy(pdata->xsp_bar_len, DEV_PDATA(part)->xsp_bar_len,
+			sizeof(pdata->xsp_bar_len));
 	}
 
 	/* Obtain dev instance number. */
@@ -134,10 +202,13 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 		pdev = platform_device_register_data(parent,
 			xocl_drv_name(XOCL_SUBDEV_PART), inst, pdata, pdata_sz);
 	} else {
+		xocl_subdev_getres(parent, dtb, &res, &res_num);
 		pdev = platform_device_register_resndata(parent,
 			xocl_drv_name(id), inst,
 			NULL, 0, /* TODO: find out IO and IRQ res from dtb */
 			pdata, pdata_sz);
+		if (!res)
+			vfree(res);
 	}
 	if (IS_ERR(pdev)) {
 		dev_err(parent, "failed to create subdev for %s inst %d: %ld",
