@@ -30,6 +30,8 @@
 #define xmgmt_dbg(xm, fmt, args...)	\
 	dev_dbg(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
 
+extern struct platform_driver xmgmt_main_driver;
+
 static struct class *xmgmt_class;
 static const struct pci_device_id xmgmt_pci_ids[] = {
 	{ PCI_DEVICE(0x10EE, 0x5020), },
@@ -117,7 +119,10 @@ static struct pci_driver xmgmt_driver = {
 
 static int __init xmgmt_init(void)
 {
-	int res;
+	int res = xocl_subdev_register_external_driver(XOCL_SUBDEV_MGMT_MAIN, &xmgmt_main_driver);
+
+	if (res)
+		return res;
 
 	xmgmt_class = class_create(THIS_MODULE, XMGMT_MODULE_NAME);
 	if (IS_ERR(xmgmt_class))
@@ -136,6 +141,7 @@ static __exit void xmgmt_exit(void)
 {
 	pci_unregister_driver(&xmgmt_driver);
 	class_destroy(xmgmt_class);
+	xocl_subdev_unregister_external_driver(XOCL_SUBDEV_MGMT_MAIN);
 }
 
 module_init(xmgmt_init);

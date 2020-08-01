@@ -32,7 +32,7 @@ static struct xocl_drv_map {
 } xocl_drv_maps[] = {
 	{ XOCL_SUBDEV_PART, &xocl_partition_driver, },
 	{ XOCL_SUBDEV_TEST, &xocl_test_driver, },
-	{ XOCL_SUBDEV_MGMT, NULL, },
+	{ XOCL_SUBDEV_MGMT_MAIN, NULL, },
 };
 
 static inline struct xocl_subdev_drvdata *
@@ -47,8 +47,6 @@ xocl_drv_find_map_by_id(enum xocl_subdev_id id)
 	int i;
 	struct xocl_drv_map *map = NULL;
 
-	mutex_lock(&xocl_class_lock);
-
 	for (i = 0; i < ARRAY_SIZE(xocl_drv_maps); i++) {
 		struct xocl_drv_map *tmap = &xocl_drv_maps[i];
 
@@ -57,7 +55,6 @@ xocl_drv_find_map_by_id(enum xocl_subdev_id id)
 		map = tmap;
 		break;
 	}
-	mutex_unlock(&xocl_class_lock);
 	return map;
 }
 
@@ -65,10 +62,15 @@ static int xocl_drv_register_driver(enum xocl_subdev_id id)
 {
 	struct xocl_drv_map *map = xocl_drv_find_map_by_id(id);
 	struct xocl_subdev_drvdata *drvdata;
-	int rc;
+	int rc = 0;
 	const char *drvname;
 
 	BUG_ON(!map);
+
+	if (!map->drv) {
+		pr_info("skipping registration of subdev driver for id %d\n", id);
+		return rc;
+	}
 	drvname = XOCL_DRVNAME(map->drv);
 
 	rc = platform_driver_register(map->drv);
@@ -115,6 +117,9 @@ static void xocl_drv_unregister_driver(enum xocl_subdev_id id)
 	const char *drvname;
 
 	BUG_ON(!map);
+	if (!map->drv)
+		return;
+
 	drvname = XOCL_DRVNAME(map->drv);
 
 	ida_destroy(&map->ida);
@@ -146,11 +151,12 @@ int xocl_subdev_register_external_driver(enum xocl_subdev_id id, struct platform
 			continue;
 		if (map->drv) {
 			result = -EEXIST;
-			goto out;
+			pr_err("Id %d already has a registered platform driver, 0x%p\n", id, map->drv);
+			break;
 		}
 		map->drv = drv;
+		xocl_drv_register_driver(id);
 	}
-out:
 	mutex_unlock(&xocl_class_lock);
 	return 0;
 }
@@ -166,6 +172,7 @@ void xocl_subdev_unregister_external_driver(enum xocl_subdev_id id)
 
 		if (map->id != id)
 			continue;
+		xocl_drv_unregister_driver(id);
 		map->drv = NULL;
 		break;
 	}

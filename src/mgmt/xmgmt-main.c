@@ -25,7 +25,7 @@ static bool xmgmt_main_leaf_match(enum xocl_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	int myid = (int)(uintptr_t)arg;
-	return id == XOCL_SUBDEV_MGMT && pdev->id != myid;
+	return id == XOCL_SUBDEV_MGMT_MAIN && pdev->id != myid;
 }
 
 static ssize_t hold_store(struct device *dev,

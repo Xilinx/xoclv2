@@ -70,8 +70,8 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 	 * handle all the key ioctls?
 	 */
 	if (xp->pdev->id == 0)
-		(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_MGMT,
-					    xocl_part_parent_cb, NULL);
+		(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_MGMT_MAIN,
+					    xocl_part_parent_cb, xp, NULL);
 
 	xp->leaves_created = true;
 

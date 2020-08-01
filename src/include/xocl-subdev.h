@@ -23,7 +23,7 @@
 enum xocl_subdev_id {
 	XOCL_SUBDEV_PART = 0,
 	XOCL_SUBDEV_TEST,
-	XOCL_SUBDEV_MGMT,
+	XOCL_SUBDEV_MGMT_MAIN,
 };
 
 /*
