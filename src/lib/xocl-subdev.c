@@ -279,6 +279,7 @@ xocl_subdev_get_leaf(struct platform_device *pdev,
 		return NULL;
 	return get_leaf.xpigl_leaf;
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_get_leaf);
 
 struct subdev_match_arg {
 	enum xocl_subdev_id id;
@@ -301,6 +302,7 @@ xocl_subdev_get_leaf_by_id(struct platform_device *pdev,
 
 	return xocl_subdev_get_leaf(pdev, subdev_match, &arg);
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_get_leaf_by_id);
 
 int xocl_subdev_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf)
@@ -309,6 +311,7 @@ int xocl_subdev_put_leaf(struct platform_device *pdev,
 
 	return xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_PUT_LEAF, &put_leaf);
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_put_leaf);
 
 int xocl_subdev_create_partition(struct platform_device *pdev, char *dtb)
 {
@@ -330,11 +333,13 @@ void *xocl_subdev_add_event_cb(struct platform_device *pdev,
 	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_ADD_EVENT_CB, &c);
 	return c.xevt_hdl;
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_add_event_cb);
 
 void xocl_subdev_remove_event_cb(struct platform_device *pdev, void *hdl)
 {
 	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_REMOVE_EVENT_CB, hdl);
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_remove_event_cb);
 
 static ssize_t
 xocl_subdev_get_holders(struct xocl_subdev *sdev, char *buf, size_t len)
