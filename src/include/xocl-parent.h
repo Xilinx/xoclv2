@@ -23,7 +23,8 @@ enum xocl_parent_ioctl_cmd {
 	XOCL_PARENT_ADD_EVENT_CB,
 	XOCL_PARENT_REMOVE_EVENT_CB,
 	XOCL_PARENT_BOARDCAST_EVENT,
-	XOCL_PARENT_GET_HOLDERS
+	XOCL_PARENT_GET_HOLDERS,
+	XOCL_PARENT_GET_BAR,
 };
 
 struct xocl_parent_ioctl_get_leaf {
@@ -50,6 +51,11 @@ struct xocl_parent_ioctl_get_holders {
 	struct platform_device *xpigh_pdev; /* caller's pdev */
 	char *xpigh_holder_buf;
 	size_t xpigh_holder_buf_len;
+};
+
+struct xocl_parent_ioctl_get_bar {
+	void *xpigb_bar_addrs;
+	ulong *xpigb_bar_len;
 };
 
 #endif	/* _XOCL_PARENT_H_ */

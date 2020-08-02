@@ -107,16 +107,17 @@ long xocl_md_size(struct device *dev, char *blob);
 int xocl_md_create(struct device *dev, char **blob);
 int xocl_md_add_endpoint(struct device *dev, char **blob,
 	struct xocl_md_endpoint *ep);
-int xocl_md_del_endpoint(struct device *dev, char **blob, char *ep_name);
-int xocl_md_get_endpoint(struct device *dev, char *blob, char *ep_name,
-	int *ep_offset);
+int xocl_md_del_endpoint(struct device *dev, char **blob, char *ep_name,
+	char *regmap_name);
 int xocl_md_get_prop(struct device *dev, char *blob, char *ep_name,
-	char *prop, const void **val, int *size);
-int xocl_md_setprop_by_nodename(struct device *dev, char **blob, char *name,
-	char *prop, void *val, int size);
+	char *regmap_name, char *prop, const void **val, int *size);
+int xocl_md_set_prop(struct device *dev, char **blob, char *name,
+	char *regmap_name, char *prop, void *val, int size);
 int xocl_md_copy_endpoint(struct device *dev, char **blob, char *src_blob,
-	char *ep_name);
-int xocl_md_overlay(struct device *dev, char **blob, int target,
-	char *overlay_blob, int overlay_offset);
+	char *ep_name, char *regmap_name);
+int xocl_md_copy_all_eps(struct device *dev, char **blob, char *src_blob);
+int xocl_md_get_next_endpoint(struct device *dev, char *blob,
+	char *ep_name,  char *regmap_name,
+	char **next_ep, char **next_regmap);
 
 #endif

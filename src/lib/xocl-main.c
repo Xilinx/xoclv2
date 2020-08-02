@@ -27,10 +27,11 @@ struct class *xocl_class;
 static struct xocl_drv_map {
 	enum xocl_subdev_id id;
 	struct platform_driver *drv;
-	char *dtb_name;
+	struct xocl_subdev_endpoints *eps;
 	struct ida ida; /* manage driver instance and char dev minor */
 } xocl_drv_maps[] = {
 	{ XOCL_SUBDEV_PART, &xocl_partition_driver, },
+	{ XOCL_SUBDEV_VSEC, &xocl_vsec_driver, &xocl_vsec_endpoints, },
 	{ XOCL_SUBDEV_TEST, &xocl_test_driver, },
 	{ XOCL_SUBDEV_MGMT_MAIN, NULL, },
 };
@@ -234,6 +235,13 @@ void xocl_drv_put_instance(enum xocl_subdev_id id, int instance)
 	struct xocl_drv_map *map = xocl_drv_find_map_by_id(id);
 
 	ida_free(&map->ida, instance);
+}
+
+struct xocl_subdev_endpoints *xocl_drv_get_endpoints(enum xocl_subdev_id id)
+{
+	struct xocl_drv_map *map = xocl_drv_find_map_by_id(id);
+
+	return map ? map->eps : NULL;
 }
 
 module_init(xocl_drv_register_drivers);

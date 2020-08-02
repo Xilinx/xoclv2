@@ -13,6 +13,8 @@
 #include "xocl-subdev.h"
 #include "xocl-parent.h"
 #include "xocl-partition.h"
+#include "xocl-metadata.h"
+#include "../xocl-main.h"
 
 #define	XOCL_PART "xocl_partition"
 
@@ -51,6 +53,14 @@ static int xocl_part_parent_cb(struct device *dev, void *parg,
 
 static int xocl_part_create_leaves(struct xocl_partition *xp)
 {
+	struct xocl_subdev_platdata *pdata = DEV_PDATA(xp->pdev);
+	enum xocl_subdev_id did;
+	struct xocl_subdev_endpoints *eps;
+	int ep_count = 0, i, ret;
+	ulong mlen;
+	char *dtb, *part_dtb = NULL;
+
+
 	mutex_lock(&xp->lock);
 
 	if (xp->leaves_created) {
@@ -59,8 +69,6 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 	}
 
 	xocl_info(xp->pdev, "bringing up leaves...");
-
-	/* TODO: Create all leaves based on dtb. */
 
 	(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_TEST,
 		xocl_part_parent_cb, xp, NULL);
@@ -75,7 +83,57 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 
 	xp->leaves_created = true;
 
+	/* Create all leaves based on dtb. */
+	if (!pdata || !pdata->xsp_dtb)
+		goto bail;
+
+	mlen = xocl_md_size(DEV(xp->pdev), pdata->xsp_dtb);
+	if (!mlen) {
+		xocl_err(xp->pdev, "empty dtb");
+		goto bail;
+	}
+
+	part_dtb = vmalloc(mlen);
+	if (!part_dtb)
+		goto bail;
+
+	memcpy(part_dtb, pdata->xsp_dtb, mlen);
+	for (did = 0; did < XOCL_SUBDEV_NUM; did++) {
+		eps = xocl_drv_get_endpoints(did);
+		if (!eps || !eps->xse_names)
+			continue;
+		ret = xocl_md_create(DEV(xp->pdev), &dtb);
+		if (ret) {
+			xocl_err(xp->pdev, "create md failed, drv %s",
+				xocl_drv_name(did));
+			continue;
+		}
+		for (i = 0; eps->xse_names[i].ep_name; i++) {
+			ret = xocl_md_copy_endpoint(DEV(xp->pdev),
+				&dtb, part_dtb,
+				(char *)eps->xse_names[i].ep_name,
+				(char *)eps->xse_names[i].regmap_name);
+			if (ret)
+				continue;
+			xocl_md_del_endpoint(DEV(xp->pdev), &part_dtb,
+				(char *)eps->xse_names[i].ep_name,
+				(char *)eps->xse_names[i].regmap_name);
+			ep_count++;
+		}
+		if (ep_count >= eps->xse_min_ep) {
+			xocl_subdev_pool_add(&xp->leaves, did,
+				xocl_part_parent_cb, xp, dtb);
+		} else if (ep_count > 0) {
+			xocl_md_copy_all_eps(DEV(xp->pdev), &part_dtb, dtb);
+		}
+		vfree(dtb);
+	}
+
+bail:
 	mutex_unlock(&xp->lock);
+
+	if (part_dtb)
+		vfree(part_dtb);
 
 	return 0;
 }
@@ -103,6 +161,8 @@ static int xocl_part_remove_leaves(struct xocl_partition *xp)
 static int xocl_part_probe(struct platform_device *pdev)
 {
 	struct xocl_partition *xp;
+	struct xocl_parent_ioctl_get_bar arg;
+	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
 
 	xocl_info(pdev, "probing...");
 
@@ -114,6 +174,10 @@ static int xocl_part_probe(struct platform_device *pdev)
 	mutex_init(&xp->lock);
 	xocl_subdev_pool_init(DEV(pdev), &xp->leaves);
 	platform_set_drvdata(pdev, xp);
+
+	arg.xpigb_bar_addrs = pdata->xsp_bar_addr;
+	arg.xpigb_bar_len = pdata->xsp_bar_len;
+	xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_BAR, &arg);
 
 	return 0;
 }

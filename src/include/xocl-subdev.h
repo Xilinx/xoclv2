@@ -13,6 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
+#include <linux/pci.h>
 
 /*
  * Every subdev driver should have an ID for others to refer to it.
@@ -22,8 +23,10 @@
  */
 enum xocl_subdev_id {
 	XOCL_SUBDEV_PART = 0,
+	XOCL_SUBDEV_VSEC,
 	XOCL_SUBDEV_TEST,
 	XOCL_SUBDEV_MGMT_MAIN,
+	XOCL_SUBDEV_NUM,
 };
 
 /*
@@ -90,6 +93,10 @@ struct xocl_subdev_platdata {
 	/* Something to associate w/ root for msg printing. */
 	const char *xsp_root_name;
 
+	/* Device base physical addresses */
+	ulong xsp_bar_addr[PCI_STD_RESOURCE_END + 1];
+	ulong xsp_bar_len[PCI_STD_RESOURCE_END + 1];
+
 	/*
 	 * Char dev support for this subdev instance.
 	 * Initialized by subdev driver.
@@ -116,6 +123,20 @@ struct xocl_subdev_platdata {
 	 * of variable length.
 	 */
 	char xsp_dtb[1];
+};
+
+/*
+ * this struct define the endpoints belong to the same subdevice
+ */
+struct xocl_subdev_ep_names {
+	const char *ep_name;
+	const char *regmap_name;
+};
+
+struct xocl_subdev_endpoints {
+	struct xocl_subdev_ep_names *xse_names;
+	/* minimum number of endpoints to support the subdevice */
+	u32 xse_min_ep;
 };
 
 /*
