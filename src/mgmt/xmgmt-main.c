@@ -105,9 +105,6 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup))
 		xocl_err(pdev, "failed to create sysfs group");
 
-	/* Ready to handle req thru cdev. */
-	(void) xocl_devnode_create(pdev, "xmgmt", NULL);
-
 	/* Add event callback to wait for the peer instance. */
 	xt->evt_hdl = xocl_subdev_add_event_cb(pdev, xmgmt_main_leaf_match,
 		(void *)(uintptr_t)pdev->id, xmgmt_main_event_cb);
@@ -118,7 +115,6 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 
 static int xmgmt_main_remove(struct platform_device *pdev)
 {
-	int ret;
 	struct xmgmt_main *xt = platform_get_drvdata(pdev);
 
 	/* By now, partition driver should prevent any inter-leaf call. */
@@ -127,9 +123,6 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 
 	(void) xocl_subdev_remove_event_cb(pdev, xt->evt_hdl);
 
-	ret = xocl_devnode_destroy(pdev);
-	if (ret)
-		return ret;
 	/* By now, no more access thru cdev. */
 
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup);
@@ -224,6 +217,7 @@ struct xocl_subdev_drvdata xmgmt_main_data = {
 			.unlocked_ioctl = xmgmt_main_ioctl,
 		},
 	},
+	.xsd_dev_name = "xmgmt",
 };
 
 static const struct platform_device_id xmgmt_main_id_table[] = {
