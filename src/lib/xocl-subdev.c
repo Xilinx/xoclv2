@@ -79,8 +79,51 @@ static struct attribute *xocl_subdev_attrs[] = {
 	NULL,
 };
 
+static ssize_t metadata_output(struct file *filp, struct kobject *kobj,
+	struct bin_attribute *attr, char *buf, loff_t off, size_t count)
+{
+	struct device *dev = kobj_to_dev(kobj);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
+	unsigned char *blob;
+	size_t size;
+	ssize_t ret = 0;
+
+	if (!pdata->xsp_dtb)
+		goto failed;
+
+	blob = pdata->xsp_dtb;
+	size = xocl_md_size(dev, blob);
+
+	if (off >= size)
+		goto failed;
+
+	if (off + count > size)
+		count = size - off;
+	memcpy(buf, blob + off, count);
+
+	ret = count;
+failed:
+	return ret;
+}
+
+static struct bin_attribute meta_data_attr = {
+	.attr = {
+		.name = "metadata",
+		.mode = 0400
+	},
+	.read = metadata_output,
+	.size = 0
+};
+
+static struct bin_attribute  *xocl_subdev_bin_attrs[] = {
+	&meta_data_attr,
+	NULL,
+};
+
 static const struct attribute_group xocl_subdev_attrgroup = {
 	.attrs = xocl_subdev_attrs,
+	.bin_attrs = xocl_subdev_bin_attrs,
 };
 
 static int

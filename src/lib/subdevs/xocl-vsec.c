@@ -162,51 +162,6 @@ static int xocl_vsec_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	return 0;
 }
 
-static ssize_t metadata_output(struct file *filp, struct kobject *kobj,
-	struct bin_attribute *attr, char *buf, loff_t off, size_t count)
-{
-	struct device *dev = kobj_to_dev(kobj);
-	struct xocl_vsec *vsec = dev_get_drvdata(dev);
-	unsigned char *blob;
-	size_t size;
-	ssize_t ret = 0;
-
-	if (!vsec->metadata)
-		goto failed;
-
-	blob = vsec->metadata;
-	size = xocl_md_size(dev, blob);
-
-	if (off >= size)
-		goto failed;
-
-	if (off + count > size)
-		count = size - off;
-	memcpy(buf, blob + off, count);
-
-	ret = count;
-failed:
-	return ret;
-}
-
-static struct bin_attribute meta_data_attr = {
-	.attr = {
-		.name = "metadata",
-		.mode = 0400
-	},
-	.read = metadata_output,
-	.size = 0
-};
-
-static struct bin_attribute  *vsec_bin_attrs[] = {
-	&meta_data_attr,
-	NULL,
-};
-
-static struct attribute_group  vsec_attr_group = {
-	.bin_attrs = vsec_bin_attrs,
-};
-
 static int xocl_vsec_mapio(struct xocl_vsec *vsec)
 {
 	struct xocl_subdev_platdata *pdata = DEV_PDATA(vsec->pdev);
@@ -295,10 +250,8 @@ static int xocl_vsec_probe(struct platform_device *pdev)
 	ret = xocl_subdev_create_partition(pdev, vsec->metadata);
 	if (ret < 0)
 		xocl_err(pdev, "create partition failed, ret %d", ret);
-
-	ret = sysfs_create_group(&DEV(pdev)->kobj, &vsec_attr_group);
-	if (ret)
-		xocl_err(pdev, "create sysfs failed, ret %d", ret);
+	else
+		ret = 0;
 
 failed:
 	if (ret)
