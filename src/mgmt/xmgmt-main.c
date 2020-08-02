@@ -185,9 +185,6 @@ static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd, unsigned long 
 	if (_IOC_TYPE(cmd) != XCLMGMT_IOC_MAGIC)
 		return -ENOTTY;
 
-	if (result)
-		return -EFAULT;
-
 	mutex_lock(&xt->busy_mutex);
 
 	xocl_info(xt->pdev, "ioctl cmd %d, arg %ld", cmd, arg);
