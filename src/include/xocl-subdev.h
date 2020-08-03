@@ -36,6 +36,7 @@ enum xocl_subdev_id {
 struct xocl_subdev_file_ops {
 	const struct file_operations xsf_ops;
 	dev_t xsf_dev_t;
+	const char *xsd_dev_name;
 };
 
 /*
@@ -64,7 +65,6 @@ struct xocl_subdev_drv_ops {
 struct xocl_subdev_drvdata {
 	struct xocl_subdev_file_ops xsd_file_ops;
 	struct xocl_subdev_drv_ops xsd_dev_ops;
-	const char *xsd_dev_name;
 };
 
 /*

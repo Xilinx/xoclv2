@@ -213,8 +213,8 @@ struct xocl_subdev_drvdata xmgmt_main_data = {
 			.read = xmgmt_main_read,
 			.unlocked_ioctl = xmgmt_main_ioctl,
 		},
+		.xsd_dev_name = "xmgmt",
 	},
-	.xsd_dev_name = "xmgmt",
 };
 
 static const struct platform_device_id xmgmt_main_id_table[] = {
