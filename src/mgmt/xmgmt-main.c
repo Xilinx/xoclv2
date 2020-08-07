@@ -235,7 +235,7 @@ struct xocl_subdev_drvdata xmgmt_main_data = {
 			.read = xmgmt_main_read,
 			.unlocked_ioctl = xmgmt_main_ioctl,
 		},
-		.xsd_dev_name = "xmgmt",
+		.xsf_dev_name = "xmgmt",
 	},
 };
 

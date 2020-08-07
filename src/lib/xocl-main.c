@@ -35,6 +35,7 @@ static struct xocl_drv_map {
 	{ XOCL_SUBDEV_AXIGATE, &xocl_axigate_driver, xocl_axigate_endpoints, },
 	{ XOCL_SUBDEV_TEST, &xocl_test_driver, xocl_test_endpoints, },
 	{ XOCL_SUBDEV_MGMT_MAIN, NULL, },
+	{ XOCL_SUBDEV_QSPI, &xocl_qspi_driver, xocl_qspi_endpoints, },
 };
 
 static inline struct xocl_subdev_drvdata *
@@ -94,7 +95,7 @@ static int xocl_drv_register_driver(enum xocl_subdev_id id)
 
 	if (drvdata) {
 		/* Initialize dev_t for char dev node. */
-		if (xocl_is_devnode_enabled(drvdata)) {
+		if (xocl_devnode_enabled(drvdata)) {
 			rc = alloc_chrdev_region(
 				&drvdata->xsd_file_ops.xsf_dev_t, 0,
 				XOCL_MAX_DEVICE_NODES, drvname);

@@ -137,6 +137,12 @@ void xocl_devnode_close(struct inode *inode)
 }
 EXPORT_SYMBOL_GPL(xocl_devnode_close);
 
+static inline enum xocl_subdev_file_mode
+devnode_mode(struct xocl_subdev_drvdata *drvdata)
+{
+	return drvdata->xsd_file_ops.xsf_mode;
+}
+
 int xocl_devnode_create(struct platform_device *pdev, const char *file_name,
 	const char *inst_name)
 {
@@ -172,8 +178,15 @@ int xocl_devnode_create(struct platform_device *pdev, const char *file_name,
 	if (!file_name)
 		file_name = pdev->name;
 	if (!inst_name) {
-		snprintf(fname, sizeof(fname), "%s/%s.%s-%u", XOCL_CDEV_DIR,
-			file_name, DEV_PDATA(pdev)->xsp_root_name, pdev->id);
+		if (devnode_mode(drvdata) == XOCL_SUBDEV_FILE_MULTI_INST) {
+			snprintf(fname, sizeof(fname), "%s/%s.%s-%u",
+				XOCL_CDEV_DIR, file_name,
+				DEV_PDATA(pdev)->xsp_root_name, pdev->id);
+		} else {
+			snprintf(fname, sizeof(fname), "%s/%s.%s",
+				XOCL_CDEV_DIR, file_name,
+				DEV_PDATA(pdev)->xsp_root_name);
+		}
 	} else {
 		snprintf(fname, sizeof(fname), "%s/%s.%s-%s", XOCL_CDEV_DIR,
 			file_name, DEV_PDATA(pdev)->xsp_root_name, inst_name);

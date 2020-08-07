@@ -210,6 +210,7 @@ static int xocl_test_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
+/* Link to device tree nodes. */
 struct xocl_subdev_endpoints xocl_test_endpoints[] = {
 	{
 		.xse_names = (struct xocl_subdev_ep_names []){
@@ -221,6 +222,9 @@ struct xocl_subdev_endpoints xocl_test_endpoints[] = {
 	{ 0 },
 };
 
+/*
+ * Callbacks registered with parent driver infrastructure.
+ */
 struct xocl_subdev_drvdata xocl_test_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xocl_test_leaf_ioctl,
@@ -232,6 +236,7 @@ struct xocl_subdev_drvdata xocl_test_data = {
 			.release = xocl_test_close,
 			.read = xocl_test_read,
 		},
+		.xsf_mode = XOCL_SUBDEV_FILE_MULTI_INST,
 	},
 };
 
@@ -240,6 +245,9 @@ static const struct platform_device_id xocl_test_id_table[] = {
 	{ },
 };
 
+/*
+ * Callbacks registered with Linux's platform driver infrastructure.
+ */
 struct platform_driver xocl_test_driver = {
 	.driver	= {
 		.name    = XOCL_TEST,

@@ -134,7 +134,7 @@ xocl_subdev_getres(struct device *parent, char *dtb, struct resource **res,
 	const u64 *bar_range;
 	const u32 *bar_idx;
 	char *ep_name = NULL, *regmap = NULL;
-	int count = 0, ret;
+	int count1 = 0, count2 = 0, ret;
 	ulong base_addr;
 
 	if (!dtb)
@@ -150,14 +150,13 @@ xocl_subdev_getres(struct device *parent, char *dtb, struct resource **res,
 		ret = xocl_md_get_prop(parent, dtb, ep_name, regmap,
 			PROP_IO_OFFSET, (const void **)&bar_range, NULL);
 		if (!ret)
-			count++;
+			count1++;
 	}
-	if (!count)
+	if (!count1)
 		return 0;
 
-	*res = vmalloc(sizeof(struct resource) * count);
+	*res = vzalloc(sizeof(struct resource) * count1);
 
-	count = 0;
 	for (xocl_md_get_next_endpoint(parent, dtb, NULL, NULL,
 		&ep_name, &regmap);
 		ep_name != NULL;
@@ -172,27 +171,45 @@ xocl_subdev_getres(struct device *parent, char *dtb, struct resource **res,
 		base_addr = bar_idx ?
 			pdata->xsp_bar_addr[be32_to_cpu(*bar_idx)] :
 			pdata->xsp_bar_addr[0];
-		(*res)[count].start = base_addr +
+		(*res)[count2].start = base_addr +
 			be64_to_cpu(bar_range[0]);
-		(*res)[count].end = base_addr +
+		(*res)[count2].end = base_addr +
 			be64_to_cpu(bar_range[0]) +
 			be64_to_cpu(bar_range[1]) - 1;
-		(*res)[count].flags = IORESOURCE_MEM;
-		(*res)[count].name = ep_name;
+		(*res)[count2].flags = IORESOURCE_MEM;
+		(*res)[count2].name = ep_name;
 
-		count++;
+		count2++;
 	}
 
-	*res_num = count;
+	BUG_ON(count1 != count2);
+	*res_num = count2;
 
 	return 0;
+}
+
+static inline enum xocl_subdev_file_mode
+xocl_devnode_mode(struct xocl_subdev_drvdata *drvdata)
+{
+	return drvdata->xsd_file_ops.xsf_mode;
+}
+
+static bool xocl_subdev_cdev_auto_creation(struct platform_device *pdev)
+{
+	struct xocl_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
+
+	if (!drvdata)
+		return false;
+
+	return xocl_devnode_enabled(drvdata) &&
+		(xocl_devnode_mode(drvdata) == XOCL_SUBDEV_FILE_DEFAULT ||
+		(xocl_devnode_mode(drvdata) == XOCL_SUBDEV_FILE_MULTI_INST));
 }
 
 static struct xocl_subdev *
 xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	xocl_subdev_parent_cb_t pcb, void *pcb_arg, char *dtb)
 {
-	struct xocl_subdev_drvdata *drvdata = NULL;
 	struct xocl_subdev *sdev = NULL;
 	struct platform_device *pdev = NULL;
 	struct xocl_subdev_platdata *pdata = NULL;
@@ -246,13 +263,16 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 		pdev = platform_device_register_data(parent,
 			xocl_drv_name(XOCL_SUBDEV_PART), inst, pdata, pdata_sz);
 	} else {
-		xocl_subdev_getres(parent, dtb, &res, &res_num);
+		int rc = xocl_subdev_getres(parent, dtb, &res, &res_num);
+
+		if (rc) {
+			dev_err(parent, "failed to get resource for %s.%d: %d",
+				xocl_drv_name(id), inst, rc);
+			goto fail;
+		}
 		pdev = platform_device_register_resndata(parent,
-			xocl_drv_name(id), inst,
-			NULL, 0, /* TODO: find out IO and IRQ res from dtb */
-			pdata, pdata_sz);
-		if (!res)
-			vfree(res);
+			xocl_drv_name(id), inst, res, res_num, pdata, pdata_sz);
+		vfree(res);
 	}
 	if (IS_ERR(pdev)) {
 		dev_err(parent, "failed to create subdev for %s inst %d: %ld",
@@ -269,12 +289,12 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xocl_subdev_attrgroup))
 		xocl_err(pdev, "failed to create sysfs group");
 
-	drvdata = DEV_DRVDATA(pdev);
 	/* All done, ready to handle req thru cdev. */
-	if (xocl_is_devnode_enabled(drvdata)) {
+	if (xocl_subdev_cdev_auto_creation(pdev)) {
 		(void) xocl_devnode_create(pdev,
-			drvdata->xsd_file_ops.xsd_dev_name, NULL);
+			DEV_DRVDATA(pdev)->xsd_file_ops.xsf_dev_name, NULL);
 	}
+
 	vfree(pdata);
 	return sdev;
 
@@ -292,10 +312,9 @@ static void xocl_subdev_destroy(struct xocl_subdev *sdev)
 {
 	struct platform_device *pdev = sdev->xs_pdev;
 	int inst = pdev->id;
-	struct xocl_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
 
 	/* Take down the device node */
-	if (xocl_is_devnode_enabled(drvdata))
+	if (xocl_subdev_cdev_auto_creation(pdev))
 		(void) xocl_devnode_destroy(pdev);
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xocl_subdev_attrgroup);
 	platform_device_unregister(pdev);
