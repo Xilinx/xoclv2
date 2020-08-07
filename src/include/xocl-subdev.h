@@ -176,6 +176,8 @@ enum xocl_events {
 	/* Events triggered when subdev is created or removed. */
 	XOCL_EVENT_POST_CREATION,
 	XOCL_EVENT_PRE_REMOVAL,
+	XOCL_EVENT_PRE_HOT_RESET,
+	XOCL_EVENT_POST_HOT_RESET,
 
 	/* Broadcast'able events from leaf. */
 	XOCL_BROADCAST_EVENT_TEST,
@@ -225,6 +227,8 @@ extern void xocl_subdev_remove_event_cb(
 extern int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
 extern void xocl_subdev_broadcast_event(struct platform_device *pdev,
 	enum xocl_events evt);
+extern void xocl_subdev_hot_reset(struct platform_device *pdev);
+
 extern int xocl_subdev_register_external_driver(enum xocl_subdev_id id,
 	struct platform_driver *drv);
 extern void xocl_subdev_unregister_external_driver(enum xocl_subdev_id id);

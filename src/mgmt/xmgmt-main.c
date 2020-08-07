@@ -55,9 +55,20 @@ static ssize_t release_store(struct device *dev,
 }
 static DEVICE_ATTR_WO(release);
 
+static ssize_t reset_store(struct device *dev,
+	struct device_attribute *da, const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+
+	(void) xocl_subdev_hot_reset(pdev);
+	return count;
+}
+static DEVICE_ATTR_WO(reset);
+
 static struct attribute *xmgmt_main_attrs[] = {
 	&dev_attr_hold.attr,
 	&dev_attr_release.attr,
+	&dev_attr_reset.attr,
 	NULL,
 };
 

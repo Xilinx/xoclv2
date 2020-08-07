@@ -12,4 +12,5 @@
 int xroot_probe(struct pci_dev *pdev, void **root);
 void xroot_remove(void *root);
 
+void xroot_hot_reset(struct pci_dev *pdev);
 #endif	/* _XOCL_ROOT_H_ */
