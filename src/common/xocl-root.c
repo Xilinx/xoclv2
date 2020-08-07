@@ -478,8 +478,6 @@ int xroot_add_simple_node(void *root, char **dtb, const char *endpoint)
 	ret = xocl_md_add_endpoint(dev, dtb, &ep);
 	if (ret)
 		xroot_err(xr, "add %s failed, ret %d", endpoint, ret);
-	else
-		xroot_err(xr, "add %s successfully", endpoint);
 
 	return ret;
 }
