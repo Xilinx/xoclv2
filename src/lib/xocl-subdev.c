@@ -787,3 +787,9 @@ void xocl_subdev_broadcast_event(struct platform_device *pdev,
 	(void) xocl_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_BOARDCAST_EVENT, (void *)evt);
 }
+
+void xocl_subdev_hot_reset(struct platform_device *pdev)
+{
+	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_HOT_RESET, NULL);
+}
+EXPORT_SYMBOL_GPL(xocl_subdev_hot_reset);

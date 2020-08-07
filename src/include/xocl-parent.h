@@ -25,6 +25,7 @@ enum xocl_parent_ioctl_cmd {
 	XOCL_PARENT_BOARDCAST_EVENT,
 	XOCL_PARENT_GET_HOLDERS,
 	XOCL_PARENT_GET_BAR,
+	XOCL_PARENT_HOT_RESET,
 };
 
 struct xocl_parent_ioctl_get_leaf {

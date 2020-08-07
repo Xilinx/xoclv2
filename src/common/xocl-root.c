@@ -13,6 +13,7 @@
 #include "xocl-parent.h"
 #include "xocl-partition.h"
 #include "xocl-metadata.h"
+#include "xocl-root.h"
 
 #define	XROOT_PDEV(xr)		((xr)->pdev)
 #define	XROOT_DEV(xr)		(&(XROOT_PDEV(xr)->dev))
@@ -372,6 +373,12 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 			bars->xpigb_bar_len[i] =
 				(ulong)pci_resource_len(xr->pdev, i);
 		}
+		break;
+	}
+	case XOCL_PARENT_HOT_RESET: {
+		xroot_evt_broadcast(xr, XOCL_EVENT_PRE_HOT_RESET);
+		xroot_hot_reset(xr->pdev);
+		xroot_evt_broadcast(xr, XOCL_EVENT_POST_HOT_RESET);
 		break;
 	}
 	default:

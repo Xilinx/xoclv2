@@ -12,9 +12,11 @@
 #include <linux/pci.h>
 #include <linux/aer.h>
 #include <linux/vmalloc.h>
+#include <linux/delay.h>
 
 #include "xocl-root.h"
 #include "xocl-subdev.h"
+#include "xmgmt-main.h"
 
 #define	XMGMT_MODULE_NAME	"xmgmt"
 #define	XMGMT_DRIVER_VERSION	"4.0.0"
@@ -30,7 +32,9 @@
 #define xmgmt_dbg(xm, fmt, args...)	\
 	dev_dbg(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
 
-extern struct platform_driver xmgmt_main_driver;
+#define	XMGMT_DEV_ID(pdev)			\
+	((pci_domain_nr(pdev->bus) << 16) |	\
+	PCI_DEVID(pdev->bus->number, 0))
 
 static struct class *xmgmt_class;
 static const struct pci_device_id xmgmt_pci_ids[] = {
@@ -41,6 +45,9 @@ static const struct pci_device_id xmgmt_pci_ids[] = {
 struct xmgmt {
 	struct pci_dev *pdev;
 	void *root;
+
+	/* save config for pci reset */
+	u32 saved_config[8][16];
 };
 
 static int xmgmt_config_pci(struct xmgmt *xm)
@@ -74,6 +81,133 @@ static int xmgmt_config_pci(struct xmgmt *xm)
 	}
 
 	return 0;
+}
+
+static void xmgmt_save_config_space(struct pci_dev *pdev, u32 *saved_config)
+{
+	int i;
+
+	for (i = 0; i < 16; i++)
+		pci_read_config_dword(pdev, i * 4, &saved_config[i]);
+}
+
+static int xmgmt_match_slot_and_save(struct device *dev, void *data)
+{
+	struct xmgmt *xm = data;
+	struct pci_dev *pdev = to_pci_dev(dev);
+
+	if (XMGMT_DEV_ID(pdev) == XMGMT_DEV_ID(xm->pdev)) {
+		pci_cfg_access_lock(pdev);
+		pci_save_state(pdev);
+		xmgmt_save_config_space(pdev,
+			xm->saved_config[PCI_FUNC(pdev->devfn)]);
+	}
+
+	return 0;
+}
+
+static void xmgmt_pci_save_config_all(struct xmgmt *xm)
+{
+	bus_for_each_dev(&pci_bus_type, NULL, xm, xmgmt_match_slot_and_save);
+}
+
+static void xmgmt_restore_config_space(struct pci_dev *pdev, u32 *config_saved)
+{
+	int i;
+	u32 val;
+
+	for (i = 0; i < 16; i++) {
+		pci_read_config_dword(pdev, i * 4, &val);
+		if (val == config_saved[i])
+			continue;
+
+		pci_write_config_dword(pdev, i * 4, config_saved[i]);
+		pci_read_config_dword(pdev, i * 4, &val);
+		if (val != config_saved[i]) {
+			dev_err(&pdev->dev,
+				 "restore config at %d failed", i * 4);
+		}
+	}
+}
+
+static int xmgmt_match_slot_and_restore(struct device *dev, void *data)
+{
+	struct xmgmt *xm = data;
+	struct pci_dev *pdev = to_pci_dev(dev);
+
+	if (XMGMT_DEV_ID(pdev) == XMGMT_DEV_ID(xm->pdev)) {
+		xmgmt_restore_config_space(pdev,
+			xm->saved_config[PCI_FUNC(pdev->devfn)]);
+
+		pci_restore_state(pdev);
+		pci_cfg_access_unlock(pdev);
+	}
+
+	return 0;
+}
+
+static void xmgmt_pci_restore_config_all(struct xmgmt *xm)
+{
+	bus_for_each_dev(&pci_bus_type, NULL, xm, xmgmt_match_slot_and_restore);
+}
+
+void xroot_hot_reset(struct pci_dev *pdev)
+{
+	struct xmgmt *xm = pci_get_drvdata(pdev);
+	struct pci_bus *bus;
+	u8 pci_bctl;
+	u16 pci_cmd, devctl;
+	int i;
+
+	xmgmt_info(xm, "hot reset start");
+
+	xmgmt_pci_save_config_all(xm);
+
+	pci_disable_device(pdev);
+
+	bus = pdev->bus;
+
+	/*
+	 * When flipping the SBR bit, device can fall off the bus. This is
+	 * usually no problem at all so long as drivers are working properly
+	 * after SBR. However, some systems complain bitterly when the device
+	 * falls off the bus.
+	 * The quick solution is to temporarily disable the SERR reporting of
+	 * switch port during SBR.
+	 */
+
+	pci_read_config_word(bus->self, PCI_COMMAND, &pci_cmd);
+	pci_write_config_word(bus->self, PCI_COMMAND,
+		(pci_cmd & ~PCI_COMMAND_SERR));
+	pcie_capability_read_word(bus->self, PCI_EXP_DEVCTL, &devctl);
+	pcie_capability_write_word(bus->self, PCI_EXP_DEVCTL,
+		(devctl & ~PCI_EXP_DEVCTL_FERE));
+	pci_read_config_byte(bus->self, PCI_BRIDGE_CONTROL, &pci_bctl);
+	pci_bctl |= PCI_BRIDGE_CTL_BUS_RESET;
+	pci_write_config_byte(bus->self, PCI_BRIDGE_CONTROL, pci_bctl);
+
+	msleep(100);
+	pci_bctl &= ~PCI_BRIDGE_CTL_BUS_RESET;
+	pci_write_config_byte(bus->self, PCI_BRIDGE_CONTROL, pci_bctl);
+	ssleep(1);
+
+	pcie_capability_write_word(bus->self, PCI_EXP_DEVCTL, devctl);
+	pci_write_config_word(bus->self, PCI_COMMAND, pci_cmd);
+
+	pci_enable_device(pdev);
+
+	for (i = 0; i < 300; i++) {
+		pci_read_config_word(pdev, PCI_COMMAND, &pci_cmd);
+		if (pci_cmd != 0xffff)
+			break;
+		msleep(20);
+	}
+
+	xmgmt_info(xm, "waiting for %d ms", i * 20);
+
+	xmgmt_pci_restore_config_all(xm);
+
+	xmgmt_config_pci(xm);
 }
 
 static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
