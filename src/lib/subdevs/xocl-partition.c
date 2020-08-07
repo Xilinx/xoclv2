@@ -70,19 +70,6 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 
 	xocl_info(xp->pdev, "bringing up leaves...");
 
-	(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_TEST,
-		xocl_part_parent_cb, xp, NULL);
-
-	/*
-	 * TODO: How do we boot strap the primary device node "xmgmt" which would
-	 * handle all the key ioctls?
-	 */
-	if (xp->pdev->id == 0)
-		(void) xocl_subdev_pool_add(&xp->leaves, XOCL_SUBDEV_MGMT_MAIN,
-					    xocl_part_parent_cb, xp, NULL);
-
-	xp->leaves_created = true;
-
 	/* Create all leaves based on dtb. */
 	if (!pdata || !pdata->xsp_dtb)
 		goto bail;
@@ -128,6 +115,8 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 		}
 		vfree(dtb);
 	}
+
+	xp->leaves_created = true;
 
 bail:
 	mutex_unlock(&xp->lock);

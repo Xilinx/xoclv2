@@ -223,6 +223,8 @@ static int xocl_vsec_remove(struct platform_device *pdev)
 		vsec->base = NULL;
 	}
 
+	vfree(vsec->metadata);
+
 	return 0;
 }
 

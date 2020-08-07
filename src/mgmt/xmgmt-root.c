@@ -17,6 +17,7 @@
 #include "xocl-root.h"
 #include "xocl-subdev.h"
 #include "xmgmt-main.h"
+#include "xocl-metadata.h"
 
 #define	XMGMT_MODULE_NAME	"xmgmt"
 #define	XMGMT_DRIVER_VERSION	"4.0.0"
@@ -31,7 +32,6 @@
 	dev_info(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
 #define xmgmt_dbg(xm, fmt, args...)	\
 	dev_dbg(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
-
 #define	XMGMT_DEV_ID(pdev)			\
 	((pci_domain_nr(pdev->bus) << 16) |	\
 	PCI_DEVID(pdev->bus->number, 0))
@@ -210,11 +210,41 @@ void xroot_hot_reset(struct pci_dev *pdev)
 	xmgmt_config_pci(xm);
 }
 
+static int xmgmt_create_root_metadata(struct xmgmt *xm, char **root_dtb)
+{
+	char *dtb = NULL;
+	int ret;
+
+	ret = xocl_md_create(DEV(xm->pdev), &dtb);
+	if (ret) {
+		xmgmt_err(xm, "create metadata failed, ret %d", ret);
+		goto failed;
+	}
+
+	ret = xroot_add_simple_node(xm->root, &dtb, NODE_TEST);
+	if (ret)
+		goto failed;
+	ret = xroot_add_simple_node(xm->root, &dtb, NODE_MGMT_MAIN);
+	if (ret)
+		goto failed;
+	ret = xroot_add_vsec_node(xm->root, &dtb);
+	if (ret)
+		goto failed;
+
+	*root_dtb = dtb;
+	return 0;
+
+failed:
+	vfree(dtb);
+	return ret;
+}
+
 static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret;
 	struct device *dev = DEV(pdev);
 	struct xmgmt *xm = devm_kzalloc(dev, sizeof(*xm), GFP_KERNEL);
+	char *dtb = NULL;
 
 	if (!xm)
 		return -ENOMEM;
@@ -229,8 +259,19 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		goto failed;
 
+	ret = xmgmt_create_root_metadata(xm, &dtb);
+	if (ret)
+		goto failed_metadata;
+
+	ret = xroot_create_partition(xm->root, dtb);
+	if (ret)
+		xmgmt_err(xm, "failed to create root partition: %d", ret);
+
+	vfree(dtb);
 	return 0;
 
+failed_metadata:
+	(void) xroot_remove(xm->root);
 failed:
 	pci_set_drvdata(pdev, NULL);
 	return ret;
@@ -253,7 +294,8 @@ static struct pci_driver xmgmt_driver = {
 
 static int __init xmgmt_init(void)
 {
-	int res = xocl_subdev_register_external_driver(XOCL_SUBDEV_MGMT_MAIN, &xmgmt_main_driver);
+	int res = xocl_subdev_register_external_driver(XOCL_SUBDEV_MGMT_MAIN,
+		&xmgmt_main_driver, &xocl_mgmt_main_endpoints);
 
 	if (res)
 		return res;
