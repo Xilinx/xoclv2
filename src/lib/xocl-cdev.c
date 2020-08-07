@@ -169,6 +169,8 @@ int xocl_devnode_create(struct platform_device *pdev, const char *file_name,
 		xocl_err(pdev, "failed to add cdev: %d", ret);
 		goto failed;
 	}
+	if (!file_name)
+		file_name = pdev->name;
 	if (!inst_name) {
 		snprintf(fname, sizeof(fname), "%s/%s.%s-%u", XOCL_CDEV_DIR,
 			file_name, DEV_PDATA(pdev)->xsp_root_name, pdev->id);

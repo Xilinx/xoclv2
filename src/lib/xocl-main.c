@@ -91,19 +91,23 @@ static int xocl_drv_register_driver(enum xocl_subdev_id id)
 		}
 	}
 
-	if (drvdata && drvdata->xsd_file_ops.xsf_ops.owner) {
-		rc = alloc_chrdev_region(&drvdata->xsd_file_ops.xsf_dev_t, 0,
-			XOCL_MAX_DEVICE_NODES, drvname);
-		if (rc) {
-			if (drvdata->xsd_dev_ops.xsd_pre_exit)
-				drvdata->xsd_dev_ops.xsd_pre_exit();
-			platform_driver_unregister(map->drv);
-			pr_err("failed to alloc dev minors for %s, ret %d\n",
-				drvname, rc);
-			return rc;
+	if (drvdata) {
+		/* Initialize dev_t for char dev node. */
+		if (xocl_is_devnode_enabled(drvdata)) {
+			rc = alloc_chrdev_region(
+				&drvdata->xsd_file_ops.xsf_dev_t, 0,
+				XOCL_MAX_DEVICE_NODES, drvname);
+			if (rc) {
+				if (drvdata->xsd_dev_ops.xsd_pre_exit)
+					drvdata->xsd_dev_ops.xsd_pre_exit();
+				platform_driver_unregister(map->drv);
+				pr_err("failed to alloc dev minor for %s: %d\n",
+					drvname, rc);
+				return rc;
+			}
+		} else {
+			drvdata->xsd_file_ops.xsf_dev_t = (dev_t)-1;
 		}
-	} else {
-		drvdata->xsd_file_ops.xsf_dev_t = (dev_t)-1;
 	}
 
 	ida_init(&map->ida);

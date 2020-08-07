@@ -237,6 +237,10 @@ extern void xocl_subdev_unregister_external_driver(enum xocl_subdev_id id);
 /*
  * Char dev APIs.
  */
+static inline bool xocl_is_devnode_enabled(struct xocl_subdev_drvdata *drvdata)
+{
+	return drvdata->xsd_file_ops.xsf_ops.open != NULL;
+}
 extern int xocl_devnode_create(struct platform_device *pdev,
 	const char *file_name, const char *inst_name);
 extern int xocl_devnode_destroy(struct platform_device *pdev);
