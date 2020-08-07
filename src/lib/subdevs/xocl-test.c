@@ -102,9 +102,6 @@ static int xocl_test_probe(struct platform_device *pdev)
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xocl_test_attrgroup))
 		xocl_err(pdev, "failed to create sysfs group");
 
-	/* Ready to handle req thru cdev. */
-	(void) xocl_devnode_create(pdev, "test", NULL);
-
 	/* Add event callback to wait for the peer instance. */
 	xt->evt_hdl = xocl_subdev_add_event_cb(pdev, xocl_test_leaf_match,
 		(void *)(uintptr_t)pdev->id, xocl_test_event_cb);
@@ -123,7 +120,6 @@ static int xocl_test_probe(struct platform_device *pdev)
 
 static int xocl_test_remove(struct platform_device *pdev)
 {
-	int ret;
 	struct xocl_test *xt = platform_get_drvdata(pdev);
 
 	/* By now, partition driver should prevent any inter-leaf call. */
@@ -131,11 +127,6 @@ static int xocl_test_remove(struct platform_device *pdev)
 	xocl_info(pdev, "leaving...");
 
 	(void) xocl_subdev_remove_event_cb(pdev, xt->evt_hdl);
-
-	ret = xocl_devnode_destroy(pdev);
-	if (ret)
-		return ret;
-	/* By now, no more access thru cdev. */
 
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xocl_test_attrgroup);
 	/* By now, no more access thru sysfs nodes. */
@@ -198,6 +189,7 @@ struct xocl_subdev_drvdata xocl_test_data = {
 			.release = xocl_test_close,
 			.read = xocl_test_read,
 		},
+		.xsd_dev_name = "test",
 	},
 };
 

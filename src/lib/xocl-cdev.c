@@ -196,7 +196,6 @@ failed:
 	cdevp->owner = NULL;
 	return ret;
 }
-EXPORT_SYMBOL_GPL(xocl_devnode_create);
 
 int xocl_devnode_destroy(struct platform_device *pdev)
 {
@@ -218,4 +217,3 @@ int xocl_devnode_destroy(struct platform_device *pdev)
 	cdev_del(cdevp);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(xocl_devnode_destroy);

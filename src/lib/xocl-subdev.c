@@ -192,6 +192,7 @@ static struct xocl_subdev *
 xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	xocl_subdev_parent_cb_t pcb, void *pcb_arg, char *dtb)
 {
+	struct xocl_subdev_drvdata *drvdata = NULL;
 	struct xocl_subdev *sdev = NULL;
 	struct platform_device *pdev = NULL;
 	struct xocl_subdev_platdata *pdata = NULL;
@@ -268,6 +269,10 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xocl_subdev_attrgroup))
 		xocl_err(pdev, "failed to create sysfs group");
 
+	drvdata = DEV_DRVDATA(pdev);
+	/* All done, ready to handle req thru cdev. */
+	if (drvdata->xsd_file_ops.xsd_dev_name)
+		(void) xocl_devnode_create(pdev, drvdata->xsd_file_ops.xsd_dev_name, NULL);
 	vfree(pdata);
 	return sdev;
 
@@ -285,7 +290,11 @@ static void xocl_subdev_destroy(struct xocl_subdev *sdev)
 {
 	struct platform_device *pdev = sdev->xs_pdev;
 	int inst = pdev->id;
+	struct xocl_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
 
+	/* Take down the device node */
+	if (drvdata->xsd_file_ops.xsd_dev_name)
+		(void) xocl_devnode_destroy(pdev);
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xocl_subdev_attrgroup);
 	platform_device_unregister(pdev);
 	xocl_drv_put_instance(sdev->xs_id, inst);
