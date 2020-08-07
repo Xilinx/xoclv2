@@ -114,6 +114,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 			xocl_md_copy_all_eps(DEV(xp->pdev), &part_dtb, dtb);
 		}
 		vfree(dtb);
+		ep_count = 0;
 	}
 
 	xp->leaves_created = true;
