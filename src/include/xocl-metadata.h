@@ -100,9 +100,9 @@
 
 struct xocl_md_endpoint {
 	const char	*ep_name;
-	u32	bar;
-	long	bar_off;
-	ulong	size;
+	u32		bar;
+	long		bar_off;
+	ulong		size;
 };
 
 long xocl_md_size(struct device *dev, char *blob);

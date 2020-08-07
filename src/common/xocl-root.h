@@ -16,6 +16,6 @@ void xroot_remove(void *root);
 int xroot_add_vsec_node(void *root, char **dtb);
 int xroot_create_partition(void *root, char *dtb);
 int xroot_add_simple_node(void *root, char **dtb, const char *endpoint);
-
 void xroot_hot_reset(struct pci_dev *pdev);
+
 #endif	/* _XOCL_ROOT_H_ */

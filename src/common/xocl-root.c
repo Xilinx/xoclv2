@@ -73,7 +73,7 @@ static int xroot_get_partition(struct xroot *xr, int instance,
 	struct xroot_part_match_arg arg = { XOCL_SUBDEV_PART, instance };
 
 	if (instance == PLATFORM_DEVID_NONE) {
-		rc = xocl_subdev_pool_get(parts, XOCL_SUBDEV_MATCH_NEXT,
+		rc = xocl_subdev_pool_get(parts, XOCL_SUBDEV_MATCH_PREV,
 			*partp, dev, partp);
 	} else {
 		rc = xocl_subdev_pool_get(parts, xroot_part_match,
@@ -478,6 +478,8 @@ int xroot_add_simple_node(void *root, char **dtb, const char *endpoint)
 	ret = xocl_md_add_endpoint(dev, dtb, &ep);
 	if (ret)
 		xroot_err(xr, "add %s failed, ret %d", endpoint, ret);
+	else
+		xroot_err(xr, "add %s successfully", endpoint);
 
 	return ret;
 }

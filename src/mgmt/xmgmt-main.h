@@ -3,7 +3,7 @@
  * Copyright (C) 2020 Xilinx, Inc.
  *
  * Authors:
- *      Lizhi Hou <Lizhi.Hou@xilinx.com>
+ *	Lizhi Hou <Lizhi.Hou@xilinx.com>
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
