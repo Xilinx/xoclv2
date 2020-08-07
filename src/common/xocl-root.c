@@ -199,6 +199,7 @@ static void xroot_evt_cb_init_work(struct work_struct *work)
 				list_del(&tmp->list);
 				vfree(tmp);
 				tmp = NULL;
+				break;
 			}
 			xroot_put_partition(xr, part);
 		}

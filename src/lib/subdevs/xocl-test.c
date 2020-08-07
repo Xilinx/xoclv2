@@ -229,7 +229,6 @@ struct xocl_subdev_drvdata xocl_test_data = {
 			.release = xocl_test_close,
 			.read = xocl_test_read,
 		},
-		.xsd_dev_name = "test",
 	},
 };
 
