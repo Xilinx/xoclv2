@@ -12,6 +12,7 @@
 #include "xocl-subdev.h"
 #include "xocl-parent.h"
 #include "xocl-partition.h"
+#include "xocl-root.h"
 #include "xocl-metadata.h"
 #include "xocl-root.h"
 
@@ -49,7 +50,6 @@ struct xroot {
 	struct pci_dev *pdev;
 	struct xroot_events events;
 	struct xroot_parts parts;
-	char *root_dtb;
 };
 
 struct xroot_part_match_arg {
@@ -73,7 +73,7 @@ static int xroot_get_partition(struct xroot *xr, int instance,
 	struct xroot_part_match_arg arg = { XOCL_SUBDEV_PART, instance };
 
 	if (instance == PLATFORM_DEVID_NONE) {
-		rc = xocl_subdev_pool_get(parts, XOCL_SUBDEV_MATCH_NEXT,
+		rc = xocl_subdev_pool_get(parts, XOCL_SUBDEV_MATCH_PREV,
 			*partp, dev, partp);
 	} else {
 		rc = xocl_subdev_pool_get(parts, xroot_part_match,
@@ -144,8 +144,9 @@ xroot_event_partition(struct xroot *xr, int instance, enum xocl_events evt)
 	(void) xroot_put_partition(xr, pdev);
 }
 
-static int xroot_create_partition(struct xroot *xr, char *dtb)
+int xroot_create_partition(void *root, char *dtb)
 {
+	struct xroot *xr = (struct xroot *)root;
 	int ret = xocl_subdev_pool_add(&xr->parts.pool,
 		XOCL_SUBDEV_PART, xroot_parent_cb, xr, dtb);
 
@@ -418,10 +419,11 @@ static void xroot_parts_fini(struct xroot *xr)
 	(void) xocl_subdev_pool_fini(&xr->parts.pool);
 }
 
-static int xroot_add_vsec_node(struct xroot *xr)
+int xroot_add_vsec_node(void *root, char **dtb)
 {
+	struct xroot *xr = (struct xroot *)root;
 	struct device *dev = DEV(xr->pdev);
-	struct xocl_md_endpoint ep;
+	struct xocl_md_endpoint ep = { 0 };
 	int cap, ret = 0;
 	u32 off_low, off_high, vsec_bar;
 	u64 vsec_off;
@@ -438,16 +440,15 @@ static int xroot_add_vsec_node(struct xroot *xr)
 		return -EINVAL;
 	}
 
-	memset(&ep, 0, sizeof(ep));
 	ep.ep_name = NODE_VSEC;
-	ret = xocl_md_add_endpoint(dev, &xr->root_dtb, &ep);
+	ret = xocl_md_add_endpoint(dev, dtb, &ep);
 	if (ret) {
 		xroot_err(xr, "add vsec metadata failed, ret %d", ret);
 		goto failed;
 	}
 
 	vsec_bar = cpu_to_be32(off_low & 0xf);
-	ret = xocl_md_set_prop(dev, &xr->root_dtb, NODE_VSEC,
+	ret = xocl_md_set_prop(dev, dtb, NODE_VSEC,
 		NULL, PROP_BAR_IDX, &vsec_bar, sizeof(vsec_bar));
 	if (ret) {
 		xroot_err(xr, "add vsec bar idx failed, ret %d", ret);
@@ -455,7 +456,7 @@ static int xroot_add_vsec_node(struct xroot *xr)
 	}
 
 	vsec_off = cpu_to_be64(((u64)off_high << 32) | (off_low & ~0xfU));
-	ret = xocl_md_set_prop(dev, &xr->root_dtb, NODE_VSEC,
+	ret = xocl_md_set_prop(dev, dtb, NODE_VSEC,
 		NULL, PROP_OFFSET, &vsec_off, sizeof(vsec_off));
 	if (ret) {
 		xroot_err(xr, "add vsec offset failed, ret %d", ret);
@@ -466,28 +467,18 @@ failed:
 	return ret;
 }
 
-static int xroot_create_root_metadata(struct xroot *xr)
+int xroot_add_simple_node(void *root, char **dtb, const char *endpoint)
 {
+	struct xroot *xr = (struct xroot *)root;
 	struct device *dev = DEV(xr->pdev);
-	int ret;
+	struct xocl_md_endpoint ep = { 0 };
+	int ret = 0;
 
-	ret = xocl_md_create(dev, &xr->root_dtb);
-	if (ret) {
-		xroot_err(xr, "create metadata failed, ret %d", ret);
-		goto failed;
-	}
-
-	ret = xroot_add_vsec_node(xr);
+	ep.ep_name = endpoint;
+	ret = xocl_md_add_endpoint(dev, dtb, &ep);
 	if (ret)
-		goto failed;
+		xroot_err(xr, "add %s failed, ret %d", endpoint, ret);
 
-	return 0;
-
-failed:
-	if (xr->root_dtb) {
-		vfree(xr->root_dtb);
-		xr->root_dtb = NULL;
-	}
 	return ret;
 }
 
@@ -495,7 +486,6 @@ int xroot_probe(struct pci_dev *pdev, void **root)
 {
 	struct device *dev = DEV(pdev);
 	struct xroot *xr = NULL;
-	int ret = 0;
 
 	dev_info(dev, "%s: probing...", __func__);
 
@@ -506,14 +496,6 @@ int xroot_probe(struct pci_dev *pdev, void **root)
 	xr->pdev = pdev;
 	xroot_parts_init(xr);
 	xroot_evt_init(xr);
-
-	ret = xroot_create_root_metadata(xr);
-	if (ret) {
-		xroot_evt_fini(xr);
-		xroot_parts_fini(xr);
-		return ret;
-	}
-	(void) xroot_create_partition(xr, xr->root_dtb);
 
 	*root = xr;
 	return 0;
@@ -540,9 +522,4 @@ void xroot_remove(void *root)
 
 	xroot_evt_fini(xr);
 	xroot_parts_fini(xr);
-
-	if (xr->root_dtb) {
-		vfree(xr->root_dtb);
-		xr->root_dtb = NULL;
-	}
 }

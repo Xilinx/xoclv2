@@ -27,8 +27,8 @@ static int xocl_md_setprop(struct device *dev, char **blob, int offset,
 	const char *prop, const void *val, int size);
 static int xocl_md_overlay(struct device *dev, char **blob, int target,
 	char *overlay_blob, int overlay_offset);
-static int xocl_md_get_endpoint(struct device *dev, char *blob, char *ep_name,
-	char *regmap_name, int *ep_offset);
+static int xocl_md_get_endpoint(struct device *dev, char *blob,
+	const char *ep_name, char *regmap_name, int *ep_offset);
 
 long xocl_md_size(struct device *dev, char *blob)
 {
@@ -107,7 +107,7 @@ failed:
 	return ret;
 }
 
-int xocl_md_del_endpoint(struct device *dev, char **blob, char *ep_name,
+int xocl_md_del_endpoint(struct device *dev, char **blob, const char *ep_name,
 	char *regmap_name)
 {
 	int ret;
@@ -178,7 +178,7 @@ failed:
 }
 
 static int xocl_md_get_endpoint(struct device *dev, char *blob,
-	char *ep_name, char *regmap_name, int *ep_offset)
+	const char *ep_name, char *regmap_name, int *ep_offset)
 {
 	int offset;
 	const char *name;
@@ -201,7 +201,7 @@ static int xocl_md_get_endpoint(struct device *dev, char *blob,
 	return 0;
 }
 
-int xocl_md_get_prop(struct device *dev, char *blob, char *ep_name,
+int xocl_md_get_prop(struct device *dev, char *blob, const char *ep_name,
 	char *regmap_name, char *prop, const void **val, int *size)
 {
 	int offset;
@@ -269,17 +269,17 @@ failed:
 }
 
 int xocl_md_set_prop(struct device *dev, char **blob,
-	char *node_name, char *regmap_name, char *prop, void *val, int size)
+	const char *ep_name, char *regmap_name, char *prop, void *val, int size)
 {
 	int offset;
 	int ret;
 
-	if (node_name) {
-		ret = xocl_md_get_endpoint(dev, *blob, node_name,
+	if (ep_name) {
+		ret = xocl_md_get_endpoint(dev, *blob, ep_name,
 			regmap_name, &offset);
 		if (ret) {
 			md_err(dev, "cannot get node %s, ret = %d",
-				node_name, ret);
+				ep_name, ret);
 			return -EINVAL;
 		}
 	} else {
@@ -298,7 +298,7 @@ int xocl_md_set_prop(struct device *dev, char **blob,
 }
 
 int xocl_md_copy_endpoint(struct device *dev, char **blob, char *src_blob,
-	char *ep_name, char *regmap_name)
+	const char *ep_name, char *regmap_name)
 {
 	int offset, target;
 	int ret;
@@ -394,7 +394,7 @@ static int xocl_md_overlay(struct device *dev, char **blob, int target,
 }
 
 int xocl_md_get_next_endpoint(struct device *dev, char *blob,
-	char *ep_name, char *regmap_name,
+	const char *ep_name, char *regmap_name,
 	char **next_ep, char **next_regmap)
 {
 	int offset, ret;

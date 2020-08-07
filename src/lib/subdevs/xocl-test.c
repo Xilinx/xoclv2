@@ -9,6 +9,7 @@
  */
 
 #include <linux/delay.h>
+#include "xocl-metadata.h"
 #include "xocl-subdev.h"
 
 #define	XOCL_TEST "xocl_test"
@@ -85,9 +86,36 @@ static int xocl_test_event_cb(struct platform_device *pdev,
 	return 0;
 }
 
+static int xocl_test_create_metadata(struct xocl_test *xt, char **root_dtb)
+{
+	char *dtb = NULL;
+	struct xocl_md_endpoint ep = { .ep_name = NODE_TEST };
+	int ret;
+
+	ret = xocl_md_create(DEV(xt->pdev), &dtb);
+	if (ret) {
+		xocl_err(xt->pdev, "create metadata failed, ret %d", ret);
+		goto failed;
+	}
+
+	ret = xocl_md_add_endpoint(DEV(xt->pdev), &dtb, &ep);
+	if (ret) {
+		xocl_err(xt->pdev, "add test node failed, ret %d", ret);
+		goto failed;
+	}
+
+	*root_dtb = dtb;
+	return 0;
+
+failed:
+	vfree(dtb);
+	return ret;
+}
+
 static int xocl_test_probe(struct platform_device *pdev)
 {
 	struct xocl_test *xt;
+	char *dtb = NULL;
 
 	xocl_info(pdev, "probing...");
 
@@ -107,8 +135,12 @@ static int xocl_test_probe(struct platform_device *pdev)
 		(void *)(uintptr_t)pdev->id, xocl_test_event_cb);
 
 	/* Trigger partition creation, only when this is the first instance. */
-	if (pdev->id == 0)
-		(void) xocl_subdev_create_partition(pdev, NULL);
+	if (pdev->id == 0) {
+		(void) xocl_test_create_metadata(xt, &dtb);
+		if (dtb)
+			(void) xocl_subdev_create_partition(pdev, dtb);
+		vfree(dtb);
+	}
 
 	/* Broadcast event. */
 	if (pdev->id == 1)
@@ -177,6 +209,14 @@ static int xocl_test_close(struct inode *inode, struct file *file)
 	xocl_info(xt->pdev, "closed");
 	return 0;
 }
+
+struct xocl_subdev_endpoints xocl_test_endpoints = {
+	.xse_names = (struct xocl_subdev_ep_names []){
+		{ .ep_name = NODE_TEST },
+		{ NULL },
+	},
+	.xse_min_ep = 1,
+};
 
 struct xocl_subdev_drvdata xocl_test_data = {
 	.xsd_dev_ops = {

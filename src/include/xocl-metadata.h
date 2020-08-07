@@ -93,31 +93,33 @@
 #define NODE_VSEC "drv_ep_vsec_00"
 #define NODE_BLP_ROM "drv_ep_blp_rom_00"
 #define NODE_PLAT_INFO "drv_ep_platform_info_mgmt_00"
+#define NODE_TEST "drv_ep_test_00"
+#define NODE_MGMT_MAIN "drv_ep_mgmt_main_00"
 
 #define PROP_OFFSET "offset"
 
 struct xocl_md_endpoint {
-	char	*ep_name;
-	u32	bar;
-	long	bar_off;
-	ulong	size;
+	const char	*ep_name;
+	u32		bar;
+	long		bar_off;
+	ulong		size;
 };
 
 long xocl_md_size(struct device *dev, char *blob);
 int xocl_md_create(struct device *dev, char **blob);
 int xocl_md_add_endpoint(struct device *dev, char **blob,
 	struct xocl_md_endpoint *ep);
-int xocl_md_del_endpoint(struct device *dev, char **blob, char *ep_name,
+int xocl_md_del_endpoint(struct device *dev, char **blob, const char *ep_name,
 	char *regmap_name);
-int xocl_md_get_prop(struct device *dev, char *blob, char *ep_name,
+int xocl_md_get_prop(struct device *dev, char *blob, const char *ep_name,
 	char *regmap_name, char *prop, const void **val, int *size);
-int xocl_md_set_prop(struct device *dev, char **blob, char *name,
+int xocl_md_set_prop(struct device *dev, char **blob, const char *ep_name,
 	char *regmap_name, char *prop, void *val, int size);
 int xocl_md_copy_endpoint(struct device *dev, char **blob, char *src_blob,
-	char *ep_name, char *regmap_name);
+	const char *ep_name, char *regmap_name);
 int xocl_md_copy_all_eps(struct device *dev, char **blob, char *src_blob);
 int xocl_md_get_next_endpoint(struct device *dev, char *blob,
-	char *ep_name,  char *regmap_name,
+	const char *ep_name,  char *regmap_name,
 	char **next_ep, char **next_regmap);
 
 #endif

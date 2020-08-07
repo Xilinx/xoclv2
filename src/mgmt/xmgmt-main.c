@@ -9,6 +9,7 @@
  */
 
 #include <linux/delay.h>
+#include "xocl-metadata.h"
 #include "xocl-subdev.h"
 #include "uapi/xmgmt-ioctl.h"
 
@@ -211,6 +212,13 @@ static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd, unsigned long 
 	return result;
 }
 
+struct xocl_subdev_endpoints xocl_mgmt_main_endpoints = {
+	.xse_names = (struct xocl_subdev_ep_names []){
+		{ .ep_name = NODE_MGMT_MAIN },
+		{ NULL },
+	},
+	.xse_min_ep = 1,
+};
 
 struct xocl_subdev_drvdata xmgmt_main_data = {
 	.xsd_dev_ops = {

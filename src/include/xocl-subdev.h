@@ -231,7 +231,7 @@ extern void xocl_subdev_broadcast_event(struct platform_device *pdev,
 extern void xocl_subdev_hot_reset(struct platform_device *pdev);
 
 extern int xocl_subdev_register_external_driver(enum xocl_subdev_id id,
-	struct platform_driver *drv);
+	struct platform_driver *drv, struct xocl_subdev_endpoints *eps);
 extern void xocl_subdev_unregister_external_driver(enum xocl_subdev_id id);
 
 /*
