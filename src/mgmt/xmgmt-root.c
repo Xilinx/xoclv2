@@ -295,7 +295,7 @@ static struct pci_driver xmgmt_driver = {
 static int __init xmgmt_init(void)
 {
 	int res = xocl_subdev_register_external_driver(XOCL_SUBDEV_MGMT_MAIN,
-		&xmgmt_main_driver, &xocl_mgmt_main_endpoints);
+		&xmgmt_main_driver, xocl_mgmt_main_endpoints);
 
 	if (res)
 		return res;

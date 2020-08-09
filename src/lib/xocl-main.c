@@ -31,8 +31,9 @@ static struct xocl_drv_map {
 	struct ida ida; /* manage driver instance and char dev minor */
 } xocl_drv_maps[] = {
 	{ XOCL_SUBDEV_PART, &xocl_partition_driver, },
-	{ XOCL_SUBDEV_VSEC, &xocl_vsec_driver, &xocl_vsec_endpoints, },
-	{ XOCL_SUBDEV_TEST, &xocl_test_driver, &xocl_test_endpoints, },
+	{ XOCL_SUBDEV_VSEC, &xocl_vsec_driver, xocl_vsec_endpoints, },
+	{ XOCL_SUBDEV_AXIGATE, &xocl_axigate_driver, xocl_axigate_endpoints, },
+	{ XOCL_SUBDEV_TEST, &xocl_test_driver, xocl_test_endpoints, },
 	{ XOCL_SUBDEV_MGMT_MAIN, NULL, },
 };
 
