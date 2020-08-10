@@ -9,6 +9,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/uaccess.h>
 #include "xocl-metadata.h"
 #include "xocl-subdev.h"
 #include "xocl-flash.h"
