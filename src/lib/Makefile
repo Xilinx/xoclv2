@@ -16,6 +16,7 @@ xocl-lib-y := 				\
 	subdevs/xocl-partition.o	\
 	subdevs/xocl-test.o		\
 	subdevs/xocl-vsec.o		\
+	subdevs/xocl-axigate.o		\
 	$(fdtdir)/fdt.o			\
 	$(fdtdir)/fdt_addresses.o	\
 	$(fdtdir)/fdt_empty_tree.o	\

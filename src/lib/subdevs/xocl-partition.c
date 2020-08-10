@@ -55,7 +55,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 {
 	struct xocl_subdev_platdata *pdata = DEV_PDATA(xp->pdev);
 	enum xocl_subdev_id did;
-	struct xocl_subdev_endpoints *eps;
+	struct xocl_subdev_endpoints *eps = NULL;
 	int ep_count = 0, i, ret;
 	ulong mlen;
 	char *dtb, *part_dtb = NULL;
@@ -85,10 +85,13 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 		goto bail;
 
 	memcpy(part_dtb, pdata->xsp_dtb, mlen);
-	for (did = 0; did < XOCL_SUBDEV_NUM; did++) {
-		eps = xocl_drv_get_endpoints(did);
-		if (!eps || !eps->xse_names)
+	for (did = 0; did < XOCL_SUBDEV_NUM;) {
+		eps = eps ? eps + 1 : xocl_drv_get_endpoints(did);
+		if (!eps || !eps->xse_names) {
+			did++;
+			eps = NULL;
 			continue;
+		}
 		ret = xocl_md_create(DEV(xp->pdev), &dtb);
 		if (ret) {
 			xocl_err(xp->pdev, "create md failed, drv %s",

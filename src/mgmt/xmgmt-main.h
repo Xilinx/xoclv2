@@ -11,6 +11,6 @@
 #define	_XMGMT_MAIN_H_
 
 extern struct platform_driver xmgmt_main_driver;
-extern struct xocl_subdev_endpoints xocl_mgmt_main_endpoints;
+extern struct xocl_subdev_endpoints xocl_mgmt_main_endpoints[];
 
 #endif	/* _XMGMT_MAIN_H_ */
