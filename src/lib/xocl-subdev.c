@@ -833,4 +833,3 @@ void xocl_subdev_get_barres(struct platform_device *pdev,
 
 	*res = &arg.xpigr_res[bar_idx];
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_get_barres);
