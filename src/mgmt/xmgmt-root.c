@@ -38,6 +38,7 @@
 
 static struct class *xmgmt_class;
 static const struct pci_device_id xmgmt_pci_ids[] = {
+	{ PCI_DEVICE(0x10EE, 0xd020), },
 	{ PCI_DEVICE(0x10EE, 0x5020), },
 	{ 0, }
 };
@@ -228,6 +229,15 @@ static int xmgmt_create_root_metadata(struct xmgmt *xm, char **root_dtb)
 	if (ret)
 		goto failed;
 	ret = xroot_add_vsec_node(xm->root, &dtb);
+	if (ret == -ENOENT) { /* TODO: how do we identify golden iamge?? */
+		struct xocl_md_endpoint ep = { NODE_FLASH, 0, 0x1f50000, 4096 };
+
+		ret = xocl_md_add_endpoint(DEV(xm->pdev), &dtb, &ep);
+		if (ret) {
+			xmgmt_err(xm, "create %s node failed: %d",
+				NODE_FLASH, ret);
+		}
+	}
 	if (ret)
 		goto failed;
 

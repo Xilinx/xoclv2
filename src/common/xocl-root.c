@@ -432,7 +432,7 @@ int xroot_add_vsec_node(void *root, char **dtb)
 	cap = pci_find_ext_capability(xr->pdev, PCI_EXT_CAP_ID_VNDR);
 	if (!cap) {
 		xroot_info(xr, "No Vendor Specific Capability.");
-		return 0;
+		return -ENOENT;
 	}
 
 	if (pci_read_config_dword(xr->pdev, cap+8, &off_low) ||

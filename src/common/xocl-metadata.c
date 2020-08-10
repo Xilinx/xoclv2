@@ -207,6 +207,7 @@ int xocl_md_get_prop(struct device *dev, char *blob, const char *ep_name,
 	int offset;
 	int ret;
 
+	*val = NULL;
 	if (ep_name) {
 		ret = xocl_md_get_endpoint(dev, blob, ep_name, regmap_name,
 			&offset);
@@ -225,7 +226,7 @@ int xocl_md_get_prop(struct device *dev, char *blob, const char *ep_name,
 
 	*val = fdt_getprop(blob, offset, prop, size);
 	if (!*val) {
-		md_err(dev, "get prop failed");
+		md_dbg(dev, "get prop failed, ep %s, prop %s", ep_name, prop);
 		return -EINVAL;
 	}
 
@@ -413,7 +414,8 @@ int xocl_md_get_next_endpoint(struct device *dev, char *blob,
 		return -EINVAL;
 	}
 
-	offset = fdt_next_subnode(blob, offset);
+	offset = ep_name ? fdt_next_subnode(blob, offset) :
+		fdt_first_subnode(blob, offset);
 	if (offset < 0) {
 		*next_ep = NULL;
 		*next_regmap = NULL;

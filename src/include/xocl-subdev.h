@@ -27,6 +27,7 @@ enum xocl_subdev_id {
 	XOCL_SUBDEV_AXIGATE,
 	XOCL_SUBDEV_TEST,
 	XOCL_SUBDEV_MGMT_MAIN,
+	XOCL_SUBDEV_QSPI,
 	XOCL_SUBDEV_NUM,
 };
 
@@ -34,10 +35,19 @@ enum xocl_subdev_id {
  * If populated by subdev driver, parent will handle the mechanics of
  * char device (un)registration.
  */
+enum xocl_subdev_file_mode {
+	// Infra create cdev, default file name
+	XOCL_SUBDEV_FILE_DEFAULT = 0,
+	// Infra create cdev, need to encode inst num in file name
+	XOCL_SUBDEV_FILE_MULTI_INST,
+	// No auto creation of cdev by infra, leaf handles it by itself
+	XOCL_SUBDEV_FILE_NO_AUTO,
+};
 struct xocl_subdev_file_ops {
 	const struct file_operations xsf_ops;
 	dev_t xsf_dev_t;
-	const char *xsd_dev_name;
+	const char *xsf_dev_name;
+	enum xocl_subdev_file_mode xsf_mode;
 };
 
 /*
@@ -238,9 +248,9 @@ extern void xocl_subdev_unregister_external_driver(enum xocl_subdev_id id);
 /*
  * Char dev APIs.
  */
-static inline bool xocl_is_devnode_enabled(struct xocl_subdev_drvdata *drvdata)
+static inline bool xocl_devnode_enabled(struct xocl_subdev_drvdata *drvdata)
 {
-	return drvdata->xsd_file_ops.xsf_ops.open != NULL;
+	return drvdata && drvdata->xsd_file_ops.xsf_ops.open != NULL;
 }
 extern int xocl_devnode_create(struct platform_device *pdev,
 	const char *file_name, const char *inst_name);
