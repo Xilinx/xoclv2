@@ -154,8 +154,6 @@ static int xocl_part_remove_leaves(struct xocl_partition *xp)
 static int xocl_part_probe(struct platform_device *pdev)
 {
 	struct xocl_partition *xp;
-	struct xocl_parent_ioctl_get_bar arg;
-	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
 
 	xocl_info(pdev, "probing...");
 
@@ -167,10 +165,6 @@ static int xocl_part_probe(struct platform_device *pdev)
 	mutex_init(&xp->lock);
 	xocl_subdev_pool_init(DEV(pdev), &xp->leaves);
 	platform_set_drvdata(pdev, xp);
-
-	arg.xpigb_bar_addrs = pdata->xsp_bar_addr;
-	arg.xpigb_bar_len = pdata->xsp_bar_len;
-	xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_BAR, &arg);
 
 	return 0;
 }

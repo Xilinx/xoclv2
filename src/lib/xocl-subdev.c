@@ -127,15 +127,16 @@ static const struct attribute_group xocl_subdev_attrgroup = {
 };
 
 static int
-xocl_subdev_getres(struct device *parent, char *dtb, struct resource **res,
-	int *res_num)
+xocl_subdev_getres(struct device *parent, enum xocl_subdev_id id,
+	char *dtb, struct resource **res, int *res_num)
 {
 	struct xocl_subdev_platdata *pdata;
+	struct resource *pci_res = NULL;
 	const u64 *bar_range;
 	const u32 *bar_idx;
 	char *ep_name = NULL, *regmap = NULL;
+	uint bar;
 	int count1 = 0, count2 = 0, ret;
-	ulong base_addr;
 
 	if (!dtb)
 		return -EINVAL;
@@ -168,16 +169,17 @@ xocl_subdev_getres(struct device *parent, char *dtb, struct resource **res,
 			continue;
 		xocl_md_get_prop(parent, dtb, ep_name, regmap,
 			PROP_BAR_IDX, (const void **)&bar_idx, NULL);
-		base_addr = bar_idx ?
-			pdata->xsp_bar_addr[be32_to_cpu(*bar_idx)] :
-			pdata->xsp_bar_addr[0];
-		(*res)[count2].start = base_addr +
+		bar = bar_idx ? be32_to_cpu(*bar_idx) : 0;
+		xocl_subdev_get_barres(to_platform_device(parent), &pci_res,
+			bar);
+		(*res)[count2].start = pci_res->start +
 			be64_to_cpu(bar_range[0]);
-		(*res)[count2].end = base_addr +
+		(*res)[count2].end = pci_res->start +
 			be64_to_cpu(bar_range[0]) +
 			be64_to_cpu(bar_range[1]) - 1;
 		(*res)[count2].flags = IORESOURCE_MEM;
-		(*res)[count2].name = ep_name;
+		(*res)[count2].name = xocl_drv_get_resname(id, ep_name);
+		(*res)[count2].parent = pci_res;
 
 		count2++;
 	}
@@ -245,10 +247,6 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 		BUG_ON(strcmp(xocl_drv_name(XOCL_SUBDEV_PART),
 			platform_get_device_id(part)->name));
 		pdata->xsp_root_name = DEV_PDATA(part)->xsp_root_name;
-		memcpy(pdata->xsp_bar_addr, DEV_PDATA(part)->xsp_bar_addr,
-			sizeof(pdata->xsp_bar_addr));
-		memcpy(pdata->xsp_bar_len, DEV_PDATA(part)->xsp_bar_len,
-			sizeof(pdata->xsp_bar_len));
 	}
 
 	/* Obtain dev instance number. */
@@ -263,7 +261,7 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 		pdev = platform_device_register_data(parent,
 			xocl_drv_name(XOCL_SUBDEV_PART), inst, pdata, pdata_sz);
 	} else {
-		int rc = xocl_subdev_getres(parent, dtb, &res, &res_num);
+		int rc = xocl_subdev_getres(parent, id, dtb, &res, &res_num);
 
 		if (rc) {
 			dev_err(parent, "failed to get resource for %s.%d: %d",
@@ -823,3 +821,15 @@ void xocl_subdev_hot_reset(struct platform_device *pdev)
 	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_HOT_RESET, NULL);
 }
 EXPORT_SYMBOL_GPL(xocl_subdev_hot_reset);
+
+void xocl_subdev_get_barres(struct platform_device *pdev,
+	struct resource **res, uint bar_idx)
+{
+	struct xocl_parent_ioctl_get_res arg = { 0 };
+
+	BUG_ON(bar_idx > PCI_STD_RESOURCE_END);
+
+	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_RESOURCE, &arg);
+
+	*res = &arg.xpigr_res[bar_idx];
+}

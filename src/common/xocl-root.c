@@ -364,17 +364,10 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 			holders->xpigh_holder_buf_len);
 		break;
 	}
-	case XOCL_PARENT_GET_BAR: {
-		struct xocl_parent_ioctl_get_bar *bars =
-			(struct xocl_parent_ioctl_get_bar *)arg;
-		int i;
-
-		for (i = 0; i <= PCI_STD_RESOURCE_END; i++) {
-			((ulong *)bars->xpigb_bar_addrs)[i] =
-				(ulong)pci_resource_start(xr->pdev, i);
-			bars->xpigb_bar_len[i] =
-				(ulong)pci_resource_len(xr->pdev, i);
-		}
+	case XOCL_PARENT_GET_RESOURCE: {
+		struct xocl_parent_ioctl_get_res *res =
+			(struct xocl_parent_ioctl_get_res *)arg;
+		res->xpigr_res = xr->pdev->resource;
 		break;
 	}
 	case XOCL_PARENT_HOT_RESET: {

@@ -256,6 +256,27 @@ struct xocl_subdev_endpoints *xocl_drv_get_endpoints(enum xocl_subdev_id id)
 	return map ? map->eps : NULL;
 }
 
+char *xocl_drv_get_resname(enum xocl_subdev_id id, char *ep_name)
+{
+	struct xocl_subdev_endpoints *eps = NULL;
+	int i;
+
+	for (eps = xocl_drv_get_endpoints(id);
+	    eps && eps->xse_names;
+	    eps++) {
+		for (i = 0; eps->xse_names[i].ep_name; i++) {
+			if (strncmp(eps->xse_names[i].ep_name, ep_name,
+			    strlen(eps->xse_names[i].ep_name)))
+				continue;
+			return eps->xse_names[i].res_name ?
+				eps->xse_names[i].res_name :
+				eps->xse_names[i].ep_name;
+		}
+	}
+
+	return NULL;
+}
+
 module_init(xocl_drv_register_drivers);
 module_exit(xocl_drv_unregister_drivers);
 

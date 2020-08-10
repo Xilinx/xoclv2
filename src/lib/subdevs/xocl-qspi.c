@@ -1206,7 +1206,7 @@ static int qspi_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	flash->qspi_regs = ioremap_nocache(flash->res->start,
+	flash->qspi_regs = ioremap(flash->res->start,
 		flash->res->end - flash->res->start + 1);
 	if (!flash->qspi_regs) {
 		ret = -ENOMEM;
