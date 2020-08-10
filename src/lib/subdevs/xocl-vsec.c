@@ -168,6 +168,7 @@ static int xocl_vsec_mapio(struct xocl_vsec *vsec)
 	struct xocl_vsec_header *p_hdr;
 	const u32 *bar;
 	const u64 *bar_off;
+	struct resource *res = NULL;
 	ulong addr;
 	int ret;
 
@@ -192,8 +193,14 @@ static int xocl_vsec_mapio(struct xocl_vsec *vsec)
 
 	xocl_info(vsec->pdev, "Map vsec at bar %d, offset 0x%llx",
 		be32_to_cpu(*bar), be64_to_cpu(*bar_off));
-	addr = pdata->xsp_bar_addr[be32_to_cpu(*bar)] +
-		(ulong)be64_to_cpu(*bar_off);
+
+	xocl_subdev_get_barres(vsec->pdev, &res, be32_to_cpu(*bar));
+	if (!res) {
+		xocl_err(vsec->pdev, "failed to get bar addr");
+		return -EINVAL;
+	}
+
+	addr = res->start + (ulong)be64_to_cpu(*bar_off);
 
 	p_hdr = ioremap(addr, sizeof(*p_hdr));
 	if (!p_hdr) {

@@ -105,10 +105,6 @@ struct xocl_subdev_platdata {
 	/* Something to associate w/ root for msg printing. */
 	const char *xsp_root_name;
 
-	/* Device base physical addresses */
-	ulong xsp_bar_addr[PCI_STD_RESOURCE_END + 1];
-	ulong xsp_bar_len[PCI_STD_RESOURCE_END + 1];
-
 	/*
 	 * Char dev support for this subdev instance.
 	 * Initialized by subdev driver.
@@ -143,6 +139,7 @@ struct xocl_subdev_platdata {
 struct xocl_subdev_ep_names {
 	const char *ep_name;
 	const char *regmap_name;
+	const char *res_name; /* drv define res name, if NULL, use ep_name */
 };
 
 struct xocl_subdev_endpoints {
@@ -240,6 +237,8 @@ extern int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
 extern void xocl_subdev_broadcast_event(struct platform_device *pdev,
 	enum xocl_events evt);
 extern void xocl_subdev_hot_reset(struct platform_device *pdev);
+extern void xocl_subdev_get_barres(struct platform_device *pdev,
+	struct resource **res, uint bar_idx);
 
 extern int xocl_subdev_register_external_driver(enum xocl_subdev_id id,
 	struct platform_driver *drv, struct xocl_subdev_endpoints *eps);
