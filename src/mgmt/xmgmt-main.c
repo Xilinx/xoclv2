@@ -8,7 +8,7 @@
  *	Sonal Santan <sonals@xilinx.com>
  */
 
-#include <linux/delay.h>
+#include <linux/firmware.h>
 #include "xocl-metadata.h"
 #include "xocl-subdev.h"
 #include "uapi/xmgmt-ioctl.h"
@@ -17,44 +17,16 @@
 
 struct xmgmt_main {
 	struct platform_device *pdev;
-	struct platform_device *leaf;
 	void *evt_hdl;
 	struct mutex busy_mutex;
+	char *firmware;
 };
 
 static bool xmgmt_main_leaf_match(enum xocl_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
-	int myid = (int)(uintptr_t)arg;
-	return id == XOCL_SUBDEV_MGMT_MAIN && pdev->id != myid;
+	return id == XOCL_SUBDEV_QSPI;
 }
-
-static ssize_t hold_store(struct device *dev,
-	struct device_attribute *da, const char *buf, size_t count)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct xmgmt_main *xt = platform_get_drvdata(pdev);
-	struct platform_device *leaf;
-
-	leaf = xocl_subdev_get_leaf(pdev, xmgmt_main_leaf_match,
-		(void *)(uintptr_t)pdev->id);
-	if (leaf)
-		xt->leaf = leaf;
-	return count;
-}
-static DEVICE_ATTR_WO(hold);
-
-static ssize_t release_store(struct device *dev,
-	struct device_attribute *da, const char *buf, size_t count)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct xmgmt_main *xt = platform_get_drvdata(pdev);
-
-	if (xt->leaf)
-		(void) xocl_subdev_put_leaf(pdev, xt->leaf);
-	return count;
-}
-static DEVICE_ATTR_WO(release);
 
 static ssize_t reset_store(struct device *dev,
 	struct device_attribute *da, const char *buf, size_t count)
@@ -69,8 +41,6 @@ static ssize_t reset_store(struct device *dev,
 static DEVICE_ATTR_WO(reset);
 
 static struct attribute *xmgmt_main_attrs[] = {
-	&dev_attr_hold.attr,
-	&dev_attr_release.attr,
 	&dev_attr_reset.attr,
 	NULL,
 };
@@ -82,8 +52,6 @@ static const struct attribute_group xmgmt_main_attrgroup = {
 static int xmgmt_main_event_cb(struct platform_device *pdev,
 	enum xocl_events evt, enum xocl_subdev_id id, int instance)
 {
-	struct platform_device *leaf;
-
 	xocl_info(pdev, "event %d for (%d, %d)", evt, id, instance);
 
 	switch (evt) {
@@ -93,56 +61,78 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 		return 0;
 	}
 
-	leaf = xocl_subdev_get_leaf_by_id(pdev, id, instance);
-	if (leaf) {
-		(void) xocl_subdev_ioctl(leaf, 1, NULL);
-		(void) xocl_subdev_put_leaf(pdev, leaf);
-	}
+	return 0;
+}
 
+static int load_firmware_from_disk(struct platform_device *pdev, char **fw_buf)
+{
+	const char *uuid = "f465b0a3ae8c64f619bc150384ace69b"; // HACK FOR NOW
+	int err = 0;
+	char fw_name[256];
+	const struct firmware *fw;
+
+	snprintf(fw_name, sizeof(fw_name), "xilinx/%s/partition.xsabin", uuid);
+
+	xocl_info(pdev, "try loading fw: %s", fw_name);
+
+	err = request_firmware(&fw, fw_name, DEV(pdev));
+	if (err)
+		return err;
+
+	*fw_buf = vmalloc(fw->size);
+	if (*fw_buf != NULL)
+		memcpy(*fw_buf, fw->data, fw->size);
+	else
+		err = -ENOMEM;
+
+	release_firmware(fw);
 	return 0;
 }
 
 static int xmgmt_main_probe(struct platform_device *pdev)
 {
-	struct xmgmt_main *xt;
+	struct xmgmt_main *xmm;
+	int rc = 0;
 
 	xocl_info(pdev, "probing...");
 
-	xt = devm_kzalloc(DEV(pdev), sizeof(*xt), GFP_KERNEL);
-	if (!xt)
+	xmm = devm_kzalloc(DEV(pdev), sizeof(*xmm), GFP_KERNEL);
+	if (!xmm)
 		return -ENOMEM;
 
-	xt->pdev = pdev;
-	platform_set_drvdata(pdev, xt);
-	mutex_init(&xt->busy_mutex);
+	xmm->pdev = pdev;
+	platform_set_drvdata(pdev, xmm);
+	mutex_init(&xmm->busy_mutex);
+
+	rc = load_firmware_from_disk(pdev, &xmm->firmware);
+	if (rc == -ENOENT) {
+		/*
+		 * Can't find firmware on disk, waiting for flash driver
+		 * to be online so that we can try to load it from flash.
+		 */
+		xmm->evt_hdl = xocl_subdev_add_event_cb(pdev,
+			xmgmt_main_leaf_match, NULL, xmgmt_main_event_cb);
+	}
+
 	/* Ready to handle req thru sysfs nodes. */
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup))
 		xocl_err(pdev, "failed to create sysfs group");
 
-	/* Add event callback to wait for the peer instance. */
-	xt->evt_hdl = xocl_subdev_add_event_cb(pdev, xmgmt_main_leaf_match,
-		(void *)(uintptr_t)pdev->id, xmgmt_main_event_cb);
-
-	/* After we return here, we'll get inter-leaf calls. */
 	return 0;
 }
 
 static int xmgmt_main_remove(struct platform_device *pdev)
 {
-	struct xmgmt_main *xt = platform_get_drvdata(pdev);
+	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
 
 	/* By now, partition driver should prevent any inter-leaf call. */
 
 	xocl_info(pdev, "leaving...");
 
-	(void) xocl_subdev_remove_event_cb(pdev, xt->evt_hdl);
-
-	/* By now, no more access thru cdev. */
-
+	if (xmm->evt_hdl)
+		(void) xocl_subdev_remove_event_cb(pdev, xmm->evt_hdl);
+	vfree(xmm->firmware);
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup);
-	/* By now, no more access thru sysfs nodes. */
-
-	/* Clean up can safely be done now. */
 	return 0;
 }
 
@@ -166,42 +156,29 @@ static int xmgmt_main_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t
-xmgmt_main_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
-{
-	int i;
-	struct xmgmt_main *xt = file->private_data;
-
-	for (i = 0; i < 10; i++) {
-		xocl_info(xt->pdev, "reading...");
-		ssleep(1);
-	}
-	return 0;
-}
-
 static int xmgmt_main_close(struct inode *inode, struct file *file)
 {
-	struct xmgmt_main *xt = file->private_data;
+	struct xmgmt_main *xmm = file->private_data;
 
 	xocl_devnode_close(inode);
 
-	xocl_info(xt->pdev, "closed");
+	xocl_info(xmm->pdev, "closed");
 	return 0;
 }
 
 static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	long result = 0;
-	struct xmgmt_main *xt = filp->private_data;
+	struct xmgmt_main *xmm = filp->private_data;
 
-	BUG_ON(!xt);
+	BUG_ON(!xmm);
 
 	if (_IOC_TYPE(cmd) != XCLMGMT_IOC_MAGIC)
 		return -ENOTTY;
 
-	mutex_lock(&xt->busy_mutex);
+	mutex_lock(&xmm->busy_mutex);
 
-	xocl_info(xt->pdev, "ioctl cmd %d, arg %ld", cmd, arg);
+	xocl_info(xmm->pdev, "ioctl cmd %d, arg %ld", cmd, arg);
 	switch (cmd) {
 	case XCLMGMT_IOCICAPDOWNLOAD_AXLF:
 		break;
@@ -210,7 +187,8 @@ static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd, unsigned long 
 	default:
 		result = -ENOTTY;
 	}
-	mutex_unlock(&xt->busy_mutex);
+
+	mutex_unlock(&xmm->busy_mutex);
 	return result;
 }
 
@@ -234,7 +212,6 @@ struct xocl_subdev_drvdata xmgmt_main_data = {
 			.owner = THIS_MODULE,
 			.open = xmgmt_main_open,
 			.release = xmgmt_main_close,
-			.read = xmgmt_main_read,
 			.unlocked_ioctl = xmgmt_main_ioctl,
 		},
 		.xsf_dev_name = "xmgmt",
