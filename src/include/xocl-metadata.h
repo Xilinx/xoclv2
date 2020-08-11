@@ -91,6 +91,7 @@
 
 /* driver defined endpoints */
 #define NODE_VSEC "drv_ep_vsec_00"
+#define NODE_VSEC_GOLDEN "drv_ep_vsec_golden_00"
 #define NODE_BLP_ROM "drv_ep_blp_rom_00"
 #define NODE_PLAT_INFO "drv_ep_platform_info_mgmt_00"
 #define NODE_TEST "drv_ep_test_00"

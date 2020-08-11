@@ -815,6 +815,7 @@ void xocl_subdev_broadcast_event(struct platform_device *pdev,
 	(void) xocl_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_BOARDCAST_EVENT, (void *)evt);
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_broadcast_event);
 
 void xocl_subdev_hot_reset(struct platform_device *pdev)
 {
@@ -832,4 +833,21 @@ void xocl_subdev_get_barres(struct platform_device *pdev,
 	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_RESOURCE, &arg);
 
 	*res = &arg.xpigr_res[bar_idx];
+}
+
+void xocl_subdev_get_parent_id(struct platform_device *pdev,
+	unsigned short *vendor, unsigned short *device,
+	unsigned short *subvendor, unsigned short *subdevice)
+{
+	struct xocl_parent_ioctl_get_id id = { 0 };
+
+	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_ID, (void *)&id);
+	if (vendor)
+		*vendor = id.xpigi_vendor_id;
+	if (device)
+		*device = id.xpigi_device_id;
+	if (subvendor)
+		*subvendor = id.xpigi_sub_vendor_id;
+	if (subdevice)
+		*subdevice = id.xpigi_sub_device_id;
 }

@@ -1076,12 +1076,13 @@ qspi_llseek(struct file *filp, loff_t off, int whence)
  */
 static int qspi_open(struct inode *inode, struct file *file)
 {
+	struct xocl_qspi *flash;
 	struct platform_device *pdev = xocl_devnode_open_excl(inode);
-	struct xocl_qspi *flash = platform_get_drvdata(pdev);
 
 	if (!pdev)
 		return -EBUSY;
 
+	flash = platform_get_drvdata(pdev);
 	file->private_data = flash;
 	return 0;
 }

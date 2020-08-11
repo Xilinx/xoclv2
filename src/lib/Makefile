@@ -16,6 +16,7 @@ xocl-lib-y := 				\
 	subdevs/xocl-partition.o	\
 	subdevs/xocl-test.o		\
 	subdevs/xocl-vsec.o		\
+	subdevs/xocl-vsec-golden.o	\
 	subdevs/xocl-axigate.o		\
 	subdevs/xocl-qspi.o		\
 	$(fdtdir)/fdt.o			\

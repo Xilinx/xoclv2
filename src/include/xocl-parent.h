@@ -26,6 +26,7 @@ enum xocl_parent_ioctl_cmd {
 	XOCL_PARENT_GET_HOLDERS,
 	XOCL_PARENT_GET_RESOURCE,
 	XOCL_PARENT_HOT_RESET,
+	XOCL_PARENT_GET_ID,
 };
 
 struct xocl_parent_ioctl_get_leaf {
@@ -56,6 +57,13 @@ struct xocl_parent_ioctl_get_holders {
 
 struct xocl_parent_ioctl_get_res {
 	struct resource *xpigr_res;
+};
+
+struct xocl_parent_ioctl_get_id {
+	unsigned short  xpigi_vendor_id;
+	unsigned short  xpigi_device_id;
+	unsigned short  xpigi_sub_vendor_id;
+	unsigned short  xpigi_sub_device_id;
 };
 
 #endif	/* _XOCL_PARENT_H_ */
