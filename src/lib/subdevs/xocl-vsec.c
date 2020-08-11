@@ -8,14 +8,9 @@
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
  */
 
-#include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
-#include <linux/delay.h>
-#include <linux/device.h>
-#include <linux/io.h>
 #include "xocl-metadata.h"
 #include "xocl-subdev.h"
-#include "xocl-parent.h"
 
 #define XOCL_VSEC "xocl_vsec"
 
@@ -54,7 +49,7 @@ struct vsec_device {
 	ulong		size;
 };
 
-struct vsec_device vsec_devs[] = {
+static struct vsec_device vsec_devs[] = {
 	{
 		.type = VSEC_TYPE_UUID,
 		.ep_name = NODE_BLP_ROM,

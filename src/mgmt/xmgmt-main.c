@@ -61,7 +61,9 @@ static ssize_t reset_store(struct device *dev,
 {
 	struct platform_device *pdev = to_platform_device(dev);
 
+	xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET);
 	(void) xocl_subdev_hot_reset(pdev);
+	xocl_subdev_broadcast_event(pdev, XOCL_EVENT_POST_HOT_RESET);
 	return count;
 }
 static DEVICE_ATTR_WO(reset);

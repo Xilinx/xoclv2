@@ -24,6 +24,7 @@
 enum xocl_subdev_id {
 	XOCL_SUBDEV_PART = 0,
 	XOCL_SUBDEV_VSEC,
+	XOCL_SUBDEV_VSEC_GOLDEN,
 	XOCL_SUBDEV_AXIGATE,
 	XOCL_SUBDEV_TEST,
 	XOCL_SUBDEV_MGMT_MAIN,
@@ -239,6 +240,9 @@ extern void xocl_subdev_broadcast_event(struct platform_device *pdev,
 extern void xocl_subdev_hot_reset(struct platform_device *pdev);
 extern void xocl_subdev_get_barres(struct platform_device *pdev,
 	struct resource **res, uint bar_idx);
+extern void xocl_subdev_get_parent_id(struct platform_device *pdev,
+	unsigned short *vendor, unsigned short *device,
+	unsigned short *subvendor, unsigned short *subdevice);
 
 extern int xocl_subdev_register_external_driver(enum xocl_subdev_id id,
 	struct platform_driver *drv, struct xocl_subdev_endpoints *eps);

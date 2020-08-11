@@ -371,9 +371,17 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		break;
 	}
 	case XOCL_PARENT_HOT_RESET: {
-		xroot_evt_broadcast(xr, XOCL_EVENT_PRE_HOT_RESET);
 		xroot_hot_reset(xr->pdev);
-		xroot_evt_broadcast(xr, XOCL_EVENT_POST_HOT_RESET);
+		break;
+	}
+	case XOCL_PARENT_GET_ID: {
+		struct xocl_parent_ioctl_get_id *id =
+			(struct xocl_parent_ioctl_get_id *)arg;
+
+		id->xpigi_vendor_id = xr->pdev->vendor;
+		id->xpigi_device_id = xr->pdev->device;
+		id->xpigi_sub_vendor_id = xr->pdev->subsystem_vendor;
+		id->xpigi_sub_device_id = xr->pdev->subsystem_device;
 		break;
 	}
 	default:
