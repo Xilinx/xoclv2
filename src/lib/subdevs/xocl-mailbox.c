@@ -2041,6 +2041,7 @@ failed:
 	return ret;
 }
 
+#ifdef INTR_SUPP /* TODO: add intr support. */
 static int mailbox_offline(struct platform_device *pdev)
 {
 	struct mailbox *mbx;
@@ -2060,6 +2061,7 @@ static int mailbox_online(struct platform_device *pdev)
 	ret = mailbox_start(mbx);
 	return ret;
 }
+#endif
 
 static int mailbox_open(struct inode *inode, struct file *file)
 {
