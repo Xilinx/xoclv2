@@ -94,7 +94,11 @@ extern "C" {
         PARTITION_METADATA,
         EMULATION_DATA,
         SYSTEM_METADATA,
-        SOFT_KERNEL
+        SOFT_KERNEL,
+        ASK_FLASH,
+        AIE_METADATA,
+        ASK_GROUP_TOPOLOGY,
+        ASK_GROUP_CONNECTIVITY
     };
 
     enum MEM_TYPE {
