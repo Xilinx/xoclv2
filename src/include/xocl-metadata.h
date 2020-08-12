@@ -104,6 +104,7 @@ struct xocl_md_endpoint {
 	u32		bar;
 	long		bar_off;
 	ulong		size;
+	char		*comp;
 };
 
 long xocl_md_size(struct device *dev, char *blob);

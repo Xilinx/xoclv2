@@ -170,6 +170,16 @@ int xocl_md_add_endpoint(struct device *dev, char **blob, struct xocl_md_endpoin
 		}
 	}
 
+	if (ep->comp) {
+		ret = xocl_md_setprop(dev, blob, ep_offset, PROP_COMPATIBLE,
+			ep->comp, strlen(ep->comp) + 1);
+		if (ret) {
+			md_err(dev, "set %s failed, ret %d",
+				PROP_COMPATIBLE, ret);
+			goto failed;
+		}
+	}
+
 failed:
 	if (ret)
 		xocl_md_del_endpoint(dev, blob, ep->ep_name, NULL);
