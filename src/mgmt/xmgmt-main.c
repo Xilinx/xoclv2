@@ -229,8 +229,12 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 		return 0;
 	}
 
-	if (id == XOCL_SUBDEV_GPIO) {
+	if (id == XOCL_SUBDEV_GPIO)
 		xmm->gpio_ready = true;
+	else if (id == XOCL_SUBDEV_QSPI)
+		xmm->flash_ready = true;
+
+	if (xmm->gpio_ready && xmm->flash_ready) {
 		rc = load_firmware_from_disk(pdev, &xmm->firmware);
 		if (rc == 0) {
 			(void) xmgmt_create_blp(xmm);
@@ -241,28 +245,15 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 		 * if firmware is not on disk, need to wait for flash driver
 		 * to be online so that we can try to load it from flash.
 		 */
-		if (!xmm->flash_ready)
-			return 0;
 		rc = load_firmware_from_flash(pdev, &xmm->firmware);
 		if (rc == 0) {
 			(void) xmgmt_create_blp(xmm);
 			xmm->evt_hdl = NULL;
 			return 1; /* will not notify any more */
 		}
-
-		return 0;
 	}
 
-	xmm->flash_ready = true;
-	if (!xmm->gpio_ready)
-		return 0;
-
-	rc = load_firmware_from_flash(pdev, &xmm->firmware);
-	if (rc == 0)
-		(void) xmgmt_create_blp(xmm);
-
-	xmm->evt_hdl = NULL;
-	return 1;
+	return 0;
 }
 
 static int xmgmt_main_probe(struct platform_device *pdev)

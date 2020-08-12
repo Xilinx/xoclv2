@@ -88,7 +88,7 @@ static struct vsec_device vsec_devs[] = {
 	},
 	{
 		.type = VSEC_TYPE_MAILBOX,
-		.ep_name = NODE_MAILBOX_MGMT,
+		.ep_name = NODE_MAILBOX_VSEC,
 		.size = 48,
 		.regmap = "vsec-mbx",
 	},
@@ -148,6 +148,12 @@ static int xocl_vsec_add_node(struct xocl_vsec *vsec,
 
 	if (!type2epname(p_entry->type))
 		return -EINVAL;
+
+	/*
+	 * VSEC may have more than 1 mailbox instance for the card
+	 * which has more than 1 physical function.
+	 * This is not supported for now. Assuming only one mailbox
+	 */
 
 	snprintf(regmap_ver, sizeof(regmap_ver) - 1, "%d-%d.%d.%d",
 		p_entry->ver_type, p_entry->major, p_entry->minor,

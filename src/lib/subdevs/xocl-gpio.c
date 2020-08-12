@@ -160,11 +160,13 @@ failed:
 struct xocl_subdev_endpoints xocl_gpio_endpoints[] = {
 	{
 		.xse_names = (struct xocl_subdev_ep_names[]) {
+			/* add name if ep is in same partition */
 			{ .ep_name = NODE_BLP_ROM },
 			{ NULL },
 		},
 		.xse_min_ep = 1,
 	},
+	/* adding ep bundle generates gpio device instance */
 	{ 0 },
 };
 
