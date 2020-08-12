@@ -126,12 +126,14 @@ int xocl_md_del_endpoint(struct device *dev, char **blob, const char *ep_name,
 	return ret;
 }
 
-int xocl_md_add_endpoint(struct device *dev, char **blob, struct xocl_md_endpoint *ep)
+static int __xocl_md_add_endpoint(struct device *dev, char **blob,
+	struct xocl_md_endpoint *ep, int *offset)
 {
 	int ret = 0;
 	int ep_offset;
-	u32 val;
+	u32 val, count = 0;
 	u64 io_range[2];
+	char comp[128];
 
 	if (!ep->ep_name) {
 		md_err(dev, "empty name");
@@ -149,6 +151,8 @@ int xocl_md_add_endpoint(struct device *dev, char **blob, struct xocl_md_endpoin
 		md_err(dev, "add endpoint failed, ret = %d", ret);
 		return -EINVAL;
 	}
+	if (offset)
+		*offset = ep_offset;
 
 	if (ep->size != 0) {
 		val = cpu_to_be32(ep->bar);
@@ -170,9 +174,19 @@ int xocl_md_add_endpoint(struct device *dev, char **blob, struct xocl_md_endpoin
 		}
 	}
 
-	if (ep->comp) {
+	if (ep->regmap) {
+		if (ep->regmap_ver) {
+			count = snprintf(comp, sizeof(comp),
+				"%s-%s", ep->regmap, ep->regmap_ver);
+			count++;
+		}
+
+		count += snprintf(comp + count, sizeof(comp) - count,
+			"%s", ep->regmap);
+		count++;
+
 		ret = xocl_md_setprop(dev, blob, ep_offset, PROP_COMPATIBLE,
-			ep->comp, strlen(ep->comp) + 1);
+			comp, count);
 		if (ret) {
 			md_err(dev, "set %s failed, ret %d",
 				PROP_COMPATIBLE, ret);
@@ -185,6 +199,12 @@ failed:
 		xocl_md_del_endpoint(dev, blob, ep->ep_name, NULL);
 
 	return ret;
+}
+
+int xocl_md_add_endpoint(struct device *dev, char **blob,
+	struct xocl_md_endpoint *ep)
+{
+	return __xocl_md_add_endpoint(dev, blob, ep, NULL);
 }
 
 static int xocl_md_get_endpoint(struct device *dev, char *blob,
@@ -200,7 +220,7 @@ static int xocl_md_get_endpoint(struct device *dev, char *blob,
 		if (!name || strncmp(name, ep_name, strlen(ep_name)))
 			continue;
 		if (!regmap_name ||
-		    fdt_node_check_compatible(blob, offset, regmap_name))
+		    !fdt_node_check_compatible(blob, offset, regmap_name))
 			break;
 	}
 	if (offset < 0)
@@ -222,8 +242,8 @@ int xocl_md_get_prop(struct device *dev, char *blob, const char *ep_name,
 		ret = xocl_md_get_endpoint(dev, blob, ep_name, regmap_name,
 			&offset);
 		if (ret) {
-			md_err(dev, "cannot get ep %s, ret = %d",
-				ep_name, ret);
+			md_err(dev, "cannot get ep %s, regmap %s, ret = %d",
+				ep_name, regmap_name, ret);
 			return -EINVAL;
 		}
 	} else {
@@ -323,9 +343,7 @@ int xocl_md_copy_endpoint(struct device *dev, char **blob, char *src_blob,
 	ret = xocl_md_get_endpoint(dev, *blob, ep_name, regmap_name, &target);
 	if (ret) {
 		ep.ep_name = ep_name;
-		xocl_md_add_endpoint(dev, blob, &ep);
-		ret = xocl_md_get_endpoint(dev, *blob, ep_name, regmap_name,
-			&target);
+		ret = __xocl_md_add_endpoint(dev, blob, &ep, &target);
 		if (ret)
 			return -EINVAL;
 	}
@@ -434,7 +452,7 @@ int xocl_md_get_next_endpoint(struct device *dev, char *blob,
 
 	*next_ep = (char *)fdt_get_name(blob, offset, NULL);
 	*next_regmap = (char *)fdt_stringlist_get(blob, offset, PROP_COMPATIBLE,
-		1, NULL);
+		0, NULL);
 
 	return 0;
 }

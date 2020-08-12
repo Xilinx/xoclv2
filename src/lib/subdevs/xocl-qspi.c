@@ -1271,7 +1271,10 @@ qspi_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 struct xocl_subdev_endpoints xocl_qspi_endpoints[] = {
 	{
 		.xse_names = (struct xocl_subdev_ep_names []){
-			{ .ep_name = NODE_FLASH },
+			{
+				.ep_name = NODE_FLASH,
+				.regmap_name = "vsec-flash",
+			},
 			{ NULL },
 		},
 		.xse_min_ep = 1,

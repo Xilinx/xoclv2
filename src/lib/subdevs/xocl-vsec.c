@@ -64,7 +64,7 @@ struct vsec_device {
 	u8		type;
 	char		*ep_name;
 	ulong		size;
-	char		*comp;
+	char		*regmap;
 };
 
 static struct vsec_device vsec_devs[] = {
@@ -72,25 +72,25 @@ static struct vsec_device vsec_devs[] = {
 		.type = VSEC_TYPE_UUID,
 		.ep_name = NODE_BLP_ROM,
 		.size = VSEC_UUID_LEN,
-		.comp = "vsec-uuid",
+		.regmap = "vsec-uuid",
 	},
 	{
 		.type = VSEC_TYPE_FLASH,
 		.ep_name = NODE_FLASH,
 		.size = 4096,
-		.comp = "vsec-flash",
+		.regmap = "vsec-flash",
 	},
 	{
 		.type = VSEC_TYPE_PLATINFO,
 		.ep_name = NODE_PLAT_INFO,
 		.size = 4,
-		.comp = "vsec-platinfo",
+		.regmap = "vsec-platinfo",
 	},
 	{
 		.type = VSEC_TYPE_MAILBOX,
 		.ep_name = NODE_MAILBOX_MGMT,
 		.size = 48,
-		.comp = "vsec-mbx",
+		.regmap = "vsec-mbx",
 	},
 };
 
@@ -127,13 +127,13 @@ static ulong type2size(u32 type)
 	return 0;
 }
 
-static char *type2comp(u32 type)
+static char *type2regmap(u32 type)
 {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(vsec_devs); i++) {
 		if (vsec_devs[i].type == type)
-			return (vsec_devs[i].comp);
+			return (vsec_devs[i].regmap);
 	}
 
 	return NULL;
@@ -143,20 +143,21 @@ static int xocl_vsec_add_node(struct xocl_vsec *vsec,
 	void *md_blob, struct xocl_vsec_entry *p_entry)
 {
 	struct xocl_md_endpoint ep;
-	char comp[128];
+	char regmap_ver[64];
 	int ret;
 
 	if (!type2epname(p_entry->type))
 		return -EINVAL;
 
-	snprintf(comp, sizeof(comp), "%s-%d-%d.%d.%d",
-		type2comp(p_entry->type), p_entry->ver_type,
-		p_entry->major, p_entry->minor, GET_REV(p_entry));
+	snprintf(regmap_ver, sizeof(regmap_ver) - 1, "%d-%d.%d.%d",
+		p_entry->ver_type, p_entry->major, p_entry->minor,
+		GET_REV(p_entry));
 	ep.ep_name = type2epname(p_entry->type);
 	ep.bar = GET_BAR(p_entry);
 	ep.bar_off = GET_BAR_OFF(p_entry);
 	ep.size = type2size(p_entry->type);
-	ep.comp = comp;
+	ep.regmap = type2regmap(p_entry->type);
+	ep.regmap_ver = regmap_ver;
 	ret = xocl_md_add_endpoint(DEV(vsec->pdev), &vsec->metadata, &ep);
 	if (ret) {
 		xocl_err(vsec->pdev, "add ep failed, ret %d", ret);
