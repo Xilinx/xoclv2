@@ -48,26 +48,6 @@ static int xocl_gpio_name2id(struct xocl_gpio *gpio, const char *name)
 	return -EINVAL;
 }
 
-bool xocl_gpio_match_epname(enum xocl_subdev_id id,
-	struct platform_device *pdev, void *arg)
-{
-	char			*ep_name = arg;
-	struct resource		*res;
-	int			i;
-
-	if (id != XOCL_SUBDEV_GPIO)
-		return false;
-
-	for (i = 0, res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	    res;
-	    res = platform_get_resource(pdev, IORESOURCE_MEM, ++i)) {
-		if (!strncmp(res->name, ep_name, strlen(res->name) + 1))
-			return true;
-	}
-
-	return false;
-}
-
 static int
 xocl_gpio_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
@@ -151,6 +131,7 @@ static int xocl_gpio_probe(struct platform_device *pdev)
 	gpio->pdev = pdev;
 	platform_set_drvdata(pdev, gpio);
 
+	xocl_info(pdev, "probing...");
 	for (i = 0, res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	    res;
 	    res = platform_get_resource(pdev, IORESOURCE_MEM, ++i)) {
