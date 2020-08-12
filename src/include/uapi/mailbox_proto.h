@@ -20,7 +20,7 @@
 #define XCL_MB_PROTOCOL_VER	0U
 
 /*
- * UUID_SZ should ALWAYS have the same number 
+ * UUID_SZ should ALWAYS have the same number
  * as the MACRO UUID_SIZE defined in linux/uuid.h
  */
 #define XCL_UUID_SZ		16
@@ -71,7 +71,7 @@ enum xcl_mailbox_request {
 
 /**
  * struct mailbox_req_bitstream_lock - MAILBOX_REQ_LOCK_BITSTREAM and
- * 				       MAILBOX_REQ_UNLOCK_BITSTREAM payload type
+ *				       MAILBOX_REQ_UNLOCK_BITSTREAM payload type
  * @uuid: uuid of the xclbin
  */
 struct xcl_mailbox_req_bitstream_lock {

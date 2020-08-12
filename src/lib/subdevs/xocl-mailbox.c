@@ -201,7 +201,7 @@
 #include "xocl-mailbox.h"
 
 int mailbox_no_intr = 1;
-module_param(mailbox_no_intr, int, (S_IRUGO|S_IWUSR));
+module_param(mailbox_no_intr, int, 0644);
 MODULE_PARM_DESC(mailbox_no_intr,
 	"Disable mailbox interrupt and do timer-driven msg passing");
 
@@ -253,7 +253,7 @@ struct mailbox_reg {
 	u32			mbr_ie;
 	u32			mbr_ip;
 	u32			mbr_ctrl;
-} __attribute__((packed));
+} __packed;
 
 /*
  * A message transport by mailbox.
@@ -305,7 +305,7 @@ struct mailbox_pkt {
 			u32	payload[0];
 		} msg_body;
 	} body;
-} __attribute__((packed));
+} __packed;
 
 /* Mailbox communication channel state. */
 #define MBXCS_BIT_READY		0
@@ -372,6 +372,7 @@ struct mailbox {
 	/* For listening to peer's request. */
 	mailbox_msg_cb_t	mbx_listen_cb;
 	void			*mbx_listen_cb_arg;
+	struct mutex		mbx_listen_cb_lock;
 	struct workqueue_struct	*mbx_listen_wq;
 	struct work_struct	mbx_listen_worker;
 
@@ -388,7 +389,7 @@ struct mailbox {
 	/* Req list for all incoming request message */
 	struct completion	mbx_comp;
 	struct mutex		mbx_lock;
-	struct spinlock		mbx_intr_lock;
+	spinlock_t		mbx_intr_lock;
 	struct list_head	mbx_req_list;
 	uint32_t		mbx_req_cnt;
 	size_t			mbx_req_sz;
@@ -407,7 +408,7 @@ struct mailbox {
 
 static inline const char *reg2name(struct mailbox *mbx, u32 *reg)
 {
-	const char *reg_names[] = {
+	static const char * const reg_names[] = {
 		"wrdata",
 		"reserved1",
 		"rddata",
@@ -426,11 +427,10 @@ static inline const char *reg2name(struct mailbox *mbx, u32 *reg)
 		(uintptr_t)mbx->mbx_regs) / sizeof(u32)];
 }
 
-int mailbox_request(struct platform_device *, void *, size_t,
+static int mailbox_request(struct platform_device *, void *, size_t,
 	void *, size_t *, mailbox_msg_cb_t, void *, u32);
-int mailbox_post_notify(struct platform_device *, void *, size_t);
-int mailbox_get(struct platform_device *pdev, enum mb_kind kind, u64 *data);
-
+static int mailbox_get(struct platform_device *pdev, enum mb_kind kind, u64 *data);
+static int mailbox_post_notify(struct platform_device *, void *, size_t);
 static int mailbox_enable_intr_mode(struct mailbox *mbx);
 static void mailbox_disable_intr_mode(struct mailbox *mbx, bool timer_on);
 
@@ -677,7 +677,8 @@ static void chann_worker(struct work_struct *work)
 	while (!test_bit(MBXCS_BIT_STOP, &ch->mbc_state)) {
 		wait_for_completion_interruptible(&ch->mbc_worker);
 		/* poll before clear interrupt to avoid too many interrupts */
-		while (ch->mbc_tran(ch));
+		while (ch->mbc_tran(ch))
+			;
 	}
 }
 
@@ -1119,6 +1120,7 @@ static bool do_hw_rx(struct mailbox_channel *ch)
 
 	if (valid_pkt(pkt)) {
 		int err = chan_pkt2msg(ch);
+
 		if (err || eom)
 			chan_msg_done(ch, err);
 	}
@@ -1141,6 +1143,7 @@ static bool chan_do_rx(struct mailbox_channel *ch)
 {
 	struct mailbox *mbx = ch->mbc_parent;
 	bool recvd = false;
+
 	recvd = do_sw_rx(ch);
 	if (!MB_SW_ONLY(mbx))
 		recvd = do_hw_rx(ch);
@@ -1721,10 +1724,12 @@ static void process_request(struct mailbox *mbx, struct mailbox_msg *msg)
 		MBX_INFO(mbx, "%s: %d", recvstr, req->req);
 	} else if (mbx->mbx_listen_cb) {
 		/* Call client's registered callback to process request. */
+		mutex_lock(&mbx->mbx_listen_cb_lock);
 		MBX_INFO(mbx, "%s: %d, passed on", recvstr, req->req);
 		mbx->mbx_listen_cb(mbx->mbx_listen_cb_arg, msg->mbm_data,
 			msg->mbm_len, msg->mbm_req_id, msg->mbm_error,
 			msg->mbm_chan_sw);
+		mutex_unlock(&mbx->mbx_listen_cb_lock);
 	} else {
 		MBX_INFO(mbx, "%s: %d, dropped", recvstr, req->req);
 	}
@@ -1777,10 +1782,10 @@ int mailbox_listen(struct platform_device *pdev,
 {
 	struct mailbox *mbx = platform_get_drvdata(pdev);
 
+	mutex_lock(&mbx->mbx_listen_cb_lock);
 	mbx->mbx_listen_cb_arg = cbarg;
-	wmb();
 	mbx->mbx_listen_cb = cb;
-	wmb();
+	mutex_unlock(&mbx->mbx_listen_cb_lock);
 	complete(&mbx->mbx_rx.mbc_worker);
 
 	return 0;
@@ -1991,8 +1996,8 @@ static int mailbox_start(struct mailbox *mbx)
 	MBX_INFO(mbx, "Starting Mailbox channels");
 
 	if (mbx->mbx_regs) {
-	    /* Reset both TX channel and RX channel */
-	    mailbox_reg_wr(mbx, &mbx->mbx_regs->mbr_ctrl, 0x3);
+		/* Reset both TX channel and RX channel */
+		mailbox_reg_wr(mbx, &mbx->mbx_regs->mbr_ctrl, 0x3);
 	}
 
 	/* Dedicated thread for listening to peer request. */
@@ -2264,7 +2269,7 @@ static uint mailbox_poll(struct file *file, poll_table *wait)
 
 	poll_wait(file, &ch->sw_chan_wq, wait);
 	counter = atomic_read(&ch->sw_num_pending_msg);
-	MBX_DBG(mbx, "mailbox_poll: %d", counter);
+	MBX_DBG(mbx, "%s: %d", __func__, counter);
 	if (counter == 0)
 		return 0;
 	return POLLIN;
@@ -2307,17 +2312,18 @@ static int mailbox_probe(struct platform_device *pdev)
 
 	init_completion(&mbx->mbx_comp);
 	mutex_init(&mbx->mbx_lock);
+	mutex_init(&mbx->mbx_listen_cb_lock);
 	spin_lock_init(&mbx->mbx_intr_lock);
 	INIT_LIST_HEAD(&mbx->mbx_req_list);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res != NULL) {
-	    mbx->mbx_regs = ioremap(res->start, res->end - res->start + 1);
-	    if (!mbx->mbx_regs) {
-		    MBX_ERR(mbx, "failed to map in registers");
-		    ret = -EIO;
-		    goto failed;
-	    }
+		mbx->mbx_regs = ioremap(res->start, res->end - res->start + 1);
+		if (!mbx->mbx_regs) {
+			MBX_ERR(mbx, "failed to map in registers");
+			ret = -EIO;
+			goto failed;
+		}
 	}
 
 	ret = mailbox_start(mbx);
