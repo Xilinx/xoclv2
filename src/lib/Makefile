@@ -20,6 +20,7 @@ xocl-lib-y := 				\
 	subdevs/xocl-axigate.o		\
 	subdevs/xocl-qspi.o		\
 	subdevs/xocl-gpio.o		\
+	subdevs/xocl-mailbox.o		\
 	$(fdtdir)/fdt.o			\
 	$(fdtdir)/fdt_addresses.o	\
 	$(fdtdir)/fdt_empty_tree.o	\

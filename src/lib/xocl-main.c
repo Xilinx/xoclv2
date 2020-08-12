@@ -38,6 +38,7 @@ static struct xocl_drv_map {
 	{ XOCL_SUBDEV_TEST, &xocl_test_driver, xocl_test_endpoints, },
 	{ XOCL_SUBDEV_MGMT_MAIN, NULL, },
 	{ XOCL_SUBDEV_QSPI, &xocl_qspi_driver, xocl_qspi_endpoints, },
+	//{ XOCL_SUBDEV_MAILBOX, &xocl_mailbox_driver, xocl_mailbox_endpoints, },
 };
 
 static inline struct xocl_subdev_drvdata *

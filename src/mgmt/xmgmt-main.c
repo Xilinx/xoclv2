@@ -9,8 +9,11 @@
  */
 
 #include <linux/firmware.h>
+#include "xocl-xclbin.h"
 #include "xocl-metadata.h"
+#include "xocl-flash.h"
 #include "xocl-subdev.h"
+#include "uapi/flash_xrt_data.h"
 #include "uapi/xmgmt-ioctl.h"
 #include "xocl-gpio.h"
 
@@ -21,13 +24,19 @@ struct xmgmt_main {
 	void *evt_hdl;
 	struct mutex busy_mutex;
 	char *firmware;
+	bool flash_ready;
+	bool gpio_ready;
 };
 
 static bool xmgmt_main_leaf_match(enum xocl_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
-	return (id == XOCL_SUBDEV_QSPI) ||
-		(id == XOCL_SUBDEV_GPIO);
+	if (id == XOCL_SUBDEV_GPIO)
+		return xocl_gpio_match_epname(id, pdev, arg);
+	else if (id == XOCL_SUBDEV_QSPI)
+		return true;
+
+	return false;
 }
 
 static ssize_t reset_store(struct device *dev,
@@ -50,6 +59,88 @@ static struct attribute *xmgmt_main_attrs[] = {
 static const struct attribute_group xmgmt_main_attrgroup = {
 	.attrs = xmgmt_main_attrs,
 };
+
+static int load_firmware_from_flash(struct platform_device *pdev, char **fw_buf)
+{
+	struct platform_device *flash_leaf = NULL;
+	struct flash_data_header header = { 0 };
+	const size_t magiclen = sizeof(header.fdh_id_begin.fdi_magic);
+	size_t flash_size = 0;
+	int ret = 0;
+	char *buf = NULL;
+	struct flash_data_ident id = { 0 };
+	struct xocl_flash_ioctl_read frd = { 0 };
+
+	xocl_info(pdev, "try loading fw from flash");
+
+	flash_leaf = xocl_subdev_get_leaf_by_id(pdev, XOCL_SUBDEV_QSPI,
+		PLATFORM_DEVID_NONE);
+	if (flash_leaf == NULL) {
+		xocl_err(pdev, "failed to hold flash leaf");
+		return -ENODEV;
+	}
+
+	(void) xocl_subdev_ioctl(flash_leaf, XOCL_FLASH_GET_SIZE, &flash_size);
+	if (flash_size == 0) {
+		xocl_err(pdev, "failed to get flash size");
+		ret = -EINVAL;
+		goto done;
+	}
+
+	frd.xfir_buf = (char *)&header;
+	frd.xfir_size = sizeof(header);
+	frd.xfir_offset = flash_size - sizeof(header);
+	ret = xocl_subdev_ioctl(flash_leaf, XOCL_FLASH_READ, &frd);
+	if (ret) {
+		xocl_err(pdev, "failed to read header from flash: %d", ret);
+		goto done;
+	}
+
+	/* Pick the end ident since header is aligned in the end of flash. */
+	id = header.fdh_id_end;
+	if (strncmp(id.fdi_magic, XRT_DATA_MAGIC, magiclen)) {
+		char tmp[sizeof(id.fdi_magic) + 1] = { 0 };
+
+		memcpy(tmp, id.fdi_magic, magiclen);
+		xocl_info(pdev, "ignore meta data, bad magic: %s", tmp);
+		ret = -ENOENT;
+		goto done;
+	}
+	if (id.fdi_version != 0) {
+		xocl_info(pdev, "flash meta data version is not supported: %d",
+			id.fdi_version);
+		ret = -EOPNOTSUPP;
+		goto done;
+	}
+
+	buf = vmalloc(header.fdh_data_len);
+	if (buf == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	frd.xfir_buf = buf;
+	frd.xfir_size = header.fdh_data_len;
+	frd.xfir_offset = header.fdh_data_offset;
+	ret = xocl_subdev_ioctl(flash_leaf, XOCL_FLASH_READ, &frd);
+	if (ret) {
+		xocl_err(pdev, "failed to read meta data from flash: %d", ret);
+		goto done;
+	} else if (flash_xrt_data_get_parity32(buf, header.fdh_data_len) ^
+		header.fdh_data_parity) {
+		xocl_err(pdev, "meta data is corrupted");
+		ret = -EINVAL;
+		goto done;
+	}
+
+	xocl_info(pdev, "found meta data of %d bytes @0x%x",
+		header.fdh_data_len, header.fdh_data_offset);
+	*fw_buf = buf;
+
+done:
+	(void) xocl_subdev_put_leaf(pdev, flash_leaf);
+	return ret;
+}
 
 static int load_firmware_from_disk(struct platform_device *pdev, char **fw_buf)
 {
@@ -102,27 +193,76 @@ static int load_firmware_from_disk(struct platform_device *pdev, char **fw_buf)
 	return 0;
 }
 
+static int xmgmt_create_blp(struct xmgmt_main *xmm)
+{
+	struct platform_device *pdev = xmm->pdev;
+	int rc = 0;
+	void *dtb = NULL;
+
+	rc = xrt_xclbin_get_section(xmm->firmware, PARTITION_METADATA,
+		&dtb, NULL);
+	if (rc) {
+		xocl_err(pdev, "failed to find BLP dtb");
+	} else {
+		rc = xocl_subdev_create_partition(pdev, dtb);
+		if (rc < 0)
+			xocl_err(pdev, "failed to create BLP: %d", rc);
+		else
+			rc = 0;
+		vfree(dtb);
+	}
+	return rc;
+}
+
 static int xmgmt_main_event_cb(struct platform_device *pdev,
 	enum xocl_events evt, enum xocl_subdev_id id, int instance)
 {
 	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+	int rc;
 
 	xocl_info(pdev, "event %d for (%d, %d)", evt, id, instance);
 
-	/*
-	 * if firmware is not on disk, need to wait for flash driver
-	 * to be online so that we can try to load it from flash.
-	 */
 	switch (evt) {
 	case XOCL_EVENT_POST_CREATION:
-		if (id == XOCL_SUBDEV_GPIO)
-			load_firmware_from_disk(pdev, &xmm->firmware);
 		break;
 	default:
 		return 0;
 	}
 
-	return 0;
+	if (id == XOCL_SUBDEV_GPIO) {
+		xmm->gpio_ready = true;
+		rc = load_firmware_from_disk(pdev, &xmm->firmware);
+		if (rc == 0) {
+			(void) xmgmt_create_blp(xmm);
+			xmm->evt_hdl = NULL;
+			return 1; /* will not notify any more */
+		}
+		/*
+		 * if firmware is not on disk, need to wait for flash driver
+		 * to be online so that we can try to load it from flash.
+		 */
+		if (!xmm->flash_ready)
+			return 0;
+		rc = load_firmware_from_flash(pdev, &xmm->firmware);
+		if (rc == 0) {
+			(void) xmgmt_create_blp(xmm);
+			xmm->evt_hdl = NULL;
+			return 1; /* will not notify any more */
+		}
+
+		return 0;
+	}
+
+	xmm->flash_ready = true;
+	if (!xmm->gpio_ready)
+		return 0;
+
+	rc = load_firmware_from_flash(pdev, &xmm->firmware);
+	if (rc == 0)
+		(void) xmgmt_create_blp(xmm);
+
+	xmm->evt_hdl = NULL;
+	return 1;
 }
 
 static int xmgmt_main_probe(struct platform_device *pdev)
@@ -140,7 +280,7 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 	mutex_init(&xmm->busy_mutex);
 
 	xmm->evt_hdl = xocl_subdev_add_event_cb(pdev,
-		xmgmt_main_leaf_match, NULL, xmgmt_main_event_cb);
+		xmgmt_main_leaf_match, NODE_BLP_ROM, xmgmt_main_event_cb);
 
 	/* Ready to handle req thru sysfs nodes. */
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup))
@@ -194,7 +334,8 @@ static int xmgmt_main_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd,
+	unsigned long arg)
 {
 	long result = 0;
 	struct xmgmt_main *xmm = filp->private_data;
