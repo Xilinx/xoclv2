@@ -13,6 +13,7 @@ xmgmt-y := xmgmt-root.o				\
 	   xmgmt-main.o				\
 	   $(commondir)/xocl-root.o		\
 	   $(commondir)/xocl-metadata.o		\
+	   $(commondir)/xocl-xclbin.o		\
 	   $(fdtdir)/fdt.o			\
 	   $(fdtdir)/fdt_addresses.o		\
 	   $(fdtdir)/fdt_empty_tree.o		\

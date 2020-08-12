@@ -222,23 +222,19 @@ static int xmgmt_create_root_metadata(struct xmgmt *xm, char **root_dtb)
 		goto failed;
 	}
 
-	ret = xroot_add_simple_node(xm->root, &dtb, NODE_TEST);
-	if (ret)
-		goto failed;
-	ret = xroot_add_simple_node(xm->root, &dtb, NODE_MGMT_MAIN);
-	if (ret)
-		goto failed;
 	ret = xroot_add_vsec_node(xm->root, &dtb);
 	if (ret == -ENOENT) {
 		/*
-		 * We may be handling a MFG board.
-		 * Try vsec-golden with all hard-coded offsets.
+		 * We may be dealing with a MFG board.
+		 * Try vsec-golden which will bring up all hard-coded leaves
+		 * at hard-coded offsets.
 		 */
-		struct xocl_md_endpoint ep = { NODE_VSEC_GOLDEN, };
-
-		ret = xocl_md_add_endpoint(DEV(xm->pdev), &dtb, &ep);
+		ret = xroot_add_simple_node(xm, &dtb, NODE_VSEC_GOLDEN);
+	} else if (ret == 0) {
+		ret = xroot_add_simple_node(xm->root, &dtb, NODE_TEST);
 		if (ret)
-			xmgmt_err(xm, "can't create %s: %d", ep.ep_name, ret);
+			goto failed;
+		ret = xroot_add_simple_node(xm->root, &dtb, NODE_MGMT_MAIN);
 	}
 	if (ret)
 		goto failed;

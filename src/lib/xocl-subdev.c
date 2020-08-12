@@ -389,6 +389,7 @@ int xocl_subdev_create_partition(struct platform_device *pdev, char *dtb)
 	return xocl_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_CREATE_PARTITION, dtb);
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_create_partition);
 
 int xocl_subdev_destroy_partition(struct platform_device *pdev, int instance)
 {
