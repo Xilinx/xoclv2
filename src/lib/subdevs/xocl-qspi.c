@@ -1272,8 +1272,7 @@ struct xocl_subdev_endpoints xocl_qspi_endpoints[] = {
 	{
 		.xse_names = (struct xocl_subdev_ep_names []){
 			{
-				.ep_name = NODE_FLASH,
-				.regmap_name = "vsec-flash",
+				.ep_name = NODE_DRV_FLASH,
 			},
 			{ NULL },
 		},
