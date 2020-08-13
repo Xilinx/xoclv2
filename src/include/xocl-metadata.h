@@ -93,6 +93,7 @@
 #define NODE_VSEC "drv_ep_vsec_00"
 #define NODE_VSEC_GOLDEN "drv_ep_vsec_golden_00"
 #define NODE_BLP_ROM "drv_ep_blp_rom_00"
+#define NODE_MAILBOX_VSEC "ep_mailbox_vsec_00"
 #define NODE_PLAT_INFO "drv_ep_platform_info_mgmt_00"
 #define NODE_TEST "drv_ep_test_00"
 #define NODE_MGMT_MAIN "drv_ep_mgmt_main_00"
@@ -104,6 +105,8 @@ struct xocl_md_endpoint {
 	u32		bar;
 	long		bar_off;
 	ulong		size;
+	char		*regmap;
+	char		*regmap_ver;
 };
 
 long xocl_md_size(struct device *dev, char *blob);

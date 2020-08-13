@@ -20,16 +20,21 @@
 #define VSEC_TYPE_MAILBOX	0x53
 #define VSEC_TYPE_END		0xff
 
+#define VSEC_UUID_LEN		16
+
 struct xocl_vsec_header {
 	u32		format;
 	u32		length;
-	u8		entry_sz;
-	u8		rsvd0[3];
+	u32		entry_sz;
 	u32		rsvd;
-};
+} __packed;
+
+#define head_rd(g, r)			\
+	ioread32(&((struct xocl_vsec_header *)g->base)->r)
 
 #define GET_BAR(entry)	((entry->bar_rev >> 4) & 0xf)
 #define GET_BAR_OFF(entry)	(entry->off_lo | ((u64)entry->off_hi << 16))
+#define GET_REV(entry)	(entry->bar_rev & 0xf)
 
 struct xocl_vsec_entry {
 	u8		type;
@@ -41,34 +46,51 @@ struct xocl_vsec_entry {
 	u8		major;
 	u8		rsvd0;
 	u32		rsvd1;
-};
+} __packed;
+
+#define read_entry(g, i, e)					\
+	do {							\
+		u32 *p = (u32 *)(g->base +			\
+			sizeof(struct xocl_vsec_header) +	\
+			i * sizeof(struct xocl_vsec_entry));	\
+		u32 off;					\
+		for (off = 0;					\
+		    off < sizeof(struct xocl_vsec_entry) / 4;	\
+		    off++)					\
+			*((u32 *)(e) + off) = ioread32(p + off);\
+	} while (0)
 
 struct vsec_device {
 	u8		type;
 	char		*ep_name;
 	ulong		size;
+	char		*regmap;
 };
 
 static struct vsec_device vsec_devs[] = {
 	{
 		.type = VSEC_TYPE_UUID,
 		.ep_name = NODE_BLP_ROM,
-		.size = 16,
+		.size = VSEC_UUID_LEN,
+		.regmap = "vsec-uuid",
 	},
 	{
 		.type = VSEC_TYPE_FLASH,
 		.ep_name = NODE_FLASH,
 		.size = 4096,
+		.regmap = "vsec-flash",
 	},
 	{
 		.type = VSEC_TYPE_PLATINFO,
 		.ep_name = NODE_PLAT_INFO,
 		.size = 4,
+		.regmap = "vsec-platinfo",
 	},
 	{
 		.type = VSEC_TYPE_MAILBOX,
-		.ep_name = NODE_MAILBOX_MGMT,
+		.ep_name = NODE_MAILBOX_VSEC,
 		.size = 48,
+		.regmap = "vsec-mbx",
 	},
 };
 
@@ -78,28 +100,8 @@ struct xocl_vsec {
 	ulong			length;
 
 	char			*metadata;
+	char			uuid[VSEC_UUID_LEN];
 };
-
-static int xocl_vsec_add_node(struct xocl_vsec *vsec,
-	void *md_blob, char *ep_name, int bar, u64 bar_off, ulong size)
-{
-	struct xocl_md_endpoint ep;
-	int ret;
-
-	xocl_info(vsec->pdev, "add ep %s", ep_name);
-	ep.ep_name = ep_name;
-	ep.bar = bar;
-	ep.bar_off = bar_off;
-	ep.size = size;
-	ret = xocl_md_add_endpoint(DEV(vsec->pdev), &vsec->metadata, &ep);
-	if (ret) {
-		xocl_err(vsec->pdev, "add ep failed, ret %d", ret);
-		goto failed;
-	}
-
-failed:
-	return ret;
-}
 
 static char *type2epname(u32 type)
 {
@@ -125,11 +127,57 @@ static ulong type2size(u32 type)
 	return 0;
 }
 
+static char *type2regmap(u32 type)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vsec_devs); i++) {
+		if (vsec_devs[i].type == type)
+			return (vsec_devs[i].regmap);
+	}
+
+	return NULL;
+}
+
+static int xocl_vsec_add_node(struct xocl_vsec *vsec,
+	void *md_blob, struct xocl_vsec_entry *p_entry)
+{
+	struct xocl_md_endpoint ep;
+	char regmap_ver[64];
+	int ret;
+
+	if (!type2epname(p_entry->type))
+		return -EINVAL;
+
+	/*
+	 * VSEC may have more than 1 mailbox instance for the card
+	 * which has more than 1 physical function.
+	 * This is not supported for now. Assuming only one mailbox
+	 */
+
+	snprintf(regmap_ver, sizeof(regmap_ver) - 1, "%d-%d.%d.%d",
+		p_entry->ver_type, p_entry->major, p_entry->minor,
+		GET_REV(p_entry));
+	ep.ep_name = type2epname(p_entry->type);
+	ep.bar = GET_BAR(p_entry);
+	ep.bar_off = GET_BAR_OFF(p_entry);
+	ep.size = type2size(p_entry->type);
+	ep.regmap = type2regmap(p_entry->type);
+	ep.regmap_ver = regmap_ver;
+	ret = xocl_md_add_endpoint(DEV(vsec->pdev), &vsec->metadata, &ep);
+	if (ret) {
+		xocl_err(vsec->pdev, "add ep failed, ret %d", ret);
+		goto failed;
+	}
+
+failed:
+	return ret;
+}
+
 static int xocl_vsec_create_metadata(struct xocl_vsec *vsec)
 {
-	struct xocl_vsec_entry *p_entry;
-	u64 offset;
-	int ret;
+	struct xocl_vsec_entry entry;
+	int i, ret;
 
 	ret = xocl_md_create(&vsec->pdev->dev, &vsec->metadata);
 	if (ret) {
@@ -137,16 +185,10 @@ static int xocl_vsec_create_metadata(struct xocl_vsec *vsec)
 		return ret;
 	}
 
-	for (p_entry = vsec->base + sizeof(struct xocl_vsec_header);
-	    (ulong)p_entry < (ulong)vsec->base + vsec->length;
-	    p_entry++) {
-		if (!type2epname(p_entry->type))
-			continue;
-
-		offset = (((u64)p_entry->off_hi) << 16) | p_entry->off_lo;
-		ret = xocl_vsec_add_node(vsec, vsec->metadata,
-			type2epname(p_entry->type), GET_BAR(p_entry),
-			GET_BAR_OFF(p_entry), type2size(p_entry->type));
+	for (i = 0; i * sizeof(entry) < vsec->length -
+	    sizeof(struct xocl_vsec_header); i++) {
+		read_entry(vsec, i, &entry);
+		xocl_vsec_add_node(vsec, vsec->metadata, &entry);
 	}
 
 	return 0;
@@ -160,7 +202,6 @@ static int xocl_vsec_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 static int xocl_vsec_mapio(struct xocl_vsec *vsec)
 {
 	struct xocl_subdev_platdata *pdata = DEV_PDATA(vsec->pdev);
-	struct xocl_vsec_header *p_hdr;
 	const u32 *bar;
 	const u64 *bar_off;
 	struct resource *res = NULL;
@@ -197,14 +238,14 @@ static int xocl_vsec_mapio(struct xocl_vsec *vsec)
 
 	addr = res->start + (ulong)be64_to_cpu(*bar_off);
 
-	p_hdr = ioremap(addr, sizeof(*p_hdr));
-	if (!p_hdr) {
+	vsec->base = ioremap(addr, sizeof(struct xocl_vsec_header));
+	if (!vsec->base) {
 		xocl_err(vsec->pdev, "Map header failed");
 		return -EIO;
 	}
 
-	vsec->length = p_hdr->length;
-	iounmap(p_hdr);
+	vsec->length = head_rd(vsec, length);
+	iounmap(vsec->base);
 	vsec->base = ioremap(addr, vsec->length);
 	if (!vsec->base) {
 		xocl_err(vsec->pdev, "map failed");

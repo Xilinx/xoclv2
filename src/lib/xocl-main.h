@@ -15,6 +15,7 @@ extern struct platform_driver xocl_vsec_driver;
 extern struct platform_driver xocl_vsec_golden_driver;
 extern struct platform_driver xocl_axigate_driver;
 extern struct platform_driver xocl_qspi_driver;
+extern struct platform_driver xocl_gpio_driver;
 extern struct platform_driver xocl_mailbox_driver;
 
 extern struct xocl_subdev_endpoints xocl_vsec_endpoints[];
@@ -22,6 +23,7 @@ extern struct xocl_subdev_endpoints xocl_vsec_golden_endpoints[];
 extern struct xocl_subdev_endpoints xocl_axigate_endpoints[];
 extern struct xocl_subdev_endpoints xocl_test_endpoints[];
 extern struct xocl_subdev_endpoints xocl_qspi_endpoints[];
+extern struct xocl_subdev_endpoints xocl_gpio_endpoints[];
 extern struct xocl_subdev_endpoints xocl_mailbox_endpoints[];
 
 extern const char *xocl_drv_name(enum xocl_subdev_id id);

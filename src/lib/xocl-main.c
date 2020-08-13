@@ -33,6 +33,7 @@ static struct xocl_drv_map {
 	{ XOCL_SUBDEV_PART, &xocl_partition_driver, },
 	{ XOCL_SUBDEV_VSEC, &xocl_vsec_driver, xocl_vsec_endpoints, },
 	{ XOCL_SUBDEV_VSEC_GOLDEN, &xocl_vsec_golden_driver, xocl_vsec_golden_endpoints, },
+	{ XOCL_SUBDEV_GPIO, &xocl_gpio_driver, xocl_gpio_endpoints,},
 	{ XOCL_SUBDEV_AXIGATE, &xocl_axigate_driver, xocl_axigate_endpoints, },
 	{ XOCL_SUBDEV_TEST, &xocl_test_driver, xocl_test_endpoints, },
 	{ XOCL_SUBDEV_MGMT_MAIN, NULL, },

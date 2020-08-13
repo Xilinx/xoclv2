@@ -2356,14 +2356,7 @@ mailbox_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 struct xocl_subdev_endpoints xocl_mailbox_endpoints[] = {
 	{
 		.xse_names = (struct xocl_subdev_ep_names []){
-			{ .ep_name = NODE_MAILBOX_MGMT },
-			{ NULL },
-		},
-		.xse_min_ep = 1,
-	},
-	{
-		.xse_names = (struct xocl_subdev_ep_names []){
-			{ .ep_name = NODE_MAILBOX_USER },
+			{ .ep_name = NODE_MAILBOX_VSEC},
 			{ NULL },
 		},
 		.xse_min_ep = 1,
