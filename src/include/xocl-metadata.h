@@ -97,6 +97,7 @@
 #define NODE_PLAT_INFO "drv_ep_platform_info_mgmt_00"
 #define NODE_TEST "drv_ep_test_00"
 #define NODE_MGMT_MAIN "drv_ep_mgmt_main_00"
+#define NODE_DRV_FLASH "drv_ep_card_flash_program_00"
 
 #define PROP_OFFSET "offset"
 

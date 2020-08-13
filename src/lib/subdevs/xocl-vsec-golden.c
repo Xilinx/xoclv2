@@ -20,12 +20,12 @@ static struct xocl_golden_offsets {
 	unsigned short device;
 	u64 offset;
 } vsec_golden_offsets[] = {
-	{ NODE_FLASH, 0x10ee, 0xd020, 0x1f50000 },
+	{ NODE_DRV_FLASH, 0x10ee, 0xd020, 0x1f50000 },
 };
 
 static struct xocl_md_endpoint vsec_devs[] = {
 	{
-		.ep_name = NODE_FLASH,
+		.ep_name = NODE_DRV_FLASH,
 		.bar = 0,
 		.bar_off = 0,
 		.size = 4096,
@@ -92,8 +92,10 @@ static int xocl_vsec_create_metadata(struct xocl_vsec *vsec)
 		if (ret)
 			break;
 	}
-	if (ret)
+	if (ret) {
 		vfree(vsec->metadata);
+		vsec->metadata = NULL;
+	}
 	return ret;
 }
 
