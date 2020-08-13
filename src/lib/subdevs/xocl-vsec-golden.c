@@ -14,21 +14,23 @@
 
 #define XOCL_VSEC_GOLDEN "xocl_vsec_golden"
 
-static struct xocl_golden_offsets {
-	const char *ep_name;
+/*
+ * Global static table listing all known devices we need to bring up
+ * on all golden images that we need to support.
+ */
+static struct xocl_golden_endpoint {
 	unsigned short vendor;
 	unsigned short device;
-	u64 offset;
-} vsec_golden_offsets[] = {
-	{ NODE_DRV_FLASH, 0x10ee, 0xd020, 0x1f50000 },
-};
-
-static struct xocl_md_endpoint vsec_devs[] = {
+	struct xocl_md_endpoint ep;
+} vsec_golden_eps[] = {
 	{
-		.ep_name = NODE_DRV_FLASH,
-		.bar = 0,
-		.bar_off = 0,
-		.size = 4096,
+		.vendor = 0x10ee,
+		.device = 0xd020,
+		{
+			.ep_name = NODE_DRV_FLASH,
+			.bar_off = 0x1f50000,
+			.size = 4096
+		}
 	},
 };
 
@@ -38,26 +40,6 @@ struct xocl_vsec {
 	unsigned short		vendor;
 	unsigned short		device;
 };
-
-static int xocl_vsec_fill_dev_node(struct xocl_vsec *vsec,
-	struct xocl_md_endpoint *dev)
-{
-	int i;
-
-	dev->bar_off = -1;
-	for (i = 0; i < ARRAY_SIZE(vsec_golden_offsets); i++) {
-		struct xocl_golden_offsets *offs = &vsec_golden_offsets[i];
-
-		if (strcmp(dev->ep_name, offs->ep_name) == 0 &&
-			vsec->vendor == offs->vendor &&
-			vsec->device == offs->device) {
-			dev->bar_off = offs->offset;
-			break;
-		}
-	}
-
-	return dev->bar_off == -1 ? -EINVAL : 0;
-}
 
 static int xocl_vsec_add_node(struct xocl_vsec *vsec,
 	struct xocl_md_endpoint *dev)
@@ -71,9 +53,26 @@ static int xocl_vsec_add_node(struct xocl_vsec *vsec,
 	return ret;
 }
 
-static int xocl_vsec_create_metadata(struct xocl_vsec *vsec)
+static int xocl_vsec_add_all_nodes(struct xocl_vsec *vsec)
 {
 	int i;
+	int rc = -ENOENT;
+
+	for (i = 0; i < ARRAY_SIZE(vsec_golden_eps); i++) {
+		struct xocl_golden_endpoint *ep = &vsec_golden_eps[i];
+
+		if (vsec->vendor == ep->vendor && vsec->device == ep->device) {
+			rc = xocl_vsec_add_node(vsec, &ep->ep);
+			if (rc)
+				break;
+		}
+	}
+
+	return rc;
+}
+
+static int xocl_vsec_create_metadata(struct xocl_vsec *vsec)
+{
 	int ret;
 
 	ret = xocl_md_create(&vsec->pdev->dev, &vsec->metadata);
@@ -82,16 +81,7 @@ static int xocl_vsec_create_metadata(struct xocl_vsec *vsec)
 		return ret;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(vsec_devs); i++) {
-		struct xocl_md_endpoint *vd = &vsec_devs[i];
-
-		ret = xocl_vsec_fill_dev_node(vsec, vd);
-		if (ret)
-			break;
-		ret = xocl_vsec_add_node(vsec, vd);
-		if (ret)
-			break;
-	}
+	ret = xocl_vsec_add_all_nodes(vsec);
 	if (ret) {
 		vfree(vsec->metadata);
 		vsec->metadata = NULL;
