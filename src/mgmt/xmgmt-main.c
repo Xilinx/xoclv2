@@ -280,7 +280,6 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 	/* Ready to handle req thru sysfs nodes. */
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup))
 		xocl_err(pdev, "failed to create sysfs group");
-
 	return 0;
 }
 

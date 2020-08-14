@@ -153,6 +153,7 @@ struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev)
 
 	snprintf(obj->name, sizeof(obj->name), "Xilinx Alveo FPGA Manager");
 	obj->state = FPGA_MGR_STATE_UNKNOWN;
+	obj->pdev = pdev;
 	fmgr = fpga_mgr_create(&pdev->dev,
 			       obj->name,
 			       &xmgmt_pr_ops,
@@ -168,7 +169,6 @@ struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev)
 		return ERR_PTR(ret);
 	}
 	mutex_init(&obj->axlf_lock);
-	xocl_info(pdev, "created fmgr 0x%px, obj 0x%px, priv 0x%px\n", fmgr, obj, fmgr->priv);
 	return fmgr;
 }
 
@@ -176,9 +176,7 @@ int xmgmt_fmgr_remove(struct fpga_manager *fmgr)
 {
 	struct xfpga_klass *obj = fmgr->priv;
 
-	xocl_info(obj->pdev, "destroying fmgr 0x%px\n", fmgr);
 	mutex_destroy(&obj->axlf_lock);
-
 	obj->state = FPGA_MGR_STATE_UNKNOWN;
 	fpga_mgr_unregister(fmgr);
 	vfree(obj->blob);
