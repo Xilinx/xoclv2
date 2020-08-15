@@ -110,6 +110,40 @@ struct xocl_md_endpoint {
 	char		*regmap_ver;
 };
 
+/* Note: res_id is defined by leaf driver and must start with 0. */
+struct xocl_iores_map {
+	char		*res_name;
+	int		res_id;
+};
+
+static inline int xocl_md_res_name2id(const struct xocl_iores_map *res_map,
+	int entry_num, const char *res_name)
+{
+	int i;
+
+	BUG_ON(res_name == NULL);
+	for (i = 0; i < entry_num; i++) {
+		if (!strcmp(res_name, res_map->res_name))
+			return res_map->res_id;
+		res_map++;
+	}
+	return -1;
+}
+
+static inline const char *
+xocl_md_res_id2name(const struct xocl_iores_map *res_map, int entry_num, int id)
+{
+	int i;
+
+	BUG_ON(id > entry_num);
+	for (i = 0; i < entry_num; i++) {
+		if (res_map->res_id == id)
+			return res_map->res_name;
+		res_map++;
+	}
+	return NULL;
+}
+
 long xocl_md_size(struct device *dev, char *blob);
 int xocl_md_create(struct device *dev, char **blob);
 int xocl_md_add_endpoint(struct device *dev, char **blob,
