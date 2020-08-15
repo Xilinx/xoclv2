@@ -20,6 +20,8 @@
  * There can be unlimited number of instances of a subdev driver. A
  * <subdev_id, subdev_instance> tuple should be a unique identification of
  * a specific instance of a subdev driver.
+ * NOTE: PLEASE do not change the order of IDs. Sub devices in the same
+ * partition are initialized by this order.
  */
 enum xocl_subdev_id {
 	XOCL_SUBDEV_PART = 0,
@@ -27,6 +29,7 @@ enum xocl_subdev_id {
 	XOCL_SUBDEV_VSEC_GOLDEN,
 	XOCL_SUBDEV_GPIO,
 	XOCL_SUBDEV_AXIGATE,
+	XOCL_SUBDEV_ICAP,
 	XOCL_SUBDEV_TEST,
 	XOCL_SUBDEV_MGMT_MAIN,
 	XOCL_SUBDEV_QSPI,
@@ -190,6 +193,8 @@ enum xocl_events {
 	XOCL_EVENT_PRE_REMOVAL,
 	XOCL_EVENT_PRE_HOT_RESET,
 	XOCL_EVENT_POST_HOT_RESET,
+	XOCL_EVENT_PRE_GATE_CLOSE,
+	XOCL_EVENT_POST_GATE_OPEN,
 
 	/* Broadcast'able events from leaf. */
 	XOCL_BROADCAST_EVENT_TEST,

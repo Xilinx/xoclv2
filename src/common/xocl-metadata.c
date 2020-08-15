@@ -456,3 +456,19 @@ int xocl_md_get_next_endpoint(struct device *dev, char *blob,
 
 	return 0;
 }
+
+int xocl_md_get_compatible_epname(struct device *dev, char *blob,
+	const char *regmap_name, char **ep_name)
+{
+	int ep_offset;
+
+	ep_offset = fdt_node_offset_by_compatible(blob, -1, regmap_name);
+	if (ep_offset < 0) {
+		*ep_name = NULL;
+		return -ENOENT;
+	}
+
+	*ep_name = (char *)fdt_get_name(blob, ep_offset, NULL);
+
+	return 0;
+}
