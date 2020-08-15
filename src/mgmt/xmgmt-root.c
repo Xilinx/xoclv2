@@ -16,7 +16,7 @@
 
 #include "xocl-root.h"
 #include "xocl-subdev.h"
-#include "xmgmt-main.h"
+#include "xmgmt-main-impl.h"
 #include "xocl-metadata.h"
 
 #define	XMGMT_MODULE_NAME	"xmgmt"

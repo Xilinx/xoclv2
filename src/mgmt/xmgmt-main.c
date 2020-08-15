@@ -16,6 +16,7 @@
 #include "uapi/flash_xrt_data.h"
 #include "uapi/xmgmt-ioctl.h"
 #include "xocl-gpio.h"
+#include "xmgmt-main.h"
 
 #define	XMGMT_MAIN "xmgmt_main"
 
@@ -298,8 +299,27 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 static int
 xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
+	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+	int ret = 0;
+
 	xocl_info(pdev, "handling IOCTL cmd: %d", cmd);
-	return 0;
+
+	switch (cmd) {
+	case XOCL_MGMT_MAIN_GET_XSABIN_SECTION: {
+		struct xocl_mgmt_main_ioctl_get_xsabin_section *get =
+			(struct xocl_mgmt_main_ioctl_get_xsabin_section *)arg;
+
+		ret = xrt_xclbin_get_section(xmm->firmware,
+			get->xmmigxs_section_kind, &get->xmmigxs_section,
+			&get->xmmigxs_section_size);
+		break;
+	}
+	default:
+		xocl_err(pdev, "unknown cmd: %d", cmd);
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
 }
 
 static int xmgmt_main_open(struct inode *inode, struct file *file)

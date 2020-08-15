@@ -31,6 +31,7 @@ enum xocl_subdev_id {
 	XOCL_SUBDEV_MGMT_MAIN,
 	XOCL_SUBDEV_QSPI,
 	XOCL_SUBDEV_MAILBOX,
+	XOCL_SUBDEV_CMC,
 	XOCL_SUBDEV_NUM,
 };
 
@@ -263,5 +264,23 @@ extern int xocl_devnode_destroy(struct platform_device *pdev);
 extern struct platform_device *xocl_devnode_open_excl(struct inode *inode);
 extern struct platform_device *xocl_devnode_open(struct inode *inode);
 extern void xocl_devnode_close(struct inode *inode);
+
+static inline void xocl_memcpy_fromio(void *buf, void __iomem *iomem, u32 size)
+{
+	int i;
+
+	BUG_ON(size & 0x3);
+	for (i = 0; i < size / 4; i++)
+		((u32 *)buf)[i] = ioread32((char *)(iomem) + sizeof(u32) * i);
+}
+
+static inline void xocl_memcpy_toio(void __iomem *iomem, void *buf, u32 size)
+{
+	int i;
+
+	BUG_ON(size & 0x3);
+	for (i = 0; i < size / 4; i++)
+		iowrite32(((u32 *)buf)[i], ((char *)(iomem) + sizeof(u32) * i));
+}
 
 #endif	/* _XOCL_SUBDEV_H_ */

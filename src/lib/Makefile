@@ -21,6 +21,8 @@ xocl-lib-y := 				\
 	subdevs/xocl-qspi.o		\
 	subdevs/xocl-gpio.o		\
 	subdevs/xocl-mailbox.o		\
+	subdevs/xocl-cmc.o		\
+	subdevs/xocl-cmc-ctrl.o		\
 	$(fdtdir)/fdt.o			\
 	$(fdtdir)/fdt_addresses.o	\
 	$(fdtdir)/fdt_empty_tree.o	\
