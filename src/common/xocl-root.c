@@ -151,12 +151,17 @@ xroot_event_partition(struct xroot *xr, int instance, enum xocl_events evt)
 int xroot_create_partition(void *root, char *dtb)
 {
 	struct xroot *xr = (struct xroot *)root;
-	int ret = xocl_subdev_pool_add(&xr->parts.pool,
-		XOCL_SUBDEV_PART, xroot_parent_cb, xr, dtb);
+	int ret;
 
+	atomic_inc(&xr->parts.bringup_pending);
+	ret = xocl_subdev_pool_add(&xr->parts.pool,
+		XOCL_SUBDEV_PART, xroot_parent_cb, xr, dtb);
 	if (ret >= 0) {
-		atomic_inc(&xr->parts.bringup_pending);
 		schedule_work(&xr->parts.bringup_work);
+	} else {
+		atomic_dec(&xr->parts.bringup_pending);
+		atomic_inc(&xr->parts.bringup_failed);
+		xroot_err(xr, "failed to create partition: %d", ret);
 	}
 	return ret;
 }
@@ -424,7 +429,6 @@ static void xroot_bringup_partition_work(struct work_struct *work)
 			atomic_inc(&xr->parts.bringup_failed);
 
 		xroot_event_partition(xr, i, XOCL_EVENT_POST_CREATION);
-
 
 		if (atomic_dec_and_test(&xr->parts.bringup_pending))
 			complete(&xr->parts.bringup_comp);
