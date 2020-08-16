@@ -17,16 +17,18 @@
 #include "uapi/xmgmt-ioctl.h"
 #include "xocl-gpio.h"
 #include "xmgmt-main.h"
+#include "xmgmt-fmgr.h"
 
 #define	XMGMT_MAIN "xmgmt_main"
 
 struct xmgmt_main {
 	struct platform_device *pdev;
 	void *evt_hdl;
-	struct mutex busy_mutex;
 	char *firmware;
 	bool flash_ready;
 	bool gpio_ready;
+	struct fpga_manager *fmgr;
+	struct mutex busy_mutex;
 };
 
 static bool xmgmt_main_leaf_match(enum xocl_subdev_id id,
@@ -269,6 +271,7 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 
 	xmm->pdev = pdev;
 	platform_set_drvdata(pdev, xmm);
+	xmm->fmgr = xmgmt_fmgr_probe(pdev);
 	mutex_init(&xmm->busy_mutex);
 
 	xmm->evt_hdl = xocl_subdev_add_event_cb(pdev,
@@ -277,7 +280,6 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 	/* Ready to handle req thru sysfs nodes. */
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup))
 		xocl_err(pdev, "failed to create sysfs group");
-
 	return 0;
 }
 
@@ -292,6 +294,7 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 	if (xmm->evt_hdl)
 		(void) xocl_subdev_remove_event_cb(pdev, xmm->evt_hdl);
 	vfree(xmm->firmware);
+	(void) xmgmt_fmgr_remove(xmm->fmgr);
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup);
 	return 0;
 }
