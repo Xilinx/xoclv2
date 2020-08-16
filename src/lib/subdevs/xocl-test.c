@@ -65,24 +65,28 @@ static const struct attribute_group xocl_test_attrgroup = {
 };
 
 static int xocl_test_event_cb(struct platform_device *pdev,
-	enum xocl_events evt, enum xocl_subdev_id id, int instance)
+	enum xocl_events evt, void *arg)
 {
 	struct platform_device *leaf;
+	struct xocl_event_arg_subdev *esd = (struct xocl_event_arg_subdev *)arg;
 
-	xocl_info(pdev, "event %d for (%d, %d)", evt, id, instance);
 
 	switch (evt) {
 	case XOCL_EVENT_POST_CREATION:
 		break;
 	default:
+		xocl_info(pdev, "ignored event %d", evt);
 		return 0;
 	}
 
-	leaf = xocl_subdev_get_leaf_by_id(pdev, id, instance);
+	leaf = xocl_subdev_get_leaf_by_id(pdev, esd->xevt_subdev_id,
+		esd->xevt_subdev_instance);
 	if (leaf) {
 		(void) xocl_subdev_ioctl(leaf, 1, NULL);
 		(void) xocl_subdev_put_leaf(pdev, leaf);
 	}
+	xocl_info(pdev, "processed event %d for (%d, %d)",
+		evt, esd->xevt_subdev_id, esd->xevt_subdev_instance);
 	return 0;
 }
 

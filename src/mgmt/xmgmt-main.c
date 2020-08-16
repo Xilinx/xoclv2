@@ -51,29 +51,32 @@ static ssize_t reset_store(struct device *dev,
 	char *axigate;
 	int i = 0;
 
-	xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET);
-	(void) xocl_subdev_hot_reset(pdev);
-	/*
-	 * recover axigate settings before broadcast post reset event
-	 * axigate will be reset to 0 by pci hot reset
-	 */
-	for (axigate = xocl_axigate_epnames[0]; axigate;
-	    i++, axigate = xocl_axigate_epnames[i]) {
-		leaf = xocl_subdev_get_leaf(pdev, xocl_axigate_match_epname,
-			axigate);
-		if (!leaf)
-			break;
-		if (leaf_pre) {
-			xocl_subdev_ioctl(leaf_pre,
-				XOCL_AXIGATE_FREE, NULL);
-			xocl_subdev_put_leaf(pdev, leaf_pre);
+	if (xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET) == 0) {
+		xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET);
+		(void) xocl_subdev_hot_reset(pdev);
+		/*
+		 * recover axigate settings before broadcast post reset event
+		 * axigate will be reset to 0 by pci hot reset
+		 */
+		for (axigate = xocl_axigate_epnames[0]; axigate;
+		    i++, axigate = xocl_axigate_epnames[i]) {
+			leaf = xocl_subdev_get_leaf(pdev, xocl_axigate_match_epname,
+				axigate);
+			if (!leaf)
+				break;
+			if (leaf_pre) {
+				xocl_subdev_ioctl(leaf_pre,
+					XOCL_AXIGATE_FREE, NULL);
+				xocl_subdev_put_leaf(pdev, leaf_pre);
+			}
+			leaf_pre = leaf;
 		}
-		leaf_pre = leaf;
+
+		if (leaf)
+			xocl_subdev_put_leaf(pdev, leaf);
+	} else {
+		xocl_err(pdev, "offline failed, hot reset is canceled");
 	}
-
-	if (leaf)
-		xocl_subdev_put_leaf(pdev, leaf);
-
 	xocl_subdev_broadcast_event(pdev, XOCL_EVENT_POST_HOT_RESET);
 	return count;
 }
@@ -243,19 +246,24 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 }
 
 static int xmgmt_main_event_cb(struct platform_device *pdev,
-	enum xocl_events evt, enum xocl_subdev_id id, int instance)
+	enum xocl_events evt, void *arg)
 {
 	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+	struct xocl_event_arg_subdev *esd = (struct xocl_event_arg_subdev *)arg;
 	int rc;
-
-	xocl_info(pdev, "event %d for (%d, %d)", evt, id, instance);
+	enum xocl_subdev_id id;
+	int instance;
 
 	switch (evt) {
 	case XOCL_EVENT_POST_CREATION:
 		break;
 	default:
+		xocl_info(pdev, "ignored event %d", evt);
 		return 0;
 	}
+
+	id = esd->xevt_subdev_id;
+	instance = esd->xevt_subdev_instance;
 
 	if (id == XOCL_SUBDEV_GPIO)
 		xmm->gpio_ready = true;
@@ -281,6 +289,7 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 		}
 	}
 
+	xocl_info(pdev, "processed event %d for (%d, %d)", evt, id, instance);
 	return 0;
 }
 

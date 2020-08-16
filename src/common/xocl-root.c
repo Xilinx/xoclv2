@@ -105,10 +105,11 @@ xroot_partition_trigger_evt(struct xroot *xr, struct xroot_event_cb *cb,
 	xocl_event_cb_t evtcb = cb->cb.xevt_cb;
 	void *arg = cb->cb.xevt_match_arg;
 	struct xocl_partition_ioctl_event e = { evt, &cb->cb };
+	struct xocl_event_arg_subdev esd = { XOCL_SUBDEV_PART, part->id };
 	int rc;
 
 	if (match(XOCL_SUBDEV_PART, part, arg)) {
-		rc = evtcb(cb->cb.xevt_pdev, evt, XOCL_SUBDEV_PART, part->id);
+		rc = evtcb(cb->cb.xevt_pdev, evt, &esd);
 		if (rc)
 			return rc;
 	}
@@ -203,7 +204,7 @@ static void xroot_evt_cb_init_work(struct work_struct *work)
 				XOCL_EVENT_POST_CREATION);
 
 			(void) xroot_put_partition(xr, part);
-			if (rc) {
+			if (rc & XOCL_EVENT_CB_STOP) {
 				list_del(&tmp->list);
 				vfree(tmp);
 				tmp = NULL;
@@ -218,24 +219,29 @@ static void xroot_evt_cb_init_work(struct work_struct *work)
 	mutex_unlock(&xr->events.lock);
 }
 
-static void xroot_evt_broadcast(struct xroot *xr, enum xocl_events evt)
+static bool xroot_evt_broadcast(struct xroot *xr, enum xocl_events evt)
 {
 	const struct list_head *ptr, *next;
 	struct xroot_event_cb *tmp;
 	int rc;
+	bool success = true;
 
 	mutex_lock(&xr->events.lock);
 
 	list_for_each_safe(ptr, next, &xr->events.cb_list) {
 		tmp = list_entry(ptr, struct xroot_event_cb, list);
-		rc = tmp->cb.xevt_cb(tmp->cb.xevt_pdev, evt, -1, -1);
-		if (rc) {
+		rc = tmp->cb.xevt_cb(tmp->cb.xevt_pdev, evt, NULL);
+		if (rc & XOCL_EVENT_CB_ERR)
+			success = false;
+		if (rc & XOCL_EVENT_CB_STOP) {
 			list_del(&tmp->list);
 			vfree(tmp);
 		}
 	}
 
 	mutex_unlock(&xr->events.lock);
+
+	return success;
 }
 
 static void xroot_evt_init(struct xroot *xr)
@@ -361,7 +367,8 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		rc = 0;
 		break;
 	case XOCL_PARENT_BOARDCAST_EVENT:
-		xroot_evt_broadcast(xr, (enum xocl_events)(uintptr_t)arg);
+		if (!xroot_evt_broadcast(xr, (enum xocl_events)(uintptr_t)arg))
+			rc = -EINVAL;
 		break;
 	case XOCL_PARENT_GET_HOLDERS: {
 		struct xocl_parent_ioctl_get_holders *holders =

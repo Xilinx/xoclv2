@@ -296,6 +296,7 @@ static void xmgmt_remove(struct pci_dev *pdev)
 
 	(void) xroot_remove(xm->root);
 	pci_disable_pcie_error_reporting(xm->pdev);
+	xmgmt_info(xm, "%s cleaned up successfully", XMGMT_MODULE_NAME);
 }
 
 static struct pci_driver xmgmt_driver = {
