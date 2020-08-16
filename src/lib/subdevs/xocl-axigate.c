@@ -16,6 +16,7 @@
 #include "xocl-metadata.h"
 #include "xocl-subdev.h"
 #include "xocl-parent.h"
+#include "xocl-axigate.h"
 
 #define XOCL_AXIGATE "xocl_axigate"
 
@@ -23,7 +24,7 @@ struct axigate_regs {
 	u32		iag_wr;
 	u32		iag_rvsd;
 	u32		iag_rd;
-}__packed;
+} __packed;
 
 struct xocl_axigate {
 	struct platform_device	*pdev;
@@ -33,7 +34,7 @@ struct xocl_axigate {
 	void			*evt_hdl;
 	const char		*ep_name;
 
-	u32			gate_status;
+	bool			gate_freezed;
 };
 
 #define reg_rd(g, r)						\
@@ -58,19 +59,20 @@ struct xocl_axigate {
 		reg_rd(gate, iag_rd);		\
 	} while (0)				\
 
-static char *xocl_axigate_epnames[] = {
-	NODE_GATE_PLP,
-	NODE_GATE_ULP,
-	NULL
-};
-
-static int xocl_axigate_epname_idx(char *ep_name)
+static int xocl_axigate_epname_idx(struct platform_device *pdev)
 {
-	int	i;
-	int	ret;
+	int			i;
+	int			ret;
+	struct resource		*res;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		xocl_err(pdev, "Empty Resource!");
+		return -EINVAL;
+	}
 
 	for (i = 0; xocl_axigate_epnames[i]; i++) {
-		ret = strncmp(xocl_axigate_epnames[i], ep_name,
+		ret = strncmp(xocl_axigate_epnames[i], res->name,
 			strlen(xocl_axigate_epnames[i]) + 1);
 		if (!ret)
 			break;
@@ -82,7 +84,7 @@ static int xocl_axigate_epname_idx(char *ep_name)
 static bool xocl_axigate_leaf_match(enum xocl_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
-	char			*ep_name = arg;
+	const char		*ep_name = arg;
 	struct resource		*res;
 
 	if (id != XOCL_SUBDEV_AXIGATE)
@@ -94,8 +96,7 @@ static bool xocl_axigate_leaf_match(enum xocl_subdev_id id,
 		return false;
 	}
 
-	if (xocl_axigate_epname_idx(res->name) >
-	    xocl_axigate_epname_idx(ep_name))
+	if (strncmp(res->name, ep_name, strlen(res->name) + 1))
 		return true;
 
 	return false;
@@ -108,14 +109,12 @@ static void xocl_axigate_freeze(struct platform_device *pdev)
 
 	gate = platform_get_drvdata(pdev);
 
-	/* broadcase that axigate is going to close */
-	xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_GATE_CLOSE);
-
 	mutex_lock(&gate->gate_lock);
 	freeze = reg_rd(gate, iag_rd);
 	if (freeze)		/* gate is opened */
 		freeze_gate(gate);
 
+	gate->gate_freezed = true;
 	mutex_unlock(&gate->gate_lock);
 
 	xocl_info(pdev, "freeze gate %s", gate->ep_name);
@@ -133,11 +132,8 @@ static void xocl_axigate_free(struct platform_device *pdev)
 	if (!freeze)		/* gate is closed */
 		free_gate(gate);
 
-done:
+	gate->gate_freezed = false;
 	mutex_unlock(&gate->gate_lock);
-
-	/* broadcase that axigate is opened */
-	xocl_subdev_broadcast_event(pdev, XOCL_EVENT_POST_GATE_OPEN);
 
 	xocl_info(pdev, "free gate %s", gate->ep_name);
 }
@@ -146,6 +142,8 @@ static int
 xocl_axigate_event_cb(struct platform_device *pdev,
 	enum xocl_events evt, enum xocl_subdev_id id, int instance)
 {
+	struct platform_device *leaf;
+
 	switch (evt) {
 	case XOCL_EVENT_POST_CREATION:
 		break;
@@ -153,13 +151,20 @@ xocl_axigate_event_cb(struct platform_device *pdev,
 		return 0;
 	}
 
-	gate = platform_get_drvdata(pdev);
 	/*
 	 * higher level axigate instance created,
 	 * make sure the gate is openned. This covers 1RP flow which
 	 * has plp gate as well.
 	 */
-	xocl_axigate_free(pdev);
+	leaf = xocl_subdev_get_leaf_by_id(pdev, id, instance);
+	if (leaf) {
+		if (xocl_axigate_epname_idx(leaf) >
+		    xocl_axigate_epname_idx(pdev))
+			xocl_axigate_free(pdev);
+		else
+			xocl_subdev_ioctl(leaf, XOCL_AXIGATE_FREE, NULL);
+		xocl_subdev_put_leaf(pdev, leaf);
+	}
 
 	return 0;
 }
@@ -173,8 +178,6 @@ xocl_axigate_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	case XOCL_AXIGATE_FREE:
 		xocl_axigate_free(pdev);
-		break;
-	case XOCL_AXIGATE_RECOVER:
 		break;
 	default:
 		xocl_err(pdev, "unsupported cmd %d", cmd);
@@ -212,6 +215,7 @@ static int xocl_axigate_probe(struct platform_device *pdev)
 	gate->pdev = pdev;
 	platform_set_drvdata(pdev, gate);
 
+	xocl_info(pdev, "probing...");
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		xocl_err(pdev, "Empty resource 0");
@@ -227,7 +231,8 @@ static int xocl_axigate_probe(struct platform_device *pdev)
 	}
 
 	gate->evt_hdl = xocl_subdev_add_event_cb(pdev,
-		xocl_axigate_leaf_match, res->name, xocl_axigate_event_cb);
+		xocl_axigate_leaf_match, (void *)res->name,
+		xocl_axigate_event_cb);
 
 	gate->ep_name = res->name;
 

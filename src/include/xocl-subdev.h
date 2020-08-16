@@ -145,7 +145,6 @@ struct xocl_subdev_platdata {
 struct xocl_subdev_ep_names {
 	const char *ep_name;
 	const char *regmap_name;
-	const char *res_name; /* drv define res name, if NULL, use ep_name */
 };
 
 struct xocl_subdev_endpoints {

@@ -178,8 +178,10 @@ xocl_subdev_getres(struct device *parent, enum xocl_subdev_id id,
 			be64_to_cpu(bar_range[0]) +
 			be64_to_cpu(bar_range[1]) - 1;
 		(*res)[count2].flags = IORESOURCE_MEM;
-		(*res)[count2].name = xocl_drv_get_resname(id, ep_name);
 		(*res)[count2].parent = pci_res;
+
+		xocl_md_get_epname_pointer(parent, pdata->xsp_dtb, ep_name,
+			regmap, &(*res)[count2].name);
 
 		count2++;
 	}

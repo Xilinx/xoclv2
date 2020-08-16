@@ -19,7 +19,7 @@
 
 #define XOCL_ICAP "xocl_icap"
 
-struct xocl_icap{
+struct xocl_icap {
 	struct platform_device	*pdev;
 	void			*base;
 };
