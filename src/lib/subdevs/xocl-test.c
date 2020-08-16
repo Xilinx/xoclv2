@@ -148,7 +148,7 @@ static int xocl_test_probe(struct platform_device *pdev)
 
 	/* Broadcast event. */
 	if (pdev->id == 1)
-		xocl_subdev_broadcast_event(pdev, XOCL_EVENT_TEST);
+		xocl_subdev_broadcast_event_async(pdev, XOCL_EVENT_TEST);
 
 	/* After we return here, we'll get inter-leaf calls. */
 	return 0;

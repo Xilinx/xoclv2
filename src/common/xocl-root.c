@@ -29,6 +29,13 @@
 
 static int xroot_parent_cb(struct device *, void *, u32, void *);
 
+struct xroot_async_evt {
+	struct list_head list;
+	enum xocl_events evt;
+	size_t arg_sz;
+	char arg[1];
+};
+
 struct xroot_event_cb {
 	struct list_head list;
 	bool initialized;
@@ -39,6 +46,8 @@ struct xroot_events {
 	struct list_head cb_list;
 	struct mutex lock;
 	struct work_struct cb_init_work;
+	struct list_head async_evt_list;
+	struct work_struct async_evt_work;
 };
 
 struct xroot_parts {
@@ -224,14 +233,12 @@ static void xroot_evt_cb_init_work(struct work_struct *work)
 	mutex_unlock(&xr->events.lock);
 }
 
-static bool xroot_evt_broadcast(struct xroot *xr, enum xocl_events evt)
+static bool xroot_evt_nolock(struct xroot *xr, enum xocl_events evt, void *arg)
 {
 	const struct list_head *ptr, *next;
 	struct xroot_event_cb *tmp;
 	int rc;
 	bool success = true;
-
-	mutex_lock(&xr->events.lock);
 
 	list_for_each_safe(ptr, next, &xr->events.cb_list) {
 		tmp = list_entry(ptr, struct xroot_event_cb, list);
@@ -244,16 +251,45 @@ static bool xroot_evt_broadcast(struct xroot *xr, enum xocl_events evt)
 		}
 	}
 
+	return success;
+}
+
+static bool xroot_evt(struct xroot *xr, enum xocl_events evt, void *arg)
+{
+	bool ret;
+
+	mutex_lock(&xr->events.lock);
+	ret = xroot_evt_nolock(xr, evt, arg);
 	mutex_unlock(&xr->events.lock);
 
-	return success;
+	return ret;
+}
+
+static void xroot_evt_async_evt_work(struct work_struct *work)
+{
+	const struct list_head *ptr, *next;
+	struct xroot_async_evt *tmp;
+	struct xroot *xr =
+		container_of(work, struct xroot, events.async_evt_work);
+
+	mutex_lock(&xr->events.lock);
+	list_for_each_safe(ptr, next, &xr->events.async_evt_list) {
+		tmp = list_entry(ptr, struct xroot_async_evt, list);
+		list_del(&tmp->list);
+		(void) xroot_evt_nolock(xr, tmp->evt,
+			tmp->arg_sz ? tmp->arg : NULL);
+		vfree(tmp);
+	}
+	mutex_unlock(&xr->events.lock);
 }
 
 static void xroot_evt_init(struct xroot *xr)
 {
 	INIT_LIST_HEAD(&xr->events.cb_list);
+	INIT_LIST_HEAD(&xr->events.async_evt_list);
 	mutex_init(&xr->events.lock);
 	INIT_WORK(&xr->events.cb_init_work, xroot_evt_cb_init_work);
+	INIT_WORK(&xr->events.async_evt_work, xroot_evt_async_evt_work);
 }
 
 static void xroot_evt_fini(struct xroot *xr)
@@ -264,6 +300,7 @@ static void xroot_evt_fini(struct xroot *xr)
 	flush_scheduled_work();
 
 	mutex_lock(&xr->events.lock);
+	BUG_ON(!list_empty(&xr->events.async_evt_list));
 	list_for_each_safe(ptr, next, &xr->events.cb_list) {
 		tmp = list_entry(ptr, struct xroot_event_cb, list);
 		list_del(&tmp->list);
@@ -289,6 +326,26 @@ static int xroot_evt_cb_add(struct xroot *xr,
 	mutex_unlock(&xr->events.lock);
 
 	schedule_work(&xr->events.cb_init_work);
+	return 0;
+}
+
+static int xroot_async_evt_add(struct xroot *xr,
+	enum xocl_events evt, void *arg, size_t arglen)
+{
+	struct xroot_async_evt *new = vzalloc(sizeof(*new) +
+		(arglen ? arglen - 1 : 0));
+
+	if (!new)
+		return -ENOMEM;
+
+	new->evt = evt;
+	memcpy(new->arg, arg, arglen);
+
+	mutex_lock(&xr->events.lock);
+	list_add(&new->list, &xr->events.async_evt_list);
+	mutex_unlock(&xr->events.lock);
+
+	schedule_work(&xr->events.async_evt_work);
 	return 0;
 }
 
@@ -372,8 +429,12 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		rc = 0;
 		break;
 	case XOCL_PARENT_BOARDCAST_EVENT:
-		if (!xroot_evt_broadcast(xr, (enum xocl_events)(uintptr_t)arg))
+		if (!xroot_evt(xr, (enum xocl_events)(uintptr_t)arg, NULL))
 			rc = -EINVAL;
+		break;
+	case XOCL_PARENT_ASYNC_BOARDCAST_EVENT:
+		rc = xroot_async_evt_add(xr,
+			(enum xocl_events)(uintptr_t)arg, NULL, 0);
 		break;
 	case XOCL_PARENT_GET_HOLDERS: {
 		struct xocl_parent_ioctl_get_holders *holders =
