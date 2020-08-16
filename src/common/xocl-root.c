@@ -44,6 +44,9 @@ struct xroot_events {
 struct xroot_parts {
 	struct xocl_subdev_pool pool;
 	struct work_struct bringup_work;
+	atomic_t bringup_pending;
+	atomic_t bringup_failed;
+	struct completion bringup_comp;
 };
 
 struct xroot {
@@ -150,8 +153,10 @@ int xroot_create_partition(void *root, char *dtb)
 	int ret = xocl_subdev_pool_add(&xr->parts.pool,
 		XOCL_SUBDEV_PART, xroot_parent_cb, xr, dtb);
 
-	if (ret >= 0)
+	if (ret >= 0) {
+		atomic_inc(&xr->parts.bringup_pending);
 		schedule_work(&xr->parts.bringup_work);
+	}
 	return ret;
 }
 
@@ -194,14 +199,16 @@ static void xroot_evt_cb_init_work(struct work_struct *work)
 
 		while (xroot_get_partition(xr, PLATFORM_DEVID_NONE,
 			&part) != -ENOENT) {
-			if (xroot_partition_trigger_evt(xr, tmp, part,
-				XOCL_EVENT_POST_CREATION)) {
+			int rc = xroot_partition_trigger_evt(xr, tmp, part,
+				XOCL_EVENT_POST_CREATION);
+
+			(void) xroot_put_partition(xr, part);
+			if (rc) {
 				list_del(&tmp->list);
 				vfree(tmp);
 				tmp = NULL;
 				break;
 			}
-			xroot_put_partition(xr, part);
 		}
 
 		if (tmp)
@@ -404,8 +411,16 @@ static void xroot_bringup_partition_work(struct work_struct *work)
 		i = pdev->id;
 		r = xocl_subdev_ioctl(pdev, XOCL_PARTITION_INIT_CHILDREN, NULL);
 		(void) xroot_put_partition(xr, pdev);
-		if (!r)
-			xroot_event_partition(xr, i, XOCL_EVENT_POST_CREATION);
+		if (r == -EEXIST)
+			continue; /* Already brough up, nothing to do. */
+		if (r)
+			atomic_inc(&xr->parts.bringup_failed);
+
+		xroot_event_partition(xr, i, XOCL_EVENT_POST_CREATION);
+
+
+		if (atomic_dec_and_test(&xr->parts.bringup_pending))
+			complete(&xr->parts.bringup_comp);
 	}
 }
 
@@ -413,6 +428,9 @@ static void xroot_parts_init(struct xroot *xr)
 {
 	xocl_subdev_pool_init(DEV(xr->pdev), &xr->parts.pool);
 	INIT_WORK(&xr->parts.bringup_work, xroot_bringup_partition_work);
+	atomic_set(&xr->parts.bringup_pending, 0);
+	atomic_set(&xr->parts.bringup_failed, 0);
+	init_completion(&xr->parts.bringup_comp);
 }
 
 static void xroot_parts_fini(struct xroot *xr)
@@ -482,6 +500,14 @@ int xroot_add_simple_node(void *root, char **dtb, const char *endpoint)
 		xroot_err(xr, "add %s failed, ret %d", endpoint, ret);
 
 	return ret;
+}
+
+bool xroot_wait_for_bringup(void *root)
+{
+	struct xroot *xr = (struct xroot *)root;
+
+	wait_for_completion(&xr->parts.bringup_comp);
+	return atomic_read(&xr->parts.bringup_failed) == 0;
 }
 
 int xroot_probe(struct pci_dev *pdev, void **root)

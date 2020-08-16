@@ -275,6 +275,11 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		xmgmt_err(xm, "failed to create root partition: %d", ret);
 
+	if (!xroot_wait_for_bringup(xm->root))
+		xmgmt_err(xm, "failed to bringup all partitions");
+	else
+		xmgmt_info(xm, "%s started successfully", XMGMT_MODULE_NAME);
+
 	vfree(dtb);
 	return 0;
 
