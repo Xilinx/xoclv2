@@ -188,6 +188,7 @@ typedef bool (*xocl_subdev_match_t)(enum xocl_subdev_id,
  * Event notification.
  */
 enum xocl_events {
+	XOCL_EVENT_TEST = 0, // for testing
 	/*
 	 * Events related to specific subdev
 	 * Callback arg: struct xocl_event_arg_subdev
@@ -198,7 +199,6 @@ enum xocl_events {
 	 * Events related to change of the whole board
 	 * Callback arg: <none>
 	 */
-	XOCL_BROADCAST_EVENT_TEST, // for testing
 	XOCL_EVENT_PRE_HOT_RESET,
 	XOCL_EVENT_POST_HOT_RESET,
 	XOCL_EVENT_PRE_GATE_CLOSE,
