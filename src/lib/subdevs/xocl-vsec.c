@@ -76,7 +76,7 @@ static struct vsec_device vsec_devs[] = {
 	},
 	{
 		.type = VSEC_TYPE_FLASH,
-		.ep_name = NODE_DRV_FLASH,
+		.ep_name = NODE_FLASH_VSEC,
 		.size = 4096,
 		.regmap = "vsec-flash",
 	},

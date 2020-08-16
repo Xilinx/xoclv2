@@ -27,7 +27,7 @@ static struct xocl_golden_endpoint {
 		.vendor = 0x10ee,
 		.device = 0xd020,
 		{
-			.ep_name = NODE_DRV_FLASH,
+			.ep_name = NODE_FLASH_VSEC,
 			.bar_off = 0x1f50000,
 			.size = 4096
 		}
