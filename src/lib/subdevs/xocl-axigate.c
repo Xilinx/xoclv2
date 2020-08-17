@@ -140,9 +140,12 @@ static void xocl_axigate_free(struct platform_device *pdev)
 
 static int
 xocl_axigate_event_cb(struct platform_device *pdev,
-	enum xocl_events evt, enum xocl_subdev_id id, int instance)
+	enum xocl_events evt, void *arg)
 {
 	struct platform_device *leaf;
+	struct xocl_event_arg_subdev *esd = (struct xocl_event_arg_subdev *)arg;
+	enum xocl_subdev_id id;
+	int instance;
 
 	switch (evt) {
 	case XOCL_EVENT_POST_CREATION:
@@ -150,6 +153,9 @@ xocl_axigate_event_cb(struct platform_device *pdev,
 	default:
 		return 0;
 	}
+
+	id = esd->xevt_subdev_id;
+	instance = esd->xevt_subdev_instance;
 
 	/*
 	 * higher level axigate instance created,

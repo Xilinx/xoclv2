@@ -13,6 +13,8 @@
 #include <linux/types.h>
 #include "xclbin.h"
 
+#define	ICAP_XCLBIN_V2	"xclbin2"
+
 enum axlf_section_kind;
 struct axlf;
 

@@ -169,5 +169,4 @@ int xocl_md_get_epname_pointer(struct device *dev, char *blob,
 int xocl_md_get_intf_uuids(struct device *dev, char *blob,
 	u32 *num_uuids, uuid_t *intf_uuids);
 
-
 #endif

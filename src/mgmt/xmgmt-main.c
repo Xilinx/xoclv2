@@ -16,18 +16,19 @@
 #include "uapi/flash_xrt_data.h"
 #include "uapi/xmgmt-ioctl.h"
 #include "xocl-gpio.h"
-#include "xocl-axigate.h"
 #include "xmgmt-main.h"
+#include "xmgmt-fmgr.h"
 
 #define	XMGMT_MAIN "xmgmt_main"
 
 struct xmgmt_main {
 	struct platform_device *pdev;
 	void *evt_hdl;
-	struct mutex busy_mutex;
 	char *firmware;
 	bool flash_ready;
 	bool gpio_ready;
+	struct fpga_manager *fmgr;
+	struct mutex busy_mutex;
 };
 
 static bool xmgmt_main_leaf_match(enum xocl_subdev_id id,
@@ -45,33 +46,13 @@ static ssize_t reset_store(struct device *dev,
 	struct device_attribute *da, const char *buf, size_t count)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct platform_device *leaf, *leaf_pre = NULL;
-	char *axigate;
-	int i = 0;
 
-	xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET);
-	(void) xocl_subdev_hot_reset(pdev);
-	/*
-	 * recover axigate settings before broadcast post reset event
-	 * axigate will be reset to 0 by pci hot reset
-	 */
-	for (axigate = xocl_axigate_epnames[0]; axigate;
-	    i++, axigate = xocl_axigate_epnames[i]) {
-		leaf = xocl_subdev_get_leaf(pdev, xocl_axigate_match_epname,
-			axigate);
-		if (!leaf)
-			break;
-		if (leaf_pre) {
-			xocl_subdev_ioctl(leaf_pre,
-				XOCL_AXIGATE_FREE, NULL);
-			xocl_subdev_put_leaf(pdev, leaf_pre);
-		}
-		leaf_pre = leaf;
+	if (xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET) == 0) {
+		xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET);
+		(void) xocl_subdev_hot_reset(pdev);
+	} else {
+		xocl_err(pdev, "offline failed, hot reset is canceled");
 	}
-
-	if (leaf)
-		xocl_subdev_put_leaf(pdev, leaf);
-
 	xocl_subdev_broadcast_event(pdev, XOCL_EVENT_POST_HOT_RESET);
 	return count;
 }
@@ -86,7 +67,8 @@ static const struct attribute_group xmgmt_main_attrgroup = {
 	.attrs = xmgmt_main_attrs,
 };
 
-static int load_firmware_from_flash(struct platform_device *pdev, char **fw_buf)
+static int load_firmware_from_flash(struct platform_device *pdev,
+	char **fw_buf, size_t *len)
 {
 	struct platform_device *flash_leaf = NULL;
 	struct flash_data_header header = { 0 };
@@ -162,26 +144,25 @@ static int load_firmware_from_flash(struct platform_device *pdev, char **fw_buf)
 	xocl_info(pdev, "found meta data of %d bytes @0x%x",
 		header.fdh_data_len, header.fdh_data_offset);
 	*fw_buf = buf;
+	*len = header.fdh_data_len;
 
 done:
 	(void) xocl_subdev_put_leaf(pdev, flash_leaf);
 	return ret;
 }
 
-static int load_firmware_from_disk(struct platform_device *pdev, char **fw_buf)
+static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 {
 	char uuid[16];
-	int err = 0, count = 0, i;
-	char fw_name[256];
-	const struct firmware *fw;
 	struct platform_device *gpio_leaf;
 	struct xocl_gpio_ioctl_rw gpio_arg = { 0 };
+	int err, i, count;
 
 	gpio_leaf = xocl_subdev_get_leaf(pdev, xocl_gpio_match_epname,
 		NODE_BLP_ROM);
 	if (!gpio_leaf) {
 		xocl_err(pdev, "can not get %s", NODE_BLP_ROM);
-		return -EFAULT;
+		return -EINVAL;
 	}
 
 	gpio_arg.xgir_id = XOCL_GPIO_ROM_UUID;
@@ -189,20 +170,34 @@ static int load_firmware_from_disk(struct platform_device *pdev, char **fw_buf)
 	gpio_arg.xgir_len = sizeof(uuid);
 	gpio_arg.xgir_offset = 0;
 	err = xocl_subdev_ioctl(gpio_leaf, XOCL_GPIO_READ, &gpio_arg);
-	if (err) {
-		xocl_err(pdev, "can not get uuid");
-		xocl_subdev_put_leaf(pdev, gpio_leaf);
-		return -EFAULT;
-	}
 	xocl_subdev_put_leaf(pdev, gpio_leaf);
-	count = snprintf(fw_name, sizeof(fw_name), "xilinx/");
-	for (i = sizeof(uuid) - sizeof(32); i >= 0; i -= sizeof(u32)) {
-		count += snprintf(fw_name + count, sizeof(fw_name) - count,
+	if (err) {
+		xocl_err(pdev, "can not get uuid: %d", err);
+		return err;
+	}
+
+	for (count = 0, i = sizeof(uuid) - sizeof(u32);
+		i >= 0 && len > count; i -= sizeof(u32)) {
+		count += snprintf(uuidstr + count, len - count,
 			"%08x", *(u32 *)&uuid[i]);
 	}
-	count += snprintf(fw_name + count, sizeof(fw_name) - count,
-		"/partition.xsabin");
+	return 0;
+}
 
+static int load_firmware_from_disk(struct platform_device *pdev, char **fw_buf,
+	size_t *len)
+{
+	char uuid[80];
+	int err = 0;
+	char fw_name[256];
+	const struct firmware *fw;
+
+	err = get_dev_uuid(pdev, uuid, sizeof(uuid));
+	if (err)
+		return err;
+
+	(void) snprintf(fw_name,
+		sizeof(fw_name), "xilinx/%s/partition.xsabin", uuid);
 	xocl_info(pdev, "try loading fw: %s", fw_name);
 
 	err = request_firmware(&fw, fw_name, DEV(pdev));
@@ -210,6 +205,7 @@ static int load_firmware_from_disk(struct platform_device *pdev, char **fw_buf)
 		return err;
 
 	*fw_buf = vmalloc(fw->size);
+	*len = fw->size;
 	if (*fw_buf != NULL)
 		memcpy(*fw_buf, fw->data, fw->size);
 	else
@@ -217,6 +213,58 @@ static int load_firmware_from_disk(struct platform_device *pdev, char **fw_buf)
 
 	release_firmware(fw);
 	return 0;
+}
+
+static const char *get_uuid_from_firmware(struct platform_device *pdev,
+	const char *axlf)
+{
+	const void *uuid = NULL;
+	void *dtb = NULL;
+	int rc;
+
+	rc = xrt_xclbin_get_section(axlf, PARTITION_METADATA, &dtb, NULL);
+	if (rc)
+		return NULL;
+
+	rc = xocl_md_get_prop(DEV(pdev), dtb, NULL, NULL,
+		PROP_LOGIC_UUID, &uuid, NULL);
+	if (rc)
+		return NULL;
+	return uuid;
+}
+
+static bool is_valid_firmware(struct platform_device *pdev,
+	char *fw_buf, size_t fw_len)
+{
+	struct axlf *axlf = (struct axlf *)fw_buf;
+	size_t axlflen = axlf->m_header.m_length;
+	const char *fw_uuid;
+	char dev_uuid[80];
+	int err;
+
+	err = get_dev_uuid(pdev, dev_uuid, sizeof(dev_uuid));
+	if (err)
+		return false;
+
+	if (memcmp(fw_buf, ICAP_XCLBIN_V2, sizeof(ICAP_XCLBIN_V2)) != 0) {
+		xocl_err(pdev, "unknown fw format");
+		return false;
+	}
+
+	if (axlflen > fw_len) {
+		xocl_err(pdev, "truncated fw, length: %ld, expect: %ld",
+			fw_len, axlflen);
+		return false;
+	}
+
+	fw_uuid = get_uuid_from_firmware(pdev, fw_buf);
+	if (fw_uuid == NULL || strcmp(fw_uuid, dev_uuid) != 0) {
+		xocl_err(pdev, "bad fw UUID: %s, expect: %s",
+			fw_uuid ? fw_uuid : "<none>", dev_uuid);
+		return false;
+	}
+
+	return true;
 }
 
 static int xmgmt_create_blp(struct xmgmt_main *xmm)
@@ -241,42 +289,47 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 }
 
 static int xmgmt_main_event_cb(struct platform_device *pdev,
-	enum xocl_events evt, enum xocl_subdev_id id, int instance)
+	enum xocl_events evt, void *arg)
 {
 	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
-	int rc;
-
-	xocl_info(pdev, "event %d for (%d, %d)", evt, id, instance);
+	struct xocl_event_arg_subdev *esd = (struct xocl_event_arg_subdev *)arg;
+	enum xocl_subdev_id id;
+	int instance;
+	size_t fwlen;
 
 	switch (evt) {
 	case XOCL_EVENT_POST_CREATION:
 		break;
 	default:
+		xocl_info(pdev, "ignored event %d", evt);
 		return 0;
 	}
+
+	id = esd->xevt_subdev_id;
+	instance = esd->xevt_subdev_instance;
+	xocl_info(pdev, "processing event %d for (%d, %d)", evt, id, instance);
 
 	if (id == XOCL_SUBDEV_GPIO)
 		xmm->gpio_ready = true;
 	else if (id == XOCL_SUBDEV_QSPI)
 		xmm->flash_ready = true;
+	else
+		BUG_ON(1);
 
 	if (xmm->gpio_ready && xmm->flash_ready) {
-		rc = load_firmware_from_disk(pdev, &xmm->firmware);
-		if (rc == 0) {
-			(void) xmgmt_create_blp(xmm);
-			xmm->evt_hdl = NULL;
-			return 1; /* will not notify any more */
+		int rc;
+
+		rc = load_firmware_from_disk(pdev, &xmm->firmware, &fwlen);
+		if (rc != 0) {
+			rc = load_firmware_from_flash(pdev,
+				&xmm->firmware, &fwlen);
 		}
-		/*
-		 * if firmware is not on disk, need to wait for flash driver
-		 * to be online so that we can try to load it from flash.
-		 */
-		rc = load_firmware_from_flash(pdev, &xmm->firmware);
-		if (rc == 0) {
+		if (rc == 0 && is_valid_firmware(pdev, xmm->firmware, fwlen))
 			(void) xmgmt_create_blp(xmm);
-			xmm->evt_hdl = NULL;
-			return 1; /* will not notify any more */
-		}
+		else
+			xocl_err(pdev, "failed to find firmware, giving up");
+		xmm->evt_hdl = NULL;
+		return XOCL_EVENT_CB_STOP;
 	}
 
 	return 0;
@@ -294,6 +347,7 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 
 	xmm->pdev = pdev;
 	platform_set_drvdata(pdev, xmm);
+	xmm->fmgr = xmgmt_fmgr_probe(pdev);
 	mutex_init(&xmm->busy_mutex);
 
 	xmm->evt_hdl = xocl_subdev_add_event_cb(pdev,
@@ -302,7 +356,6 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 	/* Ready to handle req thru sysfs nodes. */
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup))
 		xocl_err(pdev, "failed to create sysfs group");
-
 	return 0;
 }
 
@@ -317,6 +370,7 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 	if (xmm->evt_hdl)
 		(void) xocl_subdev_remove_event_cb(pdev, xmm->evt_hdl);
 	vfree(xmm->firmware);
+	(void) xmgmt_fmgr_remove(xmm->fmgr);
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup);
 	return 0;
 }
