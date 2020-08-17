@@ -26,7 +26,8 @@ struct xocl_name_id {
 };
 
 static struct xocl_name_id name_id[XOCL_GPIO_MAX] = {
-	{ NODE_BLP_ROM, XOCL_GPIO_UUID },
+	{ NODE_BLP_ROM, XOCL_GPIO_ROM_UUID },
+	{ NODE_DDR_CALIB, XOCL_GPIO_DDR_CALIB},
 };
 
 struct xocl_gpio {
@@ -51,29 +52,31 @@ static int xocl_gpio_name2id(struct xocl_gpio *gpio, const char *name)
 static int
 xocl_gpio_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	struct xocl_gpio_ioctl_rw	*rw_arg = arg;
-	u32				*p_src, *p_dst, i;
 	struct xocl_gpio	*gpio;
+	int			ret = 0;
 
 	gpio = platform_get_drvdata(pdev);
 
-	if (rw_arg->xgir_len & 0x3) {
-		xocl_err(pdev, "invalid len %d", rw_arg->xgir_len);
-		return -EINVAL;
-	}
-
-	if ((ulong)rw_arg->xgir_buf & 0x3) {
-		xocl_err(pdev, "buf is not 4 bytes aligned");
-		return -EINVAL;
-	}
-
-	if (rw_arg->xgir_id >= XOCL_GPIO_MAX) {
-		xocl_err(pdev, "invalid id %d", rw_arg->xgir_id);
-		return -EINVAL;
-	}
-
 	switch (cmd) {
-	case XOCL_GPIO_READ:
+	case XOCL_GPIO_READ: {
+		struct xocl_gpio_ioctl_rw	*rw_arg = arg;
+		u32				*p_src, *p_dst, i;
+
+		if (rw_arg->xgir_len & 0x3) {
+			xocl_err(pdev, "invalid len %d", rw_arg->xgir_len);
+			return -EINVAL;
+		}
+
+		if ((ulong)rw_arg->xgir_buf & 0x3) {
+			xocl_err(pdev, "buf is not 4 bytes aligned");
+			return -EINVAL;
+		}
+
+		if (rw_arg->xgir_id >= XOCL_GPIO_MAX) {
+			xocl_err(pdev, "invalid id %d", rw_arg->xgir_id);
+			return -EINVAL;
+		}
+
 		p_src = gpio->base_addrs[rw_arg->xgir_id];
 		if (!p_src) {
 			xocl_err(pdev, "io not found, id %d",
@@ -92,12 +95,13 @@ xocl_gpio_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 				ioread32(p_src + rw_arg->xgir_offset + i);
 		}
 		break;
+	}
 	default:
 		xocl_err(pdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int xocl_gpio_remove(struct platform_device *pdev)
@@ -162,6 +166,7 @@ struct xocl_subdev_endpoints xocl_gpio_endpoints[] = {
 		.xse_names = (struct xocl_subdev_ep_names[]) {
 			/* add name if ep is in same partition */
 			{ .ep_name = NODE_BLP_ROM },
+			{ .ep_name = NODE_DDR_CALIB },
 			{ NULL },
 		},
 		.xse_min_ep = 1,

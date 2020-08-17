@@ -20,7 +20,8 @@ enum xocl_gpio_ioctl_cmd {
 };
 
 enum xocl_gpio_id {
-	XOCL_GPIO_UUID,
+	XOCL_GPIO_ROM_UUID,
+	XOCL_GPIO_DDR_CALIB,
 	XOCL_GPIO_MAX
 };
 
@@ -29,6 +30,11 @@ struct xocl_gpio_ioctl_rw {
 	void	*xgir_buf;
 	u32	xgir_len;
 	u32	xgir_offset;
+};
+
+struct xocl_gpio_ioctl_intf_uuid {
+	u32	xgir_uuid_num;
+	uuid_t	*xgir_uuids;
 };
 
 static inline bool xocl_gpio_match_epname(enum xocl_subdev_id id,

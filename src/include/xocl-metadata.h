@@ -13,6 +13,7 @@
 
 #include <linux/device.h>
 #include <linux/vmalloc.h>
+#include <linux/uuid.h>
 
 #define PROP_COMPATIBLE "compatible"
 #define PROP_PF_NUM "pcie_physical_function"
@@ -34,6 +35,7 @@
 
 #define NODE_PROPERTIES "partition_info"
 #define NODE_FIRMWARE "firmware"
+#define NODE_INTERFACES "interfaces"
 
 #define NODE_FLASH "ep_card_flash_program_00"
 #define NODE_XVC_PUB "ep_debug_bscan_user_00"
@@ -164,5 +166,7 @@ int xocl_md_get_compatible_epname(struct device *dev, char *blob,
 	const char *regmap_name, char **ep_name);
 int xocl_md_get_epname_pointer(struct device *dev, char *blob,
 	const char *ep_name, char *regmap_name, const char **epname);
+int xocl_md_get_intf_uuids(struct device *dev, char *blob,
+	u32 *num_uuids, uuid_t *intf_uuids);
 
 #endif
