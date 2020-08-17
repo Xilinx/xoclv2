@@ -16,6 +16,7 @@
 #include "uapi/flash_xrt_data.h"
 #include "uapi/xmgmt-ioctl.h"
 #include "xocl-gpio.h"
+#include "xocl-axigate.h"
 #include "xmgmt-main.h"
 #include "xmgmt-fmgr.h"
 
@@ -46,9 +47,33 @@ static ssize_t reset_store(struct device *dev,
 	struct device_attribute *da, const char *buf, size_t count)
 {
 	struct platform_device *pdev = to_platform_device(dev);
+	struct platform_device *leaf, *leaf_pre = NULL;
+	char *axigate;
+	int i = 0;
 
 	xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET);
 	(void) xocl_subdev_hot_reset(pdev);
+	/*
+	 * recover axigate settings before broadcast post reset event
+	 * axigate will be reset to 0 by pci hot reset
+	 */
+	for (axigate = xocl_axigate_epnames[0]; axigate;
+	    i++, axigate = xocl_axigate_epnames[i]) {
+		leaf = xocl_subdev_get_leaf(pdev, xocl_axigate_match_epname,
+			axigate);
+		if (!leaf)
+			break;
+		if (leaf_pre) {
+			xocl_subdev_ioctl(leaf_pre,
+				XOCL_AXIGATE_FREE, NULL);
+			xocl_subdev_put_leaf(pdev, leaf_pre);
+		}
+		leaf_pre = leaf;
+	}
+
+	if (leaf)
+		xocl_subdev_put_leaf(pdev, leaf);
+
 	xocl_subdev_broadcast_event(pdev, XOCL_EVENT_POST_HOT_RESET);
 	return count;
 }

@@ -58,7 +58,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 	struct xocl_subdev_endpoints *eps = NULL;
 	int ep_count = 0, i, ret;
 	ulong mlen;
-	char *dtb, *part_dtb = NULL;
+	char *dtb, *part_dtb = NULL, *ep_name;
 
 
 	mutex_lock(&xp->lock);
@@ -98,21 +98,30 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 				xocl_drv_name(did));
 			continue;
 		}
-		for (i = 0; eps->xse_names[i].ep_name; i++) {
+		for (i = 0; eps->xse_names[i].ep_name ||
+		    eps->xse_names[i].regmap_name; i++) {
+			if (!eps->xse_names[i].ep_name) {
+				ret = xocl_md_get_compatible_epname(
+					DEV(xp->pdev), part_dtb,
+					eps->xse_names[i].regmap_name,
+					&ep_name);
+				if (ret)
+					continue;
+			} else
+				ep_name = (char *)eps->xse_names[i].ep_name;
 			ret = xocl_md_copy_endpoint(DEV(xp->pdev),
-				&dtb, part_dtb,
-				(char *)eps->xse_names[i].ep_name,
+				&dtb, part_dtb, ep_name,
 				(char *)eps->xse_names[i].regmap_name);
 			if (ret)
 				continue;
-			xocl_md_del_endpoint(DEV(xp->pdev), &part_dtb,
-				(char *)eps->xse_names[i].ep_name,
+			xocl_md_del_endpoint(DEV(xp->pdev), &part_dtb, ep_name,
 				(char *)eps->xse_names[i].regmap_name);
 			ep_count++;
 		}
 		if (ep_count >= eps->xse_min_ep) {
 			xocl_subdev_pool_add(&xp->leaves, did,
 				xocl_part_parent_cb, xp, dtb);
+			eps = NULL;
 		} else if (ep_count > 0) {
 			xocl_md_copy_all_eps(DEV(xp->pdev), &part_dtb, dtb);
 		}

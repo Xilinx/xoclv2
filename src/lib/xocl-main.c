@@ -35,6 +35,7 @@ static struct xocl_drv_map {
 	{ XOCL_SUBDEV_VSEC_GOLDEN, &xocl_vsec_golden_driver, xocl_vsec_golden_endpoints, },
 	{ XOCL_SUBDEV_GPIO, &xocl_gpio_driver, xocl_gpio_endpoints,},
 	{ XOCL_SUBDEV_AXIGATE, &xocl_axigate_driver, xocl_axigate_endpoints, },
+	{ XOCL_SUBDEV_ICAP, &xocl_icap_driver, xocl_icap_endpoints, },
 	{ XOCL_SUBDEV_TEST, &xocl_test_driver, xocl_test_endpoints, },
 	{ XOCL_SUBDEV_MGMT_MAIN, NULL, },
 	{ XOCL_SUBDEV_QSPI, &xocl_qspi_driver, xocl_qspi_endpoints, },
@@ -258,27 +259,6 @@ struct xocl_subdev_endpoints *xocl_drv_get_endpoints(enum xocl_subdev_id id)
 	struct xocl_drv_map *map = xocl_drv_find_map_by_id(id);
 
 	return map ? map->eps : NULL;
-}
-
-const char *xocl_drv_get_resname(enum xocl_subdev_id id, char *ep_name)
-{
-	struct xocl_subdev_endpoints *eps = NULL;
-	int i;
-
-	for (eps = xocl_drv_get_endpoints(id);
-	    eps && eps->xse_names;
-	    eps++) {
-		for (i = 0; eps->xse_names[i].ep_name; i++) {
-			if (strncmp(eps->xse_names[i].ep_name, ep_name,
-			    strlen(eps->xse_names[i].ep_name)))
-				continue;
-			return eps->xse_names[i].res_name ?
-				eps->xse_names[i].res_name :
-				eps->xse_names[i].ep_name;
-		}
-	}
-
-	return NULL;
 }
 
 module_init(xocl_drv_register_drivers);

@@ -217,7 +217,7 @@ static int xocl_md_get_endpoint(struct device *dev, char *blob,
 	    offset >= 0;
 	    offset = fdt_next_node(blob, offset, NULL)) {
 		name = fdt_get_name(blob, offset, NULL);
-		if (!name || strncmp(name, ep_name, strlen(ep_name)))
+		if (!name || strncmp(name, ep_name, strlen(ep_name) + 1))
 			continue;
 		if (!regmap_name ||
 		    !fdt_node_check_compatible(blob, offset, regmap_name))
@@ -229,6 +229,20 @@ static int xocl_md_get_endpoint(struct device *dev, char *blob,
 	*ep_offset = offset;
 
 	return 0;
+}
+
+int xocl_md_get_epname_pointer(struct device *dev, char *blob,
+	 const char *ep_name, char *regmap_name, const char **epname)
+{
+	int offset;
+	int ret;
+
+	ret = xocl_md_get_endpoint(dev, blob, ep_name, regmap_name,
+		&offset);
+	if (!ret && epname && offset >= 0)
+		*epname = fdt_get_name(blob, offset, NULL);
+
+	return ret;
 }
 
 int xocl_md_get_prop(struct device *dev, char *blob, const char *ep_name,
@@ -453,6 +467,22 @@ int xocl_md_get_next_endpoint(struct device *dev, char *blob,
 	*next_ep = (char *)fdt_get_name(blob, offset, NULL);
 	*next_regmap = (char *)fdt_stringlist_get(blob, offset, PROP_COMPATIBLE,
 		0, NULL);
+
+	return 0;
+}
+
+int xocl_md_get_compatible_epname(struct device *dev, char *blob,
+	const char *regmap_name, char **ep_name)
+{
+	int ep_offset;
+
+	ep_offset = fdt_node_offset_by_compatible(blob, -1, regmap_name);
+	if (ep_offset < 0) {
+		*ep_name = NULL;
+		return -ENOENT;
+	}
+
+	*ep_name = (char *)fdt_get_name(blob, ep_offset, NULL);
 
 	return 0;
 }

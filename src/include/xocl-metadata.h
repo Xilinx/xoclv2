@@ -160,5 +160,9 @@ int xocl_md_copy_all_eps(struct device *dev, char **blob, char *src_blob);
 int xocl_md_get_next_endpoint(struct device *dev, char *blob,
 	const char *ep_name,  char *regmap_name,
 	char **next_ep, char **next_regmap);
+int xocl_md_get_compatible_epname(struct device *dev, char *blob,
+	const char *regmap_name, char **ep_name);
+int xocl_md_get_epname_pointer(struct device *dev, char *blob,
+	const char *ep_name, char *regmap_name, const char **epname);
 
 #endif
