@@ -29,6 +29,9 @@ struct xmgmt_main {
 	bool gpio_ready;
 	struct fpga_manager *fmgr;
 	struct mutex busy_mutex;
+
+	uuid_t *blp_intf_uuids;
+	u32 blp_uuid_num;
 };
 
 static bool xmgmt_main_leaf_match(enum xocl_subdev_id id,
@@ -283,6 +286,16 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 			xocl_err(pdev, "failed to create BLP: %d", rc);
 		else
 			rc = 0;
+
+		BUG_ON(xmm->blp_intf_uuids);
+		xocl_md_get_intf_uuids(&pdev->dev, dtb,
+			&xmm->blp_uuid_num, NULL);
+		if (xmm->blp_uuid_num > 0) {
+			xmm->blp_intf_uuids = vzalloc(sizeof(uuid_t) *
+				xmm->blp_uuid_num);
+			xocl_md_get_intf_uuids(&pdev->dev, dtb,
+				&xmm->blp_uuid_num, xmm->blp_intf_uuids);
+		}
 		vfree(dtb);
 	}
 	return rc;
@@ -369,6 +382,7 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 
 	if (xmm->evt_hdl)
 		(void) xocl_subdev_remove_event_cb(pdev, xmm->evt_hdl);
+	vfree(xmm->blp_intf_uuids);
 	vfree(xmm->firmware);
 	(void) xmgmt_fmgr_remove(xmm->fmgr);
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup);
