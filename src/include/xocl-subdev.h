@@ -203,9 +203,6 @@ enum xocl_events {
 	XOCL_EVENT_POST_HOT_RESET,
 	XOCL_EVENT_PRE_GATE_CLOSE,
 	XOCL_EVENT_POST_GATE_OPEN,
-
-	/* Broadcast'able events from leaf. */
-	XOCL_BROADCAST_EVENT_TEST,
 };
 
 typedef int (*xocl_event_cb_t)(struct platform_device *pdev,
