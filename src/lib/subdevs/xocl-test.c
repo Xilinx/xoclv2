@@ -85,6 +85,11 @@ static int xocl_test_event_cb(struct platform_device *pdev,
 		(void) xocl_subdev_ioctl(leaf, 1, NULL);
 		(void) xocl_subdev_put_leaf(pdev, leaf);
 	}
+
+	/* Broadcast event. */
+	if (pdev->id == 1)
+		xocl_subdev_broadcast_event_async(pdev, XOCL_EVENT_TEST);
+
 	xocl_info(pdev, "processed event %d for (%d, %d)",
 		evt, esd->xevt_subdev_id, esd->xevt_subdev_instance);
 	return 0;
@@ -145,10 +150,6 @@ static int xocl_test_probe(struct platform_device *pdev)
 			(void) xocl_subdev_create_partition(pdev, dtb);
 		vfree(dtb);
 	}
-
-	/* Broadcast event. */
-	if (pdev->id == 1)
-		xocl_subdev_broadcast_event_async(pdev, XOCL_EVENT_TEST);
 
 	/* After we return here, we'll get inter-leaf calls. */
 	return 0;
