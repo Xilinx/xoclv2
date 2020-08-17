@@ -56,7 +56,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 	struct xocl_subdev_platdata *pdata = DEV_PDATA(xp->pdev);
 	enum xocl_subdev_id did;
 	struct xocl_subdev_endpoints *eps = NULL;
-	int ep_count = 0, i, ret;
+	int ep_count = 0, i, ret = 0, failed = 0;
 	ulong mlen;
 	char *dtb, *part_dtb = NULL, *ep_name;
 
@@ -96,6 +96,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 		if (ret) {
 			xocl_err(xp->pdev, "create md failed, drv %s",
 				xocl_drv_name(did));
+			failed++;
 			continue;
 		}
 		for (i = 0; eps->xse_names[i].ep_name ||
@@ -119,9 +120,14 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 			ep_count++;
 		}
 		if (ep_count >= eps->xse_min_ep) {
-			xocl_subdev_pool_add(&xp->leaves, did,
+			ret = xocl_subdev_pool_add(&xp->leaves, did,
 				xocl_part_parent_cb, xp, dtb);
 			eps = NULL;
+			if (ret < 0) {
+				failed++;
+				xocl_err(xp->pdev, "failed to create %s: %d",
+					xocl_drv_name(did), ret);
+			}
 		} else if (ep_count > 0) {
 			xocl_md_copy_all_eps(DEV(xp->pdev), &part_dtb, dtb);
 		}
@@ -137,7 +143,7 @@ bail:
 	if (part_dtb)
 		vfree(part_dtb);
 
-	return 0;
+	return failed == 0 ? 0 : -ECHILD;
 }
 
 static int xocl_part_remove_leaves(struct xocl_partition *xp)

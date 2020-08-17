@@ -778,12 +778,15 @@ int xocl_subdev_pool_event(struct xocl_subdev_pool *spool,
 	int rc = 0;
 	struct platform_device *tgt = NULL;
 	struct xocl_subdev *sdev = NULL;
+	struct xocl_event_arg_subdev esd;
 
 	while (!rc && xocl_subdev_pool_get_impl(spool, XOCL_SUBDEV_MATCH_NEXT,
 		tgt, DEV(pdev), &sdev) != -ENOENT) {
 		tgt = sdev->xs_pdev;
+		esd.xevt_subdev_id = sdev->xs_id;
+		esd.xevt_subdev_instance = tgt->id;
 		if (match(sdev->xs_id, sdev->xs_pdev, arg))
-			rc = xevt_cb(pdev, evt, sdev->xs_id, tgt->id);
+			rc = xevt_cb(pdev, evt, &esd);
 		(void) xocl_subdev_pool_put_impl(spool, tgt, DEV(pdev));
 	}
 	return rc;
@@ -812,13 +815,21 @@ ssize_t xocl_subdev_pool_get_holders(struct xocl_subdev_pool *spool,
 }
 EXPORT_SYMBOL_GPL(xocl_subdev_pool_get_holders);
 
-void xocl_subdev_broadcast_event(struct platform_device *pdev,
+int xocl_subdev_broadcast_event(struct platform_device *pdev,
 	enum xocl_events evt)
 {
-	(void) xocl_subdev_parent_ioctl(pdev,
+	return xocl_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_BOARDCAST_EVENT, (void *)evt);
 }
 EXPORT_SYMBOL_GPL(xocl_subdev_broadcast_event);
+
+int xocl_subdev_broadcast_event_async(struct platform_device *pdev,
+	enum xocl_events evt)
+{
+	return xocl_subdev_parent_ioctl(pdev,
+		XOCL_PARENT_ASYNC_BOARDCAST_EVENT, (void *)evt);
+}
+EXPORT_SYMBOL_GPL(xocl_subdev_broadcast_event_async);
 
 void xocl_subdev_hot_reset(struct platform_device *pdev)
 {

@@ -29,6 +29,13 @@
 
 static int xroot_parent_cb(struct device *, void *, u32, void *);
 
+struct xroot_async_evt {
+	struct list_head list;
+	enum xocl_events evt;
+	size_t arg_sz;
+	char arg[1];
+};
+
 struct xroot_event_cb {
 	struct list_head list;
 	bool initialized;
@@ -39,11 +46,16 @@ struct xroot_events {
 	struct list_head cb_list;
 	struct mutex lock;
 	struct work_struct cb_init_work;
+	struct list_head async_evt_list;
+	struct work_struct async_evt_work;
 };
 
 struct xroot_parts {
 	struct xocl_subdev_pool pool;
 	struct work_struct bringup_work;
+	atomic_t bringup_pending;
+	atomic_t bringup_failed;
+	struct completion bringup_comp;
 };
 
 struct xroot {
@@ -102,10 +114,11 @@ xroot_partition_trigger_evt(struct xroot *xr, struct xroot_event_cb *cb,
 	xocl_event_cb_t evtcb = cb->cb.xevt_cb;
 	void *arg = cb->cb.xevt_match_arg;
 	struct xocl_partition_ioctl_event e = { evt, &cb->cb };
+	struct xocl_event_arg_subdev esd = { XOCL_SUBDEV_PART, part->id };
 	int rc;
 
 	if (match(XOCL_SUBDEV_PART, part, arg)) {
-		rc = evtcb(cb->cb.xevt_pdev, evt, XOCL_SUBDEV_PART, part->id);
+		rc = evtcb(cb->cb.xevt_pdev, evt, &esd);
 		if (rc)
 			return rc;
 	}
@@ -147,11 +160,18 @@ xroot_event_partition(struct xroot *xr, int instance, enum xocl_events evt)
 int xroot_create_partition(void *root, char *dtb)
 {
 	struct xroot *xr = (struct xroot *)root;
-	int ret = xocl_subdev_pool_add(&xr->parts.pool,
-		XOCL_SUBDEV_PART, xroot_parent_cb, xr, dtb);
+	int ret;
 
-	if (ret >= 0)
+	atomic_inc(&xr->parts.bringup_pending);
+	ret = xocl_subdev_pool_add(&xr->parts.pool,
+		XOCL_SUBDEV_PART, xroot_parent_cb, xr, dtb);
+	if (ret >= 0) {
 		schedule_work(&xr->parts.bringup_work);
+	} else {
+		atomic_dec(&xr->parts.bringup_pending);
+		atomic_inc(&xr->parts.bringup_failed);
+		xroot_err(xr, "failed to create partition: %d", ret);
+	}
 	return ret;
 }
 
@@ -194,14 +214,16 @@ static void xroot_evt_cb_init_work(struct work_struct *work)
 
 		while (xroot_get_partition(xr, PLATFORM_DEVID_NONE,
 			&part) != -ENOENT) {
-			if (xroot_partition_trigger_evt(xr, tmp, part,
-				XOCL_EVENT_POST_CREATION)) {
+			int rc = xroot_partition_trigger_evt(xr, tmp, part,
+				XOCL_EVENT_POST_CREATION);
+
+			(void) xroot_put_partition(xr, part);
+			if (rc & XOCL_EVENT_CB_STOP) {
 				list_del(&tmp->list);
 				vfree(tmp);
 				tmp = NULL;
 				break;
 			}
-			xroot_put_partition(xr, part);
 		}
 
 		if (tmp)
@@ -211,31 +233,63 @@ static void xroot_evt_cb_init_work(struct work_struct *work)
 	mutex_unlock(&xr->events.lock);
 }
 
-static void xroot_evt_broadcast(struct xroot *xr, enum xocl_events evt)
+static bool xroot_evt_nolock(struct xroot *xr, enum xocl_events evt, void *arg)
 {
 	const struct list_head *ptr, *next;
 	struct xroot_event_cb *tmp;
 	int rc;
-
-	mutex_lock(&xr->events.lock);
+	bool success = true;
 
 	list_for_each_safe(ptr, next, &xr->events.cb_list) {
 		tmp = list_entry(ptr, struct xroot_event_cb, list);
-		rc = tmp->cb.xevt_cb(tmp->cb.xevt_pdev, evt, -1, -1);
-		if (rc) {
+		rc = tmp->cb.xevt_cb(tmp->cb.xevt_pdev, evt, NULL);
+		if (rc & XOCL_EVENT_CB_ERR)
+			success = false;
+		if (rc & XOCL_EVENT_CB_STOP) {
 			list_del(&tmp->list);
 			vfree(tmp);
 		}
 	}
 
+	return success;
+}
+
+static bool xroot_evt(struct xroot *xr, enum xocl_events evt, void *arg)
+{
+	bool ret;
+
+	mutex_lock(&xr->events.lock);
+	ret = xroot_evt_nolock(xr, evt, arg);
+	mutex_unlock(&xr->events.lock);
+
+	return ret;
+}
+
+static void xroot_evt_async_evt_work(struct work_struct *work)
+{
+	const struct list_head *ptr, *next;
+	struct xroot_async_evt *tmp;
+	struct xroot *xr =
+		container_of(work, struct xroot, events.async_evt_work);
+
+	mutex_lock(&xr->events.lock);
+	list_for_each_safe(ptr, next, &xr->events.async_evt_list) {
+		tmp = list_entry(ptr, struct xroot_async_evt, list);
+		list_del(&tmp->list);
+		(void) xroot_evt_nolock(xr, tmp->evt,
+			tmp->arg_sz ? tmp->arg : NULL);
+		vfree(tmp);
+	}
 	mutex_unlock(&xr->events.lock);
 }
 
 static void xroot_evt_init(struct xroot *xr)
 {
 	INIT_LIST_HEAD(&xr->events.cb_list);
+	INIT_LIST_HEAD(&xr->events.async_evt_list);
 	mutex_init(&xr->events.lock);
 	INIT_WORK(&xr->events.cb_init_work, xroot_evt_cb_init_work);
+	INIT_WORK(&xr->events.async_evt_work, xroot_evt_async_evt_work);
 }
 
 static void xroot_evt_fini(struct xroot *xr)
@@ -246,6 +300,7 @@ static void xroot_evt_fini(struct xroot *xr)
 	flush_scheduled_work();
 
 	mutex_lock(&xr->events.lock);
+	BUG_ON(!list_empty(&xr->events.async_evt_list));
 	list_for_each_safe(ptr, next, &xr->events.cb_list) {
 		tmp = list_entry(ptr, struct xroot_event_cb, list);
 		list_del(&tmp->list);
@@ -271,6 +326,26 @@ static int xroot_evt_cb_add(struct xroot *xr,
 	mutex_unlock(&xr->events.lock);
 
 	schedule_work(&xr->events.cb_init_work);
+	return 0;
+}
+
+static int xroot_async_evt_add(struct xroot *xr,
+	enum xocl_events evt, void *arg, size_t arglen)
+{
+	struct xroot_async_evt *new = vzalloc(sizeof(*new) +
+		(arglen ? arglen - 1 : 0));
+
+	if (!new)
+		return -ENOMEM;
+
+	new->evt = evt;
+	memcpy(new->arg, arg, arglen);
+
+	mutex_lock(&xr->events.lock);
+	list_add(&new->list, &xr->events.async_evt_list);
+	mutex_unlock(&xr->events.lock);
+
+	schedule_work(&xr->events.async_evt_work);
 	return 0;
 }
 
@@ -354,7 +429,12 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		rc = 0;
 		break;
 	case XOCL_PARENT_BOARDCAST_EVENT:
-		xroot_evt_broadcast(xr, (enum xocl_events)(uintptr_t)arg);
+		if (!xroot_evt(xr, (enum xocl_events)(uintptr_t)arg, NULL))
+			rc = -EINVAL;
+		break;
+	case XOCL_PARENT_ASYNC_BOARDCAST_EVENT:
+		rc = xroot_async_evt_add(xr,
+			(enum xocl_events)(uintptr_t)arg, NULL, 0);
 		break;
 	case XOCL_PARENT_GET_HOLDERS: {
 		struct xocl_parent_ioctl_get_holders *holders =
@@ -404,8 +484,15 @@ static void xroot_bringup_partition_work(struct work_struct *work)
 		i = pdev->id;
 		r = xocl_subdev_ioctl(pdev, XOCL_PARTITION_INIT_CHILDREN, NULL);
 		(void) xroot_put_partition(xr, pdev);
-		if (!r)
-			xroot_event_partition(xr, i, XOCL_EVENT_POST_CREATION);
+		if (r == -EEXIST)
+			continue; /* Already brough up, nothing to do. */
+		if (r)
+			atomic_inc(&xr->parts.bringup_failed);
+
+		xroot_event_partition(xr, i, XOCL_EVENT_POST_CREATION);
+
+		if (atomic_dec_and_test(&xr->parts.bringup_pending))
+			complete(&xr->parts.bringup_comp);
 	}
 }
 
@@ -413,6 +500,9 @@ static void xroot_parts_init(struct xroot *xr)
 {
 	xocl_subdev_pool_init(DEV(xr->pdev), &xr->parts.pool);
 	INIT_WORK(&xr->parts.bringup_work, xroot_bringup_partition_work);
+	atomic_set(&xr->parts.bringup_pending, 0);
+	atomic_set(&xr->parts.bringup_failed, 0);
+	init_completion(&xr->parts.bringup_comp);
 }
 
 static void xroot_parts_fini(struct xroot *xr)
@@ -482,6 +572,14 @@ int xroot_add_simple_node(void *root, char **dtb, const char *endpoint)
 		xroot_err(xr, "add %s failed, ret %d", endpoint, ret);
 
 	return ret;
+}
+
+bool xroot_wait_for_bringup(void *root)
+{
+	struct xroot *xr = (struct xroot *)root;
+
+	wait_for_completion(&xr->parts.bringup_comp);
+	return atomic_read(&xr->parts.bringup_failed) == 0;
 }
 
 int xroot_probe(struct pci_dev *pdev, void **root)

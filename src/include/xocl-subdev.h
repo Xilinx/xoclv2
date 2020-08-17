@@ -188,20 +188,38 @@ typedef bool (*xocl_subdev_match_t)(enum xocl_subdev_id,
  * Event notification.
  */
 enum xocl_events {
-	/* Events triggered when subdev is created or removed. */
+	XOCL_EVENT_TEST = 0, // for testing
+	/*
+	 * Events related to specific subdev
+	 * Callback arg: struct xocl_event_arg_subdev
+	 */
 	XOCL_EVENT_POST_CREATION,
 	XOCL_EVENT_PRE_REMOVAL,
+	/*
+	 * Events related to change of the whole board
+	 * Callback arg: <none>
+	 */
 	XOCL_EVENT_PRE_HOT_RESET,
 	XOCL_EVENT_POST_HOT_RESET,
 	XOCL_EVENT_PRE_GATE_CLOSE,
 	XOCL_EVENT_POST_GATE_OPEN,
-
-	/* Broadcast'able events from leaf. */
-	XOCL_BROADCAST_EVENT_TEST,
 };
 
 typedef int (*xocl_event_cb_t)(struct platform_device *pdev,
-	enum xocl_events evt, enum xocl_subdev_id id, int instance);
+	enum xocl_events evt, void *arg);
+
+struct xocl_event_arg_subdev {
+	enum xocl_subdev_id xevt_subdev_id;
+	int xevt_subdev_instance;
+};
+
+/*
+ * Flags in return value from event callback.
+ */
+/* Done with event handling, stop waiting for the next one */
+#define	XOCL_EVENT_CB_STOP	0x1
+/* Error processing event */
+#define	XOCL_EVENT_CB_ERR	0x2
 
 /*
  * Subdev pool API for root and partition drivers only.
@@ -242,7 +260,9 @@ extern void *xocl_subdev_add_event_cb(struct platform_device *pdev,
 extern void xocl_subdev_remove_event_cb(
 	struct platform_device *pdev, void *hdl);
 extern int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
-extern void xocl_subdev_broadcast_event(struct platform_device *pdev,
+extern int xocl_subdev_broadcast_event(struct platform_device *pdev,
+	enum xocl_events evt);
+extern int xocl_subdev_broadcast_event_async(struct platform_device *pdev,
 	enum xocl_events evt);
 extern void xocl_subdev_hot_reset(struct platform_device *pdev);
 extern void xocl_subdev_get_barres(struct platform_device *pdev,

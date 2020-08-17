@@ -76,8 +76,7 @@ static int xocl_drv_register_driver(enum xocl_subdev_id id)
 	BUG_ON(!map);
 
 	if (!map->drv) {
-		pr_info("skipping registration of subdev driver for id %d\n",
-			id);
+		pr_info("skip registration of subdev driver for id %d\n", id);
 		return rc;
 	}
 	drvname = XOCL_DRVNAME(map->drv);
@@ -130,8 +129,10 @@ static void xocl_drv_unregister_driver(enum xocl_subdev_id id)
 	const char *drvname;
 
 	BUG_ON(!map);
-	if (!map->drv)
+	if (!map->drv) {
+		pr_info("skip unregistration of subdev driver for id %d\n", id);
 		return;
+	}
 
 	drvname = XOCL_DRVNAME(map->drv);
 

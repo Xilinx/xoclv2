@@ -275,6 +275,11 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		xmgmt_err(xm, "failed to create root partition: %d", ret);
 
+	if (!xroot_wait_for_bringup(xm->root))
+		xmgmt_err(xm, "failed to bringup all partitions");
+	else
+		xmgmt_info(xm, "%s started successfully", XMGMT_MODULE_NAME);
+
 	vfree(dtb);
 	return 0;
 
@@ -291,6 +296,7 @@ static void xmgmt_remove(struct pci_dev *pdev)
 
 	(void) xroot_remove(xm->root);
 	pci_disable_pcie_error_reporting(xm->pdev);
+	xmgmt_info(xm, "%s cleaned up successfully", XMGMT_MODULE_NAME);
 }
 
 static struct pci_driver xmgmt_driver = {
