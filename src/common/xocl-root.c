@@ -44,8 +44,9 @@ struct xroot_event_cb {
 
 struct xroot_events {
 	struct list_head cb_list;
-	struct mutex lock;
+	struct mutex cb_lock;
 	struct work_struct cb_init_work;
+	struct mutex async_evt_lock;
 	struct list_head async_evt_list;
 	struct work_struct async_evt_work;
 };
@@ -138,7 +139,7 @@ xroot_event_partition(struct xroot *xr, int instance, enum xocl_events evt)
 	if (ret)
 		return;
 
-	mutex_lock(&xr->events.lock);
+	mutex_lock(&xr->events.cb_lock);
 	list_for_each_safe(ptr, next, &xr->events.cb_list) {
 		int rc;
 
@@ -152,7 +153,7 @@ xroot_event_partition(struct xroot *xr, int instance, enum xocl_events evt)
 			vfree(tmp);
 		}
 	}
-	mutex_unlock(&xr->events.lock);
+	mutex_unlock(&xr->events.cb_lock);
 
 	(void) xroot_put_partition(xr, pdev);
 }
@@ -205,7 +206,7 @@ static void xroot_evt_cb_init_work(struct work_struct *work)
 	struct xroot *xr =
 		container_of(work, struct xroot, events.cb_init_work);
 
-	mutex_lock(&xr->events.lock);
+	mutex_lock(&xr->events.cb_lock);
 
 	list_for_each_safe(ptr, next, &xr->events.cb_list) {
 		tmp = list_entry(ptr, struct xroot_event_cb, list);
@@ -230,16 +231,17 @@ static void xroot_evt_cb_init_work(struct work_struct *work)
 			tmp->initialized = true;
 	}
 
-	mutex_unlock(&xr->events.lock);
+	mutex_unlock(&xr->events.cb_lock);
 }
 
-static bool xroot_evt_nolock(struct xroot *xr, enum xocl_events evt, void *arg)
+static bool xroot_evt(struct xroot *xr, enum xocl_events evt, void *arg)
 {
 	const struct list_head *ptr, *next;
 	struct xroot_event_cb *tmp;
 	int rc;
 	bool success = true;
 
+	mutex_lock(&xr->events.cb_lock);
 	list_for_each_safe(ptr, next, &xr->events.cb_list) {
 		tmp = list_entry(ptr, struct xroot_event_cb, list);
 		rc = tmp->cb.xevt_cb(tmp->cb.xevt_pdev, evt, NULL);
@@ -250,44 +252,38 @@ static bool xroot_evt_nolock(struct xroot *xr, enum xocl_events evt, void *arg)
 			vfree(tmp);
 		}
 	}
+	mutex_unlock(&xr->events.cb_lock);
 
 	return success;
 }
 
-static bool xroot_evt(struct xroot *xr, enum xocl_events evt, void *arg)
-{
-	bool ret;
-
-	mutex_lock(&xr->events.lock);
-	ret = xroot_evt_nolock(xr, evt, arg);
-	mutex_unlock(&xr->events.lock);
-
-	return ret;
-}
-
 static void xroot_evt_async_evt_work(struct work_struct *work)
 {
-	const struct list_head *ptr, *next;
 	struct xroot_async_evt *tmp;
 	struct xroot *xr =
 		container_of(work, struct xroot, events.async_evt_work);
 
-	mutex_lock(&xr->events.lock);
-	list_for_each_safe(ptr, next, &xr->events.async_evt_list) {
-		tmp = list_entry(ptr, struct xroot_async_evt, list);
+	mutex_lock(&xr->events.async_evt_lock);
+	while (!list_empty(&xr->events.async_evt_list)) {
+		tmp = list_first_entry(&xr->events.async_evt_list,
+			struct xroot_async_evt, list);
 		list_del(&tmp->list);
-		(void) xroot_evt_nolock(xr, tmp->evt,
-			tmp->arg_sz ? tmp->arg : NULL);
+		mutex_unlock(&xr->events.async_evt_lock);
+
+		(void) xroot_evt(xr, tmp->evt, tmp->arg_sz ? tmp->arg : NULL);
 		vfree(tmp);
+
+		mutex_lock(&xr->events.async_evt_lock);
 	}
-	mutex_unlock(&xr->events.lock);
+	mutex_unlock(&xr->events.async_evt_lock);
 }
 
 static void xroot_evt_init(struct xroot *xr)
 {
 	INIT_LIST_HEAD(&xr->events.cb_list);
 	INIT_LIST_HEAD(&xr->events.async_evt_list);
-	mutex_init(&xr->events.lock);
+	mutex_init(&xr->events.async_evt_lock);
+	mutex_init(&xr->events.cb_lock);
 	INIT_WORK(&xr->events.cb_init_work, xroot_evt_cb_init_work);
 	INIT_WORK(&xr->events.async_evt_work, xroot_evt_async_evt_work);
 }
@@ -299,14 +295,15 @@ static void xroot_evt_fini(struct xroot *xr)
 
 	flush_scheduled_work();
 
-	mutex_lock(&xr->events.lock);
 	BUG_ON(!list_empty(&xr->events.async_evt_list));
+
+	mutex_lock(&xr->events.cb_lock);
 	list_for_each_safe(ptr, next, &xr->events.cb_list) {
 		tmp = list_entry(ptr, struct xroot_event_cb, list);
 		list_del(&tmp->list);
 		vfree(tmp);
 	}
-	mutex_unlock(&xr->events.lock);
+	mutex_unlock(&xr->events.cb_lock);
 }
 
 static int xroot_evt_cb_add(struct xroot *xr,
@@ -321,9 +318,9 @@ static int xroot_evt_cb_add(struct xroot *xr,
 	new->cb = *cb;
 	new->initialized = false;
 
-	mutex_lock(&xr->events.lock);
+	mutex_lock(&xr->events.cb_lock);
 	list_add(&new->list, &xr->events.cb_list);
-	mutex_unlock(&xr->events.lock);
+	mutex_unlock(&xr->events.cb_lock);
 
 	schedule_work(&xr->events.cb_init_work);
 	return 0;
@@ -341,9 +338,9 @@ static int xroot_async_evt_add(struct xroot *xr,
 	new->evt = evt;
 	memcpy(new->arg, arg, arglen);
 
-	mutex_lock(&xr->events.lock);
+	mutex_lock(&xr->events.async_evt_lock);
 	list_add(&new->list, &xr->events.async_evt_list);
-	mutex_unlock(&xr->events.lock);
+	mutex_unlock(&xr->events.async_evt_lock);
 
 	schedule_work(&xr->events.async_evt_work);
 	return 0;
@@ -355,14 +352,14 @@ static void xroot_evt_cb_del(struct xroot *xr, void *hdl)
 	const struct list_head *ptr;
 	struct xroot_event_cb *tmp;
 
-	mutex_lock(&xr->events.lock);
+	mutex_lock(&xr->events.cb_lock);
 	list_for_each(ptr, &xr->events.cb_list) {
 		tmp = list_entry(ptr, struct xroot_event_cb, list);
 		if (tmp == cb)
 			break;
 	}
 	list_del(&cb->list);
-	mutex_unlock(&xr->events.lock);
+	mutex_unlock(&xr->events.cb_lock);
 	vfree(cb);
 }
 
