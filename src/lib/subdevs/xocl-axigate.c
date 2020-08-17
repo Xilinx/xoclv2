@@ -111,8 +111,11 @@ static void xocl_axigate_freeze(struct platform_device *pdev)
 
 	mutex_lock(&gate->gate_lock);
 	freeze = reg_rd(gate, iag_rd);
-	if (freeze)		/* gate is opened */
+	if (freeze) {		/* gate is opened */
+		xocl_subdev_broadcast_event_async(pdev,
+			XOCL_EVENT_PRE_GATE_CLOSE);
 		freeze_gate(gate);
+	}
 
 	gate->gate_freezed = true;
 	mutex_unlock(&gate->gate_lock);
@@ -129,8 +132,11 @@ static void xocl_axigate_free(struct platform_device *pdev)
 
 	mutex_lock(&gate->gate_lock);
 	freeze = reg_rd(gate, iag_rd);
-	if (!freeze)		/* gate is closed */
+	if (!freeze) {		/* gate is closed */
 		free_gate(gate);
+		xocl_subdev_broadcast_event_async(pdev,
+			XOCL_EVENT_POST_GATE_OPEN);
+	}
 
 	gate->gate_freezed = false;
 	mutex_unlock(&gate->gate_lock);
