@@ -11,6 +11,17 @@
 #include <linux/vmalloc.h>
 #include "xocl-xclbin.h"
 
+/* Used for parsing bitstream header */
+#define XHI_EVEN_MAGIC_BYTE     0x0f
+#define XHI_ODD_MAGIC_BYTE      0xf0
+
+/* Extra mode for IDLE */
+#define XHI_OP_IDLE  -1
+#define XHI_BIT_HEADER_FAILURE -1
+
+/* The imaginary module length register */
+#define XHI_MLR                  15
+
 const char *xrt_xclbin_kind_to_string(enum axlf_section_kind kind)
 {
 	switch (kind) {
@@ -116,4 +127,146 @@ int xrt_xclbin_get_section(const char *buf,
 		*len = size;
 
 	return 0;
+}
+
+/* parse bitstream header */
+int xrt_xclbin_parse_header(const unsigned char *data,
+	unsigned int size, struct XHwIcap_Bit_Header *header)
+{
+	unsigned int i;
+	unsigned int len;
+	unsigned int tmp;
+	unsigned int index;
+
+	/* Start Index at start of bitstream */
+	index = 0;
+
+	/* Initialize HeaderLength.  If header returned early inidicates
+	 * failure.
+	 */
+	header->HeaderLength = XHI_BIT_HEADER_FAILURE;
+
+	/* Get "Magic" length */
+	header->MagicLength = data[index++];
+	header->MagicLength = (header->MagicLength << 8) | data[index++];
+
+	/* Read in "magic" */
+	for (i = 0; i < header->MagicLength - 1; i++) {
+		tmp = data[index++];
+		if (i % 2 == 0 && tmp != XHI_EVEN_MAGIC_BYTE)
+			return -1;	/* INVALID_FILE_HEADER_ERROR */
+
+		if (i % 2 == 1 && tmp != XHI_ODD_MAGIC_BYTE)
+			return -1;	/* INVALID_FILE_HEADER_ERROR */
+	}
+
+	/* Read null end of magic data. */
+	tmp = data[index++];
+
+	/* Read 0x01 (short) */
+	tmp = data[index++];
+	tmp = (tmp << 8) | data[index++];
+
+	/* Check the "0x01" half word */
+	if (tmp != 0x01)
+		return -1;	/* INVALID_FILE_HEADER_ERROR */
+
+	/* Read 'a' */
+	tmp = data[index++];
+	if (tmp != 'a')
+		return -1;	/* INVALID_FILE_HEADER_ERROR	*/
+
+	/* Get Design Name length */
+	len = data[index++];
+	len = (len << 8) | data[index++];
+
+	/* allocate space for design name and final null character. */
+	header->DesignName = vmalloc(len);
+
+	/* Read in Design Name */
+	for (i = 0; i < len; i++)
+		header->DesignName[i] = data[index++];
+
+	if (header->DesignName[len-1] != '\0')
+		return -1;
+
+	/* Read 'b' */
+	tmp = data[index++];
+	if (tmp != 'b')
+		return -1;	/* INVALID_FILE_HEADER_ERROR */
+
+	/* Get Part Name length */
+	len = data[index++];
+	len = (len << 8) | data[index++];
+
+	/* allocate space for part name and final null character. */
+	header->PartName = vmalloc(len);
+
+	/* Read in part name */
+	for (i = 0; i < len; i++)
+		header->PartName[i] = data[index++];
+
+	if (header->PartName[len-1] != '\0')
+		return -1;
+
+	/* Read 'c' */
+	tmp = data[index++];
+	if (tmp != 'c')
+		return -1;	/* INVALID_FILE_HEADER_ERROR */
+
+	/* Get date length */
+	len = data[index++];
+	len = (len << 8) | data[index++];
+
+	/* allocate space for date and final null character. */
+	header->Date = vmalloc(len);
+
+	/* Read in date name */
+	for (i = 0; i < len; i++)
+		header->Date[i] = data[index++];
+
+	if (header->Date[len - 1] != '\0')
+		return -1;
+
+	/* Read 'd' */
+	tmp = data[index++];
+	if (tmp != 'd')
+		return -1;	/* INVALID_FILE_HEADER_ERROR  */
+
+	/* Get time length */
+	len = data[index++];
+	len = (len << 8) | data[index++];
+
+	/* allocate space for time and final null character. */
+	header->Time = vmalloc(len);
+
+	/* Read in time name */
+	for (i = 0; i < len; i++)
+		header->Time[i] = data[index++];
+
+	if (header->Time[len - 1] != '\0')
+		return -1;
+
+	/* Read 'e' */
+	tmp = data[index++];
+	if (tmp != 'e')
+		return -1;	/* INVALID_FILE_HEADER_ERROR */
+
+	/* Get byte length of bitstream */
+	header->BitstreamLength = data[index++];
+	header->BitstreamLength = (header->BitstreamLength << 8) | data[index++];
+	header->BitstreamLength = (header->BitstreamLength << 8) | data[index++];
+	header->BitstreamLength = (header->BitstreamLength << 8) | data[index++];
+	header->HeaderLength = index;
+
+	return 0;
+}
+
+void
+xrt_xclbin_free_header(struct XHwIcap_Bit_Header *header)
+{
+	vfree(header->DesignName);
+	vfree(header->PartName);
+	vfree(header->Date);
+	vfree(header->Time);
 }

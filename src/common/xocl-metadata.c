@@ -486,3 +486,67 @@ int xocl_md_get_compatible_epname(struct device *dev, char *blob,
 
 	return 0;
 }
+
+static int xocl_md_uuid_strtoid(struct device *dev, const char *uuidstr,
+	uuid_t *p_uuid)
+{
+	char *p;
+	const char *str;
+	char tmp[3] = { 0 };
+	int i, ret;
+
+	memset(p_uuid, 0, sizeof(*p_uuid));
+	p = (char *)p_uuid;
+	str = uuidstr + strlen(uuidstr) - 2;
+
+	for (i = 0; i < sizeof(*p_uuid) && str >= uuidstr; i++) {
+		tmp[0] = *str;
+		tmp[1] = *(str + 1);
+		ret = kstrtou8(tmp, 16, p);
+		if (ret) {
+			md_err(dev, "Invalid uuid %s", uuidstr);
+			return -EINVAL;
+		}
+		p++;
+		str -= 2;
+	}
+
+	return 0;
+}
+
+int xocl_md_get_intf_uuids(struct device *dev, char *blob,
+	u32 *num_uuids, uuid_t *intf_uuids)
+{
+	int offset, count = 0;
+	int ret;
+	const char *uuid_str;
+
+	*num_uuids = 0;
+
+	ret = xocl_md_get_endpoint(dev, blob, NODE_INTERFACES, NULL, &offset);
+	if (ret)
+		return -ENOENT;
+
+	for (offset = fdt_first_subnode(blob, offset);
+	    offset >= 0;
+	    offset = fdt_next_subnode(blob, offset)) {
+		uuid_str = fdt_getprop(blob, offset, PROP_INTERFACE_UUID,
+			NULL);
+		if (!uuid_str) {
+			md_err(dev, "empty intf uuid node");
+			return -EINVAL;
+		}
+
+		if (intf_uuids) {
+			ret = xocl_md_uuid_strtoid(dev, uuid_str,
+				&intf_uuids[count]);
+			if (ret)
+				return -EINVAL;
+		}
+		count++;
+	}
+
+	*num_uuids = count;
+
+	return 0;
+}

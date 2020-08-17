@@ -184,7 +184,7 @@ static int load_firmware_from_disk(struct platform_device *pdev, char **fw_buf)
 		return -EFAULT;
 	}
 
-	gpio_arg.xgir_id = XOCL_GPIO_UUID;
+	gpio_arg.xgir_id = XOCL_GPIO_ROM_UUID;
 	gpio_arg.xgir_buf = uuid;
 	gpio_arg.xgir_len = sizeof(uuid);
 	gpio_arg.xgir_offset = 0;

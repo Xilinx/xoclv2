@@ -12,7 +12,7 @@
 #include "xocl-subdev.h"
 
 /*
- * GPIO driver IOCTL calls.
+ * AXIGATE driver IOCTL calls.
  */
 enum xocl_axigate_ioctl_cmd {
 	XOCL_AXIGATE_FREEZE = 0,
