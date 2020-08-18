@@ -24,6 +24,7 @@ xocl-lib-y := 				\
 	subdevs/xocl-icap.o		\
 	subdevs/xocl-cmc.o		\
 	subdevs/xocl-cmc-ctrl.o		\
+	subdevs/xocl-cmc-sensors.o	\
 	$(fdtdir)/fdt.o			\
 	$(fdtdir)/fdt_addresses.o	\
 	$(fdtdir)/fdt_empty_tree.o	\

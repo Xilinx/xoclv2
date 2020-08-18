@@ -9,6 +9,8 @@
 #ifndef	_XOCL_CMC_IMPL_H_
 #define	_XOCL_CMC_IMPL_H_
 
+#include "xocl-subdev.h"
+
 #define	CMC_MAX_RETRY		150 /* Retry is set to 15s */
 #define	CMC_RETRY_INTERVAL	100 /* 100ms */
 #define	CMC_WAIT(cond)						\
@@ -33,6 +35,12 @@ struct cmc_reg_map {
 
 extern int cmc_ctrl_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl);
-extern void cmc_ctrl_remove(void *hdl);
+extern void cmc_ctrl_remove(struct platform_device *pdev);
+extern void *cmc_pdev2ctrl(struct platform_device *pdev);
+
+extern int cmc_sensor_probe(struct platform_device *pdev,
+	struct cmc_reg_map *regmaps, void **hdl);
+extern void cmc_sensor_remove(struct platform_device *pdev);
+extern void *cmc_pdev2sensor(struct platform_device *pdev);
 
 #endif	/* _XOCL_CMC_IMPL_H_ */
