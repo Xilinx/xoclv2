@@ -25,7 +25,22 @@ struct xocl_cmc {
 	struct platform_device *pdev;
 	struct cmc_reg_map regs[NUM_IOADDR];
 	void *ctrl_hdl;
+	void *sensor_hdl;
 };
+
+void *cmc_pdev2ctrl(struct platform_device *pdev)
+{
+	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
+
+	return cmc->ctrl_hdl;
+}
+
+void *cmc_pdev2sensor(struct platform_device *pdev)
+{
+	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
+
+	return cmc->sensor_hdl;
+}
 
 static int cmc_map_io(struct xocl_cmc *cmc, struct resource *res)
 {
@@ -58,8 +73,8 @@ static int cmc_remove(struct platform_device *pdev)
 
 	xocl_info(pdev, "leaving...");
 
-	if (cmc->ctrl_hdl)
-		cmc_ctrl_remove(cmc->ctrl_hdl);
+	cmc_sensor_remove(pdev);
+	cmc_ctrl_remove(pdev);
 
 	for (i = 0; i < NUM_IOADDR; i++) {
 		if (cmc->regs[i].crm_addr == NULL)
@@ -103,6 +118,9 @@ static int cmc_probe(struct platform_device *pdev)
 	}
 
 	ret = cmc_ctrl_probe(cmc->pdev, cmc->regs, &cmc->ctrl_hdl);
+	if (ret)
+		goto done;
+	ret = cmc_sensor_probe(cmc->pdev, cmc->regs, &cmc->sensor_hdl);
 	if (ret)
 		goto done;
 

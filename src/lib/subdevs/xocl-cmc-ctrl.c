@@ -215,9 +215,13 @@ static int cmc_fetch_firmware(struct xocl_cmc_ctrl *cmc_ctrl)
 	return ret;
 }
 
-void cmc_ctrl_remove(void *hdl)
+void cmc_ctrl_remove(struct platform_device *pdev)
 {
-	struct xocl_cmc_ctrl *cmc_ctrl = (struct xocl_cmc_ctrl *)hdl;
+	struct xocl_cmc_ctrl *cmc_ctrl =
+		(struct xocl_cmc_ctrl *)cmc_pdev2ctrl(pdev);
+
+	if (!cmc_ctrl)
+		return;
 
 	(void) cmc_ulp_access(cmc_ctrl, false);
 	vfree(cmc_ctrl->firmware);
@@ -269,7 +273,7 @@ int cmc_ctrl_probe(struct platform_device *pdev,
 	return 0;
 
 done:
-	(void) cmc_ctrl_remove(cmc_ctrl);
+	(void) cmc_ctrl_remove(pdev);
 	devm_kfree(DEV(pdev), cmc_ctrl);
 	return ret;
 }
