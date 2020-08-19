@@ -9,7 +9,9 @@
 #ifndef	_XOCL_AXIGATE_H_
 #define	_XOCL_AXIGATE_H_
 
+
 #include "xocl-subdev.h"
+#include "xocl-metadata.h"
 
 /*
  * AXIGATE driver IOCTL calls.
@@ -20,7 +22,7 @@ enum xocl_axigate_ioctl_cmd {
 };
 
 /* the ep names are in the order of hardware layers */
-static char *xocl_axigate_epnames[] = {
+static const char * const xocl_axigate_epnames[] = {
 	NODE_GATE_PLP,
 	NODE_GATE_ULP,
 	NULL
