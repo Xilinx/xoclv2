@@ -9,6 +9,7 @@
  */
 
 #include <linux/firmware.h>
+#include <linux/uaccess.h>
 #include "xocl-xclbin.h"
 #include "xocl-metadata.h"
 #include "xocl-flash.h"
