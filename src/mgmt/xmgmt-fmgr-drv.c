@@ -116,7 +116,7 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 		return -EINVAL;
 	}
 
-	axigate_leaf = xocl_subdev_get_leaf_by_id(obj->pdev, XOCL_SUBDEV_AXIGATE,
+	axigate_leaf = xocl_subdev_get_leaf_by_id((struct platform_device *)obj->pdev, XOCL_SUBDEV_AXIGATE,
 						  PLATFORM_DEVID_NONE);
 	if (axigate_leaf == NULL) {
 		xocl_err(obj->pdev, "failed to hold flash leaf");
@@ -129,7 +129,7 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 
 	obj->state = result ? FPGA_MGR_STATE_WRITE_COMPLETE_ERR : FPGA_MGR_STATE_WRITE_COMPLETE;
 	xocl_info(obj->pdev, "Finish download of xclbin %pUb of size %zu B", &obj->blob->m_header.uuid, obj->count);
-	(void) xocl_subdev_put_leaf(obj->pdev, axigate_leaf);
+	(void) xocl_subdev_put_leaf((struct platform_device *)obj->pdev, axigate_leaf);
 	vfree(obj->blob);
 	obj->blob = NULL;
 	obj->count = 0;
