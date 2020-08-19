@@ -28,6 +28,7 @@ enum xocl_parent_ioctl_cmd {
 	XOCL_PARENT_GET_RESOURCE,
 	XOCL_PARENT_HOT_RESET,
 	XOCL_PARENT_GET_ID,
+	XOCL_PARENT_HWMON,
 };
 
 struct xocl_parent_ioctl_get_leaf {
@@ -65,6 +66,14 @@ struct xocl_parent_ioctl_get_id {
 	unsigned short  xpigi_device_id;
 	unsigned short  xpigi_sub_vendor_id;
 	unsigned short  xpigi_sub_device_id;
+};
+
+struct xocl_parent_ioctl_hwmon {
+	bool xpih_register;
+	const char *xpih_name;
+	void *xpih_drvdata;
+	const struct attribute_group **xpih_groups;
+	struct device *xpih_hwmon_dev;
 };
 
 #endif	/* _XOCL_PARENT_H_ */

@@ -8,6 +8,7 @@
 
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
+#include "xmgmt-main.h"
 #include "xocl-cmc-impl.h"
 
 #define	CMC_12V_PEX_REG			0x20
@@ -328,13 +329,32 @@ void cmc_sensor_remove(struct platform_device *pdev)
 		(struct xocl_cmc_sensor *)cmc_pdev2sensor(pdev);
 
 	if (cmc_sensor->hwmon_dev)
-		(void) hwmon_device_unregister(cmc_sensor->hwmon_dev);
+		xocl_subdev_unregister_hwmon(pdev, cmc_sensor->hwmon_dev);
+}
+
+static const char *cmc_get_vbnv(struct xocl_cmc_sensor *cmc_sensor)
+{
+	int ret;
+	const char *vbnv;
+	struct platform_device *mgmt_leaf =
+		xocl_subdev_get_leaf_by_id(cmc_sensor->pdev,
+		XOCL_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
+
+	if (mgmt_leaf == NULL)
+		return NULL;
+
+	ret = xocl_subdev_ioctl(mgmt_leaf, XOCL_MGMT_MAIN_GET_VBNV, &vbnv);
+	(void) xocl_subdev_put_leaf(cmc_sensor->pdev, mgmt_leaf);
+	if (ret)
+		return NULL;
+	return vbnv;
 }
 
 int cmc_sensor_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl)
 {
 	struct xocl_cmc_sensor *cmc_sensor;
+	const char *vbnv;
 
 	cmc_sensor = devm_kzalloc(DEV(pdev), sizeof(*cmc_sensor), GFP_KERNEL);
 	if (!cmc_sensor)
@@ -344,8 +364,13 @@ int cmc_sensor_probe(struct platform_device *pdev,
 	/* Obtain register maps we need to read sensor values. */
 	cmc_sensor->reg_io = regmaps[IO_REG];
 
-	cmc_sensor->hwmon_dev = hwmon_device_register_with_info(DEV(pdev),
-		"xmgmt", cmc_sensor, NULL, hwmon_cmc_attrgroups);
+	vbnv = cmc_get_vbnv(cmc_sensor);
+	/*
+	 * Make a parent call to ask root to register. If we register using
+	 * platform device, we'll be treated as ISA device, not PCI device.
+	 */
+	cmc_sensor->hwmon_dev = xocl_subdev_register_hwmon(pdev,
+		vbnv ? vbnv : "golden-image", cmc_sensor, hwmon_cmc_attrgroups);
 	if (cmc_sensor->hwmon_dev == NULL)
 		xocl_err(pdev, "failed to create HWMON device");
 

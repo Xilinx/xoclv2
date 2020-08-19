@@ -865,3 +865,21 @@ void xocl_subdev_get_parent_id(struct platform_device *pdev,
 	if (subdevice)
 		*subdevice = id.xpigi_sub_device_id;
 }
+
+struct device *xocl_subdev_register_hwmon(struct platform_device *pdev,
+	const char *name, void *drvdata, const struct attribute_group **grps)
+{
+	struct xocl_parent_ioctl_hwmon hm = { true, name, drvdata, grps, };
+
+	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_HWMON, (void *)&hm);
+	return hm.xpih_hwmon_dev;
+}
+
+void xocl_subdev_unregister_hwmon(struct platform_device *pdev,
+	struct device *hwmon)
+{
+	struct xocl_parent_ioctl_hwmon hm = { false, };
+
+	hm.xpih_hwmon_dev = hwmon;
+	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_HWMON, (void *)&hm);
+}

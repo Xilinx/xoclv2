@@ -270,6 +270,10 @@ extern void xocl_subdev_get_barres(struct platform_device *pdev,
 extern void xocl_subdev_get_parent_id(struct platform_device *pdev,
 	unsigned short *vendor, unsigned short *device,
 	unsigned short *subvendor, unsigned short *subdevice);
+extern struct device *xocl_subdev_register_hwmon(struct platform_device *pdev,
+	const char *name, void *drvdata, const struct attribute_group **grps);
+extern void xocl_subdev_unregister_hwmon(struct platform_device *pdev,
+	struct device *hwmon);
 
 extern int xocl_subdev_register_external_driver(enum xocl_subdev_id id,
 	struct platform_driver *drv, struct xocl_subdev_endpoints *eps);
