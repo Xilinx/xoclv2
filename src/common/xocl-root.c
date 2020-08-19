@@ -9,6 +9,7 @@
 
 #include <linux/module.h>
 #include <linux/pci.h>
+#include <linux/hwmon.h>
 #include "xocl-subdev.h"
 #include "xocl-parent.h"
 #include "xocl-partition.h"
@@ -459,6 +460,20 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		id->xpigi_device_id = xr->pdev->device;
 		id->xpigi_sub_vendor_id = xr->pdev->subsystem_vendor;
 		id->xpigi_sub_device_id = xr->pdev->subsystem_device;
+		break;
+	}
+	case XOCL_PARENT_HWMON: {
+		struct xocl_parent_ioctl_hwmon *hwmon =
+			(struct xocl_parent_ioctl_hwmon *)arg;
+
+		if (hwmon->xpih_register) {
+			hwmon->xpih_hwmon_dev =
+				hwmon_device_register_with_info(DEV(xr->pdev),
+				hwmon->xpih_name, hwmon->xpih_drvdata, NULL,
+				hwmon->xpih_groups);
+		} else {
+			(void) hwmon_device_unregister(hwmon->xpih_hwmon_dev);
+		}
 		break;
 	}
 	default:

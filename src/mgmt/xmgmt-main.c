@@ -24,7 +24,9 @@
 struct xmgmt_main {
 	struct platform_device *pdev;
 	void *evt_hdl;
-	char *firmware;
+	char *firmware_blp;
+	char *firmware_plp;
+	char *firmware_ulp;
 	bool flash_ready;
 	bool gpio_ready;
 	struct fpga_manager *fmgr;
@@ -276,7 +278,7 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 	int rc = 0;
 	void *dtb = NULL;
 
-	rc = xrt_xclbin_get_section(xmm->firmware, PARTITION_METADATA,
+	rc = xrt_xclbin_get_section(xmm->firmware_blp, PARTITION_METADATA,
 		&dtb, NULL);
 	if (rc) {
 		xocl_err(pdev, "failed to find BLP dtb");
@@ -332,12 +334,12 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 	if (xmm->gpio_ready && xmm->flash_ready) {
 		int rc;
 
-		rc = load_firmware_from_disk(pdev, &xmm->firmware, &fwlen);
+		rc = load_firmware_from_disk(pdev, &xmm->firmware_blp, &fwlen);
 		if (rc != 0) {
 			rc = load_firmware_from_flash(pdev,
-				&xmm->firmware, &fwlen);
+				&xmm->firmware_blp, &fwlen);
 		}
-		if (rc == 0 && is_valid_firmware(pdev, xmm->firmware, fwlen))
+		if (rc == 0 && is_valid_firmware(pdev, xmm->firmware_blp, fwlen))
 			(void) xmgmt_create_blp(xmm);
 		else
 			xocl_err(pdev, "failed to find firmware, giving up");
@@ -383,10 +385,23 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 	if (xmm->evt_hdl)
 		(void) xocl_subdev_remove_event_cb(pdev, xmm->evt_hdl);
 	vfree(xmm->blp_intf_uuids);
-	vfree(xmm->firmware);
+	vfree(xmm->firmware_blp);
 	(void) xmgmt_fmgr_remove(xmm->fmgr);
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup);
 	return 0;
+}
+
+static const char *xmgmt_get_vbnv(struct xmgmt_main *xmm)
+{
+	if (xmm->firmware_plp) {
+		return ((struct axlf *)xmm->firmware_plp)->
+			m_header.m_platformVBNV;
+	}
+	if (xmm->firmware_blp) {
+		return ((struct axlf *)xmm->firmware_blp)->
+			m_header.m_platformVBNV;
+	}
+	return NULL;
 }
 
 static int
@@ -402,9 +417,15 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		struct xocl_mgmt_main_ioctl_get_xsabin_section *get =
 			(struct xocl_mgmt_main_ioctl_get_xsabin_section *)arg;
 
-		ret = xrt_xclbin_get_section(xmm->firmware,
+		ret = xrt_xclbin_get_section(xmm->firmware_blp,
 			get->xmmigxs_section_kind, &get->xmmigxs_section,
 			&get->xmmigxs_section_size);
+		break;
+	}
+	case XOCL_MGMT_MAIN_GET_VBNV: {
+		const char **vbnv_p = (const char **)arg;
+
+		*vbnv_p = xmgmt_get_vbnv(xmm);
 		break;
 	}
 	default:
