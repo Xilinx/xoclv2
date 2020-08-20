@@ -8,6 +8,7 @@
 
 #include <linux/delay.h>
 #include <linux/string.h>
+#include <linux/vmalloc.h>
 #include "xocl-subdev.h"
 #include "xmgmt-main.h"
 #include "xocl-cmc-impl.h"
