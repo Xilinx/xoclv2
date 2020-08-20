@@ -27,7 +27,15 @@ struct xocl_cmc {
 	void *ctrl_hdl;
 	void *sensor_hdl;
 	void *mbx_hdl;
+	void *bdinfo_hdl;
 };
+
+void *cmc_pdev2bdinfo(struct platform_device *pdev)
+{
+	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
+
+	return cmc->bdinfo_hdl;
+}
 
 void *cmc_pdev2ctrl(struct platform_device *pdev)
 {
@@ -81,7 +89,8 @@ static int cmc_remove(struct platform_device *pdev)
 
 	xocl_info(pdev, "leaving...");
 
-	cmc_mbx_remove(pdev);
+	cmc_bdinfo_remove(pdev);
+	cmc_mailbox_remove(pdev);
 	cmc_sensor_remove(pdev);
 	cmc_ctrl_remove(pdev);
 
@@ -132,7 +141,10 @@ static int cmc_probe(struct platform_device *pdev)
 	ret = cmc_sensor_probe(cmc->pdev, cmc->regs, &cmc->sensor_hdl);
 	if (ret)
 		goto done;
-	ret = cmc_mbx_probe(cmc->pdev, cmc->regs, &cmc->mbx_hdl);
+	ret = cmc_mailbox_probe(cmc->pdev, cmc->regs, &cmc->mbx_hdl);
+	if (ret)
+		goto done;
+	ret = cmc_bdinfo_probe(cmc->pdev, cmc->regs, &cmc->bdinfo_hdl);
 	if (ret)
 		goto done;
 

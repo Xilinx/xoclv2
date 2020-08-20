@@ -147,6 +147,11 @@ static int cmc_mailbox_pkt_read(struct xocl_cmc_mbx *cmc_mbx)
 
 	BUG_ON(!mutex_is_locked(&cmc_mbx->lock));
 
+	/* Make sure HW is done with the mailbox buffer. */
+	ret = cmc_mailbox_wait(cmc_mbx);
+	if (ret)
+		return ret;
+
 	/* Receive pkt hdr. */
 	pkt = (u32 *)&hdr;
 	len = sizeof(hdr) / sizeof(u32);
@@ -168,13 +173,11 @@ static int cmc_mailbox_pkt_read(struct xocl_cmc_mbx *cmc_mbx)
 			cmc_mbx->mbx_offset + i * sizeof(u32));
 	}
 
-	/* Make sure HW is done with the mailbox buffer. */
-	ret = cmc_mailbox_wait(cmc_mbx);
 	return ret;
 }
 
 int cmc_mailbox_recv_packet(struct platform_device *pdev, int generation,
-	char *buf, size_t len)
+	char *buf, size_t *len)
 {
 	int ret;
 	struct xocl_cmc_mbx *cmc_mbx = cmc_pdev2mbx(pdev);
@@ -194,14 +197,15 @@ int cmc_mailbox_recv_packet(struct platform_device *pdev, int generation,
 		mutex_unlock(&cmc_mbx->lock);
 		return ret;
 	}
-	if (cmc_mbx->pkt.hdr.payload_sz > len) {
+	if (cmc_mbx->pkt.hdr.payload_sz > *len) {
 		xocl_err(cmc_mbx->pdev,
 			"packet size (0x%x) exceeds buf size (0x%lx)",
-			cmc_mbx->pkt.hdr.payload_sz, len);
+			cmc_mbx->pkt.hdr.payload_sz, *len);
 		mutex_unlock(&cmc_mbx->lock);
 		return -E2BIG;
 	}
 	memcpy(buf, cmc_mbx->pkt.data, cmc_mbx->pkt.hdr.payload_sz);
+	*len = cmc_mbx->pkt.hdr.payload_sz;
 
 	mutex_unlock(&cmc_mbx->lock);
 	return 0;
@@ -255,9 +259,14 @@ int cmc_mailbox_acquire(struct platform_device *pdev)
 	return cmc_mbx->generation;
 }
 
-void cmc_mailbox_release(struct platform_device *pdev)
+void cmc_mailbox_release(struct platform_device *pdev, int generation)
 {
 	struct xocl_cmc_mbx *cmc_mbx = cmc_pdev2mbx(pdev);
+
+	if (cmc_mbx->generation != generation) {
+		xocl_err(cmc_mbx->pdev, "stale generation number passed in");
+		return;
+	}
 
 	/*
 	 * A hold is released, bump up generation number
@@ -272,11 +281,12 @@ size_t cmc_mailbox_max_payload(struct platform_device *pdev)
 	return CMC_PKT_MAX_PAYLOAD_SZ;
 }
 
-void cmc_mbx_remove(struct platform_device *pdev)
+void cmc_mailbox_remove(struct platform_device *pdev)
 {
+	/* Nothing to do */
 }
 
-int cmc_mbx_probe(struct platform_device *pdev,
+int cmc_mailbox_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl)
 {
 	struct xocl_cmc_mbx *cmc_mbx;
@@ -302,7 +312,7 @@ int cmc_mbx_probe(struct platform_device *pdev,
 	*hdl = cmc_mbx;
 	return 0;
 done:
-	cmc_mbx_remove(pdev);
+	cmc_mailbox_remove(pdev);
 	devm_kfree(DEV(pdev), cmc_mbx);
 	return -ENODEV;
 }
