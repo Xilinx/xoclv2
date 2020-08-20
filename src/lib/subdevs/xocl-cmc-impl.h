@@ -46,16 +46,22 @@ extern int cmc_sensor_probe(struct platform_device *pdev,
 extern void cmc_sensor_remove(struct platform_device *pdev);
 extern void *cmc_pdev2sensor(struct platform_device *pdev);
 
-extern int cmc_mbx_probe(struct platform_device *pdev,
+extern int cmc_mailbox_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl);
-extern void cmc_mbx_remove(struct platform_device *pdev);
+extern void cmc_mailbox_remove(struct platform_device *pdev);
 extern void *cmc_pdev2mbx(struct platform_device *pdev);
 extern int cmc_mailbox_acquire(struct platform_device *pdev);
-extern void cmc_mailbox_release(struct platform_device *pdev);
+extern void cmc_mailbox_release(struct platform_device *pdev, int generation);
 extern size_t cmc_mailbox_max_payload(struct platform_device *pdev);
 extern int cmc_mailbox_send_packet(struct platform_device *pdev, int generation,
 	u8 op, const char *buf, size_t len);
 extern int cmc_mailbox_recv_packet(struct platform_device *pdev, int generation,
-	char *buf, size_t len);
+	char *buf, size_t *len);
+
+extern int cmc_bdinfo_probe(struct platform_device *pdev,
+	struct cmc_reg_map *regmaps, void **hdl);
+extern void cmc_bdinfo_remove(struct platform_device *pdev);
+extern void *cmc_pdev2bdinfo(struct platform_device *pdev);
+extern int cmc_refresh_board_info(struct platform_device *pdev);
 
 #endif	/* _XOCL_CMC_IMPL_H_ */

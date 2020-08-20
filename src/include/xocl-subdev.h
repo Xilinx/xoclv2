@@ -293,7 +293,6 @@ extern int xocl_devnode_destroy(struct platform_device *pdev);
 extern struct platform_device *xocl_devnode_open_excl(struct inode *inode);
 extern struct platform_device *xocl_devnode_open(struct inode *inode);
 extern void xocl_devnode_close(struct inode *inode);
-
 static inline void xocl_memcpy_fromio(void *buf, void __iomem *iomem, u32 size)
 {
 	int i;
@@ -302,7 +301,6 @@ static inline void xocl_memcpy_fromio(void *buf, void __iomem *iomem, u32 size)
 	for (i = 0; i < size / 4; i++)
 		((u32 *)buf)[i] = ioread32((char *)(iomem) + sizeof(u32) * i);
 }
-
 static inline void xocl_memcpy_toio(void __iomem *iomem, void *buf, u32 size)
 {
 	int i;
