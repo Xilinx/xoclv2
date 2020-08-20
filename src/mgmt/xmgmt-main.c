@@ -224,6 +224,7 @@ static const char *get_uuid_from_firmware(struct platform_device *pdev,
 	const char *axlf)
 {
 	const void *uuid = NULL;
+	const void *uuiddup = NULL;
 	void *dtb = NULL;
 	int rc;
 
@@ -233,9 +234,10 @@ static const char *get_uuid_from_firmware(struct platform_device *pdev,
 
 	rc = xocl_md_get_prop(DEV(pdev), dtb, NULL, NULL,
 		PROP_LOGIC_UUID, &uuid, NULL);
-	if (rc)
-		return NULL;
-	return uuid;
+	if (!rc)
+		uuiddup = kstrdup(uuid, GFP_KERNEL);
+	vfree(dtb);
+	return uuiddup;
 }
 
 static bool is_valid_firmware(struct platform_device *pdev,
@@ -266,9 +268,11 @@ static bool is_valid_firmware(struct platform_device *pdev,
 	if (fw_uuid == NULL || strcmp(fw_uuid, dev_uuid) != 0) {
 		xocl_err(pdev, "bad fw UUID: %s, expect: %s",
 			fw_uuid ? fw_uuid : "<none>", dev_uuid);
+		kfree(fw_uuid);
 		return false;
 	}
 
+	kfree(fw_uuid);
 	return true;
 }
 

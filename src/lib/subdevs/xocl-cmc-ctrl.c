@@ -30,6 +30,12 @@
 #define	CMC_REG_IO_STOP_CONFIRM			0x1C
 #define	CMC_CTRL_MASK_STOP			0x8
 #define	CMC_STATUS_MASK_STOPPED			0x2
+#define	CMC_WAIT(cond)						\
+	do {							\
+		int retry = 0;					\
+		while (retry++ < CMC_MAX_RETRY && !(cond))	\
+			msleep(CMC_RETRY_INTERVAL);		\
+	} while (0)
 
 struct xocl_cmc_ctrl {
 	struct platform_device *pdev;
