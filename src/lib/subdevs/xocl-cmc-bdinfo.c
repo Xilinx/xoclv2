@@ -9,8 +9,6 @@
 #include "xocl-subdev.h"
 #include "xocl-cmc-impl.h"
 
-#define CMC_MBX_PKT_OP_BOARD_INFO	4
-
 enum board_info_key {
 	BDINFO_SN = 0x21,
 	BDINFO_MAC0,
@@ -23,9 +21,6 @@ enum board_info_key {
 	BDINFO_MAX_PWR,
 	BDINFO_FAN_PRESENCE,
 	BDINFO_CONFIG_MODE,
-	/* lower and upper limit */
-	BDINFO_MIN_KEY = BDINFO_SN,
-	BDINFO_MAX_KEY = BDINFO_CONFIG_MODE,
 };
 
 struct xocl_cmc_bdinfo {
