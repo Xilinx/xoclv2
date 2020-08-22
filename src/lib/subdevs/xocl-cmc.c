@@ -28,30 +28,38 @@ struct xocl_cmc {
 	void *sensor_hdl;
 	void *mbx_hdl;
 	void *bdinfo_hdl;
+	void *sc_hdl;
 };
 
-void *cmc_pdev2bdinfo(struct platform_device *pdev)
+inline void *cmc_pdev2sc(struct platform_device *pdev)
+{
+	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
+
+	return cmc->sc_hdl;
+}
+
+inline void *cmc_pdev2bdinfo(struct platform_device *pdev)
 {
 	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
 
 	return cmc->bdinfo_hdl;
 }
 
-void *cmc_pdev2ctrl(struct platform_device *pdev)
+inline void *cmc_pdev2ctrl(struct platform_device *pdev)
 {
 	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
 
 	return cmc->ctrl_hdl;
 }
 
-void *cmc_pdev2sensor(struct platform_device *pdev)
+inline void *cmc_pdev2sensor(struct platform_device *pdev)
 {
 	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
 
 	return cmc->sensor_hdl;
 }
 
-void *cmc_pdev2mbx(struct platform_device *pdev)
+inline void *cmc_pdev2mbx(struct platform_device *pdev)
 {
 	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
 
@@ -89,6 +97,7 @@ static int cmc_remove(struct platform_device *pdev)
 
 	xocl_info(pdev, "leaving...");
 
+	cmc_sc_remove(pdev);
 	cmc_bdinfo_remove(pdev);
 	cmc_mailbox_remove(pdev);
 	cmc_sensor_remove(pdev);
@@ -147,41 +156,15 @@ static int cmc_probe(struct platform_device *pdev)
 	ret = cmc_bdinfo_probe(cmc->pdev, cmc->regs, &cmc->bdinfo_hdl);
 	if (ret)
 		goto done;
+	ret = cmc_sc_probe(cmc->pdev, cmc->regs, &cmc->sc_hdl);
+	if (ret)
+		goto done;
 
 	return 0;
 
 done:
 	(void) cmc_remove(pdev);
 	return ret;
-}
-
-static int
-cmc_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
-{
-	xocl_info(pdev, "handling IOCTL cmd: %d", cmd);
-	return 0;
-}
-
-static int cmc_open(struct inode *inode, struct file *file)
-{
-	struct platform_device *pdev = xocl_devnode_open(inode);
-
-	/* Device may have gone already when we get here. */
-	if (!pdev)
-		return -ENODEV;
-
-	xocl_info(pdev, "opened");
-	file->private_data = platform_get_drvdata(pdev);
-	return 0;
-}
-
-static int cmc_close(struct inode *inode, struct file *file)
-{
-	struct xocl_cmc *cmc = file->private_data;
-
-	xocl_devnode_close(inode);
-	xocl_info(cmc->pdev, "closed");
-	return 0;
 }
 
 struct xocl_subdev_endpoints xocl_cmc_endpoints[] = {
@@ -199,14 +182,13 @@ struct xocl_subdev_endpoints xocl_cmc_endpoints[] = {
 };
 
 struct xocl_subdev_drvdata xocl_cmc_data = {
-	.xsd_dev_ops = {
-		.xsd_ioctl = cmc_leaf_ioctl,
-	},
 	.xsd_file_ops = {
 		.xsf_ops = {
 			.owner = THIS_MODULE,
-			.open = cmc_open,
-			.release = cmc_close,
+			.open = cmc_sc_open,
+			.release = cmc_sc_close,
+			.llseek = cmc_sc_llseek,
+			.write = cmc_update_sc_firmware,
 		},
 		.xsf_dev_name = "xmc",
 	},

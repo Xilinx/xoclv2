@@ -11,26 +11,11 @@
 #include "xocl-subdev.h"
 #include "xocl-cmc-impl.h"
 
-#define	CMC_ERROR_REG				0xc
-#define	CMC_CONTROL_REG				0x18
-#define	CMC_HOST_MSG_OFFSET_REG			0x300
-#define	CMC_HOST_MSG_ERROR_REG			0x304
-
-#define	CMC_PKT_OWNER_MASK			(1 << 5)
-#define	CMC_PKT_ERR_MASK			(1 << 26)
-#define	CMC_CTRL_ERR_CLR_MASK			(1 << 1)
-
-#define	XMC_HOST_MSG_NO_ERR			0x00
-#define	XMC_HOST_MSG_BAD_OPCODE_ERR		0x01
-#define	XMC_HOST_MSG_UNKNOWN_ERR		0x02
-#define	XMC_HOST_MSG_MSP432_MODE_ERR		0x03
-#define	XMC_HOST_MSG_MSP432_FW_LENGTH_ERR	0x04
-#define	XMC_HOST_MSG_BRD_INFO_MISSING_ERR	0x05
-
 /* We have a 4k buffer for cmc mailbox */
 #define	CMC_PKT_MAX_SZ	1024 /* In u32 */
 #define	CMC_PKT_MAX_PAYLOAD_SZ	\
 	(CMC_PKT_MAX_SZ - sizeof(struct cmc_pkt_hdr) / sizeof(u32)) /* In u32 */
+#define	CMC_PKT_MAX_PAYLOAD_SZ_IN_BYTES	(CMC_PKT_MAX_PAYLOAD_SZ * sizeof(u32))
 #define	CMC_PKT_SZ(hdr)		\
 	((sizeof(struct cmc_pkt_hdr) + (hdr)->payload_sz + sizeof(u32) - 1) / \
 	sizeof(u32)) /* In u32 */
@@ -69,32 +54,51 @@ cmc_io_rd(struct xocl_cmc_mbx *cmc_mbx, u32 off)
 	return ioread32(cmc_mbx->reg_io.crm_addr + off);
 }
 
+static inline bool
+cmc_pkt_host_owned(struct xocl_cmc_mbx *cmc_mbx)
+{
+	return (cmc_io_rd(cmc_mbx, CMC_REG_IO_CONTROL) &
+		CMC_CTRL_MASK_MBX_PKT_OWNER) == 0;
+}
+
+static inline void
+cmc_pkt_control_set(struct xocl_cmc_mbx *cmc_mbx, u32 ctrl)
+{
+	u32 val = cmc_io_rd(cmc_mbx, CMC_REG_IO_CONTROL);
+
+	cmc_io_wr(cmc_mbx, CMC_REG_IO_CONTROL, val | ctrl);
+}
+
+static inline void
+cmc_pkt_notify_device(struct xocl_cmc_mbx *cmc_mbx)
+{
+	cmc_pkt_control_set(cmc_mbx, CMC_CTRL_MASK_MBX_PKT_OWNER);
+}
+
+static inline void
+cmc_pkt_clear_error(struct xocl_cmc_mbx *cmc_mbx)
+{
+	cmc_pkt_control_set(cmc_mbx, CMC_CTRL_MASK_CLR_ERR);
+}
+
 static int cmc_mailbox_wait(struct xocl_cmc_mbx *cmc_mbx)
 {
-	int retry = CMC_MAX_RETRY * 4;
 	u32 val;
 
 	BUG_ON(!mutex_is_locked(&cmc_mbx->lock));
 
-	val = cmc_io_rd(cmc_mbx, CMC_CONTROL_REG);
-	while ((retry > 0) && (val & CMC_PKT_OWNER_MASK)) {
-		msleep(CMC_RETRY_INTERVAL);
-		val = cmc_io_rd(cmc_mbx, CMC_CONTROL_REG);
-		retry--;
-	}
-
-	if (retry == 0) {
+	CMC_LONG_WAIT(cmc_pkt_host_owned(cmc_mbx));
+	if (!cmc_pkt_host_owned(cmc_mbx)) {
 		xocl_err(cmc_mbx->pdev, "CMC packet error: time'd out");
 		return -ETIMEDOUT;
 	}
 
-	val = cmc_io_rd(cmc_mbx, CMC_ERROR_REG);
-	if (val & CMC_PKT_ERR_MASK)
-		val = cmc_io_rd(cmc_mbx, CMC_HOST_MSG_ERROR_REG);
+	val = cmc_io_rd(cmc_mbx, CMC_REG_IO_ERROR);
+	if (val & CMC_ERROR_MASK_MBX_ERR)
+		val = cmc_io_rd(cmc_mbx, CMC_REG_IO_MBX_ERROR);
 	if (val) {
 		xocl_err(cmc_mbx->pdev, "CMC packet error: %d", val);
-		val = cmc_io_rd(cmc_mbx, CMC_CONTROL_REG);
-		cmc_io_wr(cmc_mbx, CMC_CONTROL_REG, val|CMC_CTRL_ERR_CLR_MASK);
+		cmc_pkt_clear_error(cmc_mbx);
 		return -EIO;
 	}
 
@@ -107,7 +111,6 @@ static int cmc_mailbox_pkt_write(struct xocl_cmc_mbx *cmc_mbx)
 	u32 len = CMC_PKT_SZ(&cmc_mbx->pkt.hdr);
 	int ret = 0;
 	u32 i;
-	u32 val;
 
 	BUG_ON(!mutex_is_locked(&cmc_mbx->lock));
 
@@ -128,9 +131,7 @@ static int cmc_mailbox_pkt_write(struct xocl_cmc_mbx *cmc_mbx)
 	}
 
 	/* Notify HW that a pkt is ready for process. */
-	val = cmc_io_rd(cmc_mbx, CMC_CONTROL_REG);
-	cmc_io_wr(cmc_mbx, CMC_CONTROL_REG, val | CMC_PKT_OWNER_MASK);
-
+	cmc_pkt_notify_device(cmc_mbx);
 	/* Make sure HW is done with the mailbox buffer. */
 	ret = cmc_mailbox_wait(cmc_mbx);
 
@@ -225,18 +226,20 @@ int cmc_mailbox_send_packet(struct platform_device *pdev, int generation,
 		return -EINVAL;
 	}
 
-	if (len > CMC_PKT_MAX_PAYLOAD_SZ) {
+	if (len > CMC_PKT_MAX_PAYLOAD_SZ_IN_BYTES) {
 		xocl_err(cmc_mbx->pdev,
 			"packet size (0x%lx) exceeds max size (0x%lx)",
-			len, CMC_PKT_MAX_PAYLOAD_SZ);
+			len, CMC_PKT_MAX_PAYLOAD_SZ_IN_BYTES);
 		return -E2BIG;
 	}
 
 	mutex_lock(&cmc_mbx->lock);
 
+	memset(&cmc_mbx->pkt, 0, sizeof(struct cmc_pkt));
 	cmc_mbx->pkt.hdr.op = op;
 	cmc_mbx->pkt.hdr.payload_sz = len;
-	memcpy(cmc_mbx->pkt.data, buf, len);
+	if (buf)
+		memcpy(cmc_mbx->pkt.data, buf, len);
 	ret = cmc_mailbox_pkt_write(cmc_mbx);
 
 	mutex_unlock(&cmc_mbx->lock);
@@ -278,7 +281,7 @@ void cmc_mailbox_release(struct platform_device *pdev, int generation)
 
 size_t cmc_mailbox_max_payload(struct platform_device *pdev)
 {
-	return CMC_PKT_MAX_PAYLOAD_SZ;
+	return CMC_PKT_MAX_PAYLOAD_SZ_IN_BYTES;
 }
 
 void cmc_mailbox_remove(struct platform_device *pdev)
@@ -300,7 +303,7 @@ int cmc_mailbox_probe(struct platform_device *pdev,
 	cmc_mbx->reg_io = regmaps[IO_REG];
 	mutex_init(&cmc_mbx->lock);
 	sema_init(&cmc_mbx->sem, 1);
-	cmc_mbx->mbx_offset = cmc_io_rd(cmc_mbx, CMC_HOST_MSG_OFFSET_REG);
+	cmc_mbx->mbx_offset = cmc_io_rd(cmc_mbx, CMC_REG_IO_MBX_OFFSET);
 	if (cmc_mbx->mbx_offset == 0) {
 		xocl_err(cmc_mbx->pdev, "CMC mailbox is not available");
 		goto done;

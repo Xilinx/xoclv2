@@ -13,31 +13,6 @@
 #include "xmgmt-main.h"
 #include "xocl-cmc-impl.h"
 
-/* Mutex register defines. */
-#define	CMC_REG_MUTEX_CONFIG			0x0
-#define	CMC_REG_MUTEX_STATUS			0x8
-#define	CMC_MUTEX_GRANT_MASK			0x1
-#define	CMC_MUTEX_READY_MASK			0x2
-
-/* Reset register defines. */
-#define	CMC_RESET_ON				0x0
-#define	CMC_RESET_OFF				0x1
-
-/* IO register defines. */
-#define	CMC_REG_IO_MAGIC			0x0
-#define	CMC_REG_IO_VERSION			0x4
-#define	CMC_REG_IO_STATUS			0x8
-#define	CMC_REG_IO_CONTROL			0x18
-#define	CMC_REG_IO_STOP_CONFIRM			0x1C
-#define	CMC_CTRL_MASK_STOP			0x8
-#define	CMC_STATUS_MASK_STOPPED			0x2
-#define	CMC_WAIT(cond)						\
-	do {							\
-		int retry = 0;					\
-		while (retry++ < CMC_MAX_RETRY && !(cond))	\
-			msleep(CMC_RETRY_INTERVAL);		\
-	} while (0)
-
 struct xocl_cmc_ctrl {
 	struct platform_device *pdev;
 	struct cmc_reg_map reg_mutex;
@@ -86,23 +61,25 @@ cmc_io_rd(struct xocl_cmc_ctrl *cmc_ctrl, u32 off)
 
 static inline bool cmc_reset_held(struct xocl_cmc_ctrl *cmc_ctrl)
 {
-	return cmc_reset_rd(cmc_ctrl) == CMC_RESET_ON;
+	return cmc_reset_rd(cmc_ctrl) == CMC_RESET_MASK_ON;
 }
 
 static inline bool cmc_ulp_access_allowed(struct xocl_cmc_ctrl *cmc_ctrl)
 {
-	return (cmc_mutex_status(cmc_ctrl) & CMC_MUTEX_GRANT_MASK) != 0;
+	return (cmc_mutex_status(cmc_ctrl) & CMC_MUTEX_MASK_GRANT) != 0;
 }
 
 static inline bool cmc_stopped(struct xocl_cmc_ctrl *cmc_ctrl)
 {
-	return (cmc_io_rd(cmc_ctrl, CMC_REG_IO_STATUS) &
-		CMC_STATUS_MASK_STOPPED) != 0;
+	union cmc_status st;
+
+	st.status_val = cmc_io_rd(cmc_ctrl, CMC_REG_IO_STATUS);
+	return st.status.mb_stopped;
 }
 
 static inline bool cmc_ready(struct xocl_cmc_ctrl *cmc_ctrl)
 {
-	return (cmc_mutex_status(cmc_ctrl) & CMC_MUTEX_READY_MASK) != 0;
+	return (cmc_mutex_status(cmc_ctrl) & CMC_MUTEX_MASK_READY) != 0;
 }
 
 static int cmc_ulp_access(struct xocl_cmc_ctrl *cmc_ctrl, bool granted)
@@ -139,7 +116,7 @@ static int cmc_stop(struct xocl_cmc_ctrl *cmc_ctrl)
 		}
 	}
 
-	cmc_reset_wr(cmc_ctrl, CMC_RESET_ON);
+	cmc_reset_wr(cmc_ctrl, CMC_RESET_MASK_ON);
 	if (!cmc_reset_held(cmc_ctrl)) {
 		xocl_err(pdev, "failed to hold CMC in reset state");
 		return -EINVAL;
@@ -169,7 +146,7 @@ static int cmc_start(struct xocl_cmc_ctrl *cmc_ctrl)
 {
 	struct platform_device *pdev = cmc_ctrl->pdev;
 
-	cmc_reset_wr(cmc_ctrl, CMC_RESET_OFF);
+	cmc_reset_wr(cmc_ctrl, CMC_RESET_MASK_OFF);
 	if (cmc_reset_held(cmc_ctrl)) {
 		xocl_err(pdev, "failed to release CMC from reset state");
 		return -EINVAL;
