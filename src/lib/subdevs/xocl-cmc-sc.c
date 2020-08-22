@@ -6,6 +6,7 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
+#include <linux/uaccess.h>
 #include "xocl-subdev.h"
 #include "xocl-cmc-impl.h"
 
