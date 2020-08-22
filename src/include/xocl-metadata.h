@@ -101,6 +101,9 @@
 #define NODE_MGMT_MAIN "drv_ep_mgmt_main_00"
 #define NODE_FLASH_VSEC "drv_ep_card_flash_program_00"
 
+#define NODE_DDR_SRSR "drv_ep_ddr_srsr"
+#define REGMAP_DDR_SRSR "drv_ddr_srsr"
+
 #define PROP_OFFSET "offset"
 
 struct xocl_md_endpoint {

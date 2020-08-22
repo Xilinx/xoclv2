@@ -16,7 +16,6 @@
 #include "xocl-metadata.h"
 #include "xocl-subdev.h"
 #include "xocl-parent.h"
-#include "xocl-ddr-srsr.h"
 
 #define XOCL_DDR_SRSR "xocl_ddr_srsr"
 
@@ -40,7 +39,7 @@
 
 struct xocl_ddr_srsr {
 	void __iomem		*base;
-	struct platform_device	*pdev;
+	struct device		*dev;
 	struct mutex		lock;
 	uint32_t		*calib_cache;
 	uint32_t		cache_size;
@@ -80,7 +79,7 @@ static int srsr_full_calibration(struct platform_device *pdev)
 
 	/* Safe to say, full calibration should finish in 2000ms*/
 	for (; i < FULL_CALIB_TIMEOUT; ++i) {
-		val = reg_rd(srsr, REG_STATUS_OFFSET);
+		val = reg_rd(srsr,REG_STATUS_OFFSET);
 		if (val & STATUS_BIT_CALIB_COMPLETE) {
 			err = 0;
 			break;
@@ -99,7 +98,7 @@ static int srsr_save_calib(struct platform_device *pdev)
 	u32 val = 0;
 	u32 cache_size_in_words = srsr->cache_size/sizeof(uint32_t);
 
-	if (!srsr->calib_cache)
+	if(!srsr->calib_cache)
 		return err;
 
 	mutex_lock(&srsr->lock);
@@ -129,9 +128,9 @@ static int srsr_fast_calib(struct platform_device *pdev, bool retention)
 	struct xocl_ddr_srsr *srsr = platform_get_drvdata(pdev);
 	int i = 0, err = -ETIMEDOUT;
 	u32 val, write_val = CTRL_BIT_RESTORE_EN | CTRL_BIT_XSDB_SELECT;
-	u32 cache_size_in_words = srsr->cache_size/sizeof(uint32_t);
+	u32 cache_size_in_words = xocl_ddr_srsr->cache_size/sizeof(uint32_t);
 
-	if (!srsr->calib_cache)
+	if(!srsr->calib_cache)
 		return err;
 
 	if (retention)
@@ -160,7 +159,7 @@ static int srsr_fast_calib(struct platform_device *pdev, bool retention)
 		}
 		msleep(20);
 	}
-	xocl_info(pdev, "fast calibration time %d", i * 20);
+	xocl_info("fast calibration time %d", i * 20);
 
 	reg_wr(srsr, CTRL_BIT_RESTORE_COMPLETE, REG_CTRL_OFFSET);
 	val = reg_rd(srsr, REG_CTRL_OFFSET);
@@ -268,7 +267,7 @@ static uint32_t srsr_cache_size(struct platform_device *pdev)
 static int
 xocl_srsr_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	int ret = 0;
+	int ret;
 
 	switch (cmd) {
 	case XOCL_DDR_SRSR_SAVE:
@@ -291,10 +290,6 @@ xocl_srsr_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 			rd_arg->xdirw_size);
 		break;
 	}
-	case XOCL_DDR_SRSR_SIZE: {
-		*(u32 *)arg = srsr_cache_size(pdev);
-		break;
-	}
 	default:
 		xocl_err(pdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
@@ -309,7 +304,7 @@ static int xocl_srsr_probe(struct platform_device *pdev)
 	struct resource *res;
 	int err = 0;
 
-	srsr = devm_kzalloc(&pdev->dev, sizeof(*srsr), GFP_KERNEL);
+	srsr = devm_kzalloc(&pdev->dev, sizeof(*xocl_ddr_srsr), GFP_KERNEL);
 	if (!srsr)
 		return -ENOMEM;
 
@@ -366,7 +361,7 @@ static int xocl_srsr_remove(struct platform_device *pdev)
 struct xocl_subdev_endpoints xocl_srsr_endpoints[] = {
 	{
 		.xse_names = (struct xocl_subdev_ep_names[]) {
-			{ .regmap_name = REGMAP_DDR_SRSR },
+			{ .regmap_name = "ddr_srsr" },
 			{ NULL },
 		},
 		.xse_min_ep = 1,
