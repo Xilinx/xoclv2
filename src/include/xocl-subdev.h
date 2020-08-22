@@ -208,6 +208,8 @@ enum xocl_events {
 
 typedef int (*xocl_event_cb_t)(struct platform_device *pdev,
 	enum xocl_events evt, void *arg);
+typedef void (*xocl_async_broadcast_event_cb_t)(struct platform_device *pdev,
+	enum xocl_events evt, void *arg, bool success);
 
 struct xocl_event_arg_subdev {
 	enum xocl_subdev_id xevt_subdev_id;
@@ -264,7 +266,7 @@ extern int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
 extern int xocl_subdev_broadcast_event(struct platform_device *pdev,
 	enum xocl_events evt);
 extern int xocl_subdev_broadcast_event_async(struct platform_device *pdev,
-	enum xocl_events evt);
+	enum xocl_events evt, xocl_async_broadcast_event_cb_t cb, void *arg);
 extern void xocl_subdev_hot_reset(struct platform_device *pdev);
 extern void xocl_subdev_get_barres(struct platform_device *pdev,
 	struct resource **res, uint bar_idx);

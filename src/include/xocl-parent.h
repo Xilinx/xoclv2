@@ -51,6 +51,13 @@ struct xocl_parent_ioctl_evt_cb {
 	void *xevt_hdl;
 };
 
+struct xocl_parent_ioctl_async_broadcast_evt {
+	struct platform_device *xaevt_pdev; /* caller's pdev */
+	enum xocl_events xaevt_event;
+	xocl_async_broadcast_event_cb_t xaevt_cb;
+	void *xaevt_arg;
+};
+
 struct xocl_parent_ioctl_get_holders {
 	struct platform_device *xpigh_pdev; /* caller's pdev */
 	char *xpigh_holder_buf;
