@@ -318,39 +318,46 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 	size_t fwlen;
 
 	switch (evt) {
-	case XOCL_EVENT_POST_CREATION:
+	case XOCL_EVENT_POST_CREATION: {
+		id = esd->xevt_subdev_id;
+		instance = esd->xevt_subdev_instance;
+		xocl_info(pdev, "processing event %d for (%d, %d)",
+			evt, id, instance);
+
+		if (id == XOCL_SUBDEV_GPIO)
+			xmm->gpio_ready = true;
+		else if (id == XOCL_SUBDEV_QSPI)
+			xmm->flash_ready = true;
+		else
+			BUG_ON(1);
+
+		if (xmm->gpio_ready && xmm->flash_ready) {
+			int rc;
+
+			rc = load_firmware_from_disk(pdev, &xmm->firmware_blp,
+				&fwlen);
+			if (rc != 0) {
+				rc = load_firmware_from_flash(pdev,
+					&xmm->firmware_blp, &fwlen);
+			}
+			if (rc == 0 && is_valid_firmware(pdev,
+			    xmm->firmware_blp, fwlen))
+				(void) xmgmt_create_blp(xmm);
+			else
+				xocl_err(pdev,
+					"failed to find firmware, giving up");
+			xmm->evt_hdl = NULL;
+			return XOCL_EVENT_CB_STOP;
+		}
+		break;
+	}
+	case XOCL_EVENT_PRE_REMOVAL:
 		break;
 	default:
 		xocl_info(pdev, "ignored event %d", evt);
 		return 0;
 	}
 
-	id = esd->xevt_subdev_id;
-	instance = esd->xevt_subdev_instance;
-	xocl_info(pdev, "processing event %d for (%d, %d)", evt, id, instance);
-
-	if (id == XOCL_SUBDEV_GPIO)
-		xmm->gpio_ready = true;
-	else if (id == XOCL_SUBDEV_QSPI)
-		xmm->flash_ready = true;
-	else
-		BUG_ON(1);
-
-	if (xmm->gpio_ready && xmm->flash_ready) {
-		int rc;
-
-		rc = load_firmware_from_disk(pdev, &xmm->firmware_blp, &fwlen);
-		if (rc != 0) {
-			rc = load_firmware_from_flash(pdev,
-				&xmm->firmware_blp, &fwlen);
-		}
-		if (rc == 0 && is_valid_firmware(pdev, xmm->firmware_blp, fwlen))
-			(void) xmgmt_create_blp(xmm);
-		else
-			xocl_err(pdev, "failed to find firmware, giving up");
-		xmm->evt_hdl = NULL;
-		return XOCL_EVENT_CB_STOP;
-	}
 
 	return 0;
 }

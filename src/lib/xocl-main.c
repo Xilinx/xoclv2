@@ -41,6 +41,9 @@ static struct xocl_drv_map {
 	{ XOCL_SUBDEV_QSPI, &xocl_qspi_driver, xocl_qspi_endpoints, },
 	{ XOCL_SUBDEV_MAILBOX, &xocl_mailbox_driver, xocl_mailbox_endpoints, },
 	{ XOCL_SUBDEV_CMC, &xocl_cmc_driver, xocl_cmc_endpoints, },
+	{ XOCL_SUBDEV_CLKFREQ, &xocl_clkfreq_driver, xocl_clkfreq_endpoints, },
+	{ XOCL_SUBDEV_CLOCK, &xocl_clock_driver, xocl_clock_endpoints, },
+	{ XOCL_SUBDEV_UCS, &xocl_ucs_driver, xocl_ucs_endpoints, },
 };
 
 static inline struct xocl_subdev_drvdata *

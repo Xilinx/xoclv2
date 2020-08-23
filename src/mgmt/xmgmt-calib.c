@@ -136,6 +136,35 @@ static int calib_restore(struct calib *calib)
 	return err;
 }
 
+int calib_event_post_creation_cb(struct calib *calib, enum xocl_events evt,
+	void *arg)
+{
+	struct xocl_event_arg_subdev *esd = (struct xocl_event_arg_subdev *)arg;
+	enum xocl_subdev_id id;
+
+	id = esd->xevt_subdev_id;
+	if (id != XOCL_SUBDEV_UCS)
+		return 0;
+
+	calib_restore(calib);
+
+	return 0;
+}
+
+int calib_event_pre_removal_cb(struct calib *calib, enum xocl_events evt,
+	void *arg)
+{
+	struct xocl_event_arg_subdev *esd = (struct xocl_event_arg_subdev *)arg;
+	enum xocl_subdev_id id;
+
+	id = esd->xevt_subdev_id;
+	if (id != XOCL_SUBDEV_SRSR)
+		return 0;
+
+	calib_save(calib);
+
+	return 0;
+}
 
 int calib_create(struct platform_device *pdev, void **calib_inst)
 {
