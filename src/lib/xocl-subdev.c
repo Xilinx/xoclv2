@@ -846,10 +846,12 @@ int xocl_subdev_broadcast_event(struct platform_device *pdev,
 EXPORT_SYMBOL_GPL(xocl_subdev_broadcast_event);
 
 int xocl_subdev_broadcast_event_async(struct platform_device *pdev,
-	enum xocl_events evt)
+	enum xocl_events evt, xocl_async_broadcast_event_cb_t cb, void *arg)
 {
+	struct xocl_parent_ioctl_async_broadcast_evt e = { pdev, evt, cb, arg };
+
 	return xocl_subdev_parent_ioctl(pdev,
-		XOCL_PARENT_ASYNC_BOARDCAST_EVENT, (void *)evt);
+		XOCL_PARENT_ASYNC_BOARDCAST_EVENT, &e);
 }
 EXPORT_SYMBOL_GPL(xocl_subdev_broadcast_event_async);
 

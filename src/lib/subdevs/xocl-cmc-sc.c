@@ -200,8 +200,10 @@ ssize_t cmc_update_sc_firmware(struct file *file,
 	}
 
 	cmc_sc->mbx_generation = cmc_mailbox_acquire(cmc_sc->pdev);
-	if (cmc_sc->mbx_generation < 0)
+	if (cmc_sc->mbx_generation < 0) {
+		vfree(kbuf);
 		return -ENODEV;
+	}
 
 	ret = cmc_erase_sc_firmware(cmc_sc);
 	if (ret) {
