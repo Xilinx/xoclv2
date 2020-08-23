@@ -64,6 +64,13 @@ static const struct attribute_group xocl_test_attrgroup = {
 	.attrs = xocl_test_attrs,
 };
 
+static void xocl_test_async_evt_cb(struct platform_device *pdev,
+	enum xocl_events evt, void *arg, bool success)
+{
+	xocl_info(pdev, "async broadcast event (%d) is %s", evt,
+		success ? "successful" : "failed");
+}
+
 static int xocl_test_event_cb(struct platform_device *pdev,
 	enum xocl_events evt, void *arg)
 {
@@ -87,8 +94,10 @@ static int xocl_test_event_cb(struct platform_device *pdev,
 	}
 
 	/* Broadcast event. */
-	if (pdev->id == 1)
-		xocl_subdev_broadcast_event_async(pdev, XOCL_EVENT_TEST);
+	if (pdev->id == 1) {
+		xocl_subdev_broadcast_event_async(pdev, XOCL_EVENT_TEST,
+			xocl_test_async_evt_cb, NULL);
+	}
 
 	xocl_info(pdev, "processed event %d for (%d, %d)",
 		evt, esd->xevt_subdev_id, esd->xevt_subdev_instance);

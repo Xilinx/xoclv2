@@ -32,9 +32,7 @@ static int xroot_parent_cb(struct device *, void *, u32, void *);
 
 struct xroot_async_evt {
 	struct list_head list;
-	enum xocl_events evt;
-	size_t arg_sz;
-	char arg[1];
+	struct xocl_parent_ioctl_async_broadcast_evt evt;
 };
 
 struct xroot_event_cb {
@@ -235,7 +233,7 @@ static void xroot_evt_cb_init_work(struct work_struct *work)
 	mutex_unlock(&xr->events.cb_lock);
 }
 
-static bool xroot_evt(struct xroot *xr, enum xocl_events evt, void *arg)
+static bool xroot_evt(struct xroot *xr, enum xocl_events evt)
 {
 	const struct list_head *ptr, *next;
 	struct xroot_event_cb *tmp;
@@ -263,6 +261,7 @@ static void xroot_evt_async_evt_work(struct work_struct *work)
 	struct xroot_async_evt *tmp;
 	struct xroot *xr =
 		container_of(work, struct xroot, events.async_evt_work);
+	bool success;
 
 	mutex_lock(&xr->events.async_evt_lock);
 	while (!list_empty(&xr->events.async_evt_list)) {
@@ -271,7 +270,12 @@ static void xroot_evt_async_evt_work(struct work_struct *work)
 		list_del(&tmp->list);
 		mutex_unlock(&xr->events.async_evt_lock);
 
-		(void) xroot_evt(xr, tmp->evt, tmp->arg_sz ? tmp->arg : NULL);
+		success = xroot_evt(xr, tmp->evt.xaevt_event);
+		if (tmp->evt.xaevt_cb) {
+			tmp->evt.xaevt_cb(tmp->evt.xaevt_pdev,
+				tmp->evt.xaevt_event, tmp->evt.xaevt_arg,
+				success);
+		}
 		vfree(tmp);
 
 		mutex_lock(&xr->events.async_evt_lock);
@@ -328,16 +332,14 @@ static int xroot_evt_cb_add(struct xroot *xr,
 }
 
 static int xroot_async_evt_add(struct xroot *xr,
-	enum xocl_events evt, void *arg, size_t arglen)
+	struct xocl_parent_ioctl_async_broadcast_evt *arg)
 {
-	struct xroot_async_evt *new = vzalloc(sizeof(*new) +
-		(arglen ? arglen - 1 : 0));
+	struct xroot_async_evt *new = vzalloc(sizeof(*new));
 
 	if (!new)
 		return -ENOMEM;
 
-	new->evt = evt;
-	memcpy(new->arg, arg, arglen);
+	new->evt = *arg;
 
 	mutex_lock(&xr->events.async_evt_lock);
 	list_add(&new->list, &xr->events.async_evt_list);
@@ -427,12 +429,12 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		rc = 0;
 		break;
 	case XOCL_PARENT_BOARDCAST_EVENT:
-		if (!xroot_evt(xr, (enum xocl_events)(uintptr_t)arg, NULL))
+		if (!xroot_evt(xr, (enum xocl_events)(uintptr_t)arg))
 			rc = -EINVAL;
 		break;
 	case XOCL_PARENT_ASYNC_BOARDCAST_EVENT:
 		rc = xroot_async_evt_add(xr,
-			(enum xocl_events)(uintptr_t)arg, NULL, 0);
+			(struct xocl_parent_ioctl_async_broadcast_evt *)arg);
 		break;
 	case XOCL_PARENT_GET_HOLDERS: {
 		struct xocl_parent_ioctl_get_holders *holders =
