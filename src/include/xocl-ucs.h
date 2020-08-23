@@ -6,16 +6,17 @@
  *	Lizhi Hou <Lizhi.Hou@xilinx.com>
  */
 
-#ifndef	_XOCL_CLOCK_H_
-#define	_XOCL_CLOCK_H_
+#ifndef	_XOCL_UCS_H_
+#define	_XOCL_UCS_H_
 
 #include "xocl-subdev.h"
 
 /*
- * CLOCK driver IOCTL calls.
+ * UCS driver IOCTL calls.
  */
-enum xocl_clock_ioctl_cmd {
-	XOCL_CLOCK_SET = 0,
+enum xocl_ucs_ioctl_cmd {
+	XOCL_UCS_CHECK = 0,
+	XOCL_UCS_ENABLE,
 };
 
-#endif	/* _XOCL_CLOCK_H_ */
+#endif	/* _XOCL_UCS_H_ */

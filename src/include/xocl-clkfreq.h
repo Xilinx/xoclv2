@@ -6,16 +6,16 @@
  *	Lizhi Hou <Lizhi.Hou@xilinx.com>
  */
 
-#ifndef	_XOCL_CLOCK_H_
-#define	_XOCL_CLOCK_H_
+#ifndef	_XOCL_CLKFREQ_H_
+#define	_XOCL_CLKFREQ_H_
 
 #include "xocl-subdev.h"
 
 /*
- * CLOCK driver IOCTL calls.
+ * CLKFREQ driver IOCTL calls.
  */
-enum xocl_clock_ioctl_cmd {
-	XOCL_CLOCK_SET = 0,
+enum xocl_clkfreq_ioctl_cmd {
+	XOCL_CLKFREQ_READ = 0,
 };
 
-#endif	/* _XOCL_CLOCK_H_ */
+#endif	/* _XOCL_CLKFREQ_H_ */

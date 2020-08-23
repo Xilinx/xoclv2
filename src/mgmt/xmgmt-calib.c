@@ -106,7 +106,7 @@ static int calib_save(struct calib *calib)
 	mutex_unlock(&calib->lock);
 
 	if (err) {
-		for (i--; i >=0; i--)
+		for (i--; i >= 0; i--)
 			calib_cache_clean(calib);
 	}
 	return err;

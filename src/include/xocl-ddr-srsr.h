@@ -14,7 +14,7 @@
 /*
  * ddr-srsr driver IOCTL calls.
  */
-enum xocl_ddr_srsr_ioctl_cmd { 
+enum xocl_ddr_srsr_ioctl_cmd {
 	XOCL_DDR_SRSR_SAVE,
 	XOCL_DDR_SRSR_CALIB,
 	XOCL_DDR_SRSR_WRITE,
@@ -36,7 +36,7 @@ static inline bool xocl_srsr_match_idx(enum xocl_subdev_id id,
 	int i;
 
 	if (id != XOCL_SUBDEV_SRSR)
-		return false;  
+		return false;
 
 	snprintf(ep_name, sizeof(ep_name), "%s_%d", NODE_DDR_SRSR, idx);
 	for (i = 0, res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
