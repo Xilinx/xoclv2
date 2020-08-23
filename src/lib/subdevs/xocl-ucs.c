@@ -51,12 +51,12 @@ struct xocl_ucs {
 
 static inline u32 reg_rd(struct xocl_ucs *ucs, u32 offset)
 {
-	        return ioread32(ucs->ucs_base + offset);    
+	return ioread32(ucs->ucs_base + offset);
 }
 
 static inline void reg_wr(struct xocl_ucs *ucs, u32 val, u32 offset)
 {
-	        iowrite32(val, ucs->ucs_base + offset);     
+	iowrite32(val, ucs->ucs_base + offset);
 }
 
 static void ucs_check(struct xocl_ucs *ucs, bool *latched)
@@ -68,16 +68,12 @@ static void ucs_check(struct xocl_ucs *ucs, bool *latched)
 	status = reg_rd(ucs, CHANNEL1_OFFSET);
 	ucs_status_ch1 = (struct ucs_control_status_ch1 *)&status;
 	if (ucs_status_ch1->shutdown_clocks_latched) {
-		UCS_ERR(ucs, "Critical temperature or power event,"
-			"kernel clocks have been stopped, run "
-			"'xbutil valiate -q' to continue. "
-			"See AR 73398 for more details.");
+		UCS_ERR(ucs, "Critical temperature or power event, kernel clocks have been stopped, run 'xbutil valiate -q' to continue. See AR 73398 for more details.");
 		/* explicitly indicate reset should be latched */
 		*latched = true;
 	} else if (ucs_status_ch1->clock_throttling_average >
 	    CLK_MAX_VALUE) {
-		UCS_ERR(ucs, "kernel clocks %d exceeds "
-			"expected maximum value %d.",
+		UCS_ERR(ucs, "kernel clocks %d exceeds expected maximum value %d.",
 			ucs_status_ch1->clock_throttling_average,
 			CLK_MAX_VALUE);
 	} else if (ucs_status_ch1->clock_throttling_average) {

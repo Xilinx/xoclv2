@@ -184,6 +184,7 @@ typedef bool (*xocl_subdev_match_t)(enum xocl_subdev_id,
 #define xocl_warn(pdev, fmt, args...) FMT_PRT(dev_warn, pdev, fmt, ##args)
 #define xocl_info(pdev, fmt, args...) FMT_PRT(dev_info, pdev, fmt, ##args)
 #define xocl_dbg(pdev, fmt, args...) FMT_PRT(dev_dbg, pdev, fmt, ##args)
+#define xocl_cont(pdev, fmt, args...) FMT_PRT(dev_cont, pdev, fmt, ##args)
 
 /*
  * Event notification.
@@ -271,6 +272,10 @@ extern void xocl_subdev_get_barres(struct platform_device *pdev,
 extern void xocl_subdev_get_parent_id(struct platform_device *pdev,
 	unsigned short *vendor, unsigned short *device,
 	unsigned short *subvendor, unsigned short *subdevice);
+extern struct device *xocl_subdev_register_hwmon(struct platform_device *pdev,
+	const char *name, void *drvdata, const struct attribute_group **grps);
+extern void xocl_subdev_unregister_hwmon(struct platform_device *pdev,
+	struct device *hwmon);
 
 extern int xocl_subdev_register_external_driver(enum xocl_subdev_id id,
 	struct platform_driver *drv, struct xocl_subdev_endpoints *eps);
@@ -289,7 +294,6 @@ extern int xocl_devnode_destroy(struct platform_device *pdev);
 extern struct platform_device *xocl_devnode_open_excl(struct inode *inode);
 extern struct platform_device *xocl_devnode_open(struct inode *inode);
 extern void xocl_devnode_close(struct inode *inode);
-
 static inline void xocl_memcpy_fromio(void *buf, void __iomem *iomem, u32 size)
 {
 	int i;
@@ -298,7 +302,6 @@ static inline void xocl_memcpy_fromio(void *buf, void __iomem *iomem, u32 size)
 	for (i = 0; i < size / 4; i++)
 		((u32 *)buf)[i] = ioread32((char *)(iomem) + sizeof(u32) * i);
 }
-
 static inline void xocl_memcpy_toio(void __iomem *iomem, void *buf, u32 size)
 {
 	int i;

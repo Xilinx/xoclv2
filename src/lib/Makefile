@@ -24,6 +24,10 @@ xocl-lib-y := 				\
 	subdevs/xocl-icap.o		\
 	subdevs/xocl-cmc.o		\
 	subdevs/xocl-cmc-ctrl.o		\
+	subdevs/xocl-cmc-sensors.o	\
+	subdevs/xocl-cmc-mailbox.o	\
+	subdevs/xocl-cmc-bdinfo.o	\
+	subdevs/xocl-cmc-sc.o		\
 	subdevs/xocl-srsr.o		\
 	subdevs/xocl-clock.o		\
 	subdevs/xocl-clkfreq.o		\

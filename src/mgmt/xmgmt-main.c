@@ -9,6 +9,7 @@
  */
 
 #include <linux/firmware.h>
+#include <linux/uaccess.h>
 #include "xocl-xclbin.h"
 #include "xocl-metadata.h"
 #include "xocl-flash.h"
@@ -24,7 +25,9 @@
 struct xmgmt_main {
 	struct platform_device *pdev;
 	void *evt_hdl;
-	char *firmware;
+	char *firmware_blp;
+	char *firmware_plp;
+	char *firmware_ulp;
 	bool flash_ready;
 	bool gpio_ready;
 	struct fpga_manager *fmgr;
@@ -222,6 +225,7 @@ static const char *get_uuid_from_firmware(struct platform_device *pdev,
 	const char *axlf)
 {
 	const void *uuid = NULL;
+	const void *uuiddup = NULL;
 	void *dtb = NULL;
 	int rc;
 
@@ -231,9 +235,10 @@ static const char *get_uuid_from_firmware(struct platform_device *pdev,
 
 	rc = xocl_md_get_prop(DEV(pdev), dtb, NULL, NULL,
 		PROP_LOGIC_UUID, &uuid, NULL);
-	if (rc)
-		return NULL;
-	return uuid;
+	if (!rc)
+		uuiddup = kstrdup(uuid, GFP_KERNEL);
+	vfree(dtb);
+	return uuiddup;
 }
 
 static bool is_valid_firmware(struct platform_device *pdev,
@@ -264,9 +269,11 @@ static bool is_valid_firmware(struct platform_device *pdev,
 	if (fw_uuid == NULL || strcmp(fw_uuid, dev_uuid) != 0) {
 		xocl_err(pdev, "bad fw UUID: %s, expect: %s",
 			fw_uuid ? fw_uuid : "<none>", dev_uuid);
+		kfree(fw_uuid);
 		return false;
 	}
 
+	kfree(fw_uuid);
 	return true;
 }
 
@@ -276,7 +283,7 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 	int rc = 0;
 	void *dtb = NULL;
 
-	rc = xrt_xclbin_get_section(xmm->firmware, PARTITION_METADATA,
+	rc = xrt_xclbin_get_section(xmm->firmware_blp, PARTITION_METADATA,
 		&dtb, NULL);
 	if (rc) {
 		xocl_err(pdev, "failed to find BLP dtb");
@@ -332,12 +339,12 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 	if (xmm->gpio_ready && xmm->flash_ready) {
 		int rc;
 
-		rc = load_firmware_from_disk(pdev, &xmm->firmware, &fwlen);
+		rc = load_firmware_from_disk(pdev, &xmm->firmware_blp, &fwlen);
 		if (rc != 0) {
 			rc = load_firmware_from_flash(pdev,
-				&xmm->firmware, &fwlen);
+				&xmm->firmware_blp, &fwlen);
 		}
-		if (rc == 0 && is_valid_firmware(pdev, xmm->firmware, fwlen))
+		if (rc == 0 && is_valid_firmware(pdev, xmm->firmware_blp, fwlen))
 			(void) xmgmt_create_blp(xmm);
 		else
 			xocl_err(pdev, "failed to find firmware, giving up");
@@ -383,10 +390,23 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 	if (xmm->evt_hdl)
 		(void) xocl_subdev_remove_event_cb(pdev, xmm->evt_hdl);
 	vfree(xmm->blp_intf_uuids);
-	vfree(xmm->firmware);
+	vfree(xmm->firmware_blp);
 	(void) xmgmt_fmgr_remove(xmm->fmgr);
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup);
 	return 0;
+}
+
+static const char *xmgmt_get_vbnv(struct xmgmt_main *xmm)
+{
+	if (xmm->firmware_plp) {
+		return ((struct axlf *)xmm->firmware_plp)->
+			m_header.m_platformVBNV;
+	}
+	if (xmm->firmware_blp) {
+		return ((struct axlf *)xmm->firmware_blp)->
+			m_header.m_platformVBNV;
+	}
+	return NULL;
 }
 
 static int
@@ -402,9 +422,15 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		struct xocl_mgmt_main_ioctl_get_xsabin_section *get =
 			(struct xocl_mgmt_main_ioctl_get_xsabin_section *)arg;
 
-		ret = xrt_xclbin_get_section(xmm->firmware,
+		ret = xrt_xclbin_get_section(xmm->firmware_blp,
 			get->xmmigxs_section_kind, &get->xmmigxs_section,
 			&get->xmmigxs_section_size);
+		break;
+	}
+	case XOCL_MGMT_MAIN_GET_VBNV: {
+		const char **vbnv_p = (const char **)arg;
+
+		*vbnv_p = xmgmt_get_vbnv(xmm);
 		break;
 	}
 	default:
@@ -438,6 +464,42 @@ static int xmgmt_main_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static int bitstream_ioctl_axlf(const struct xmgmt_main *xmm, const void __user *arg)
+{
+	struct fpga_image_info info;
+	void *copy_buffer = NULL;
+	size_t copy_buffer_size = 0;
+	struct xclmgmt_ioc_bitstream_axlf ioc_obj = { 0 };
+	struct axlf xclbin_obj = { {0} };
+	int ret = 0;
+
+	if (copy_from_user((void *)&ioc_obj, arg, sizeof(ioc_obj)))
+		return -EFAULT;
+	if (copy_from_user((void *)&xclbin_obj, ioc_obj.xclbin,
+		sizeof(xclbin_obj)))
+		return -EFAULT;
+	if (memcmp(xclbin_obj.m_magic, ICAP_XCLBIN_V2, sizeof(ICAP_XCLBIN_V2)))
+		return -EINVAL;
+
+	copy_buffer_size = xclbin_obj.m_header.m_length;
+	/* Assuming xclbin is not over 1G */
+	if (copy_buffer_size > 1024 * 1024 * 1024)
+		return -EINVAL;
+	copy_buffer = vmalloc(copy_buffer_size);
+	if (copy_buffer == NULL)
+		return -ENOMEM;
+
+	if (copy_from_user(copy_buffer, ioc_obj.xclbin, copy_buffer_size))
+		ret = -EFAULT;
+	else {
+		info.buf = (char *)copy_buffer;
+		info.count = copy_buffer_size;
+		ret = fpga_mgr_load(xmm->fmgr, &info);
+	}
+	vfree(copy_buffer);
+	return ret;
+}
+
 static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd,
 	unsigned long arg)
 {
@@ -454,7 +516,7 @@ static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd,
 	xocl_info(xmm->pdev, "ioctl cmd %d, arg %ld", cmd, arg);
 	switch (cmd) {
 	case XCLMGMT_IOCICAPDOWNLOAD_AXLF:
-		break;
+		return bitstream_ioctl_axlf(xmm, (const void __user *)arg);
 	case XCLMGMT_IOCFREQSCALE:
 		break;
 	default:

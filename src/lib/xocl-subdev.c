@@ -15,6 +15,14 @@
 #include "xocl-metadata.h"
 
 #define DEV_IS_PCI(dev) ((dev)->bus == &pci_bus_type)
+static inline struct device *find_root(struct platform_device *pdev)
+{
+	struct device *d = DEV(pdev);
+
+	while (!DEV_IS_PCI(d))
+		d = d->parent;
+	return d;
+}
 
 /*
  * It represents a holder of a subdev. One holder can repeatedly hold a subdev
@@ -289,6 +297,17 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xocl_subdev_attrgroup))
 		xocl_err(pdev, "failed to create sysfs group");
 
+	/*
+	 * Create sysfs sym link under root for leaves
+	 * under random partitions for easy access to them.
+	 */
+	if (id != XOCL_SUBDEV_PART) {
+		if (sysfs_create_link(&find_root(pdev)->kobj,
+			&DEV(pdev)->kobj, dev_name(DEV(pdev)))) {
+			xocl_err(pdev, "failed to create sysfs link");
+		}
+	}
+
 	/* All done, ready to handle req thru cdev. */
 	if (xocl_subdev_cdev_auto_creation(pdev)) {
 		(void) xocl_devnode_create(pdev,
@@ -312,11 +331,14 @@ static void xocl_subdev_destroy(struct xocl_subdev *sdev)
 {
 	struct platform_device *pdev = sdev->xs_pdev;
 	int inst = pdev->id;
+	struct device *dev = DEV(pdev);
 
 	/* Take down the device node */
 	if (xocl_subdev_cdev_auto_creation(pdev))
 		(void) xocl_devnode_destroy(pdev);
-	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xocl_subdev_attrgroup);
+	if (sdev->xs_id != XOCL_SUBDEV_PART)
+		(void) sysfs_remove_link(&find_root(pdev)->kobj, dev_name(dev));
+	(void) sysfs_remove_group(&dev->kobj, &xocl_subdev_attrgroup);
 	platform_device_unregister(pdev);
 	xocl_drv_put_instance(sdev->xs_id, inst);
 	xocl_subdev_free(sdev);
@@ -864,4 +886,22 @@ void xocl_subdev_get_parent_id(struct platform_device *pdev,
 		*subvendor = id.xpigi_sub_vendor_id;
 	if (subdevice)
 		*subdevice = id.xpigi_sub_device_id;
+}
+
+struct device *xocl_subdev_register_hwmon(struct platform_device *pdev,
+	const char *name, void *drvdata, const struct attribute_group **grps)
+{
+	struct xocl_parent_ioctl_hwmon hm = { true, name, drvdata, grps, };
+
+	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_HWMON, (void *)&hm);
+	return hm.xpih_hwmon_dev;
+}
+
+void xocl_subdev_unregister_hwmon(struct platform_device *pdev,
+	struct device *hwmon)
+{
+	struct xocl_parent_ioctl_hwmon hm = { false, };
+
+	hm.xpih_hwmon_dev = hwmon;
+	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_HWMON, (void *)&hm);
 }

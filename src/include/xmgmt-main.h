@@ -13,6 +13,7 @@
 
 enum xocl_mgmt_main_ioctl_cmd {
 	XOCL_MGMT_MAIN_GET_XSABIN_SECTION = 0,
+	XOCL_MGMT_MAIN_GET_VBNV,
 };
 
 struct xocl_mgmt_main_ioctl_get_xsabin_section {
