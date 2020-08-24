@@ -158,6 +158,8 @@ static int xocl_test_probe(struct platform_device *pdev)
 		if (dtb)
 			(void) xocl_subdev_create_partition(pdev, dtb);
 		vfree(dtb);
+	} else {
+		xocl_subdev_broadcast_event(pdev, XOCL_EVENT_TEST);
 	}
 
 	/* After we return here, we'll get inter-leaf calls. */
