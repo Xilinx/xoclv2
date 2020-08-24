@@ -37,6 +37,19 @@ struct xmgmt_main {
 	u32 blp_uuid_num;
 };
 
+static const char *xmgmt_get_vbnv(struct xmgmt_main *xmm)
+{
+	if (xmm->firmware_plp) {
+		return ((struct axlf *)xmm->firmware_plp)->
+			m_header.m_platformVBNV;
+	}
+	if (xmm->firmware_blp) {
+		return ((struct axlf *)xmm->firmware_blp)->
+			m_header.m_platformVBNV;
+	}
+	return NULL;
+}
+
 static bool xmgmt_main_leaf_match(enum xocl_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
@@ -64,8 +77,19 @@ static ssize_t reset_store(struct device *dev,
 }
 static DEVICE_ATTR_WO(reset);
 
+static ssize_t VBNV_show(struct device *dev,
+	struct device_attribute *da, char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", xmgmt_get_vbnv(xmm));
+}
+static DEVICE_ATTR_RO(VBNV);
+
 static struct attribute *xmgmt_main_attrs[] = {
 	&dev_attr_reset.attr,
+	&dev_attr_VBNV.attr,
 	NULL,
 };
 
@@ -394,19 +418,6 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 	(void) xmgmt_fmgr_remove(xmm->fmgr);
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup);
 	return 0;
-}
-
-static const char *xmgmt_get_vbnv(struct xmgmt_main *xmm)
-{
-	if (xmm->firmware_plp) {
-		return ((struct axlf *)xmm->firmware_plp)->
-			m_header.m_platformVBNV;
-	}
-	if (xmm->firmware_blp) {
-		return ((struct axlf *)xmm->firmware_blp)->
-			m_header.m_platformVBNV;
-	}
-	return NULL;
 }
 
 static int
