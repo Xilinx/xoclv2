@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Xilinx Alveo FPGA VSEC Driver
+ * Xilinx Alveo FPGA AXI Gate Driver
  *
  * Copyright (C) 2020 Xilinx, Inc.
  *
@@ -30,6 +30,7 @@ struct xocl_axigate {
 	struct platform_device	*pdev;
 	void			*base;
 	struct mutex		gate_lock;
+	struct completion	gate_comp;
 
 	void			*evt_hdl;
 	const char		*ep_name;
@@ -102,6 +103,16 @@ static bool xocl_axigate_leaf_match(enum xocl_subdev_id id,
 	return false;
 }
 
+void xocl_axigate_bcast_cb(struct platform_device *pdev,
+	enum xocl_events evt, void *arg, bool success)
+{
+	struct xocl_axigate	*gate;
+
+	gate = platform_get_drvdata(pdev);
+
+	complete(&gate->gate_comp);
+}
+
 static void xocl_axigate_freeze(struct platform_device *pdev)
 {
 	struct xocl_axigate	*gate;
@@ -113,7 +124,9 @@ static void xocl_axigate_freeze(struct platform_device *pdev)
 	freeze = reg_rd(gate, iag_rd);
 	if (freeze) {		/* gate is opened */
 		xocl_subdev_broadcast_event_async(pdev,
-			XOCL_EVENT_PRE_GATE_CLOSE, NULL, NULL);
+			XOCL_EVENT_PRE_GATE_CLOSE, xocl_axigate_bcast_cb, NULL);
+		wait_for_completion(&gate->gate_comp);
+		reinit_completion(&gate->gate_comp);
 		freeze_gate(gate);
 	}
 
@@ -135,7 +148,9 @@ static void xocl_axigate_free(struct platform_device *pdev)
 	if (!freeze) {		/* gate is closed */
 		free_gate(gate);
 		xocl_subdev_broadcast_event_async(pdev,
-			XOCL_EVENT_POST_GATE_OPEN, NULL, NULL);
+			XOCL_EVENT_POST_GATE_OPEN, xocl_axigate_bcast_cb, NULL);
+		wait_for_completion(&gate->gate_comp);
+		reinit_completion(&gate->gate_comp);
 	}
 
 	gate->gate_freezed = false;
@@ -249,6 +264,7 @@ static int xocl_axigate_probe(struct platform_device *pdev)
 	gate->ep_name = res->name;
 
 	mutex_init(&gate->gate_lock);
+	init_completion(&gate->gate_comp);
 
 	return 0;
 
