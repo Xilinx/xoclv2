@@ -49,6 +49,7 @@ struct xmgmt {
 
 	/* save config for pci reset */
 	u32 saved_config[8][16];
+	bool ready;
 };
 
 static int xmgmt_config_pci(struct xmgmt *xm)
@@ -247,6 +248,25 @@ failed:
 	return ret;
 }
 
+static ssize_t ready_show(struct device *dev,
+	struct device_attribute *da, char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct xmgmt *xm = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%d\n", xm->ready);
+}
+static DEVICE_ATTR_RO(ready);
+
+static struct attribute *xmgmt_root_attrs[] = {
+	&dev_attr_ready.attr,
+	NULL
+};
+
+static struct attribute_group xmgmt_root_attr_group = {
+	.attrs = xmgmt_root_attrs,
+};
+
 static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret;
@@ -275,10 +295,18 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		xmgmt_err(xm, "failed to create root partition: %d", ret);
 
-	if (!xroot_wait_for_bringup(xm->root))
+	if (!xroot_wait_for_bringup(xm->root)) {
 		xmgmt_err(xm, "failed to bringup all partitions");
-	else
+	} else {
+		xm->ready = true;
 		xmgmt_info(xm, "%s started successfully", XMGMT_MODULE_NAME);
+	}
+
+	ret = sysfs_create_group(&pdev->dev.kobj, &xmgmt_root_attr_group);
+	if (ret) {
+		/* Warning instead of failing the probe. */
+		xocl_err(pdev, "create xmgmt root attrs failed: %d", ret);
+	}
 
 	vfree(dtb);
 	return 0;
@@ -294,6 +322,7 @@ static void xmgmt_remove(struct pci_dev *pdev)
 {
 	struct xmgmt *xm = pci_get_drvdata(pdev);
 
+	sysfs_remove_group(&pdev->dev.kobj, &xmgmt_root_attr_group);
 	(void) xroot_remove(xm->root);
 	pci_disable_pcie_error_reporting(xm->pdev);
 	xmgmt_info(xm, "%s cleaned up successfully", XMGMT_MODULE_NAME);
