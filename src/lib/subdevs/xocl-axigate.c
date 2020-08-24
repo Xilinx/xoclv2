@@ -125,8 +125,6 @@ static void xocl_axigate_freeze(struct platform_device *pdev)
 	if (freeze) {		/* gate is opened */
 		xocl_subdev_broadcast_event_async(pdev,
 			XOCL_EVENT_PRE_GATE_CLOSE, xocl_axigate_bcast_cb, NULL);
-		wait_for_completion(&gate->gate_comp);
-		reinit_completion(&gate->gate_comp);
 		freeze_gate(gate);
 	}
 
@@ -150,7 +148,6 @@ static void xocl_axigate_free(struct platform_device *pdev)
 		xocl_subdev_broadcast_event_async(pdev,
 			XOCL_EVENT_POST_GATE_OPEN, xocl_axigate_bcast_cb, NULL);
 		wait_for_completion(&gate->gate_comp);
-		reinit_completion(&gate->gate_comp);
 	}
 
 	gate->gate_freezed = false;
