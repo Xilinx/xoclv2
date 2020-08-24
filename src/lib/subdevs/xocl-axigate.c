@@ -123,8 +123,12 @@ static void xocl_axigate_freeze(struct platform_device *pdev)
 	mutex_lock(&gate->gate_lock);
 	freeze = reg_rd(gate, iag_rd);
 	if (freeze) {		/* gate is opened */
+		/* use the same async broadcast calls to make sure the
+		 * order with gate free
+		 */
 		xocl_subdev_broadcast_event_async(pdev,
 			XOCL_EVENT_PRE_GATE_CLOSE, xocl_axigate_bcast_cb, NULL);
+		wait_for_completion(&gate->gate_comp);
 		freeze_gate(gate);
 	}
 
@@ -146,8 +150,10 @@ static void xocl_axigate_free(struct platform_device *pdev)
 	if (!freeze) {		/* gate is closed */
 		free_gate(gate);
 		xocl_subdev_broadcast_event_async(pdev,
-			XOCL_EVENT_POST_GATE_OPEN, xocl_axigate_bcast_cb, NULL);
-		wait_for_completion(&gate->gate_comp);
+			XOCL_EVENT_POST_GATE_OPEN, NULL, NULL);
+		/* xocl_axigate_free() could be called in event cb, thus
+		 * we can not wait for the completes
+		 */
 	}
 
 	gate->gate_freezed = false;
