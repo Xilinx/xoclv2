@@ -22,6 +22,7 @@ enum xocl_gpio_ioctl_cmd {
 enum xocl_gpio_id {
 	XOCL_GPIO_ROM_UUID,
 	XOCL_GPIO_DDR_CALIB,
+	XOCL_GPIO_GOLDEN_VER,
 	XOCL_GPIO_MAX
 };
 

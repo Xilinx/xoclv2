@@ -100,6 +100,7 @@
 #define NODE_TEST "drv_ep_test_00"
 #define NODE_MGMT_MAIN "drv_ep_mgmt_main_00"
 #define NODE_FLASH_VSEC "drv_ep_card_flash_program_00"
+#define NODE_GOLDEN_VER "drv_ep_golden_ver_00"
 
 #define NODE_DDR_SRSR "drv_ep_ddr_srsr"
 #define REGMAP_DDR_SRSR "drv_ddr_srsr"
