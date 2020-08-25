@@ -428,10 +428,6 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		xroot_evt_cb_del(xr, arg);
 		rc = 0;
 		break;
-	case XOCL_PARENT_BOARDCAST_EVENT:
-		if (!xroot_evt(xr, (enum xocl_events)(uintptr_t)arg))
-			rc = -EINVAL;
-		break;
 	case XOCL_PARENT_ASYNC_BOARDCAST_EVENT:
 		rc = xroot_async_evt_add(xr,
 			(struct xocl_parent_ioctl_async_broadcast_evt *)arg);

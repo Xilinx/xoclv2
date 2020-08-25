@@ -837,14 +837,6 @@ ssize_t xocl_subdev_pool_get_holders(struct xocl_subdev_pool *spool,
 }
 EXPORT_SYMBOL_GPL(xocl_subdev_pool_get_holders);
 
-int xocl_subdev_broadcast_event(struct platform_device *pdev,
-	enum xocl_events evt)
-{
-	return xocl_subdev_parent_ioctl(pdev,
-		XOCL_PARENT_BOARDCAST_EVENT, (void *)evt);
-}
-EXPORT_SYMBOL_GPL(xocl_subdev_broadcast_event);
-
 int xocl_subdev_broadcast_event_async(struct platform_device *pdev,
 	enum xocl_events evt, xocl_async_broadcast_event_cb_t cb, void *arg)
 {
@@ -854,6 +846,37 @@ int xocl_subdev_broadcast_event_async(struct platform_device *pdev,
 		XOCL_PARENT_ASYNC_BOARDCAST_EVENT, &e);
 }
 EXPORT_SYMBOL_GPL(xocl_subdev_broadcast_event_async);
+
+struct xocl_broadcast_event_arg {
+	struct completion comp;
+	bool success;
+};
+
+static void xocl_broadcast_event_cb(struct platform_device *pdev,
+	enum xocl_events evt, void *arg, bool success)
+{
+	struct xocl_broadcast_event_arg *e =
+		(struct xocl_broadcast_event_arg *)arg;
+
+	e->success = success;
+	complete(&e->comp);
+}
+
+int xocl_subdev_broadcast_event(struct platform_device *pdev,
+	enum xocl_events evt)
+{
+	int ret;
+	struct xocl_broadcast_event_arg e;
+
+	init_completion(&e.comp);
+	e.success = false;
+	ret = xocl_subdev_broadcast_event_async(pdev, evt,
+		xocl_broadcast_event_cb, &e);
+	if (ret == 0)
+		wait_for_completion(&e.comp);
+	return e.success ? 0 : -EINVAL;
+}
+EXPORT_SYMBOL_GPL(xocl_subdev_broadcast_event);
 
 void xocl_subdev_hot_reset(struct platform_device *pdev)
 {
