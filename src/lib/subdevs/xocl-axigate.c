@@ -30,7 +30,6 @@ struct xocl_axigate {
 	struct platform_device	*pdev;
 	void			*base;
 	struct mutex		gate_lock;
-	struct completion	gate_comp;
 
 	void			*evt_hdl;
 	const char		*ep_name;
@@ -103,16 +102,6 @@ static bool xocl_axigate_leaf_match(enum xocl_subdev_id id,
 	return false;
 }
 
-void xocl_axigate_bcast_cb(struct platform_device *pdev,
-	enum xocl_events evt, void *arg, bool success)
-{
-	struct xocl_axigate	*gate;
-
-	gate = platform_get_drvdata(pdev);
-
-	complete(&gate->gate_comp);
-}
-
 static void xocl_axigate_freeze(struct platform_device *pdev)
 {
 	struct xocl_axigate	*gate;
@@ -123,12 +112,7 @@ static void xocl_axigate_freeze(struct platform_device *pdev)
 	mutex_lock(&gate->gate_lock);
 	freeze = reg_rd(gate, iag_rd);
 	if (freeze) {		/* gate is opened */
-		/* use the same async broadcast calls to make sure the
-		 * order with gate free
-		 */
-		xocl_subdev_broadcast_event_async(pdev,
-			XOCL_EVENT_PRE_GATE_CLOSE, xocl_axigate_bcast_cb, NULL);
-		wait_for_completion(&gate->gate_comp);
+		xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_GATE_CLOSE);
 		freeze_gate(gate);
 	}
 
@@ -267,7 +251,6 @@ static int xocl_axigate_probe(struct platform_device *pdev)
 	gate->ep_name = res->name;
 
 	mutex_init(&gate->gate_lock);
-	init_completion(&gate->gate_comp);
 
 	return 0;
 
