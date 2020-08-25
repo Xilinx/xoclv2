@@ -28,6 +28,7 @@ struct xocl_name_id {
 static struct xocl_name_id name_id[XOCL_GPIO_MAX] = {
 	{ NODE_BLP_ROM, XOCL_GPIO_ROM_UUID },
 	{ NODE_DDR_CALIB, XOCL_GPIO_DDR_CALIB},
+	{ NODE_GOLDEN_VER, XOCL_GPIO_GOLDEN_VER },
 };
 
 struct xocl_gpio {
@@ -167,6 +168,13 @@ struct xocl_subdev_endpoints xocl_gpio_endpoints[] = {
 			/* add name if ep is in same partition */
 			{ .ep_name = NODE_BLP_ROM },
 			{ .ep_name = NODE_DDR_CALIB },
+			{ NULL },
+		},
+		.xse_min_ep = 1,
+	},
+	{
+		.xse_names = (struct xocl_subdev_ep_names[]) {
+			{ .ep_name = NODE_GOLDEN_VER },
 			{ NULL },
 		},
 		.xse_min_ep = 1,
