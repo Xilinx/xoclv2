@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Xilinx Alveo FPGA VSEC Driver
+ * Xilinx Alveo FPGA AXI Gate Driver
  *
  * Copyright (C) 2020 Xilinx, Inc.
  *
@@ -112,8 +112,7 @@ static void xocl_axigate_freeze(struct platform_device *pdev)
 	mutex_lock(&gate->gate_lock);
 	freeze = reg_rd(gate, iag_rd);
 	if (freeze) {		/* gate is opened */
-		xocl_subdev_broadcast_event_async(pdev,
-			XOCL_EVENT_PRE_GATE_CLOSE, NULL, NULL);
+		xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_GATE_CLOSE);
 		freeze_gate(gate);
 	}
 
@@ -136,6 +135,9 @@ static void xocl_axigate_free(struct platform_device *pdev)
 		free_gate(gate);
 		xocl_subdev_broadcast_event_async(pdev,
 			XOCL_EVENT_POST_GATE_OPEN, NULL, NULL);
+		/* xocl_axigate_free() could be called in event cb, thus
+		 * we can not wait for the completes
+		 */
 	}
 
 	gate->gate_freezed = false;

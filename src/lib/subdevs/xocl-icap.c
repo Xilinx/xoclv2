@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Xilinx Alveo FPGA VSEC Driver
+ * Xilinx Alveo FPGA ICAP Driver
  *
  * Copyright (C) 2020 Xilinx, Inc.
  *

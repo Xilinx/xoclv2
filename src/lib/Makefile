@@ -28,6 +28,15 @@ xocl-lib-y := 				\
 	subdevs/xocl-cmc-mailbox.o	\
 	subdevs/xocl-cmc-bdinfo.o	\
 	subdevs/xocl-cmc-sc.o		\
+	subdevs/xocl-srsr.o		\
+	subdevs/xocl-clock.o		\
+	subdevs/xocl-clkfreq.o		\
+	subdevs/xocl-ucs.o		\
+	$(fdtdir)/fdt.o			\
+	$(fdtdir)/fdt_addresses.o	\
+	$(fdtdir)/fdt_empty_tree.o	\
+	$(fdtdir)/fdt_overlay.o		\
+	$(fdtdir)/fdt_ro.o		\
 	$(fdtdir)/fdt.o			\
 	$(fdtdir)/fdt_addresses.o	\
 	$(fdtdir)/fdt_empty_tree.o	\
