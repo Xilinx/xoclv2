@@ -105,7 +105,9 @@
 #define NODE_DDR_SRSR "drv_ep_ddr_srsr"
 #define REGMAP_DDR_SRSR "drv_ddr_srsr"
 
-#define PROP_OFFSET "offset"
+#define PROP_OFFSET "drv_offset"
+#define PROP_CLK_FREQ "drv_clock_frequency"
+#define PROP_CLK_CNT "drv_clock_frequency_counter"
 
 struct xocl_md_endpoint {
 	const char	*ep_name;

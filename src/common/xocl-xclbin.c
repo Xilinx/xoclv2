@@ -9,7 +9,9 @@
 
 #include <asm/errno.h>
 #include <linux/vmalloc.h>
+#include <linux/device.h>
 #include "xocl-xclbin.h"
+#include "xocl-metadata.h"
 
 /* Used for parsing bitstream header */
 #define XHI_EVEN_MAGIC_BYTE     0x0f
@@ -262,11 +264,127 @@ int xrt_xclbin_parse_header(const unsigned char *data,
 	return 0;
 }
 
-void
-xrt_xclbin_free_header(struct XHwIcap_Bit_Header *header)
+void xrt_xclbin_free_header(struct XHwIcap_Bit_Header *header)
 {
 	vfree(header->DesignName);
 	vfree(header->PartName);
 	vfree(header->Date);
 	vfree(header->Time);
+}
+
+struct xocl_clock_desc {
+	char	*clock_ep_name;
+	u32	clock_xclbin_type;
+	char	*clkfreq_ep_name;
+} clock_desc[] = {
+	{
+		.clock_ep_name = NODE_CLK_KERNEL1,
+		.clock_xclbin_type = CT_DATA,
+		.clkfreq_ep_name = NODE_CLKFREQ_K1,
+	},
+	{
+		.clock_ep_name = NODE_CLK_KERNEL2,
+		.clock_xclbin_type = CT_KERNEL,
+		.clkfreq_ep_name = NODE_CLKFREQ_K2,
+	},
+	{
+		.clock_ep_name = NODE_CLK_KERNEL3,
+		.clock_xclbin_type = CT_SYSTEM,
+		.clkfreq_ep_name = NODE_CLKFREQ_HBM,
+	},
+};
+
+static char *clock_type2epname(u32 type)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(clock_desc); i++) {
+		if (clock_desc[i].clock_xclbin_type == type)
+			return clock_desc[i].clock_ep_name;
+	}
+	return NULL;
+}
+
+static char *clock_type2clkfreq_name(u32 type)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(clock_desc); i++) {
+		if (clock_desc[i].clock_xclbin_type == type)
+			return clock_desc[i].clkfreq_ep_name;
+	}
+	return NULL;
+}
+
+static int xrt_xclbin_add_clock_metadata(struct device *dev,
+	const char *xclbin, char **dtb)
+{
+	int i;
+	u16 freq;
+	struct clock_freq_topology *clock_topo;
+	int rc = xrt_xclbin_get_section(xclbin,
+		CLOCK_FREQ_TOPOLOGY, (void **)&clock_topo, NULL);
+
+	if (rc)
+		return 0;
+
+	for (i = 0; i < clock_topo->m_count; i++) {
+		u8 type = clock_topo->m_clock_freq[i].m_type;
+		char *ep_name = clock_type2epname(type);
+		char *counter_name = clock_type2clkfreq_name(type);
+
+		if (!ep_name || !counter_name)
+			continue;
+
+		freq = cpu_to_be16(clock_topo->m_clock_freq[i].m_freq_Mhz);
+		rc = xocl_md_set_prop(dev, dtb, ep_name,
+			NULL, PROP_CLK_FREQ, &freq, sizeof(freq));
+		if (rc)
+			break;
+
+		rc = xocl_md_set_prop(dev, dtb, ep_name,
+			NULL, PROP_CLK_CNT, counter_name, strlen(counter_name) + 1);
+		if (rc)
+			break;
+	}
+
+	vfree(clock_topo);
+
+	return rc;
+}
+
+int xrt_xclbin_get_metadata(struct device *dev, const char *xclbin, char **dtb)
+{
+	char *md = NULL, *newmd = NULL;
+	u64 len;
+	int rc = xrt_xclbin_get_section(xclbin, PARTITION_METADATA,
+		(void **)&md, &len);
+
+	if (rc)
+		goto done;
+
+	/* Sanity check the dtb section. */
+	if (xocl_md_size(dev, md) > len) {
+		rc = -EINVAL;
+		goto done;
+	}
+
+	/* Make a copy of it so that it can be modified. */
+	rc = xocl_md_create(dev, &newmd);
+	if (rc)
+		goto done;
+	rc = xocl_md_copy_all_eps(dev, &newmd, md);
+	if (rc)
+		goto done;
+
+	/* Convert various needed xclbin sections into dtb. */
+	rc = xrt_xclbin_add_clock_metadata(dev, xclbin, &newmd);
+
+done:
+	if (rc == 0)
+		*dtb = newmd;
+	else
+		vfree(newmd);
+	vfree(md);
+	return rc;
 }

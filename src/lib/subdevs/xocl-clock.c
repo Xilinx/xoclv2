@@ -383,7 +383,7 @@ static ssize_t freq_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	struct clock *clock = platform_get_drvdata(to_platform_device(dev));
-	u16 freq;
+	u16 freq = 0;
 	ssize_t count;
 
 	count = clock_get_freq(clock, &freq);
