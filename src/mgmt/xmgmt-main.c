@@ -305,12 +305,11 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 {
 	struct platform_device *pdev = xmm->pdev;
 	int rc = 0;
-	void *dtb = NULL;
+	char *dtb = NULL;
 
-	rc = xrt_xclbin_get_section(xmm->firmware_blp, PARTITION_METADATA,
-		&dtb, NULL);
+	rc = xrt_xclbin_get_metadata(DEV(xmm->pdev), xmm->firmware_blp, &dtb);
 	if (rc) {
-		xocl_err(pdev, "failed to find BLP dtb");
+		xocl_err(pdev, "failed to find BLP dtb: %d", rc);
 	} else {
 		rc = xocl_subdev_create_partition(pdev, dtb);
 		if (rc < 0)
@@ -422,6 +421,8 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 		(void) xocl_subdev_remove_event_cb(pdev, xmm->evt_hdl);
 	vfree(xmm->blp_intf_uuids);
 	vfree(xmm->firmware_blp);
+	vfree(xmm->firmware_plp);
+	vfree(xmm->firmware_ulp);
 	(void) xmgmt_fmgr_remove(xmm->fmgr);
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup);
 	return 0;
@@ -482,7 +483,7 @@ static int xmgmt_main_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int bitstream_ioctl_axlf(const struct xmgmt_main *xmm, const void __user *arg)
+static int bitstream_ioctl_axlf(struct xmgmt_main *xmm, const void __user *arg)
 {
 	struct fpga_image_info info;
 	void *copy_buffer = NULL;
@@ -514,7 +515,8 @@ static int bitstream_ioctl_axlf(const struct xmgmt_main *xmm, const void __user 
 		info.count = copy_buffer_size;
 		ret = fpga_mgr_load(xmm->fmgr, &info);
 	}
-	vfree(copy_buffer);
+	vfree(xmm->firmware_ulp);
+	xmm->firmware_ulp = copy_buffer;
 	return ret;
 }
 

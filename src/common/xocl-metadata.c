@@ -12,7 +12,7 @@
 #include "libfdt.h"
 #include "xocl-metadata.h"
 
-#define BLOB_DELTA	4096
+#define BLOB_DELTA	(4096 * 25) /* HACK: until we can dynamically shrink */
 
 #define md_err(dev, fmt, args...)			\
 	dev_err(dev, "%s: "fmt, __func__, ##args)
@@ -337,7 +337,7 @@ int xocl_md_set_prop(struct device *dev, char **blob,
 
 	ret = xocl_md_setprop(dev, blob, offset, prop, val, size);
 	if (ret)
-		md_err(dev, "set prop failed, ret = %d", ret);
+		md_err(dev, "set prop %s failed, ret = %d", prop, ret);
 
 	return ret;
 }
