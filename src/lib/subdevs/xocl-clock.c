@@ -39,39 +39,10 @@
 
 #define XOCL_CLOCK	"xocl_clock"
 
-/*
- * Clock endpoint, topology type map
- *
- * 0: NODE_CLK_KERNEL1 : CT_DATA
- * 1: NODE_CLK_KERNEL2 : CT_KERNEL
- * 2: NODE_CLK_KERNEL3 : CT_SYSTEM
- */
-
-struct xocl_clock_desc clock_desc[] = {
-	{
-		.clock_ep_name = NODE_CLK_KERNEL1,
-		.clock_xclbin_type = CT_DATA,
-		.clkfreq_ep_name = NODE_CLKFREQ_K1,
-	},
-	{
-		.clock_ep_name = NODE_CLK_KERNEL2,
-		.clock_xclbin_type = CT_KERNEL,
-		.clkfreq_ep_name = NODE_CLKFREQ_K2,
-	},
-	{
-		.clock_ep_name = NODE_CLK_KERNEL3,
-		.clock_xclbin_type = CT_SYSTEM,
-		.clkfreq_ep_name = NODE_CLKFREQ_HBM,
-	},
-};
-
 struct clock {
 	struct platform_device  *pdev;
 	void __iomem		*clock_base;
 	struct mutex		clock_lock;
-
-	struct clock_freq	clock_freq;
-	const char		*clock_ep_name;
 };
 
 /*
@@ -417,65 +388,36 @@ static int clock_set_freq(struct clock *clock, u16 freq)
 	return err;
 }
 
-static char *clock_type2epname(struct clock *clock, u32 type)
+static int clock_init(struct clock *clock)
 {
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(clock_desc); i++) {
-		if (clock_desc[i].clock_xclbin_type == type)
-			return clock_desc[i].clock_ep_name;
-	}
-
-	return NULL;
-}
-
-static char *clock_type2clkfreq_name(struct clock *clock, u32 type)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(clock_desc); i++) {
-		if (clock_desc[i].clock_xclbin_type == type)
-			return clock_desc[i].clkfreq_ep_name;
-	}
-
-	return NULL;
-}
-
-static int clock_set_freq_by_xclbin(struct clock *clock)
-{
-	int err = 0, i;
-	struct clock_freq *freq;
-	struct clock_freq_topology *clock_topo = NULL;
-	char *ep_name = NULL;
+	struct xocl_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
+	int err = 0;
+	const char *counter;
+	const u16 *freq;
 	struct platform_device *clkfreq_leaf;
 	u32 lookup_freq, clock_freq_counter, request_in_khz, tolerance;
 
-	mutex_lock(&clock->clock_lock);
-	/* TODO add leaf call to get clock_topo */
-	for (i = 0; i < clock_topo->m_count; i++) {
-		ep_name = clock_type2epname(clock,
-			clock_topo->m_clock_freq[i].m_type);
-		if (ep_name) {
-			freq = &clock_topo->m_clock_freq[i];
-			break;
-		}
+	err = xocl_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
+		NULL, PROP_CLK_FREQ, &freq, NULL);
+	if (err) {
+		xocl_info(clock->pdev, "no default freq");
+		return 0;
 	}
-	if (!ep_name)
-		goto end;
 
-	if (strncmp(ep_name, clock->clock_ep_name, strlen(ep_name) + 1))
-		goto end;
-
+	mutex_lock(&clock->clock_lock);
 	err = set_freq(clock, freq->m_freq_Mhz);
 	if (err)
 		goto end;
 
-	memcpy(&clock->clock_freq, freq, sizeof(clock->clock_freq));
+	err = xocl_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
+		NULL, PROP_CLK_CNT, &counter, NULL);
+	if (err) {
+		xocl_info(clock->pdev, "no counter specified");
+		goto end;
+	}
 
 	clkfreq_leaf = xocl_subdev_get_leaf(clock->pdev,
-		xocl_clkfreq_match_epname,
-		clock_type2clkfreq_name(clock,
-		clock_topo->m_clock_freq[i].m_type));
+		xocl_clkfreq_match_epname, counter);
 	if (clkfreq_leaf) {
 		err = xocl_subdev_ioctl(clkfreq_leaf, XOCL_CLKFREQ_READ,
 				&clock_freq_counter);
@@ -589,7 +531,7 @@ static int clock_probe(struct platform_device *pdev)
 
 	clock->clock_ep_name = res->name;
 
-	ret = clock_set_freq_by_xclbin(clock);
+	ret = clock_init(clock);
 	if (ret)
 		goto failed;
 
