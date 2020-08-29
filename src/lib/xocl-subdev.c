@@ -225,8 +225,8 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	struct xocl_subdev *sdev = NULL;
 	struct platform_device *pdev = NULL;
 	struct xocl_subdev_platdata *pdata = NULL;
-	size_t dtb_len = dtb ? xocl_md_size(parent, dtb) : 0;
-	size_t pdata_sz = sizeof(struct xocl_subdev_platdata) + dtb_len - 1;
+	size_t dtb_len = 0;
+	size_t pdata_sz;
 	int inst = PLATFORM_DEVID_NONE;
 	struct resource *res = NULL;
 	int res_num = 0;
@@ -237,6 +237,12 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 		goto fail;
 	}
 	sdev->xs_id = id;
+
+	if (dtb) {
+		xocl_md_pack(parent, dtb);
+		dtb_len = xocl_md_size(parent, dtb);
+	}
+	pdata_sz = sizeof(struct xocl_subdev_platdata) + dtb_len - 1;
 
 	/* Prepare platform data passed to subdev. */
 	pdata = vzalloc(pdata_sz);

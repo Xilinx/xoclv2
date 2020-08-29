@@ -59,7 +59,7 @@ static int xocl_vsec_get_golden_ver(struct xocl_vsec *vsec)
 	struct xocl_gpio_ioctl_rw gpio_arg = { 0 };
 	int err, ver;
 
-	gpio_leaf = xocl_subdev_get_leaf(pdev, xocl_gpio_match_epname,
+	gpio_leaf = xocl_subdev_get_leaf(pdev, xocl_subdev_match_epname,
 		NODE_GOLDEN_VER);
 	if (!gpio_leaf) {
 		xocl_err(pdev, "can not get %s", NODE_GOLDEN_VER);
@@ -86,7 +86,7 @@ static int xocl_vsec_add_node(struct xocl_vsec *vsec,
 	int ret;
 
 	xocl_info(vsec->pdev, "add ep %s", dev->ep_name);
-	ret = xocl_md_add_endpoint(DEV(vsec->pdev), &vsec->metadata, dev);
+	ret = xocl_md_add_endpoint(DEV(vsec->pdev), vsec->metadata, dev);
 	if (ret)
 		xocl_err(vsec->pdev, "add ep failed, ret %d", ret);
 	return ret;

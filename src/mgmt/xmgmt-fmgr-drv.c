@@ -116,7 +116,7 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 		return -EINVAL;
 	}
 
-	axigate_leaf = xocl_subdev_get_leaf((struct platform_device *)obj->pdev, xocl_axigate_match_epname, NODE_GATE_ULP);
+	axigate_leaf = xocl_subdev_get_leaf((struct platform_device *)obj->pdev, xocl_subdev_match_epname, NODE_GATE_ULP);
 	if (axigate_leaf == NULL) {
 		xocl_err(obj->pdev, "failed to hold axi gate leaf");
 		return -ENODEV;

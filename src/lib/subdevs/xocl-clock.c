@@ -17,6 +17,7 @@
 #include "xocl-subdev.h"
 #include "xocl-parent.h"
 #include "xocl-clock.h"
+#include "xocl-clkfreq.h"
 
 /* CLOCK_MAX_NUM_CLOCKS should be a concept from XCLBIN_ in the future */
 #define	CLOCK_MAX_NUM_CLOCKS		4
@@ -42,6 +43,8 @@ struct clock {
 	struct platform_device  *pdev;
 	void __iomem		*clock_base;
 	struct mutex		clock_lock;
+
+	const char		*clock_ep_name;
 };
 
 /*
@@ -226,6 +229,14 @@ static u32 find_matching_freq_config(unsigned short freq,
 	return idx;
 }
 
+static u32 find_matching_freq(u32 freq,
+	const struct xclmgmt_ocl_clockwiz *freq_table, int freq_table_size)
+{
+	int idx = find_matching_freq_config(freq, freq_table, freq_table_size);
+
+	return freq_table[idx].ocl;
+}
+
 static inline int clock_wiz_busy(struct clock *clock, int cycle,
 	int interval)
 {
@@ -379,6 +390,59 @@ static int clock_set_freq(struct clock *clock, u16 freq)
 	return err;
 }
 
+static int clock_init(struct clock *clock)
+{
+	struct xocl_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
+	int err = 0;
+	const char *counter;
+	const u16 *freq;
+	struct platform_device *clkfreq_leaf;
+	u32 lookup_freq, clock_freq_counter, request_in_khz, tolerance;
+
+	err = xocl_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
+		clock->clock_ep_name, NULL, PROP_CLK_FREQ,
+		(const void **)&freq, NULL);
+	if (err) {
+		xocl_info(clock->pdev, "no default freq");
+		return 0;
+	}
+
+	mutex_lock(&clock->clock_lock);
+	err = set_freq(clock, *freq);
+	if (err)
+		goto end;
+
+	err = xocl_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
+		clock->clock_ep_name, NULL, PROP_CLK_CNT,
+		(const void **)&counter, NULL);
+	if (err) {
+		xocl_info(clock->pdev, "no counter specified");
+		goto end;
+	}
+
+	clkfreq_leaf = xocl_subdev_get_leaf(clock->pdev,
+		xocl_subdev_match_epname, (void *)counter);
+	if (clkfreq_leaf) {
+		err = xocl_subdev_ioctl(clkfreq_leaf, XOCL_CLKFREQ_READ,
+				&clock_freq_counter);
+		if (err)
+			goto end;
+		request_in_khz = lookup_freq*1000;
+		tolerance = lookup_freq*50;
+		lookup_freq = find_matching_freq(*freq, frequency_table,
+			ARRAY_SIZE(frequency_table));
+		xocl_subdev_put_leaf(clock->pdev, clkfreq_leaf);
+
+		if (tolerance < abs(clock_freq_counter-request_in_khz)) {
+			CLOCK_ERR(clock, "Frequency is higher than tolerance value, request %u khz, actual %u khz", request_in_khz, clock_freq_counter);
+			err = -EDOM;
+		}
+	}
+end:
+	mutex_unlock(&clock->clock_lock);
+	return err;
+}
+
 static ssize_t freq_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -468,6 +532,12 @@ static int clock_probe(struct platform_device *pdev)
 		ret = -EFAULT;
 		goto failed;
 	}
+
+	clock->clock_ep_name = res->name;
+
+	ret = clock_init(clock);
+	if (ret)
+		goto failed;
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &clock_attr_group);
 	if (ret) {

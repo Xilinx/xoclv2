@@ -10,6 +10,7 @@
 #define	_XOCL_CLOCK_H_
 
 #include "xocl-subdev.h"
+#include "xclbin.h"
 
 /*
  * CLOCK driver IOCTL calls.

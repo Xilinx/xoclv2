@@ -317,7 +317,7 @@ static char *clock_type2clkfreq_name(u32 type)
 }
 
 static int xrt_xclbin_add_clock_metadata(struct device *dev,
-	const char *xclbin, char **dtb)
+	const char *xclbin, char *dtb)
 {
 	int i;
 	u16 freq;
@@ -373,12 +373,12 @@ int xrt_xclbin_get_metadata(struct device *dev, const char *xclbin, char **dtb)
 	rc = xocl_md_create(dev, &newmd);
 	if (rc)
 		goto done;
-	rc = xocl_md_copy_all_eps(dev, &newmd, md);
+	rc = xocl_md_copy_all_eps(dev, newmd, md);
 	if (rc)
 		goto done;
 
 	/* Convert various needed xclbin sections into dtb. */
-	rc = xrt_xclbin_add_clock_metadata(dev, xclbin, &newmd);
+	rc = xrt_xclbin_add_clock_metadata(dev, xclbin, newmd);
 
 done:
 	if (rc == 0)

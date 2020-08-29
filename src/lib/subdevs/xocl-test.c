@@ -116,7 +116,7 @@ static int xocl_test_create_metadata(struct xocl_test *xt, char **root_dtb)
 		goto failed;
 	}
 
-	ret = xocl_md_add_endpoint(DEV(xt->pdev), &dtb, &ep);
+	ret = xocl_md_add_endpoint(DEV(xt->pdev), dtb, &ep);
 	if (ret) {
 		xocl_err(xt->pdev, "add test node failed, ret %d", ret);
 		goto failed;
