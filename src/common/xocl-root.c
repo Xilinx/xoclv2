@@ -521,7 +521,7 @@ static void xroot_parts_fini(struct xroot *xr)
 	(void) xocl_subdev_pool_fini(&xr->parts.pool);
 }
 
-int xroot_add_vsec_node(void *root, char **dtb)
+int xroot_add_vsec_node(void *root, char *dtb)
 {
 	struct xroot *xr = (struct xroot *)root;
 	struct device *dev = DEV(xr->pdev);
@@ -569,7 +569,7 @@ failed:
 	return ret;
 }
 
-int xroot_add_simple_node(void *root, char **dtb, const char *endpoint)
+int xroot_add_simple_node(void *root, char *dtb, const char *endpoint)
 {
 	struct xroot *xr = (struct xroot *)root;
 	struct device *dev = DEV(xr->pdev);

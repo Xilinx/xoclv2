@@ -164,7 +164,7 @@ static int xocl_vsec_add_node(struct xocl_vsec *vsec,
 	ep.size = type2size(p_entry->type);
 	ep.regmap = type2regmap(p_entry->type);
 	ep.regmap_ver = regmap_ver;
-	ret = xocl_md_add_endpoint(DEV(vsec->pdev), &vsec->metadata, &ep);
+	ret = xocl_md_add_endpoint(DEV(vsec->pdev), vsec->metadata, &ep);
 	if (ret) {
 		xocl_err(vsec->pdev, "add ep failed, ret %d", ret);
 		goto failed;

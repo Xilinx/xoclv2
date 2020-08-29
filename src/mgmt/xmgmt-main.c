@@ -54,7 +54,7 @@ static bool xmgmt_main_leaf_match(enum xocl_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	if (id == XOCL_SUBDEV_GPIO)
-		return xocl_gpio_match_epname(id, pdev, arg);
+		return xocl_subdev_match_epname(id, pdev, arg);
 	else if (id == XOCL_SUBDEV_QSPI)
 		return true;
 
@@ -188,7 +188,7 @@ static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 	struct xocl_gpio_ioctl_rw gpio_arg = { 0 };
 	int err, i, count;
 
-	gpio_leaf = xocl_subdev_get_leaf(pdev, xocl_gpio_match_epname,
+	gpio_leaf = xocl_subdev_get_leaf(pdev, xocl_subdev_match_epname,
 		NODE_BLP_ROM);
 	if (!gpio_leaf) {
 		xocl_err(pdev, "can not get %s", NODE_BLP_ROM);

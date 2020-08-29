@@ -111,11 +111,11 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 			} else
 				ep_name = (char *)eps->xse_names[i].ep_name;
 			ret = xocl_md_copy_endpoint(DEV(xp->pdev),
-				&dtb, part_dtb, ep_name,
+				dtb, part_dtb, ep_name,
 				(char *)eps->xse_names[i].regmap_name);
 			if (ret)
 				continue;
-			xocl_md_del_endpoint(DEV(xp->pdev), &part_dtb, ep_name,
+			xocl_md_del_endpoint(DEV(xp->pdev), part_dtb, ep_name,
 				(char *)eps->xse_names[i].regmap_name);
 			ep_count++;
 		}
@@ -129,7 +129,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 					xocl_drv_name(did), ret);
 			}
 		} else if (ep_count > 0) {
-			xocl_md_copy_all_eps(DEV(xp->pdev), &part_dtb, dtb);
+			xocl_md_copy_all_eps(DEV(xp->pdev), part_dtb, dtb);
 		}
 		vfree(dtb);
 		ep_count = 0;

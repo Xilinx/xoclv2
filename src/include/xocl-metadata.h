@@ -154,17 +154,17 @@ xocl_md_res_id2name(const struct xocl_iores_map *res_map, int entry_num, int id)
 
 long xocl_md_size(struct device *dev, char *blob);
 int xocl_md_create(struct device *dev, char **blob);
-int xocl_md_add_endpoint(struct device *dev, char **blob,
+int xocl_md_add_endpoint(struct device *dev, char *blob,
 	struct xocl_md_endpoint *ep);
-int xocl_md_del_endpoint(struct device *dev, char **blob, const char *ep_name,
+int xocl_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
 	char *regmap_name);
 int xocl_md_get_prop(struct device *dev, char *blob, const char *ep_name,
 	char *regmap_name, char *prop, const void **val, int *size);
-int xocl_md_set_prop(struct device *dev, char **blob, const char *ep_name,
+int xocl_md_set_prop(struct device *dev, char *blob, const char *ep_name,
 	char *regmap_name, char *prop, void *val, int size);
-int xocl_md_copy_endpoint(struct device *dev, char **blob, char *src_blob,
+int xocl_md_copy_endpoint(struct device *dev, char *blob, char *src_blob,
 	const char *ep_name, char *regmap_name);
-int xocl_md_copy_all_eps(struct device *dev, char **blob, char *src_blob);
+int xocl_md_copy_all_eps(struct device *dev, char  *blob, char *src_blob);
 int xocl_md_get_next_endpoint(struct device *dev, char *blob,
 	const char *ep_name,  char *regmap_name,
 	char **next_ep, char **next_regmap);
@@ -172,6 +172,7 @@ int xocl_md_get_compatible_epname(struct device *dev, char *blob,
 	const char *regmap_name, char **ep_name);
 int xocl_md_get_epname_pointer(struct device *dev, char *blob,
 	const char *ep_name, char *regmap_name, const char **epname);
+void xocl_md_pack(struct device *dev, char *blob);
 int xocl_md_get_intf_uuids(struct device *dev, char *blob,
 	u32 *num_uuids, uuid_t *intf_uuids);
 

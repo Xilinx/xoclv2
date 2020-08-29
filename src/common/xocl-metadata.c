@@ -12,7 +12,7 @@
 #include "libfdt.h"
 #include "xocl-metadata.h"
 
-#define BLOB_DELTA	(4096 * 25) /* HACK: until we can dynamically shrink */
+#define MAX_BLOB_SIZE	(4096 * 25)
 
 #define md_err(dev, fmt, args...)			\
 	dev_err(dev, "%s: "fmt, __func__, ##args)
@@ -23,9 +23,9 @@
 #define md_dbg(dev, fmt, args...)			\
 	dev_dbg(dev, "%s: "fmt, __func__, ##args)
 
-static int xocl_md_setprop(struct device *dev, char **blob, int offset,
+static int xocl_md_setprop(struct device *dev, char *blob, int offset,
 	const char *prop, const void *val, int size);
-static int xocl_md_overlay(struct device *dev, char **blob, int target,
+static int xocl_md_overlay(struct device *dev, char *blob, int target,
 	char *overlay_blob, int overlay_offset);
 static int xocl_md_get_endpoint(struct device *dev, char *blob,
 	const char *ep_name, char *regmap_name, int *ep_offset);
@@ -41,11 +41,11 @@ int xocl_md_create(struct device *dev, char **blob)
 
 	WARN_ON(!blob);
 
-	*blob = vmalloc(BLOB_DELTA);
+	*blob = vmalloc(MAX_BLOB_SIZE);
 	if (!*blob)
 		return -ENOMEM;
 
-	ret = fdt_create_empty_tree(*blob, BLOB_DELTA);
+	ret = fdt_create_empty_tree(*blob, MAX_BLOB_SIZE);
 	if (ret) {
 		md_err(dev, "format blob failed, ret = %d", ret);
 		goto failed;
@@ -71,62 +71,38 @@ failed:
 	return ret;
 }
 
-int xocl_md_add_node(struct device *dev, char **blob, int parent_offset,
+int xocl_md_add_node(struct device *dev, char *blob, int parent_offset,
 	const char *ep_name)
 {
 	int ret;
-	char *buf = NULL;
-	int bufsz;
 
-	ret = fdt_add_subnode(*blob, parent_offset, ep_name);
-	if (ret == -FDT_ERR_NOSPACE) {
-		bufsz = fdt_totalsize(*blob) + BLOB_DELTA;
-		buf = vmalloc(bufsz);
-		if (!buf)
-			return -ENOMEM;
-
-		ret = fdt_resize(*blob, buf, bufsz);
-		if (ret) {
-			md_err(dev, "resize failed, ret = %d", ret);
-			goto failed;
-		}
-		ret = fdt_add_subnode(*blob, parent_offset, ep_name);
-		if (ret < 0) {
-			md_err(dev, "add node failed, ret = %d", ret);
-			goto failed;
-		}
-		vfree(*blob);
-		*blob = buf;
-		buf = NULL;
-	}
-
-failed:
-	if (ret < 0 && buf)
-		vfree(buf);
+	ret = fdt_add_subnode(blob, parent_offset, ep_name);
+	if (ret < 0)
+		md_err(dev, "failed to add node %d", ret);
 
 	return ret;
 }
 
-int xocl_md_del_endpoint(struct device *dev, char **blob, const char *ep_name,
+int xocl_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
 	char *regmap_name)
 {
 	int ret;
 	int ep_offset;
 
-	ret = xocl_md_get_endpoint(dev, *blob, ep_name, regmap_name, &ep_offset);
+	ret = xocl_md_get_endpoint(dev, blob, ep_name, regmap_name, &ep_offset);
 	if (ret) {
 		md_err(dev, "can not find ep %s", ep_name);
 		return -EINVAL;
 	}
 
-	ret = fdt_del_node(*blob, ep_offset);
+	ret = fdt_del_node(blob, ep_offset);
 	if (ret)
 		md_err(dev, "delete node %s failed, ret %d", ep_name, ret);
 
 	return ret;
 }
 
-static int __xocl_md_add_endpoint(struct device *dev, char **blob,
+static int __xocl_md_add_endpoint(struct device *dev, char *blob,
 	struct xocl_md_endpoint *ep, int *offset)
 {
 	int ret = 0;
@@ -140,7 +116,7 @@ static int __xocl_md_add_endpoint(struct device *dev, char **blob,
 		return -EINVAL;
 	}
 
-	ret = xocl_md_get_endpoint(dev, *blob, NODE_ENDPOINTS, NULL, &ep_offset);
+	ret = xocl_md_get_endpoint(dev, blob, NODE_ENDPOINTS, NULL, &ep_offset);
 	if (ret) {
 		md_err(dev, "invalid blob, ret = %d", ret);
 		return -EINVAL;
@@ -201,7 +177,7 @@ failed:
 	return ret;
 }
 
-int xocl_md_add_endpoint(struct device *dev, char **blob,
+int xocl_md_add_endpoint(struct device *dev, char *blob,
 	struct xocl_md_endpoint *ep)
 {
 	return __xocl_md_add_endpoint(dev, blob, ep, NULL);
@@ -277,50 +253,26 @@ int xocl_md_get_prop(struct device *dev, char *blob, const char *ep_name,
 	return 0;
 }
 
-static int xocl_md_setprop(struct device *dev, char **blob, int offset,
+static int xocl_md_setprop(struct device *dev, char *blob, int offset,
 	 const char *prop, const void *val, int size)
 {
 	int ret;
-	char *buf = NULL;
-	int bufsz;
 
-	ret = fdt_setprop(*blob, offset, prop, val, size);
-	if (ret == -FDT_ERR_NOSPACE) {
-		bufsz = fdt_totalsize(*blob) + size + BLOB_DELTA;
-		buf = vmalloc(bufsz);
-		if (!buf)
-			return -ENOMEM;
-		ret = fdt_resize(*blob, buf, bufsz);
-		if (ret) {
-			md_err(dev, "resize failed, ret = %d", ret);
-			goto failed;
-		}
-		vfree(*blob);
-		*blob = buf;
-		buf = NULL;
-
-		ret = fdt_setprop(*blob, offset, prop, val, size);
-		if (ret) {
-			md_err(dev, "set prop failed, ret = %d", ret);
-			goto failed;
-		}
-	}
-
-failed:
-	if (ret && buf)
-		vfree(buf);
+	ret = fdt_setprop(blob, offset, prop, val, size);
+	if (ret)
+		md_err(dev, "failed to set prop %d", ret);
 
 	return ret;
 }
 
-int xocl_md_set_prop(struct device *dev, char **blob,
+int xocl_md_set_prop(struct device *dev, char *blob,
 	const char *ep_name, char *regmap_name, char *prop, void *val, int size)
 {
 	int offset;
 	int ret;
 
 	if (ep_name) {
-		ret = xocl_md_get_endpoint(dev, *blob, ep_name,
+		ret = xocl_md_get_endpoint(dev, blob, ep_name,
 			regmap_name, &offset);
 		if (ret) {
 			md_err(dev, "cannot get node %s, ret = %d",
@@ -342,7 +294,7 @@ int xocl_md_set_prop(struct device *dev, char **blob,
 	return ret;
 }
 
-int xocl_md_copy_endpoint(struct device *dev, char **blob, char *src_blob,
+int xocl_md_copy_endpoint(struct device *dev, char *blob, char *src_blob,
 	const char *ep_name, char *regmap_name)
 {
 	int offset, target;
@@ -354,7 +306,7 @@ int xocl_md_copy_endpoint(struct device *dev, char **blob, char *src_blob,
 	if (ret)
 		return -EINVAL;
 
-	ret = xocl_md_get_endpoint(dev, *blob, ep_name, regmap_name, &target);
+	ret = xocl_md_get_endpoint(dev, blob, ep_name, regmap_name, &target);
 	if (ret) {
 		ep.ep_name = ep_name;
 		ret = __xocl_md_add_endpoint(dev, blob, &ep, &target);
@@ -369,12 +321,12 @@ int xocl_md_copy_endpoint(struct device *dev, char **blob, char *src_blob,
 	return ret;
 }
 
-int xocl_md_copy_all_eps(struct device *dev, char **blob, char *src_blob)
+int xocl_md_copy_all_eps(struct device *dev, char *blob, char *src_blob)
 {
 	return xocl_md_overlay(dev, blob, -1, src_blob, -1);
 }
 
-static int xocl_md_overlay(struct device *dev, char **blob, int target,
+static int xocl_md_overlay(struct device *dev, char *blob, int target,
 	char *overlay_blob, int overlay_offset)
 {
 	int	property, subnode;
@@ -382,13 +334,13 @@ static int xocl_md_overlay(struct device *dev, char **blob, int target,
 
 	WARN_ON(!blob || !overlay_blob);
 
-	if (!*blob) {
+	if (!blob) {
 		md_err(dev, "blob is NULL");
 		return -EINVAL;
 	}
 
 	if (target < 0) {
-		xocl_md_get_endpoint(dev, *blob, NODE_ENDPOINTS, NULL,
+		xocl_md_get_endpoint(dev, blob, NODE_ENDPOINTS, NULL,
 			&target);
 	}
 	if (overlay_offset < 0) {
@@ -422,7 +374,7 @@ static int xocl_md_overlay(struct device *dev, char **blob, int target,
 
 		nnode = xocl_md_add_node(dev, blob, target, name);
 		if (nnode == -FDT_ERR_EXISTS)
-			nnode = fdt_subnode_offset(*blob, target, name);
+			nnode = fdt_subnode_offset(blob, target, name);
 		if (nnode < 0) {
 			md_err(dev, "add node failed, ret = %d", nnode);
 			return nnode;
@@ -512,6 +464,15 @@ static int xocl_md_uuid_strtoid(struct device *dev, const char *uuidstr,
 	}
 
 	return 0;
+}
+
+void xocl_md_pack(struct device *dev, char *blob)
+{
+	int ret;
+
+	ret = fdt_pack(blob);
+	if (ret)
+		md_err(dev, "pack failed %d", ret);
 }
 
 int xocl_md_get_intf_uuids(struct device *dev, char *blob,

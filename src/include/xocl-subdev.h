@@ -315,5 +315,21 @@ static inline void xocl_memcpy_toio(void __iomem *iomem, void *buf, u32 size)
 	for (i = 0; i < size / 4; i++)
 		iowrite32(((u32 *)buf)[i], ((char *)(iomem) + sizeof(u32) * i));
 }
+static inline bool xocl_subdev_match_epname(enum xocl_subdev_id id,
+	struct platform_device *pdev, void *arg)
+{
+	char		*ep_name = arg;
+	struct resource	*res;
+	int		i;
+
+	for (i = 0, res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	    res;
+	    res = platform_get_resource(pdev, IORESOURCE_MEM, ++i)) {
+		if (!strncmp(res->name, ep_name, strlen(res->name) + 1))
+			return true;
+	}
+
+	return false;
+}
 
 #endif	/* _XOCL_SUBDEV_H_ */

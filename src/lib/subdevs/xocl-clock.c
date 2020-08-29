@@ -43,6 +43,8 @@ struct clock {
 	struct platform_device  *pdev;
 	void __iomem		*clock_base;
 	struct mutex		clock_lock;
+
+	const char		*clock_ep_name;
 };
 
 /*
@@ -398,26 +400,28 @@ static int clock_init(struct clock *clock)
 	u32 lookup_freq, clock_freq_counter, request_in_khz, tolerance;
 
 	err = xocl_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
-		NULL, PROP_CLK_FREQ, &freq, NULL);
+		clock->clock_ep_name, NULL, PROP_CLK_FREQ,
+		(const void **)&freq, NULL);
 	if (err) {
 		xocl_info(clock->pdev, "no default freq");
 		return 0;
 	}
 
 	mutex_lock(&clock->clock_lock);
-	err = set_freq(clock, freq->m_freq_Mhz);
+	err = set_freq(clock, *freq);
 	if (err)
 		goto end;
 
 	err = xocl_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
-		NULL, PROP_CLK_CNT, &counter, NULL);
+		clock->clock_ep_name, NULL, PROP_CLK_CNT,
+		(const void **)&counter, NULL);
 	if (err) {
 		xocl_info(clock->pdev, "no counter specified");
 		goto end;
 	}
 
 	clkfreq_leaf = xocl_subdev_get_leaf(clock->pdev,
-		xocl_clkfreq_match_epname, counter);
+		xocl_subdev_match_epname, (void *)counter);
 	if (clkfreq_leaf) {
 		err = xocl_subdev_ioctl(clkfreq_leaf, XOCL_CLKFREQ_READ,
 				&clock_freq_counter);
@@ -425,8 +429,8 @@ static int clock_init(struct clock *clock)
 			goto end;
 		request_in_khz = lookup_freq*1000;
 		tolerance = lookup_freq*50;
-		lookup_freq = find_matching_freq(freq->m_freq_Mhz,
-			frequency_table, ARRAY_SIZE(frequency_table));
+		lookup_freq = find_matching_freq(*freq, frequency_table,
+			ARRAY_SIZE(frequency_table));
 		xocl_subdev_put_leaf(clock->pdev, clkfreq_leaf);
 
 		if (tolerance < abs(clock_freq_counter-request_in_khz)) {
