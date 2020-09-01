@@ -199,6 +199,25 @@ static int cmc_fetch_firmware(struct xocl_cmc_ctrl *cmc_ctrl)
 	return ret;
 }
 
+static ssize_t status_show(struct device *dev,
+	struct device_attribute *da, char *buf)
+{
+	struct xocl_cmc_ctrl *cmc_ctrl = dev_get_drvdata(dev);
+	u32 val = cmc_io_rd(cmc_ctrl, CMC_REG_IO_STATUS);
+
+	return sprintf(buf, "0x%x\n", val);
+}
+static DEVICE_ATTR_RO(status);
+
+static struct attribute *cmc_ctrl_attrs[] = {
+	&dev_attr_status.attr,
+	NULL,
+};
+
+static struct attribute_group cmc_ctrl_attr_group = {
+	.attrs = cmc_ctrl_attrs,
+};
+
 void cmc_ctrl_remove(struct platform_device *pdev)
 {
 	struct xocl_cmc_ctrl *cmc_ctrl =
@@ -206,7 +225,8 @@ void cmc_ctrl_remove(struct platform_device *pdev)
 
 	if (!cmc_ctrl)
 		return;
-
+	(void) sysfs_remove_group(&DEV(cmc_ctrl->pdev)->kobj,
+		&cmc_ctrl_attr_group);
 	(void) cmc_ulp_access(cmc_ctrl, false);
 	vfree(cmc_ctrl->firmware);
 	/* We intentionally leave CMC in running state. */
@@ -252,6 +272,10 @@ int cmc_ctrl_probe(struct platform_device *pdev,
 	ret = cmc_start(cmc_ctrl);
 	if (ret)
 		goto done;
+
+	ret  = sysfs_create_group(&DEV(pdev)->kobj, &cmc_ctrl_attr_group);
+	if (ret)
+		xocl_err(pdev, "failed to create sysfs nodes: %d", ret);
 
 	*hdl = cmc_ctrl;
 	return 0;

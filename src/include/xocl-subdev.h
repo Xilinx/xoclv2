@@ -187,7 +187,6 @@ typedef bool (*xocl_subdev_match_t)(enum xocl_subdev_id,
 #define xocl_warn(pdev, fmt, args...) FMT_PRT(dev_warn, pdev, fmt, ##args)
 #define xocl_info(pdev, fmt, args...) FMT_PRT(dev_info, pdev, fmt, ##args)
 #define xocl_dbg(pdev, fmt, args...) FMT_PRT(dev_dbg, pdev, fmt, ##args)
-#define xocl_cont(pdev, fmt, args...) FMT_PRT(dev_cont, pdev, fmt, ##args)
 
 /*
  * Event notification.

@@ -332,10 +332,10 @@ void cmc_sensor_remove(struct platform_device *pdev)
 		xocl_subdev_unregister_hwmon(pdev, cmc_sensor->hwmon_dev);
 }
 
-static const char *cmc_get_vbnv(struct xocl_cmc_sensor *cmc_sensor)
+static char *cmc_get_vbnv(struct xocl_cmc_sensor *cmc_sensor)
 {
 	int ret;
-	const char *vbnv;
+	char *vbnv;
 	struct platform_device *mgmt_leaf =
 		xocl_subdev_get_leaf_by_id(cmc_sensor->pdev,
 		XOCL_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
@@ -354,7 +354,7 @@ int cmc_sensor_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl)
 {
 	struct xocl_cmc_sensor *cmc_sensor;
-	const char *vbnv;
+	char *vbnv;
 
 	cmc_sensor = devm_kzalloc(DEV(pdev), sizeof(*cmc_sensor), GFP_KERNEL);
 	if (!cmc_sensor)
@@ -374,6 +374,7 @@ int cmc_sensor_probe(struct platform_device *pdev,
 	if (cmc_sensor->hwmon_dev == NULL)
 		xocl_err(pdev, "failed to create HWMON device");
 
+	kfree(vbnv);
 	*hdl = cmc_sensor;
 	return 0;
 }

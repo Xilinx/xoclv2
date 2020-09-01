@@ -81,7 +81,7 @@ static int cmc_refresh_board_info_nolock(struct xocl_cmc_bdinfo *cmc_bdi)
 		goto done;
 	}
 	ret = cmc_mailbox_send_packet(pdev, gen, CMC_MBX_PKT_OP_BOARD_INFO,
-		bdinfo_raw, bd_info_sz);
+		NULL, 0);
 	if (ret) {
 		xocl_err(pdev, "failed to send pkt: %d", ret);
 		goto done;
@@ -89,7 +89,7 @@ static int cmc_refresh_board_info_nolock(struct xocl_cmc_bdinfo *cmc_bdi)
 	ret = cmc_mailbox_recv_packet(pdev, gen, bdinfo_raw, &bd_info_sz);
 	if (ret) {
 		xocl_err(pdev, "failed to receive pkt: %d", ret);
-		return ret;
+		goto done;
 	}
 
 	newinfo = kmemdup(bdinfo_raw, bd_info_sz, GFP_KERNEL);
@@ -147,8 +147,47 @@ static struct attribute *cmc_bdinfo_attrs[] = {
 	NULL
 };
 
+static ssize_t bdinfo_raw_show(struct file *filp, struct kobject *kobj,
+	struct bin_attribute *attr, char *buf, loff_t off, size_t count)
+{
+	ssize_t ret = 0;
+	struct device *dev = container_of(kobj, struct device, kobj);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct xocl_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);
+
+	if (!cmc_bdi || !cmc_bdi->bdinfo_sz)
+		return 0;
+
+	mutex_lock(&cmc_bdi->lock);
+
+	if (off < cmc_bdi->bdinfo_sz) {
+		if (off + count > cmc_bdi->bdinfo_sz)
+			count = cmc_bdi->bdinfo_sz - off;
+		memcpy(buf, cmc_bdi->bdinfo + off, count);
+		ret = count;
+	}
+
+	mutex_unlock(&cmc_bdi->lock);
+	return ret;
+}
+
+static struct bin_attribute bdinfo_raw_attr = {
+	.attr = {
+		.name = "board_info_raw",
+		.mode = 0400
+	},
+	.read = bdinfo_raw_show,
+	.size = 0
+};
+
+static struct bin_attribute *cmc_bdinfo_bin_attrs[] = {
+	&bdinfo_raw_attr,
+	NULL,
+};
+
 static struct attribute_group cmc_bdinfo_attr_group = {
 	.attrs = cmc_bdinfo_attrs,
+	.bin_attrs = cmc_bdinfo_bin_attrs,
 };
 
 void cmc_bdinfo_remove(struct platform_device *pdev)

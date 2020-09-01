@@ -103,7 +103,7 @@ static int cmc_write_sc_firmware_section(struct xocl_cmc_sc *cmc_sc,
 	loff_t start, size_t n, const char *buf)
 {
 	int ret = 0;
-	size_t sz, thissz;
+	size_t sz, thissz, pktsize;
 	void *pkt;
 	struct cmc_pkt_payload_sector_start *start_payload;
 	struct cmc_pkt_payload_sector_data *data_payload;
@@ -131,15 +131,20 @@ static int cmc_write_sc_firmware_section(struct xocl_cmc_sc *cmc_sc,
 				struct cmc_pkt_payload_sector_start, data);
 			thissz = min(thissz, n - sz);
 			memcpy(start_payload->data, buf + sz, thissz);
+			pktsize = thissz + offsetof(
+				struct cmc_pkt_payload_sector_start, data);
 		} else {
 			pkt_op = CMC_MBX_PKT_OP_MSP432_SEC_DATA;
 			data_payload = pkt;
-			thissz = cmc_sc->mbx_max_payload_sz;
+			thissz = cmc_sc->mbx_max_payload_sz - offsetof(
+				struct cmc_pkt_payload_sector_data, data);
 			thissz = min(thissz, n - sz);
 			memcpy(data_payload->data, buf + sz, thissz);
+			pktsize = thissz + offsetof(
+				struct cmc_pkt_payload_sector_data, data);
 		}
 		ret = cmc_mailbox_send_packet(cmc_sc->pdev,
-			cmc_sc->mbx_generation, pkt_op, buf, thissz);
+			cmc_sc->mbx_generation, pkt_op, pkt, pktsize);
 	}
 
 	return ret;
@@ -297,8 +302,16 @@ static ssize_t sc_is_fixed_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(sc_is_fixed);
 
+static ssize_t sc_presence_show(struct device *dev,
+	struct device_attribute *da, char *buf)
+{
+	return sprintf(buf, "1\n");
+}
+static DEVICE_ATTR_RO(sc_presence);
+
 static struct attribute *cmc_sc_attrs[] = {
 	&dev_attr_sc_is_fixed.attr,
+	&dev_attr_sc_presence.attr,
 	NULL
 };
 
