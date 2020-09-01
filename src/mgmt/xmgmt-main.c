@@ -37,17 +37,28 @@ struct xmgmt_main {
 	u32 blp_uuid_num;
 };
 
-static const char *xmgmt_get_vbnv(struct xmgmt_main *xmm)
+static char *xmgmt_get_vbnv(struct xmgmt_main *xmm)
 {
+	char *vbnv;
+	char *ret;
+	int i;
+
 	if (xmm->firmware_plp) {
-		return ((struct axlf *)xmm->firmware_plp)->
+		vbnv = ((struct axlf *)xmm->firmware_plp)->
 			m_header.m_platformVBNV;
-	}
-	if (xmm->firmware_blp) {
-		return ((struct axlf *)xmm->firmware_blp)->
+	} else if (xmm->firmware_blp) {
+		vbnv = ((struct axlf *)xmm->firmware_blp)->
 			m_header.m_platformVBNV;
+	} else {
+		return NULL;
 	}
-	return NULL;
+
+	ret = kstrdup(vbnv, GFP_KERNEL);
+	for (i = 0; i < strlen(vbnv); i++) {
+		if (vbnv[i] == ':' || vbnv[i] == '.')
+			vbnv[i] = '_';
+	}
+	return ret;
 }
 
 static bool xmgmt_main_leaf_match(enum xocl_subdev_id id,
@@ -59,6 +70,39 @@ static bool xmgmt_main_leaf_match(enum xocl_subdev_id id,
 		return true;
 
 	return false;
+}
+
+static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
+{
+	char uuid[16];
+	struct platform_device *gpio_leaf;
+	struct xocl_gpio_ioctl_rw gpio_arg = { 0 };
+	int err, i, count;
+
+	gpio_leaf = xocl_subdev_get_leaf(pdev, xocl_subdev_match_epname,
+		NODE_BLP_ROM);
+	if (!gpio_leaf) {
+		xocl_err(pdev, "can not get %s", NODE_BLP_ROM);
+		return -EINVAL;
+	}
+
+	gpio_arg.xgir_id = XOCL_GPIO_ROM_UUID;
+	gpio_arg.xgir_buf = uuid;
+	gpio_arg.xgir_len = sizeof(uuid);
+	gpio_arg.xgir_offset = 0;
+	err = xocl_subdev_ioctl(gpio_leaf, XOCL_GPIO_READ, &gpio_arg);
+	xocl_subdev_put_leaf(pdev, gpio_leaf);
+	if (err) {
+		xocl_err(pdev, "can not get uuid: %d", err);
+		return err;
+	}
+
+	for (count = 0, i = sizeof(uuid) - sizeof(u32);
+		i >= 0 && len > count; i -= sizeof(u32)) {
+		count += snprintf(uuidstr + count, len - count,
+			"%08x", *(u32 *)&uuid[i]);
+	}
+	return 0;
 }
 
 static ssize_t reset_store(struct device *dev,
@@ -80,16 +124,37 @@ static DEVICE_ATTR_WO(reset);
 static ssize_t VBNV_show(struct device *dev,
 	struct device_attribute *da, char *buf)
 {
+	ssize_t ret;
+	char *vbnv;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", xmgmt_get_vbnv(xmm));
+	vbnv = xmgmt_get_vbnv(xmm);
+	ret = sprintf(buf, "%s\n", vbnv);
+	kfree(vbnv);
+	return ret;
 }
 static DEVICE_ATTR_RO(VBNV);
+
+static ssize_t uuid_show(struct device *dev,
+	struct device_attribute *da, char *buf)
+{
+	ssize_t ret;
+	char uuid[80];
+	struct platform_device *pdev = to_platform_device(dev);
+
+	ret = get_dev_uuid(pdev, uuid, sizeof(uuid));
+	if (ret)
+		return ret;
+	ret = sprintf(buf, "%s\n", uuid);
+	return ret;
+}
+static DEVICE_ATTR_RO(uuid);
 
 static struct attribute *xmgmt_main_attrs[] = {
 	&dev_attr_reset.attr,
 	&dev_attr_VBNV.attr,
+	&dev_attr_uuid.attr,
 	NULL,
 };
 
@@ -179,39 +244,6 @@ static int load_firmware_from_flash(struct platform_device *pdev,
 done:
 	(void) xocl_subdev_put_leaf(pdev, flash_leaf);
 	return ret;
-}
-
-static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
-{
-	char uuid[16];
-	struct platform_device *gpio_leaf;
-	struct xocl_gpio_ioctl_rw gpio_arg = { 0 };
-	int err, i, count;
-
-	gpio_leaf = xocl_subdev_get_leaf(pdev, xocl_subdev_match_epname,
-		NODE_BLP_ROM);
-	if (!gpio_leaf) {
-		xocl_err(pdev, "can not get %s", NODE_BLP_ROM);
-		return -EINVAL;
-	}
-
-	gpio_arg.xgir_id = XOCL_GPIO_ROM_UUID;
-	gpio_arg.xgir_buf = uuid;
-	gpio_arg.xgir_len = sizeof(uuid);
-	gpio_arg.xgir_offset = 0;
-	err = xocl_subdev_ioctl(gpio_leaf, XOCL_GPIO_READ, &gpio_arg);
-	xocl_subdev_put_leaf(pdev, gpio_leaf);
-	if (err) {
-		xocl_err(pdev, "can not get uuid: %d", err);
-		return err;
-	}
-
-	for (count = 0, i = sizeof(uuid) - sizeof(u32);
-		i >= 0 && len > count; i -= sizeof(u32)) {
-		count += snprintf(uuidstr + count, len - count,
-			"%08x", *(u32 *)&uuid[i]);
-	}
-	return 0;
 }
 
 static int load_firmware_from_disk(struct platform_device *pdev, char **fw_buf,
@@ -447,7 +479,7 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	case XOCL_MGMT_MAIN_GET_VBNV: {
-		const char **vbnv_p = (const char **)arg;
+		char **vbnv_p = (char **)arg;
 
 		*vbnv_p = xmgmt_get_vbnv(xmm);
 		break;
