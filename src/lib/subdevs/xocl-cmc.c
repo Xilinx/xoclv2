@@ -147,18 +147,12 @@ static int cmc_probe(struct platform_device *pdev)
 	ret = cmc_ctrl_probe(cmc->pdev, cmc->regs, &cmc->ctrl_hdl);
 	if (ret)
 		goto done;
-	ret = cmc_sensor_probe(cmc->pdev, cmc->regs, &cmc->sensor_hdl);
-	if (ret)
-		goto done;
-	ret = cmc_mailbox_probe(cmc->pdev, cmc->regs, &cmc->mbx_hdl);
-	if (ret)
-		goto done;
-	ret = cmc_bdinfo_probe(cmc->pdev, cmc->regs, &cmc->bdinfo_hdl);
-	if (ret)
-		goto done;
-	ret = cmc_sc_probe(cmc->pdev, cmc->regs, &cmc->sc_hdl);
-	if (ret)
-		goto done;
+
+	/* Non-critical part of init can fail. */
+	(void) cmc_sensor_probe(cmc->pdev, cmc->regs, &cmc->sensor_hdl);
+	(void) cmc_mailbox_probe(cmc->pdev, cmc->regs, &cmc->mbx_hdl);
+	(void) cmc_bdinfo_probe(cmc->pdev, cmc->regs, &cmc->bdinfo_hdl);
+	(void) cmc_sc_probe(cmc->pdev, cmc->regs, &cmc->sc_hdl);
 
 	return 0;
 
@@ -190,7 +184,7 @@ struct xocl_subdev_drvdata xocl_cmc_data = {
 			.llseek = cmc_sc_llseek,
 			.write = cmc_update_sc_firmware,
 		},
-		.xsf_dev_name = "xmc",
+		.xsf_dev_name = "cmc",
 	},
 };
 

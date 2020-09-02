@@ -13,7 +13,7 @@
 
 enum xocl_mgmt_main_ioctl_cmd {
 	XOCL_MGMT_MAIN_GET_XSABIN_SECTION = 0,
-	XOCL_MGMT_MAIN_GET_VBNV,
+	XOCL_MGMT_MAIN_GET_VBNV, // vbnv needs to be kfree'd by caller
 	XOCL_MGMT_MAIN_GET_ULP_SECTION,
 };
 

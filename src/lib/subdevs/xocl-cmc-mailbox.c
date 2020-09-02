@@ -119,15 +119,14 @@ static int cmc_mailbox_pkt_write(struct xocl_cmc_mbx *cmc_mbx)
 	xocl_info(cmc_mbx->pdev, "opcode=%d payload_sz=0x%x (0x%x)",
 		cmc_mbx->pkt.hdr.op, cmc_mbx->pkt.hdr.payload_sz, pkt[0]);
 	for (i = 0; i < 16; i++) {// print out first 16 bytes
-		xocl_cont(cmc_mbx->pdev, "%02x ",
-			*((u8 *)(cmc_mbx->pkt.data) + i));
+		/* Comment out to avoid check patch complaint. */
+		//pr_cont("%02x ", *((u8 *)(cmc_mbx->pkt.data) + i));
 	}
 #endif
-
 	/* Push pkt data to mailbox on HW. */
 	for (i = 0; i < len; i++) {
-		cmc_io_wr(cmc_mbx, cmc_mbx->mbx_offset + i * sizeof(u32),
-			pkt[i]);
+		cmc_io_wr(cmc_mbx,
+			cmc_mbx->mbx_offset + i * sizeof(u32), pkt[i]);
 	}
 
 	/* Notify HW that a pkt is ready for process. */

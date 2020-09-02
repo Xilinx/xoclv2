@@ -1099,6 +1099,33 @@ static int qspi_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static ssize_t flash_type_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	/* We support only QSPI flash controller. */
+	return sprintf(buf, "spi\n");
+}
+static DEVICE_ATTR_RO(flash_type);
+
+static ssize_t size_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct xocl_qspi *flash = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%ld\n", flash->flash_size);
+}
+static DEVICE_ATTR_RO(size);
+
+static struct attribute *qspi_attrs[] = {
+	&dev_attr_flash_type.attr,
+	&dev_attr_size.attr,
+	NULL,
+};
+
+static struct attribute_group qspi_attr_group = {
+	.attrs = qspi_attrs,
+};
+
 static int qspi_remove(struct platform_device *pdev)
 {
 	struct xocl_qspi *flash = platform_get_drvdata(pdev);
@@ -1106,6 +1133,8 @@ static int qspi_remove(struct platform_device *pdev)
 	if (!flash)
 		return -EINVAL;
 	platform_set_drvdata(pdev, NULL);
+
+	(void) sysfs_remove_group(&DEV(flash->pdev)->kobj, &qspi_attr_group);
 
 	if (flash->io_buf)
 		vfree(flash->io_buf);
@@ -1224,6 +1253,11 @@ static int qspi_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto error;
 	}
+
+	ret  = sysfs_create_group(&DEV(pdev)->kobj, &qspi_attr_group);
+	if (ret)
+		QSPI_ERR(flash, "failed to create sysfs nodes");
+
 	return 0;
 
 error:
