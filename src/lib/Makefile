@@ -52,7 +52,7 @@ KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 
 PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))
-XILINXINCLUDE := -I$(ROOT)/include -I$(ROOT)/include/uapi -I$(ROOT)/common/libfdt
+XILINXINCLUDE := -I$(ROOT)/include -I$(ROOT)/include/uapi -I$(ROOT)/common/libfdt -I$(ROOT)/common
 
 ccflags-y += $(XILINXINCLUDE)
 ifeq ($(DEBUG),1)

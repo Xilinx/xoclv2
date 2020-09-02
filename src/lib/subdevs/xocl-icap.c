@@ -17,10 +17,9 @@
 #include "xocl-subdev.h"
 #include "xocl-parent.h"
 #include "xocl-icap.h"
+#include "xocl-xclbin.h"
 
 #define XOCL_ICAP "xocl_icap"
-
-#define DMA_HWICAP_BITFILE_BUFFER_SIZE	1024
 
 #define	ICAP_ERR(icap, fmt, arg...)	\
 	xocl_err((icap)->pdev, fmt "\n", ##arg)

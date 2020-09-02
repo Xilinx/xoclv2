@@ -14,12 +14,13 @@
 enum xocl_mgmt_main_ioctl_cmd {
 	XOCL_MGMT_MAIN_GET_XSABIN_SECTION = 0,
 	XOCL_MGMT_MAIN_GET_VBNV,
+	XOCL_MGMT_MAIN_GET_ULP_SECTION,
 };
 
-struct xocl_mgmt_main_ioctl_get_xsabin_section {
-	enum axlf_section_kind xmmigxs_section_kind;
-	void *xmmigxs_section;
-	u64 xmmigxs_section_size;
+struct xocl_mgmt_main_ioctl_get_axlf_section {
+	enum axlf_section_kind xmmigas_section_kind;
+	void *xmmigas_section;
+	u64 xmmigas_section_size;
 };
 
 #endif	/* _XMGMT_MAIN_H_ */

@@ -19,6 +19,8 @@
 #include "xocl-gpio.h"
 #include "xmgmt-main.h"
 #include "xmgmt-fmgr.h"
+#include "xocl-icap.h"
+#include "xocl-axigate.h"
 
 #define	XMGMT_MAIN "xmgmt_main"
 
@@ -93,8 +95,88 @@ static struct attribute *xmgmt_main_attrs[] = {
 	NULL,
 };
 
+static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
+	struct bin_attribute *attr, char *buffer, loff_t off, size_t count)
+{
+	struct xmgmt_main *xmm =
+		dev_get_drvdata(container_of(kobj, struct device, kobj));
+	struct XHwIcap_Bit_Header bit_header = { 0 };
+	struct axlf *xclbin;
+	ulong len;
+
+	if (off == 0) {
+		if (count < sizeof(*xclbin)) {
+			xocl_err(xmm->pdev, "count is too small %ld", count);
+			return -EINVAL;
+		}
+
+		if (xmm->firmware_ulp) {
+			vfree(xmm->firmware_ulp);
+			xmm->firmware_ulp = NULL;
+		}
+		xclbin = (struct axlf *)buffer;
+		xmm->firmware_ulp = vmalloc(xclbin->m_header.m_length);
+		if (!xmm->firmware_ulp)
+			return -ENOMEM;
+	} else
+		xclbin = (struct axlf *)xmm->firmware_ulp,
+
+	len = xclbin->m_header.m_length;
+	if (off + count >= len) {
+		struct platform_device *axigate_leaf;
+		struct platform_device *icap_leaf;
+		char *bitstream;
+		struct xocl_icap_ioctl_wr arg;
+		char *dtb = NULL;
+
+		memcpy(xmm->firmware_ulp + off, buffer, len - off);
+		axigate_leaf = xocl_subdev_get_leaf(xmm->pdev,
+			xocl_subdev_match_epname, NODE_GATE_ULP);
+		icap_leaf = xocl_subdev_get_leaf_by_id(xmm->pdev,
+			XOCL_SUBDEV_ICAP, PLATFORM_DEVID_NONE);
+
+		xocl_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREEZE, NULL);
+
+		xrt_xclbin_get_section(xmm->firmware_ulp, BITSTREAM,
+			(void **)&bitstream, NULL);
+		xrt_xclbin_parse_header(bitstream,
+			DMA_HWICAP_BITFILE_BUFFER_SIZE, &bit_header);
+		arg.xiiw_bit_data = bitstream + bit_header.HeaderLength;
+		arg.xiiw_data_len = bit_header.BitstreamLength;
+		xocl_subdev_ioctl(icap_leaf, XOCL_ICAP_WRITE, &arg);
+
+		xocl_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREE, NULL);
+
+		xrt_xclbin_get_metadata(DEV(xmm->pdev), xmm->firmware_ulp,
+			&dtb);
+		xocl_subdev_create_partition(xmm->pdev, dtb);
+
+		xocl_subdev_put_leaf(xmm->pdev, icap_leaf);
+		xocl_subdev_put_leaf(xmm->pdev, axigate_leaf);
+
+	} else
+		memcpy(xmm->firmware_ulp + off, buffer, count);
+
+	return count;
+}
+
+static struct bin_attribute ulp_image_attr = {
+	.attr = {
+		.name = "ulp_image",
+		.mode = 0200
+	},
+	.write = ulp_image_write,
+	.size = 0
+};
+
+static struct bin_attribute *xmgmt_main_bin_attrs[] = {
+	&ulp_image_attr,
+	NULL,
+};
+
 static const struct attribute_group xmgmt_main_attrgroup = {
 	.attrs = xmgmt_main_attrs,
+	.bin_attrs = xmgmt_main_bin_attrs,
 };
 
 static int load_firmware_from_flash(struct platform_device *pdev,
@@ -438,18 +520,27 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 
 	switch (cmd) {
 	case XOCL_MGMT_MAIN_GET_XSABIN_SECTION: {
-		struct xocl_mgmt_main_ioctl_get_xsabin_section *get =
-			(struct xocl_mgmt_main_ioctl_get_xsabin_section *)arg;
+		struct xocl_mgmt_main_ioctl_get_axlf_section *get =
+			(struct xocl_mgmt_main_ioctl_get_axlf_section *)arg;
 
 		ret = xrt_xclbin_get_section(xmm->firmware_blp,
-			get->xmmigxs_section_kind, &get->xmmigxs_section,
-			&get->xmmigxs_section_size);
+			get->xmmigas_section_kind, &get->xmmigas_section,
+			&get->xmmigas_section_size);
 		break;
 	}
 	case XOCL_MGMT_MAIN_GET_VBNV: {
 		const char **vbnv_p = (const char **)arg;
 
 		*vbnv_p = xmgmt_get_vbnv(xmm);
+		break;
+	}
+	case XOCL_MGMT_MAIN_GET_ULP_SECTION: {
+		struct xocl_mgmt_main_ioctl_get_axlf_section *get =
+			(struct xocl_mgmt_main_ioctl_get_axlf_section *)arg;
+
+		ret = xrt_xclbin_get_section(xmm->firmware_ulp,
+			get->xmmigas_section_kind, &get->xmmigas_section,
+			&get->xmmigas_section_size);
 		break;
 	}
 	default:
