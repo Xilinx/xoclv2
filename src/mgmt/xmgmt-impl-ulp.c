@@ -64,7 +64,7 @@ int xmgmt_impl_ulp_download(struct platform_device  *pdev, void *xclbin)
 	char *dtb = NULL;
 	int ret = 0;
 
-	ret = xrt_xclbin_get_metadata(DEV(pdev), xclbin, &dtb); 
+	ret = xrt_xclbin_get_metadata(DEV(pdev), xclbin, &dtb);
 	if (ret) {
 		xocl_err(pdev, "can not get partition metadata, ret %d", ret);
 		goto failed;
@@ -84,10 +84,10 @@ int xmgmt_impl_ulp_download(struct platform_device  *pdev, void *xclbin)
 
 		/* Do we really need this extra toggling gate before setting
 		 * clocks?
+		 * xocl_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREEZE, NULL);
+		 * xocl_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREE, NULL);
 		 */
-		xocl_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREEZE, NULL);
-		xocl_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREE, NULL);
-			
+
 		xocl_subdev_put_leaf(pdev, axigate_leaf);
 	}
 	if (ret) {

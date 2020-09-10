@@ -166,7 +166,6 @@ static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
 {
 	struct xmgmt_main *xmm =
 		dev_get_drvdata(container_of(kobj, struct device, kobj));
-	struct XHwIcap_Bit_Header bit_header = { 0 };
 	struct axlf *xclbin;
 	ulong len;
 
@@ -190,7 +189,6 @@ static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
 	len = xclbin->m_header.m_length;
 	if (off + count >= len) {
 		memcpy(xmm->firmware_ulp + off, buffer, len - off);
-		pr_info("OFF %ld, count %ld, len %ld\n", off, count, len);
 		xmgmt_impl_ulp_download(xmm->pdev, xmm->firmware_ulp);
 
 	} else

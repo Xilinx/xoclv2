@@ -90,12 +90,12 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 				xocl_err(calib->pdev, "Fast calib failed %d",
 					ret);
 				break;
-			} else
-				goto done;
+			}
+			goto done;
 		}
 	}
 
- 	if (ret) {
+	if (ret) {
 		/* fall back to full calibration */
 		xocl_info(calib->pdev, "fall back to full calibration");
 		vfree(cache->data);
