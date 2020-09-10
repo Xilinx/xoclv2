@@ -18,6 +18,7 @@
 #include "xocl-subdev.h"
 #include "xmgmt-fmgr.h"
 #include "xocl-axigate.h"
+#include "xmgmt-main-impl.h"
 /*
  * Container to capture and cache full xclbin as it is passed in blocks by FPGA
  * Manager. xocl needs access to full xclbin to walk through xclbin sections. FPGA
@@ -101,7 +102,6 @@ static int xmgmt_pr_write(struct fpga_manager *mgr,
 static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 				   struct fpga_image_info *info)
 {
-	struct platform_device *axigate_leaf;
 	int result = 0;
 	struct xfpga_klass *obj = mgr->priv;
 
@@ -116,19 +116,10 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 		return -EINVAL;
 	}
 
-	axigate_leaf = xocl_subdev_get_leaf((struct platform_device *)obj->pdev, xocl_subdev_match_epname, NODE_GATE_ULP);
-	if (axigate_leaf == NULL) {
-		xocl_err(obj->pdev, "failed to hold axi gate leaf");
-		return -ENODEV;
-	}
-
-	(void) xocl_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREEZE, NULL);
-	/* TODO: Plumb calls into icap, cw, mig */
-	(void) xocl_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREE, NULL);
+	result = xmgmt_impl_ulp_download((void *)obj->pdev, obj->blob);
 
 	obj->state = result ? FPGA_MGR_STATE_WRITE_COMPLETE_ERR : FPGA_MGR_STATE_WRITE_COMPLETE;
 	xocl_info(obj->pdev, "Finish download of xclbin %pUb of size %zu B", &obj->blob->m_header.uuid, obj->count);
-	(void) xocl_subdev_put_leaf((struct platform_device *)obj->pdev, axigate_leaf);
 	vfree(obj->blob);
 	obj->blob = NULL;
 	obj->count = 0;

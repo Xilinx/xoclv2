@@ -21,6 +21,7 @@
 #include "xmgmt-fmgr.h"
 #include "xocl-icap.h"
 #include "xocl-axigate.h"
+#include "xmgmt-main-impl.h"
 
 #define	XMGMT_MAIN "xmgmt_main"
 
@@ -188,36 +189,9 @@ static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
 
 	len = xclbin->m_header.m_length;
 	if (off + count >= len) {
-		struct platform_device *axigate_leaf;
-		struct platform_device *icap_leaf;
-		char *bitstream;
-		struct xocl_icap_ioctl_wr arg;
-		char *dtb = NULL;
-
 		memcpy(xmm->firmware_ulp + off, buffer, len - off);
-		axigate_leaf = xocl_subdev_get_leaf(xmm->pdev,
-			xocl_subdev_match_epname, NODE_GATE_ULP);
-		icap_leaf = xocl_subdev_get_leaf_by_id(xmm->pdev,
-			XOCL_SUBDEV_ICAP, PLATFORM_DEVID_NONE);
-
-		xocl_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREEZE, NULL);
-
-		xrt_xclbin_get_section(xmm->firmware_ulp, BITSTREAM,
-			(void **)&bitstream, NULL);
-		xrt_xclbin_parse_header(bitstream,
-			DMA_HWICAP_BITFILE_BUFFER_SIZE, &bit_header);
-		arg.xiiw_bit_data = bitstream + bit_header.HeaderLength;
-		arg.xiiw_data_len = bit_header.BitstreamLength;
-		xocl_subdev_ioctl(icap_leaf, XOCL_ICAP_WRITE, &arg);
-
-		xocl_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREE, NULL);
-
-		xrt_xclbin_get_metadata(DEV(xmm->pdev), xmm->firmware_ulp,
-			&dtb);
-		xocl_subdev_create_partition(xmm->pdev, dtb);
-
-		xocl_subdev_put_leaf(xmm->pdev, icap_leaf);
-		xocl_subdev_put_leaf(xmm->pdev, axigate_leaf);
+		pr_info("OFF %ld, count %ld, len %ld\n", off, count, len);
+		xmgmt_impl_ulp_download(xmm->pdev, xmm->firmware_ulp);
 
 	} else
 		memcpy(xmm->firmware_ulp + off, buffer, count);

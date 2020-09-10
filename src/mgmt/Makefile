@@ -12,7 +12,7 @@ fdtdir := $(commondir)/libfdt
 xmgmt-y := xmgmt-root.o				\
 	   xmgmt-main.o				\
 	   xmgmt-fmgr-drv.o      		\
-	   xmgmt-calib.o			\
+	   xmgmt-impl-ulp.o			\
 	   $(commondir)/xocl-root.o		\
 	   $(commondir)/xocl-metadata.o		\
 	   $(commondir)/xocl-xclbin.o		\

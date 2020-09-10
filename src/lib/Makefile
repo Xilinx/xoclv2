@@ -32,6 +32,7 @@ xocl-lib-y := 				\
 	subdevs/xocl-clock.o		\
 	subdevs/xocl-clkfreq.o		\
 	subdevs/xocl-ucs.o		\
+	subdevs/xocl-calib.o		\
 	$(fdtdir)/fdt.o			\
 	$(fdtdir)/fdt_addresses.o	\
 	$(fdtdir)/fdt_empty_tree.o	\

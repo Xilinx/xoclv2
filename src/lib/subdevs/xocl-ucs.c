@@ -152,6 +152,7 @@ static int ucs_probe(struct platform_device *pdev)
 		ret = -EFAULT;
 		goto failed;
 	}
+	ucs_enable(ucs);
 
 	return 0;
 
