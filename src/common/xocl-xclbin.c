@@ -369,14 +369,11 @@ int xrt_xclbin_get_metadata(struct device *dev, const char *xclbin, char **dtb)
 		goto done;
 	}
 
-	/* Make a copy of it so that it can be modified. */
-	rc = xocl_md_create(dev, &newmd);
-	if (rc)
+	newmd = xocl_md_dup(dev, md);
+	if (!newmd) {
+		rc = -EFAULT;
 		goto done;
-	rc = xocl_md_copy_all_eps(dev, newmd, md);
-	if (rc)
-		goto done;
-
+	}
 	/* Convert various needed xclbin sections into dtb. */
 	rc = xrt_xclbin_add_clock_metadata(dev, xclbin, newmd);
 

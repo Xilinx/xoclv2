@@ -77,8 +77,8 @@ int xocl_md_add_node(struct device *dev, char *blob, int parent_offset,
 	int ret;
 
 	ret = fdt_add_subnode(blob, parent_offset, ep_name);
-	if (ret < 0)
-		md_err(dev, "failed to add node %d", ret);
+	if (ret < 0 && ret != -FDT_ERR_EXISTS)
+		md_err(dev, "failed to add node %s. %d", ep_name, ret);
 
 	return ret;
 }
@@ -323,7 +323,24 @@ int xocl_md_copy_endpoint(struct device *dev, char *blob, char *src_blob,
 
 int xocl_md_copy_all_eps(struct device *dev, char *blob, char *src_blob)
 {
-	return xocl_md_overlay(dev, blob, -1, src_blob, -1);
+	return xocl_md_copy_endpoint(dev, blob, src_blob, NODE_ENDPOINTS, NULL);
+}
+
+char *xocl_md_dup(struct device *dev, char *blob)
+{
+	int ret;
+	char *dup_blob;
+
+	ret = xocl_md_create(dev, &dup_blob);
+	if (ret)
+		return NULL;
+	ret = xocl_md_overlay(dev, dup_blob, -1, blob, -1);
+	if (ret) {
+		vfree(dup_blob);
+		return NULL;
+	}
+
+	return dup_blob;
 }
 
 static int xocl_md_overlay(struct device *dev, char *blob, int target,
@@ -340,12 +357,18 @@ static int xocl_md_overlay(struct device *dev, char *blob, int target,
 	}
 
 	if (target < 0) {
-		xocl_md_get_endpoint(dev, blob, NODE_ENDPOINTS, NULL,
-			&target);
+		target = fdt_next_node(blob, -1, NULL);
+		if (target < 0) {
+			md_err(dev, "invalid target");
+			return -EINVAL;
+		}
 	}
 	if (overlay_offset < 0) {
-		xocl_md_get_endpoint(dev, overlay_blob, NODE_ENDPOINTS, NULL,
-			&overlay_offset);
+		overlay_offset = fdt_next_node(overlay_blob, -1, NULL);
+		if (overlay_offset < 0) {
+			md_err(dev, "invalid overlay");
+			return -EINVAL;
+		}
 	}
 
 	fdt_for_each_property_offset(property, overlay_blob, overlay_offset) {

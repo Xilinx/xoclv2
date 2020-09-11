@@ -187,7 +187,7 @@ static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
 		xclbin = (struct axlf *)xmm->firmware_ulp,
 
 	len = xclbin->m_header.m_length;
-	if (off + count >= len) {
+	if (off + count >= len && off < len) {
 		memcpy(xmm->firmware_ulp + off, buffer, len - off);
 		xmgmt_impl_ulp_download(xmm->pdev, xmm->firmware_ulp);
 
