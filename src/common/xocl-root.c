@@ -28,6 +28,8 @@
 #define xroot_dbg(xr, fmt, args...)	\
 	dev_dbg(XROOT_DEV(xr), "%s: " fmt, __func__, ##args)
 
+#define XOCL_VSEC_ID	0x20
+
 static int xroot_parent_cb(struct device *, void *, u32, void *);
 
 struct xroot_async_evt {
@@ -526,11 +528,16 @@ int xroot_add_vsec_node(void *root, char *dtb)
 	struct xroot *xr = (struct xroot *)root;
 	struct device *dev = DEV(xr->pdev);
 	struct xocl_md_endpoint ep = { 0 };
-	int cap, ret = 0;
-	u32 off_low, off_high, vsec_bar;
+	int cap = 0, ret = 0;
+	u32 off_low, off_high, vsec_bar, header;
 	u64 vsec_off;
 
-	cap = pci_find_ext_capability(xr->pdev, PCI_EXT_CAP_ID_VNDR);
+	while ((cap = pci_find_next_ext_capability(xr->pdev, cap,
+	    PCI_EXT_CAP_ID_VNDR))) {
+		pci_read_config_dword(xr->pdev, cap + PCI_VNDR_HEADER, &header);
+		if (PCI_VNDR_HEADER_ID(header) == XOCL_VSEC_ID)
+			break;
+	}
 	if (!cap) {
 		xroot_info(xr, "No Vendor Specific Capability.");
 		return -ENOENT;

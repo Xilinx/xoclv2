@@ -19,6 +19,9 @@
 #include "xocl-gpio.h"
 #include "xmgmt-main.h"
 #include "xmgmt-fmgr.h"
+#include "xocl-icap.h"
+#include "xocl-axigate.h"
+#include "xmgmt-main-impl.h"
 
 #define	XMGMT_MAIN "xmgmt_main"
 
@@ -158,8 +161,59 @@ static struct attribute *xmgmt_main_attrs[] = {
 	NULL,
 };
 
+static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
+	struct bin_attribute *attr, char *buffer, loff_t off, size_t count)
+{
+	struct xmgmt_main *xmm =
+		dev_get_drvdata(container_of(kobj, struct device, kobj));
+	struct axlf *xclbin;
+	ulong len;
+
+	if (off == 0) {
+		if (count < sizeof(*xclbin)) {
+			xocl_err(xmm->pdev, "count is too small %ld", count);
+			return -EINVAL;
+		}
+
+		if (xmm->firmware_ulp) {
+			vfree(xmm->firmware_ulp);
+			xmm->firmware_ulp = NULL;
+		}
+		xclbin = (struct axlf *)buffer;
+		xmm->firmware_ulp = vmalloc(xclbin->m_header.m_length);
+		if (!xmm->firmware_ulp)
+			return -ENOMEM;
+	} else
+		xclbin = (struct axlf *)xmm->firmware_ulp,
+
+	len = xclbin->m_header.m_length;
+	if (off + count >= len) {
+		memcpy(xmm->firmware_ulp + off, buffer, len - off);
+		xmgmt_impl_ulp_download(xmm->pdev, xmm->firmware_ulp);
+
+	} else
+		memcpy(xmm->firmware_ulp + off, buffer, count);
+
+	return count;
+}
+
+static struct bin_attribute ulp_image_attr = {
+	.attr = {
+		.name = "ulp_image",
+		.mode = 0200
+	},
+	.write = ulp_image_write,
+	.size = 0
+};
+
+static struct bin_attribute *xmgmt_main_bin_attrs[] = {
+	&ulp_image_attr,
+	NULL,
+};
+
 static const struct attribute_group xmgmt_main_attrgroup = {
 	.attrs = xmgmt_main_attrs,
+	.bin_attrs = xmgmt_main_bin_attrs,
 };
 
 static int load_firmware_from_flash(struct platform_device *pdev,
@@ -470,18 +524,27 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 
 	switch (cmd) {
 	case XOCL_MGMT_MAIN_GET_XSABIN_SECTION: {
-		struct xocl_mgmt_main_ioctl_get_xsabin_section *get =
-			(struct xocl_mgmt_main_ioctl_get_xsabin_section *)arg;
+		struct xocl_mgmt_main_ioctl_get_axlf_section *get =
+			(struct xocl_mgmt_main_ioctl_get_axlf_section *)arg;
 
 		ret = xrt_xclbin_get_section(xmm->firmware_blp,
-			get->xmmigxs_section_kind, &get->xmmigxs_section,
-			&get->xmmigxs_section_size);
+			get->xmmigas_section_kind, &get->xmmigas_section,
+			&get->xmmigas_section_size);
 		break;
 	}
 	case XOCL_MGMT_MAIN_GET_VBNV: {
 		char **vbnv_p = (char **)arg;
 
 		*vbnv_p = xmgmt_get_vbnv(xmm);
+		break;
+	}
+	case XOCL_MGMT_MAIN_GET_ULP_SECTION: {
+		struct xocl_mgmt_main_ioctl_get_axlf_section *get =
+			(struct xocl_mgmt_main_ioctl_get_axlf_section *)arg;
+
+		ret = xrt_xclbin_get_section(xmm->firmware_ulp,
+			get->xmmigas_section_kind, &get->xmmigas_section,
+			&get->xmmigas_section_size);
 		break;
 	}
 	default:

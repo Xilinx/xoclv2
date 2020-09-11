@@ -42,9 +42,7 @@ struct xocl_ddr_srsr {
 	void __iomem		*base;
 	struct platform_device	*pdev;
 	struct mutex		lock;
-	uint32_t		*calib_cache;
-	uint32_t		cache_size;
-	bool			restored;
+	const char		*ep_name;
 };
 
 #define reg_rd(g, offset)	ioread32(g->base + offset)
@@ -68,12 +66,14 @@ static const struct attribute_group xocl_ddr_srsr_attrgroup = {
 	.attrs = xocl_ddr_srsr_attributes,
 };
 
-static int srsr_full_calibration(struct platform_device *pdev)
+static int srsr_full_calib(struct xocl_ddr_srsr *srsr,
+	char **data, u32 *data_len)
 {
-	struct xocl_ddr_srsr *srsr = platform_get_drvdata(pdev);
 	int i = 0, err = -ETIMEDOUT;
-	u32 val;
+	u32 val, sz_lo, sz_hi;
+	u32 *cache = NULL;
 
+	mutex_lock(&srsr->lock);
 	reg_wr(srsr, CTRL_BIT_SYS_RST, REG_CTRL_OFFSET);
 	reg_wr(srsr, 0x0, REG_CTRL_OFFSET);
 
@@ -87,24 +87,43 @@ static int srsr_full_calibration(struct platform_device *pdev)
 		}
 		msleep(20);
 	}
-	xocl_info(pdev, "calibrate time %d", i * 20);
 
-	return err;
-}
+	if (err) {
+		xocl_err(srsr->pdev, "Calibration timeout");
+		goto failed;
+	}
 
-static int srsr_save_calib(struct platform_device *pdev)
-{
-	struct xocl_ddr_srsr *srsr = platform_get_drvdata(pdev);
-	int i = 0, err = -ETIMEDOUT;
-	u32 val = 0;
-	u32 cache_size_in_words = srsr->cache_size/sizeof(uint32_t);
+	xocl_info(srsr->pdev, "calibrate time %dms", i * FULL_CALIB_TIMEOUT);
 
-	if (!srsr->calib_cache)
-		return err;
+	/* END_ADDR0/1 provides the end address for a given memory
+	 * configuration
+	 * END_ADDR 0 is lower 9 bits, the other one is higher 9 bits
+	 * E.g. sz_lo = 0x155,     0'b 1 0101 0101
+	 *      sz_hi = 0x5    0'b 0101
+	 *                     0'b 01011 0101 0101
+	 *                   =  0xB55
+	 * and the total size is 0xB55+1
+	 * Check the value, it should not excess predefined XSDB range
+	 */
+	sz_lo = reg_rd(srsr, REG_XSDB_RAM_BASE+4);
+	sz_hi = reg_rd(srsr, REG_XSDB_RAM_BASE+8);
 
-	mutex_lock(&srsr->lock);
+	*data_len = (((sz_hi << 9) | sz_lo) + 1) * sizeof(uint32_t);
+	if (*data_len >= 0x4000) {
+		xocl_err(srsr->pdev, "Invalid data size 0x%x", *data_len);
+		err = -EINVAL;
+		goto failed;
+	}
+
+	cache = vzalloc(*data_len);
+	if (!cache) {
+		err = -ENOMEM;
+		goto failed;
+	}
+
+	err = -ETIMEDOUT;
 	reg_wr(srsr, CTRL_BIT_SREF_REQ, REG_CTRL_OFFSET);
-	for ( ; i < 20; ++i) {
+	for ( ; i < FULL_CALIB_TIMEOUT; ++i) {
 		val = reg_rd(srsr, REG_STATUS_OFFSET);
 		if (val == (STATUS_BIT_SREF_ACK|STATUS_BIT_CALIB_COMPLETE)) {
 			err = 0;
@@ -112,36 +131,46 @@ static int srsr_save_calib(struct platform_device *pdev)
 		}
 		msleep(20);
 	}
+	if (err) {
+		xocl_err(srsr->pdev, "request data timeout");
+		goto failed;
+	}
+	xocl_info(srsr->pdev, "req data time %dms", i * FULL_CALIB_TIMEOUT);
 
 	reg_wr(srsr, CTRL_BIT_SREF_REQ | CTRL_BIT_XSDB_SELECT, REG_CTRL_OFFSET);
 
-	for (i = 0; i < cache_size_in_words; ++i) {
-		val = reg_rd(srsr, REG_XSDB_RAM_BASE+i*4);
-		*(srsr->calib_cache+i) = val;
+	for (i = 0; i < *data_len / sizeof(u32); ++i) {
+		val = reg_rd(srsr, REG_XSDB_RAM_BASE + i * 4);
+		*(cache + i) = val;
 	}
+	*data = (char *)cache;
 
 	mutex_unlock(&srsr->lock);
+
+	return 0;
+
+failed:
+	mutex_unlock(&srsr->lock);
+	vfree(cache);
+
 	return err;
 }
 
-static int srsr_fast_calib(struct platform_device *pdev, bool retention)
+static int srsr_fast_calib(struct xocl_ddr_srsr *srsr, char *data,
+	u32 data_size, bool retention)
 {
-	struct xocl_ddr_srsr *srsr = platform_get_drvdata(pdev);
 	int i = 0, err = -ETIMEDOUT;
 	u32 val, write_val = CTRL_BIT_RESTORE_EN | CTRL_BIT_XSDB_SELECT;
-	u32 cache_size_in_words = srsr->cache_size/sizeof(uint32_t);
 
-	if (!srsr->calib_cache)
-		return err;
-
+	mutex_lock(&srsr->lock);
 	if (retention)
 		write_val |= CTRL_BIT_MEM_INIT_SKIP;
 
 	reg_wr(srsr, write_val, REG_CTRL_OFFSET);
 
 	msleep(20);
-	for (i = 0; i < cache_size_in_words; ++i) {
-		val = *(srsr->calib_cache+i);
+	for (i = 0; i < data_size / sizeof(u32); ++i) {
+		val = *((u32 *)data + i);
 		reg_wr(srsr, val, REG_XSDB_RAM_BASE+i*4);
 	}
 
@@ -160,141 +189,38 @@ static int srsr_fast_calib(struct platform_device *pdev, bool retention)
 		}
 		msleep(20);
 	}
-	xocl_info(pdev, "fast calibration time %d", i * 20);
+	if (err)
+		xocl_err(srsr->pdev, "timed out");
+	else
+		xocl_info(srsr->pdev, "time %dms", i * FAST_CALIB_TIMEOUT);
 
 	reg_wr(srsr, CTRL_BIT_RESTORE_COMPLETE, REG_CTRL_OFFSET);
 	val = reg_rd(srsr, REG_CTRL_OFFSET);
+
+	mutex_lock(&srsr->lock);
+
 	return err;
-}
-
-static int srsr_calib(struct platform_device *pdev, bool retention)
-{
-	struct xocl_ddr_srsr *srsr = platform_get_drvdata(pdev);
-	int err = -1;
-	uint32_t addr0, addr1;
-
-	mutex_lock(&srsr->lock);
-
-	if (srsr->restored)
-		err = srsr_fast_calib(pdev, retention);
-
-	/* Fast calibration fails then fall back to full calibration
-	 * Wipe out calibration cache before full calibration
-	 */
-	if (err) {
-		err = srsr_full_calibration(pdev);
-		if (err)
-			goto done;
-
-		/* END_ADDR0/1 provides the end address for a given memory
-		 * configuration
-		 * END_ADDR 0 is lower 9 bits, the other one is higher 9 bits
-		 * E.g. addr0 = 0x155,     0'b 1 0101 0101
-		 *      addr1 = 0x5    0'b 0101
-		 *                     0'b 01011 0101 0101
-		 *                   =  0xB55
-		 * and the total size is 0xB55+1
-		 * Check the value, it should not excess predefined XSDB range
-		 */
-		addr0 = reg_rd(srsr, REG_XSDB_RAM_BASE+4);
-		addr1 = reg_rd(srsr, REG_XSDB_RAM_BASE+8);
-
-		srsr->cache_size = (((addr1 << 9) | addr0)+1)*sizeof(uint32_t);
-		if (srsr->cache_size >= 0x4000) {
-			err = -ENOMEM;
-			goto done;
-		}
-		vfree(srsr->calib_cache);
-		srsr->calib_cache = vzalloc(srsr->cache_size);
-		if (!srsr->calib_cache) {
-			err = -ENOMEM;
-			goto done;
-		}
-	}
-done:
-	mutex_unlock(&srsr->lock);
-	return err;
-}
-
-static int srsr_read_calib(struct platform_device *pdev, void *calib_cache,
-	uint32_t size)
-{
-	int ret = 0;
-	struct xocl_ddr_srsr *srsr = platform_get_drvdata(pdev);
-
-	BUG_ON(!srsr->calib_cache);
-	BUG_ON(!calib_cache);
-	BUG_ON(size != srsr->cache_size);
-
-	mutex_lock(&srsr->lock);
-	memcpy(calib_cache, srsr->calib_cache, size);
-	mutex_unlock(&srsr->lock);
-	return ret;
-}
-
-static int srsr_write_calib(struct platform_device *pdev,
-	const void *calib_cache, uint32_t size)
-{
-	int ret = 0, err = 0;
-	struct xocl_ddr_srsr *srsr = platform_get_drvdata(pdev);
-
-	BUG_ON(!calib_cache);
-
-	mutex_lock(&srsr->lock);
-	srsr->cache_size = size;
-
-	vfree(srsr->calib_cache);
-	srsr->calib_cache = vzalloc(srsr->cache_size);
-	if (!srsr->calib_cache) {
-		err = -ENOMEM;
-		goto done;
-	}
-
-	memcpy(srsr->calib_cache, calib_cache, size);
-
-	srsr->restored = true;
-done:
-	mutex_unlock(&srsr->lock);
-	return ret;
-}
-
-static uint32_t srsr_cache_size(struct platform_device *pdev)
-{
-	struct xocl_ddr_srsr *srsr = platform_get_drvdata(pdev);
-
-	return srsr->cache_size;
 }
 
 static int
 xocl_srsr_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
+	struct xocl_ddr_srsr *srsr = platform_get_drvdata(pdev);
+	struct xocl_srsr_ioctl_calib *req = arg;
 	int ret = 0;
 
 	switch (cmd) {
-	case XOCL_DDR_SRSR_SAVE:
-		ret = srsr_save_calib(pdev);
+	case XOCL_SRSR_CALIB:
+		ret = srsr_full_calib(srsr, (char **)req->xsic_buf,
+			&req->xsic_size);
 		break;
-	case XOCL_DDR_SRSR_CALIB:
-		ret = srsr_calib(pdev, (bool)arg);
+	case XOCL_SRSR_FAST_CALIB:
+		ret = srsr_fast_calib(srsr, req->xsic_buf, req->xsic_size,
+			req->xsic_retention);
 		break;
-	case XOCL_DDR_SRSR_WRITE: {
-		struct xocl_srsr_ioctl_rw *wr_arg = arg;
-
-		ret = srsr_write_calib(pdev, wr_arg->xdirw_buf,
-			wr_arg->xdirw_size);
+	case XOCL_SRSR_EP_NAME:
+		*(const char **)arg = srsr->ep_name;
 		break;
-	}
-	case XOCL_DDR_SRSR_READ: {
-		struct xocl_srsr_ioctl_rw *rd_arg = arg;
-
-		ret = srsr_read_calib(pdev, rd_arg->xdirw_buf,
-			rd_arg->xdirw_size);
-		break;
-	}
-	case XOCL_DDR_SRSR_SIZE: {
-		*(u32 *)arg = srsr_cache_size(pdev);
-		break;
-	}
 	default:
 		xocl_err(pdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
@@ -323,6 +249,7 @@ static int xocl_srsr_probe(struct platform_device *pdev)
 	xocl_info(pdev, "IO start: 0x%llx, end: 0x%llx",
 		res->start, res->end);
 
+	srsr->ep_name = res->name;
 	srsr->base = ioremap(res->start, res->end - res->start + 1);
 	if (!srsr->base) {
 		err = -EIO;

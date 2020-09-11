@@ -32,6 +32,7 @@ xocl-lib-y := 				\
 	subdevs/xocl-clock.o		\
 	subdevs/xocl-clkfreq.o		\
 	subdevs/xocl-ucs.o		\
+	subdevs/xocl-calib.o		\
 	$(fdtdir)/fdt.o			\
 	$(fdtdir)/fdt_addresses.o	\
 	$(fdtdir)/fdt_empty_tree.o	\
@@ -52,7 +53,7 @@ KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 
 PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))
-XILINXINCLUDE := -I$(ROOT)/include -I$(ROOT)/include/uapi -I$(ROOT)/common/libfdt
+XILINXINCLUDE := -I$(ROOT)/include -I$(ROOT)/include/uapi -I$(ROOT)/common/libfdt -I$(ROOT)/common
 
 ccflags-y += $(XILINXINCLUDE)
 ifeq ($(DEBUG),1)

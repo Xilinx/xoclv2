@@ -175,7 +175,7 @@ static int cmc_fetch_firmware(struct xocl_cmc_ctrl *cmc_ctrl)
 	struct platform_device *pdev = cmc_ctrl->pdev;
 	struct platform_device *mgmt_leaf = xocl_subdev_get_leaf_by_id(pdev,
 		XOCL_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
-	struct xocl_mgmt_main_ioctl_get_xsabin_section gs = { FIRMWARE, };
+	struct xocl_mgmt_main_ioctl_get_axlf_section gs = { FIRMWARE, };
 
 	if (mgmt_leaf == NULL)
 		return -ENOENT;
@@ -183,13 +183,13 @@ static int cmc_fetch_firmware(struct xocl_cmc_ctrl *cmc_ctrl)
 	ret = xocl_subdev_ioctl(mgmt_leaf,
 		XOCL_MGMT_MAIN_GET_XSABIN_SECTION, &gs);
 	if (ret == 0) {
-		cmc_ctrl->firmware = vmalloc(gs.xmmigxs_section_size);
+		cmc_ctrl->firmware = vmalloc(gs.xmmigas_section_size);
 		if (cmc_ctrl->firmware == NULL) {
 			ret = -ENOMEM;
 		} else {
-			memcpy(cmc_ctrl->firmware, gs.xmmigxs_section,
-				gs.xmmigxs_section_size);
-			cmc_ctrl->firmware_size = gs.xmmigxs_section_size;
+			memcpy(cmc_ctrl->firmware, gs.xmmigas_section,
+				gs.xmmigas_section_size);
+			cmc_ctrl->firmware_size = gs.xmmigas_section_size;
 		}
 	} else {
 		xocl_err(pdev, "failed to fetch firmware: %d", ret);

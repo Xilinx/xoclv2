@@ -408,7 +408,7 @@ static int clock_init(struct clock *clock)
 	}
 
 	mutex_lock(&clock->clock_lock);
-	err = set_freq(clock, *freq);
+	err = set_freq(clock, be16_to_cpu(*freq));
 	if (err)
 		goto end;
 
@@ -429,8 +429,8 @@ static int clock_init(struct clock *clock)
 			goto end;
 		request_in_khz = lookup_freq*1000;
 		tolerance = lookup_freq*50;
-		lookup_freq = find_matching_freq(*freq, frequency_table,
-			ARRAY_SIZE(frequency_table));
+		lookup_freq = find_matching_freq(be16_to_cpu(*freq),
+			frequency_table, ARRAY_SIZE(frequency_table));
 		xocl_subdev_put_leaf(clock->pdev, clkfreq_leaf);
 
 		if (tolerance < abs(clock_freq_counter-request_in_khz)) {

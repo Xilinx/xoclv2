@@ -185,7 +185,7 @@ failed:
 struct xocl_subdev_endpoints xocl_clkfreq_endpoints[] = {
 	{
 		.xse_names = (struct xocl_subdev_ep_names[]) {
-			{ .regmap_name = "clkwiz" },
+			{ .regmap_name = "freq_cnt" },
 			{ NULL },
 		},
 		.xse_min_ep = 1,

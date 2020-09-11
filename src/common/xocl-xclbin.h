@@ -15,6 +15,7 @@
 #include "xclbin.h"
 
 #define	ICAP_XCLBIN_V2	"xclbin2"
+#define DMA_HWICAP_BITFILE_BUFFER_SIZE 1024
 
 enum axlf_section_kind;
 struct axlf;
