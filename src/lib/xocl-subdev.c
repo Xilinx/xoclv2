@@ -427,6 +427,25 @@ int xocl_subdev_destroy_partition(struct platform_device *pdev, int instance)
 		XOCL_PARENT_REMOVE_PARTITION, (void *)(uintptr_t)instance);
 }
 
+int xocl_subdev_lookup_partition(struct platform_device *pdev,
+	xocl_subdev_match_t match_cb, void *match_arg)
+{
+	int rc;
+	struct xocl_parent_ioctl_lookup_partition lkp = {
+		pdev, match_cb, match_arg, };
+
+	rc = xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_LOOKUP_PARTITION, &lkp);
+	if (rc)
+		return rc;
+	return lkp.xpilp_part_inst;
+}
+
+int xocl_subdev_wait_for_partition_bringup(struct platform_device *pdev)
+{
+	return xocl_subdev_parent_ioctl(pdev,
+		XOCL_PARENT_WAIT_PARTITION_BRINGUP, NULL);
+}
+
 void *xocl_subdev_add_event_cb(struct platform_device *pdev,
 	xocl_subdev_match_t match, void *match_arg, xocl_event_cb_t cb)
 {

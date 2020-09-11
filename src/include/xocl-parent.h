@@ -20,6 +20,8 @@ enum xocl_parent_ioctl_cmd {
 	XOCL_PARENT_PUT_LEAF,
 	XOCL_PARENT_CREATE_PARTITION,
 	XOCL_PARENT_REMOVE_PARTITION,
+	XOCL_PARENT_LOOKUP_PARTITION,
+	XOCL_PARENT_WAIT_PARTITION_BRINGUP,
 	XOCL_PARENT_ADD_EVENT_CB,
 	XOCL_PARENT_REMOVE_EVENT_CB,
 	XOCL_PARENT_ASYNC_BOARDCAST_EVENT,
@@ -40,6 +42,13 @@ struct xocl_parent_ioctl_get_leaf {
 struct xocl_parent_ioctl_put_leaf {
 	struct platform_device *xpipl_pdev; /* caller's pdev */
 	struct platform_device *xpipl_leaf; /* target's pdev */
+};
+
+struct xocl_parent_ioctl_lookup_partition {
+	struct platform_device *xpilp_pdev; /* caller's pdev */
+	xocl_subdev_match_t xpilp_match_cb;
+	void *xpilp_match_arg;
+	int xpilp_part_inst;
 };
 
 struct xocl_parent_ioctl_evt_cb {

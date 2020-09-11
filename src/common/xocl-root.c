@@ -199,6 +199,23 @@ static int xroot_destroy_partition(struct xroot *xr, int instance)
 	return ret;
 }
 
+static int xroot_lookup_partition(struct xroot *xr,
+	struct xocl_parent_ioctl_lookup_partition *arg)
+{
+	int rc = -ENOENT;
+	struct platform_device *part = NULL;
+
+	while (rc < 0 && xroot_get_partition(xr, PLATFORM_DEVID_NONE,
+		&part) != -ENOENT) {
+		if (arg->xpilp_match_cb(XOCL_SUBDEV_PART, part,
+			arg->xpilp_match_arg)) {
+			rc = part->id;
+		}
+		xroot_put_partition(xr, part);
+	}
+	return rc;
+}
+
 static void xroot_evt_cb_init_work(struct work_struct *work)
 {
 	const struct list_head *ptr, *next;
@@ -420,6 +437,15 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 	case XOCL_PARENT_REMOVE_PARTITION:
 		rc = xroot_destroy_partition(xr, (int)(uintptr_t)arg);
 		break;
+	case XOCL_PARENT_LOOKUP_PARTITION: {
+		struct xocl_parent_ioctl_lookup_partition *getpart =
+			(struct xocl_parent_ioctl_lookup_partition *)arg;
+		rc = xroot_lookup_partition(xr, getpart);
+		break;
+	}
+	case XOCL_PARENT_WAIT_PARTITION_BRINGUP:
+		rc = xroot_wait_for_bringup(xr) ? 0 : -EINVAL;
+		break;
 	case XOCL_PARENT_ADD_EVENT_CB: {
 		struct xocl_parent_ioctl_evt_cb *cb =
 			(struct xocl_parent_ioctl_evt_cb *)arg;
@@ -596,7 +622,7 @@ bool xroot_wait_for_bringup(void *root)
 	struct xroot *xr = (struct xroot *)root;
 
 	wait_for_completion(&xr->parts.bringup_comp);
-	return atomic_read(&xr->parts.bringup_failed) == 0;
+	return atomic_xchg(&xr->parts.bringup_failed, 0) == 0;
 }
 
 int xroot_probe(struct pci_dev *pdev, void **root)
