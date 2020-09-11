@@ -173,6 +173,7 @@ int xocl_md_get_compatible_epname(struct device *dev, char *blob,
 int xocl_md_get_epname_pointer(struct device *dev, char *blob,
 	const char *ep_name, char *regmap_name, const char **epname);
 void xocl_md_pack(struct device *dev, char *blob);
+char *xocl_md_dup(struct device *dev, char *blob);
 int xocl_md_get_intf_uuids(struct device *dev, char *blob,
 	u32 *num_uuids, uuid_t *intf_uuids);
 
