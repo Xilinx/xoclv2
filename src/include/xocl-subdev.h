@@ -262,6 +262,9 @@ extern int xocl_subdev_create_partition(struct platform_device *pdev,
 	char *dtb);
 extern int xocl_subdev_destroy_partition(struct platform_device *pdev,
 	int instance);
+extern int xocl_subdev_lookup_partition(
+	struct platform_device *pdev, xocl_subdev_match_t cb, void *arg);
+extern int xocl_subdev_wait_for_partition_bringup(struct platform_device *pdev);
 extern void *xocl_subdev_add_event_cb(struct platform_device *pdev,
 	xocl_subdev_match_t match, void *match_arg, xocl_event_cb_t cb);
 extern void xocl_subdev_remove_event_cb(

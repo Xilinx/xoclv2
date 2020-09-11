@@ -427,14 +427,16 @@ static int clock_init(struct clock *clock)
 				&clock_freq_counter);
 		if (err)
 			goto end;
-		request_in_khz = lookup_freq*1000;
-		tolerance = lookup_freq*50;
 		lookup_freq = find_matching_freq(be16_to_cpu(*freq),
 			frequency_table, ARRAY_SIZE(frequency_table));
+		request_in_khz = lookup_freq*1000;
+		tolerance = lookup_freq*50;
 		xocl_subdev_put_leaf(clock->pdev, clkfreq_leaf);
 
 		if (tolerance < abs(clock_freq_counter-request_in_khz)) {
-			CLOCK_ERR(clock, "Frequency is higher than tolerance value, request %u khz, actual %u khz", request_in_khz, clock_freq_counter);
+			CLOCK_ERR(clock,
+				"set clock failed, request %ukhz, actual %ukhz",
+				request_in_khz, clock_freq_counter);
 			err = -EDOM;
 		}
 	}
