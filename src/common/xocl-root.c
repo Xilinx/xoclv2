@@ -29,6 +29,8 @@
 	dev_dbg(XROOT_DEV(xr), "%s: " fmt, __func__, ##args)
 
 #define XOCL_VSEC_ID	0x20
+#define	XROOT_PART_FIRST	(-1)
+#define	XROOT_PART_LAST		(-2)
 
 static int xroot_parent_cb(struct device *, void *, u32, void *);
 
@@ -86,7 +88,10 @@ static int xroot_get_partition(struct xroot *xr, int instance,
 	struct device *dev = DEV(xr->pdev);
 	struct xroot_part_match_arg arg = { XOCL_SUBDEV_PART, instance };
 
-	if (instance == PLATFORM_DEVID_NONE) {
+	if (instance == XROOT_PART_LAST) {
+		rc = xocl_subdev_pool_get(parts, XOCL_SUBDEV_MATCH_NEXT,
+			*partp, dev, partp);
+	} else if (instance == XROOT_PART_FIRST) {
 		rc = xocl_subdev_pool_get(parts, XOCL_SUBDEV_MATCH_PREV,
 			*partp, dev, partp);
 	} else {
@@ -136,6 +141,7 @@ xroot_event_partition(struct xroot *xr, int instance, enum xocl_events evt)
 	const struct list_head *ptr, *next;
 	struct xroot_event_cb *tmp;
 
+	BUG_ON(instance < 0);
 	ret = xroot_get_partition(xr, instance, &pdev);
 	if (ret)
 		return;
@@ -177,11 +183,12 @@ int xroot_create_partition(void *root, char *dtb)
 	return ret;
 }
 
-static int xroot_destroy_partition(struct xroot *xr, int instance)
+static int xroot_destroy_single_partition(struct xroot *xr, int instance)
 {
 	struct platform_device *pdev = NULL;
 	int ret;
 
+	BUG_ON(instance < 0);
 	ret = xroot_get_partition(xr, instance, &pdev);
 	if (ret)
 		return ret;
@@ -199,13 +206,48 @@ static int xroot_destroy_partition(struct xroot *xr, int instance)
 	return ret;
 }
 
+static int xroot_destroy_partition(struct xroot *xr, int instance)
+{
+	struct platform_device *target = NULL;
+	struct platform_device *deps = NULL;
+	int ret;
+
+	BUG_ON(instance < 0);
+	/*
+	 * Make sure target partition exists and can't go away before
+	 * we remove it's dependents
+	 */
+	ret = xroot_get_partition(xr, instance, &target);
+	if (ret)
+		return ret;
+
+	/*
+	 * Remove all partitions depend on target one.
+	 * Assuming subdevs in higher partition ID can depend on ones in
+	 * lower ID partitions, we remove them in the reservse order.
+	 */
+	while (xroot_get_partition(xr, XROOT_PART_LAST, &deps) != -ENOENT) {
+		int inst = deps->id;
+
+		xroot_put_partition(xr, deps);
+		if (instance == inst)
+			break;
+		(void) xroot_destroy_single_partition(xr, inst);
+		deps = NULL;
+	}
+
+	/* Now we can remove the target partition. */
+	xroot_put_partition(xr, target);
+	return xroot_destroy_single_partition(xr, instance);
+}
+
 static int xroot_lookup_partition(struct xroot *xr,
 	struct xocl_parent_ioctl_lookup_partition *arg)
 {
 	int rc = -ENOENT;
 	struct platform_device *part = NULL;
 
-	while (rc < 0 && xroot_get_partition(xr, PLATFORM_DEVID_NONE,
+	while (rc < 0 && xroot_get_partition(xr, XROOT_PART_LAST,
 		&part) != -ENOENT) {
 		if (arg->xpilp_match_cb(XOCL_SUBDEV_PART, part,
 			arg->xpilp_match_arg)) {
@@ -231,7 +273,7 @@ static void xroot_evt_cb_init_work(struct work_struct *work)
 		if (tmp->initialized)
 			continue;
 
-		while (xroot_get_partition(xr, PLATFORM_DEVID_NONE,
+		while (xroot_get_partition(xr, XROOT_PART_LAST,
 			&part) != -ENOENT) {
 			int rc = xroot_partition_trigger_evt(xr, tmp, part,
 				XOCL_EVENT_POST_CREATION);
@@ -391,7 +433,7 @@ static int xroot_get_leaf(struct xroot *xr,
 	int rc = -ENOENT;
 	struct platform_device *part = NULL;
 
-	while (rc && xroot_get_partition(xr, PLATFORM_DEVID_NONE,
+	while (rc && xroot_get_partition(xr, XROOT_PART_LAST,
 		&part) != -ENOENT) {
 		rc = xocl_subdev_ioctl(part, XOCL_PARTITION_GET_LEAF, arg);
 		xroot_put_partition(xr, part);
@@ -405,7 +447,7 @@ static int xroot_put_leaf(struct xroot *xr,
 	int rc = -ENOENT;
 	struct platform_device *part = NULL;
 
-	while (rc && xroot_get_partition(xr, PLATFORM_DEVID_NONE,
+	while (rc && xroot_get_partition(xr, XROOT_PART_LAST,
 		&part) != -ENOENT) {
 		rc = xocl_subdev_ioctl(part, XOCL_PARTITION_PUT_LEAF, arg);
 		xroot_put_partition(xr, part);
@@ -516,7 +558,7 @@ static void xroot_bringup_partition_work(struct work_struct *work)
 	struct platform_device *pdev = NULL;
 	struct xroot *xr = container_of(work, struct xroot, parts.bringup_work);
 
-	while (xroot_get_partition(xr, PLATFORM_DEVID_NONE, &pdev) != -ENOENT) {
+	while (xroot_get_partition(xr, XROOT_PART_LAST, &pdev) != -ENOENT) {
 		int r, i;
 
 		i = pdev->id;
@@ -651,16 +693,11 @@ void xroot_remove(void *root)
 
 	xroot_info(xr, "leaving...");
 
-	/*
-	 * Assuming subdevs in higher partition ID can depend on ones in
-	 * lower ID partitions, we remove them in the reservse order.
-	 */
-	while (xroot_get_partition(xr, PLATFORM_DEVID_NONE, &part) != -ENOENT) {
+	if (xroot_get_partition(xr, XROOT_PART_FIRST, &part) == 0) {
 		int instance = part->id;
 
 		xroot_put_partition(xr, part);
 		(void) xroot_destroy_partition(xr, instance);
-		part = NULL;
 	}
 
 	xroot_evt_fini(xr);
