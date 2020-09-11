@@ -57,7 +57,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 	enum xocl_subdev_id did;
 	struct xocl_subdev_endpoints *eps = NULL;
 	int ep_count = 0, i, ret = 0, failed = 0;
-	ulong mlen;
+	long mlen;
 	char *dtb, *part_dtb = NULL, *ep_name;
 
 
@@ -75,8 +75,8 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 		goto bail;
 
 	mlen = xocl_md_size(DEV(xp->pdev), pdata->xsp_dtb);
-	if (!mlen) {
-		xocl_err(xp->pdev, "empty dtb");
+	if (mlen <= 0) {
+		xocl_err(xp->pdev, "invalid dtb, len %ld", mlen);
 		goto bail;
 	}
 

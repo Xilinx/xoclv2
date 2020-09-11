@@ -23,10 +23,10 @@
 static int xmgmt_impl_download_bitstream(struct platform_device  *pdev,
 	void *xclbin)
 {
-	struct platform_device *icap_leaf;
+	struct platform_device *icap_leaf = NULL;
 	struct XHwIcap_Bit_Header bit_header = { 0 };
 	struct xocl_icap_ioctl_wr arg;
-	char *bitstream;
+	char *bitstream = NULL;
 	int ret;
 
 	ret = xrt_xclbin_get_section(xclbin, BITSTREAM, (void **)&bitstream,
@@ -38,14 +38,16 @@ static int xmgmt_impl_download_bitstream(struct platform_device  *pdev,
 	ret = xrt_xclbin_parse_header(bitstream,
 		DMA_HWICAP_BITFILE_BUFFER_SIZE, &bit_header);
 	if (ret) {
+		ret = -EINVAL;
 		xocl_err(pdev, "invalid bitstream header");
-		return -EINVAL;
+		goto done;
 	}
 	icap_leaf = xocl_subdev_get_leaf_by_id(pdev, XOCL_SUBDEV_ICAP,
 		PLATFORM_DEVID_NONE);
 	if (!icap_leaf) {
+		ret = -ENODEV;
 		xocl_err(pdev, "icap does not exist");
-		return -ENODEV;
+		goto done;
 	}
 	arg.xiiw_bit_data = bitstream + bit_header.HeaderLength;
 	arg.xiiw_data_len = bit_header.BitstreamLength;
@@ -53,7 +55,10 @@ static int xmgmt_impl_download_bitstream(struct platform_device  *pdev,
 	if (ret)
 		xocl_err(pdev, "write bitstream failed, ret = %d", ret);
 
-	xocl_subdev_put_leaf(pdev, icap_leaf);
+done:
+	if (icap_leaf)
+		xocl_subdev_put_leaf(pdev, icap_leaf);
+	vfree(bitstream);
 
 	return ret;
 }
@@ -77,6 +82,12 @@ int xmgmt_impl_ulp_download(struct platform_device  *pdev, void *xclbin)
 	if (axigate_leaf) {
 		ret = xocl_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREEZE,
 			NULL);
+		if (ret) {
+			xocl_err(pdev, "can not freeze gate %s, %d",
+				NODE_GATE_ULP, ret);
+			xocl_subdev_put_leaf(pdev, axigate_leaf);
+			goto failed;
+		}
 	}
 	ret = xmgmt_impl_download_bitstream(pdev, xclbin);
 	if (axigate_leaf) {

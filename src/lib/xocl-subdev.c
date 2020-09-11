@@ -94,14 +94,15 @@ static ssize_t metadata_output(struct file *filp, struct kobject *kobj,
 	struct platform_device *pdev = to_platform_device(dev);
 	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
 	unsigned char *blob;
-	size_t size;
+	long  size;
 	ssize_t ret = 0;
-
-	if (!pdata->xsp_dtb)
-		goto failed;
 
 	blob = pdata->xsp_dtb;
 	size = xocl_md_size(dev, blob);
+	if (size <= 0) {
+		ret = -EINVAL;
+		goto failed;
+	}
 
 	if (off >= size)
 		goto failed;
@@ -225,7 +226,7 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	struct xocl_subdev *sdev = NULL;
 	struct platform_device *pdev = NULL;
 	struct xocl_subdev_platdata *pdata = NULL;
-	size_t dtb_len = 0;
+	long dtb_len = 0;
 	size_t pdata_sz;
 	int inst = PLATFORM_DEVID_NONE;
 	struct resource *res = NULL;
@@ -241,6 +242,10 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	if (dtb) {
 		xocl_md_pack(parent, dtb);
 		dtb_len = xocl_md_size(parent, dtb);
+		if (dtb_len <= 0) {
+			dev_err(parent, "invalid metadata len %ld", dtb_len);
+			goto fail;
+		}
 	}
 	pdata_sz = sizeof(struct xocl_subdev_platdata) + dtb_len - 1;
 

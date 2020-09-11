@@ -17,6 +17,7 @@
 #include "xocl-subdev.h"
 #include "xocl-parent.h"
 #include "xocl-ucs.h"
+#include "xocl-clock.h"
 
 #define UCS_ERR(ucs, fmt, arg...)   \
 	xocl_err((ucs)->pdev, fmt "\n", ##arg)
@@ -47,6 +48,7 @@ struct xocl_ucs {
 	struct platform_device	*pdev;
 	void __iomem		*ucs_base;
 	struct mutex		ucs_lock;
+	void			*evt_hdl;
 };
 
 static inline u32 reg_rd(struct xocl_ucs *ucs, u32 offset)
@@ -57,6 +59,42 @@ static inline u32 reg_rd(struct xocl_ucs *ucs, u32 offset)
 static inline void reg_wr(struct xocl_ucs *ucs, u32 val, u32 offset)
 {
 	iowrite32(val, ucs->ucs_base + offset);
+}
+
+static bool xocl_ucs_leaf_match(enum xocl_subdev_id id,
+	struct platform_device *pdev, void *arg)
+{
+	if (id == XOCL_SUBDEV_CLOCK)
+		return true;
+
+	return false;
+}
+
+static int xocl_ucs_event_cb(struct platform_device *pdev,
+	enum xocl_events evt, void *arg)
+{
+
+	struct xocl_ucs		*ucs;
+	struct platform_device	*leaf;
+	struct xocl_event_arg_subdev *esd = (struct xocl_event_arg_subdev *)arg;
+
+	ucs = platform_get_drvdata(pdev);
+
+	switch (evt) {
+	case XOCL_EVENT_POST_CREATION:
+		break;
+	default:
+		xocl_info(pdev, "ignored event %d", evt);
+		return 0;
+	}
+
+	leaf = xocl_subdev_get_leaf_by_id(pdev,
+		XOCL_SUBDEV_CLOCK, esd->xevt_subdev_instance);
+	BUG_ON(!leaf);
+	xocl_subdev_ioctl(leaf, XOCL_CLOCK_VERIFY, NULL);
+	xocl_subdev_put_leaf(pdev, leaf);
+
+	return 0;
 }
 
 static void ucs_check(struct xocl_ucs *ucs, bool *latched)
@@ -123,6 +161,10 @@ static int ucs_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	xocl_subdev_remove_event_cb(pdev, ucs->evt_hdl);
+	if (ucs->ucs_base)
+		iounmap(ucs->ucs_base);
+
 	platform_set_drvdata(pdev, NULL);
 	devm_kfree(&pdev->dev, ucs);
 
@@ -153,6 +195,8 @@ static int ucs_probe(struct platform_device *pdev)
 		goto failed;
 	}
 	ucs_enable(ucs);
+	ucs->evt_hdl = xocl_subdev_add_event_cb(pdev, xocl_ucs_leaf_match,
+		NULL, xocl_ucs_event_cb);
 
 	return 0;
 

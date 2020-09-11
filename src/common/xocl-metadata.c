@@ -32,7 +32,9 @@ static int xocl_md_get_endpoint(struct device *dev, char *blob,
 
 long xocl_md_size(struct device *dev, char *blob)
 {
-	return (long) fdt_totalsize(blob);
+	long len = (long) fdt_totalsize(blob);
+
+	return (len > MAX_BLOB_SIZE) ? -EINVAL : len;
 }
 
 int xocl_md_create(struct device *dev, char **blob)
@@ -378,7 +380,7 @@ static int xocl_md_overlay(struct device *dev, char *blob, int target,
 
 		prop = fdt_getprop_by_offset(overlay_blob, property, &name,
 			&prop_len);
-		if (prop < 0) {
+		if (!prop || prop_len >= MAX_BLOB_SIZE) {
 			md_err(dev, "internal error");
 			return -EINVAL;
 		}

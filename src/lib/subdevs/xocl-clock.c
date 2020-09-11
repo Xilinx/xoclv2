@@ -390,14 +390,66 @@ static int clock_set_freq(struct clock *clock, u16 freq)
 	return err;
 }
 
-static int clock_init(struct clock *clock)
+static int clock_verify_freq(struct clock *clock)
 {
 	struct xocl_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
 	int err = 0;
 	const char *counter;
-	const u16 *freq;
+	u16 freq;
 	struct platform_device *clkfreq_leaf;
 	u32 lookup_freq, clock_freq_counter, request_in_khz, tolerance;
+
+	err = xocl_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
+		clock->clock_ep_name, NULL, PROP_CLK_CNT,
+		(const void **)&counter, NULL);
+	if (err) {
+		xocl_err(clock->pdev, "no counter specified");
+		return err;
+	}
+
+	mutex_lock(&clock->clock_lock);
+	err = get_freq(clock, &freq);
+	if (err) {
+		xocl_err(clock->pdev, "get freq failed, %d", err);
+		goto end;
+	}
+
+	clkfreq_leaf = xocl_subdev_get_leaf(clock->pdev,
+		xocl_subdev_match_epname, (void *)counter);
+	if (clkfreq_leaf) {
+		err = xocl_subdev_ioctl(clkfreq_leaf, XOCL_CLKFREQ_READ,
+				&clock_freq_counter);
+		if (err)
+			goto end;
+		lookup_freq = find_matching_freq(freq, frequency_table,
+			ARRAY_SIZE(frequency_table));
+		request_in_khz = lookup_freq * 1000;
+		tolerance = lookup_freq * 50;
+		xocl_subdev_put_leaf(clock->pdev, clkfreq_leaf);
+
+		if (tolerance < abs(clock_freq_counter-request_in_khz)) {
+			CLOCK_ERR(clock,
+			    "set clock(%s) failed, request %ukhz, actual %ukhz",
+			    clock->clock_ep_name, request_in_khz,
+			    clock_freq_counter);
+			err = -EDOM;
+		} else {
+			CLOCK_INFO(clock, "verified clock (%s)",
+				clock->clock_ep_name);
+		}
+	}
+
+end:
+	mutex_unlock(&clock->clock_lock);
+
+	return err;
+}
+
+static int clock_init(struct clock *clock)
+{
+	struct xocl_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
+	int err = 0;
+	const u16 *freq;
 
 	err = xocl_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
 		clock->clock_ep_name, NULL, PROP_CLK_FREQ,
@@ -409,39 +461,8 @@ static int clock_init(struct clock *clock)
 
 	mutex_lock(&clock->clock_lock);
 	err = set_freq(clock, be16_to_cpu(*freq));
-	if (err)
-		goto end;
-
-	err = xocl_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
-		clock->clock_ep_name, NULL, PROP_CLK_CNT,
-		(const void **)&counter, NULL);
-	if (err) {
-		xocl_info(clock->pdev, "no counter specified");
-		goto end;
-	}
-
-	clkfreq_leaf = xocl_subdev_get_leaf(clock->pdev,
-		xocl_subdev_match_epname, (void *)counter);
-	if (clkfreq_leaf) {
-		err = xocl_subdev_ioctl(clkfreq_leaf, XOCL_CLKFREQ_READ,
-				&clock_freq_counter);
-		if (err)
-			goto end;
-		lookup_freq = find_matching_freq(be16_to_cpu(*freq),
-			frequency_table, ARRAY_SIZE(frequency_table));
-		request_in_khz = lookup_freq*1000;
-		tolerance = lookup_freq*50;
-		xocl_subdev_put_leaf(clock->pdev, clkfreq_leaf);
-
-		if (tolerance < abs(clock_freq_counter-request_in_khz)) {
-			CLOCK_ERR(clock,
-				"set clock failed, request %ukhz, actual %ukhz",
-				request_in_khz, clock_freq_counter);
-			err = -EDOM;
-		}
-	}
-end:
 	mutex_unlock(&clock->clock_lock);
+
 	return err;
 }
 
@@ -484,6 +505,10 @@ xocl_clock_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		u16	freq = (u16)(uintptr_t)arg;
 
 		ret = clock_set_freq(clock, freq);
+		break;
+	}
+	case XOCL_CLOCK_VERIFY: {
+		ret = clock_verify_freq(clock);
 		break;
 	}
 	default:
