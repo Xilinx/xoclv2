@@ -431,6 +431,7 @@ int xocl_subdev_destroy_partition(struct platform_device *pdev, int instance)
 	return xocl_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_REMOVE_PARTITION, (void *)(uintptr_t)instance);
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_destroy_partition);
 
 int xocl_subdev_lookup_partition(struct platform_device *pdev,
 	xocl_subdev_match_t match_cb, void *match_arg)
@@ -444,12 +445,14 @@ int xocl_subdev_lookup_partition(struct platform_device *pdev,
 		return rc;
 	return lkp.xpilp_part_inst;
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_lookup_partition);
 
 int xocl_subdev_wait_for_partition_bringup(struct platform_device *pdev)
 {
 	return xocl_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_WAIT_PARTITION_BRINGUP, NULL);
 }
+EXPORT_SYMBOL_GPL(xocl_subdev_wait_for_partition_bringup);
 
 void *xocl_subdev_add_event_cb(struct platform_device *pdev,
 	xocl_subdev_match_t match, void *match_arg, xocl_event_cb_t cb)

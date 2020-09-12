@@ -523,7 +523,7 @@ int xocl_md_get_intf_uuids(struct device *dev, char *blob,
 			return -EINVAL;
 		}
 
-		if (intf_uuids) {
+		if (intf_uuids && count < *num_uuids) {
 			ret = xocl_md_uuid_strtoid(dev, uuid_str,
 				&intf_uuids[count]);
 			if (ret)
@@ -533,6 +533,49 @@ int xocl_md_get_intf_uuids(struct device *dev, char *blob,
 	}
 
 	*num_uuids = count;
+
+	return 0;
+}
+
+int xocl_md_check_uuids(struct device *dev, char *blob, char *subset_blob)
+{
+	const char *subset_int_uuid = NULL;
+	const char *int_uuid = NULL;
+	int offset, subset_offset, off;
+	int ret;
+
+	ret = xocl_md_get_endpoint(dev, subset_blob, NODE_INTERFACES, NULL,
+		&subset_offset);
+	if (ret)
+		return -EINVAL;
+
+	ret = xocl_md_get_endpoint(dev, blob, NODE_INTERFACES, NULL,
+		&offset);
+	if (ret)
+		return -EINVAL;
+
+	for (subset_offset = fdt_first_subnode(subset_blob, subset_offset);
+	    subset_offset >= 0;
+	    subset_offset = fdt_next_subnode(subset_blob, subset_offset)) {
+		subset_int_uuid = fdt_getprop(subset_blob, subset_offset,
+			PROP_INTERFACE_UUID, NULL);
+		if (!subset_int_uuid)
+			return -EINVAL;
+		off = offset;
+
+		for (off = fdt_first_subnode(blob, off);
+		    off >= 0;
+		    off = fdt_next_subnode(blob, off)) {
+			int_uuid = fdt_getprop(blob, off,
+				PROP_INTERFACE_UUID, NULL);
+			if (!int_uuid)
+				return -EINVAL;
+			if (!strcmp(int_uuid, subset_int_uuid))
+				break;
+		}
+		if (off < 0)
+			return -ENOENT;
+	}
 
 	return 0;
 }
