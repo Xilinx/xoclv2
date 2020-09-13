@@ -3,10 +3,12 @@
 XRT Linux Kernel Driver XOCLV2
 *******************************
 
-V2 driver will only support SSv2 style platforms. Platforms using legacy methodology would still
-need to provide xsabin with device tree and UUIDs for drivers' consumption. Primary UPF driver
-is called **xuser** and primary MPF driver is called **xmgmt**. IP drivers are packaged into a
-library called **xocl-lib**.
+XOCLV2 driver will only support SSv2 style platforms where driver's
+configuration and behavior is determined by meta data provided by platform (in
+device tree format). Primary user physical function (UPF) driver is called
+**xuser** and primary management physical function (MPF) driver is called
+**xmgmt**. IP drivers are packaged into a library module called **xocl-lib**,
+which is shared by **xmgmt** and **xuser**.
 
 Driver Modules
 ==============
@@ -14,84 +16,80 @@ Driver Modules
 xocl-lib.ko
 -----------
 
-Repository of all IP drivers. IP drivers are modeled as ``xocl_subdev_base`` and ``xocl_subdev_drv``.
-xocl_subdev_base represents the IP instance and xocl_subdev_drv represents the services offered by
-the IP. File ``xocl-lib.h`` defines the data structures. None of the APIs are exposed to user space.
-
-xmgmt-fmr.ko
-------------
-
-Linux FPGA Manager integration with Linux standard in-kernel -- no user space APIs -- xclbin download APIs. V2 drivers require
-FPGA Manager support in Linux kernel.
+Repository of all IP drivers and pure software modules that can potentially be
+shared between xmgmt and xuser. All these drivers are platform device drivers
+that will be instantiated by xmgmt or xuser based on meta data found on hardware.
 
 xmgmt.ko
 --------
 
-xmgmt is the primary management driver exposed to end-users. The driver attempts to expose the current xclmgmt
-driver ioctls to user space. It loads the xsabin, reads the device-tree, creates the partitions which are
-modeled as ``xocl_region``. The driver also creates collection of *child* xocl_subdev_base nodes by reading IP
-instantiations in device-tree.
+The xmgmt driver is a PCIE device driver driving MPF found on Xilinx's Alveo
+PCIE device. It consists of one root driver, one or more partition drivers and
+one or more leaf drivers. The root and MPF specific leaf drivers are in
+xmgmt.ko. The partition driver and other leaf drivers are in xocl-lib.ko.
 
-xuser.ko
---------
-
-xmgmt is the primary driver exposed to end-users. Need to decide if KDS and MM will be part of this or will they
-be separate modules.
-
-xuser-xdma.ko
--------------
-
-TBD
-
-xuser-qdma.ko
--------------
-
-TBD
+The instantiation of specific partition driver or leaf driver is completely data
+driven based on meta data (mostly in device tree format) found through VSEC
+capability and inside firmware files, such as XSABIN or XCLBIN file. The root
+driver manages life cycle of multiple partition drivers, which, in turn, manages
+multiple leaf drivers. This allows a single set of driver code to support all
+kinds of MPFs exposed by different BLPs, PLPs and ULPs. The difference among all
+these MPFs will be handled in leaf drivers with root and partition drivers being
+part of the infrastructure and provide common services for all leaves found on
+all platforms.
 
 
-Driver Model
-============
+xmgmt-root
+^^^^^^^^^^
 
-.. include:: ../core/relations.txt
+The xmgmt-root driver is a PCIE device driver attaches to MPF. It's part of the
+infrastructure of the MPF driver and resides in xmgmt.ko. This driver
 
+* manages one or more partition drivers
+* provides access to functionalities that requires pci_dev, such as PCIE config
+  space access, to other leaf drivers through parent calls
+* together with partition driver, facilities event callbacks for other leaf drivers
+* together with partition driver, facilities inter-leaf driver calls for other leaf drivers
 
-.. code-block:: c
+When root driver starts, it will explicitly create an initial partition instance,
+which contains leaf drivers that will trigger the creation of other partition
+instances. The root driver will wait for all partitions and leaves to be created
+before it returns from it's probe routine and claim success of the
+initialization of the entire xmgmt driver.
 
-   // Define file operations (if any)
-   static const struct file_operations icap_fops = {
-	.open = icap_open,
-	.release = icap_close,
-	.write = icap_write_rp,
-   };
+partition
+^^^^^^^^^
 
-   // Define standard operations for the subdev driver. The framework (xocl-lib)
-   // will perform basic initializations: allocating chrdev region, initializing IDA,
-   // etc. including calling any driver specific post-init hook. The framework also
-   // does the teardown during unload time including calling any driver specific
-   // pre-exit hook. See xocl_iplib_init() in xocl-lib for details.
-   static struct xocl_subdev_drv icap_ops = {
-	.ioctl = icap_ioctl,
-	.fops = &icap_fops,
-	.id = XOCL_SUBDEV_ICAP,
-	.dnum = -1,
-	.drv_post_init = xocl_post_init_icap,
-	.drv_pre_exit = xocl_pre_exit_icap,
-   };
+The partition driver is a platform device driver whose life cycle is managed by
+root and does not have real IO mem or IRQ resources. It's part of the
+infrastructure of the MPF driver and resides in xocl-lib.ko. This driver
 
-   // Attach the subdevice driver to the platform
-   static const struct platform_device_id icap_id_table[] = {
-	{ XOCL_ICAP, (kernel_ulong_t)&icap_ops },
-	{ },
-   };
+* manages one or more leaf drivers so that multiple leaves can be managed as a group.
+* provides access to root from leaves, so that parent calls, event notifications
+  and inter-leaf calls can happen
 
+In xmgmt, an initial partition driver instance will be created by root, which
+contains leaves that will trigger partition instances to be created to manage
+groups of leaves found on different partitions on hardware, such as VSEC, BLP,
+PLP and ULP.
 
-   // Advertise platform driver; this lets xmgmt to discover this
-   // driver by looking up by name
-   struct platform_driver xocl_icap_driver = {
-	.driver	= {
-		.name    = XOCL_ICAP,
-	},
-	.probe    = xocl_icap_probe,
-	.remove   = xocl_icap_remove,
-	.id_table = icap_id_table,
-   };
+leaves
+^^^^^^
+
+The leaf driver is a platform device driver whose life cycle is managed by
+a partition driver and may or may not have real IO mem or IRQ resources. They
+are the real meat of xmgmt and contains platform specific code to BLP/PLP/ULP
+found on a MPF.
+
+When it does not have real hardware resources, it merely act as a driver that
+manages certain in-memory states for xmgmt. These in-memory states could be
+shared by multiple other leaves.
+
+Those leaves assigned specific hardware resources will be drivers driving
+specific IPs on the device. To manipulate the IP or carry out a task, a leaf
+driver may ask help from root via parent calls and/or from other leaves via
+inter-leaf calls.
+
+A leaf can also broadcast events through infrastructure code for other leaves
+to process. It can also get notification from insfrastructure about certain
+events, such as post-creation or pre-exit of a particular leaf.
