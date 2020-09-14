@@ -14,6 +14,8 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/pci.h>
+#include <linux/libfdt_env.h>
+#include "libfdt.h"
 
 /*
  * Every subdev driver should have an ID for others to refer to it.
@@ -142,7 +144,7 @@ struct xocl_subdev_platdata {
 	 * the subdev driver to handle. Should always be last one since it's
 	 * of variable length.
 	 */
-	char xsp_dtb[1];
+	char xsp_dtb[sizeof(struct fdt_header)];
 };
 
 /*

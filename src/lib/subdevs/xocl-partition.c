@@ -71,7 +71,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 	xocl_info(xp->pdev, "bringing up leaves...");
 
 	/* Create all leaves based on dtb. */
-	if (!pdata || !pdata->xsp_dtb)
+	if (!pdata)
 		goto bail;
 
 	mlen = xocl_md_size(DEV(xp->pdev), pdata->xsp_dtb);

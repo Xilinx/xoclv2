@@ -187,6 +187,18 @@ xocl_subdev_getres(struct device *parent, enum xocl_subdev_id id,
 			be64_to_cpu(bar_range[0]) +
 			be64_to_cpu(bar_range[1]) - 1;
 		(*res)[count2].flags = IORESOURCE_MEM;
+		/* check if there is conflicted resource */
+		ret = request_resource(pci_res, *res + count2);
+		if (ret) {
+			dev_err(parent, "Conflict resource %pR\n",
+				*res + count2);
+			vfree(*res);
+			*res_num = 0;
+			*res = NULL;
+			return ret;
+		}
+		release_resource(*res + count2);
+
 		(*res)[count2].parent = pci_res;
 
 		xocl_md_get_epname_pointer(parent, pdata->xsp_dtb, ep_name,
