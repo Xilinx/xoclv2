@@ -17,6 +17,7 @@
  */
 enum xocl_clock_ioctl_cmd {
 	XOCL_CLOCK_SET = 0,
+	XOCL_CLOCK_VERIFY,
 };
 
 #endif	/* _XOCL_CLOCK_H_ */

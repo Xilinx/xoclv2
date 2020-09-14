@@ -208,7 +208,7 @@ static int xocl_vsec_mapio(struct xocl_vsec *vsec)
 	ulong addr;
 	int ret;
 
-	if (!pdata || !pdata->xsp_dtb) {
+	if (!pdata || xocl_md_size(DEV(vsec->pdev), pdata->xsp_dtb) <= 0) {
 		xocl_err(vsec->pdev, "empty metadata");
 		return -EINVAL;
 	}

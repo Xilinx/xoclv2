@@ -176,5 +176,6 @@ void xocl_md_pack(struct device *dev, char *blob);
 char *xocl_md_dup(struct device *dev, char *blob);
 int xocl_md_get_intf_uuids(struct device *dev, char *blob,
 	u32 *num_uuids, uuid_t *intf_uuids);
+int xocl_md_check_uuids(struct device *dev, char *blob, char *subset_blob);
 
 #endif
