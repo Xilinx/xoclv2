@@ -37,7 +37,7 @@ struct xmgmt_main {
 	struct mutex busy_mutex;
 
 	uuid_t *blp_intf_uuids;
-	u32 blp_uuid_num;
+	u32 blp_intf_uuid_num;
 };
 
 static char *xmgmt_get_vbnv(struct xmgmt_main *xmm)
@@ -139,25 +139,62 @@ static ssize_t VBNV_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(VBNV);
 
-static ssize_t uuid_show(struct device *dev,
+static ssize_t logic_uuids_show(struct device *dev,
 	struct device_attribute *da, char *buf)
 {
 	ssize_t ret;
 	char uuid[80];
 	struct platform_device *pdev = to_platform_device(dev);
 
+	/*
+	 * Getting UUID pointed to by VSEC,
+	 * should be the same as logic UUID of BLP.
+	 * TODO: add PLP logic UUID
+	 */
 	ret = get_dev_uuid(pdev, uuid, sizeof(uuid));
 	if (ret)
 		return ret;
 	ret = sprintf(buf, "%s\n", uuid);
 	return ret;
 }
-static DEVICE_ATTR_RO(uuid);
+static DEVICE_ATTR_RO(logic_uuids);
+
+static inline void uuid2str(const uuid_t *uuid, char *uuidstr, size_t len)
+{
+	int i, p;
+	u8 *u = (u8 *)uuid;
+
+	BUG_ON(sizeof(uuid_t) * 2 + 1 > len);
+	for (p = 0, i = sizeof(uuid_t) - 1; i >= 0; p++, i--)
+		(void) snprintf(&uuidstr[p*2], 3, "%02x", u[i]);
+}
+
+static ssize_t interface_uuids_show(struct device *dev,
+	struct device_attribute *da, char *buf)
+{
+	ssize_t ret = 0;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+	u32 i;
+
+	/*
+	 * TODO: add PLP interface UUID
+	 */
+	for (i = 0; i < xmm->blp_intf_uuid_num; i++) {
+		char uuidstr[80];
+
+		uuid2str(&xmm->blp_intf_uuids[i], uuidstr, sizeof(uuidstr));
+		ret += sprintf(buf + ret, "%s\n", uuidstr);
+	}
+	return ret;
+}
+static DEVICE_ATTR_RO(interface_uuids);
 
 static struct attribute *xmgmt_main_attrs[] = {
 	&dev_attr_reset.attr,
 	&dev_attr_VBNV.attr,
-	&dev_attr_uuid.attr,
+	&dev_attr_logic_uuids.attr,
+	&dev_attr_interface_uuids.attr,
 	NULL,
 };
 
@@ -405,12 +442,12 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 
 		BUG_ON(xmm->blp_intf_uuids);
 		xocl_md_get_intf_uuids(&pdev->dev, dtb,
-			&xmm->blp_uuid_num, NULL);
-		if (xmm->blp_uuid_num > 0) {
+			&xmm->blp_intf_uuid_num, NULL);
+		if (xmm->blp_intf_uuid_num > 0) {
 			xmm->blp_intf_uuids = vzalloc(sizeof(uuid_t) *
-				xmm->blp_uuid_num);
+				xmm->blp_intf_uuid_num);
 			xocl_md_get_intf_uuids(&pdev->dev, dtb,
-				&xmm->blp_uuid_num, xmm->blp_intf_uuids);
+				&xmm->blp_intf_uuid_num, xmm->blp_intf_uuids);
 		}
 		vfree(dtb);
 	}
@@ -578,9 +615,9 @@ static int xmgmt_main_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int bitstream_ioctl_axlf(struct xmgmt_main *xmm, const void __user *arg)
+static int bitstream_axlf_ioctl(struct xmgmt_main *xmm, const void __user *arg)
 {
-	struct fpga_image_info info;
+	struct fpga_image_info info = { 0 };
 	void *copy_buffer = NULL;
 	size_t copy_buffer_size = 0;
 	struct xclmgmt_ioc_bitstream_axlf ioc_obj = { 0 };
@@ -603,13 +640,19 @@ static int bitstream_ioctl_axlf(struct xmgmt_main *xmm, const void __user *arg)
 	if (copy_buffer == NULL)
 		return -ENOMEM;
 
-	if (copy_from_user(copy_buffer, ioc_obj.xclbin, copy_buffer_size))
-		ret = -EFAULT;
-	else {
-		info.buf = (char *)copy_buffer;
-		info.count = copy_buffer_size;
-		ret = fpga_mgr_load(xmm->fmgr, &info);
+	if (copy_from_user(copy_buffer, ioc_obj.xclbin, copy_buffer_size)) {
+		vfree(copy_buffer);
+		return -EFAULT;
 	}
+
+	info.buf = (char *)copy_buffer;
+	info.count = copy_buffer_size;
+	ret = fpga_mgr_load(xmm->fmgr, &info);
+	if (ret) {
+		vfree(copy_buffer);
+		return ret;
+	}
+
 	vfree(xmm->firmware_ulp);
 	xmm->firmware_ulp = copy_buffer;
 	return ret;
@@ -631,9 +674,7 @@ static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd,
 	xocl_info(xmm->pdev, "ioctl cmd %d, arg %ld", cmd, arg);
 	switch (cmd) {
 	case XCLMGMT_IOCICAPDOWNLOAD_AXLF:
-		return bitstream_ioctl_axlf(xmm, (const void __user *)arg);
-	case XCLMGMT_IOCFREQSCALE:
-		break;
+		return bitstream_axlf_ioctl(xmm, (const void __user *)arg);
 	default:
 		result = -ENOTTY;
 	}
