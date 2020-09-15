@@ -225,6 +225,8 @@ struct xocl_event_arg_subdev {
 /*
  * Flags in return value from event callback.
  */
+/* Done with event handling, continue waiting for the next one */
+#define	XOCL_EVENT_CB_CONTINUE	0x0
 /* Done with event handling, stop waiting for the next one */
 #define	XOCL_EVENT_CB_STOP	0x1
 /* Error processing event */

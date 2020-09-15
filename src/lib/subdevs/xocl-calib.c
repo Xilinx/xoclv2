@@ -173,10 +173,10 @@ static int xocl_calib_event_cb(struct platform_device *pdev,
 	}
 	default:
 		xocl_info(pdev, "ignored event %d", evt);
-		return 0;
+		break;
 	}
 
-	return 0;
+	return XOCL_EVENT_CB_CONTINUE;
 }
 
 int xocl_calib_remove(struct platform_device *pdev)

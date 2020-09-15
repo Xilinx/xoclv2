@@ -83,7 +83,7 @@ static int xocl_test_event_cb(struct platform_device *pdev,
 		break;
 	default:
 		xocl_info(pdev, "ignored event %d", evt);
-		return 0;
+		return XOCL_EVENT_CB_CONTINUE;
 	}
 
 	leaf = xocl_subdev_get_leaf_by_id(pdev, esd->xevt_subdev_id,
@@ -101,7 +101,7 @@ static int xocl_test_event_cb(struct platform_device *pdev,
 
 	xocl_info(pdev, "processed event %d for (%d, %d)",
 		evt, esd->xevt_subdev_id, esd->xevt_subdev_instance);
-	return 0;
+	return XOCL_EVENT_CB_CONTINUE;
 }
 
 static int xocl_test_create_metadata(struct xocl_test *xt, char **root_dtb)

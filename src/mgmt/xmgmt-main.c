@@ -497,15 +497,12 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 		}
 		break;
 	}
-	case XOCL_EVENT_PRE_REMOVAL:
-		break;
 	default:
 		xocl_info(pdev, "ignored event %d", evt);
-		return 0;
+		break;
 	}
 
-
-	return 0;
+	return XOCL_EVENT_CB_CONTINUE;
 }
 
 static int xmgmt_main_probe(struct platform_device *pdev)
