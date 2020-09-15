@@ -159,7 +159,7 @@ xocl_axigate_event_cb(struct platform_device *pdev,
 	case XOCL_EVENT_POST_CREATION:
 		break;
 	default:
-		return 0;
+		return XOCL_EVENT_CB_CONTINUE;
 	}
 
 	id = esd->xevt_subdev_id;
@@ -180,7 +180,7 @@ xocl_axigate_event_cb(struct platform_device *pdev,
 		xocl_subdev_put_leaf(pdev, leaf);
 	}
 
-	return 0;
+	return XOCL_EVENT_CB_CONTINUE;
 }
 
 static int

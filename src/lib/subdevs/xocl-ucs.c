@@ -85,7 +85,7 @@ static int xocl_ucs_event_cb(struct platform_device *pdev,
 		break;
 	default:
 		xocl_info(pdev, "ignored event %d", evt);
-		return 0;
+		return XOCL_EVENT_CB_CONTINUE;
 	}
 
 	leaf = xocl_subdev_get_leaf_by_id(pdev,
@@ -94,7 +94,7 @@ static int xocl_ucs_event_cb(struct platform_device *pdev,
 	xocl_subdev_ioctl(leaf, XOCL_CLOCK_VERIFY, NULL);
 	xocl_subdev_put_leaf(pdev, leaf);
 
-	return 0;
+	return XOCL_EVENT_CB_CONTINUE;
 }
 
 static void ucs_check(struct xocl_ucs *ucs, bool *latched)
