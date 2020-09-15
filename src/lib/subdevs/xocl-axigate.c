@@ -262,7 +262,14 @@ failed:
 struct xocl_subdev_endpoints xocl_axigate_endpoints[] = {
 	{
 		.xse_names = (struct xocl_subdev_ep_names[]) {
-			{ .regmap_name = "pr_isolate" },
+			{ .ep_name = "ep_pr_isolate_ulp_00" },
+			{ NULL },
+		},
+		.xse_min_ep = 1,
+	},
+	{
+		.xse_names = (struct xocl_subdev_ep_names[]) {
+			{ .ep_name = "ep_pr_isolate_plp_00" },
 			{ NULL },
 		},
 		.xse_min_ep = 1,
