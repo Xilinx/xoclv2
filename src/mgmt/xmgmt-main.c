@@ -674,9 +674,11 @@ static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd,
 	xocl_info(xmm->pdev, "ioctl cmd %d, arg %ld", cmd, arg);
 	switch (cmd) {
 	case XCLMGMT_IOCICAPDOWNLOAD_AXLF:
-		return bitstream_axlf_ioctl(xmm, (const void __user *)arg);
+		result = bitstream_axlf_ioctl(xmm, (const void __user *)arg);
+		break;
 	default:
 		result = -ENOTTY;
+		break;
 	}
 
 	mutex_unlock(&xmm->busy_mutex);
