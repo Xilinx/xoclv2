@@ -67,11 +67,6 @@ xocl_gpio_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 			return -EINVAL;
 		}
 
-		if ((ulong)rw_arg->xgir_buf & 0x3) {
-			xocl_err(pdev, "buf is not 4 bytes aligned");
-			return -EINVAL;
-		}
-
 		if (rw_arg->xgir_id >= XOCL_GPIO_MAX) {
 			xocl_err(pdev, "invalid id %d", rw_arg->xgir_id);
 			return -EINVAL;
@@ -91,8 +86,9 @@ xocl_gpio_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		}
 		p_dst = rw_arg->xgir_buf;
 		for (i = 0; i < rw_arg->xgir_len / sizeof(u32); i++) {
-			*(p_dst + i) =
-				ioread32(p_src + rw_arg->xgir_offset + i);
+			u32 val = ioread32(p_src + rw_arg->xgir_offset + i);
+
+			memcpy(p_dst + i, &val, sizeof(u32));
 		}
 		break;
 	}

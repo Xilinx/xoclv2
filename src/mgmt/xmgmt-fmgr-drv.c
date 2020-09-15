@@ -19,14 +19,13 @@
 #include "xmgmt-fmgr.h"
 #include "xocl-axigate.h"
 #include "xmgmt-main-impl.h"
+
 /*
  * Container to capture and cache full xclbin as it is passed in blocks by FPGA
- * Manager. xocl needs access to full xclbin to walk through xclbin sections. FPGA
- * Manager's .write() backend sends incremental blocks without any knowledge of
- * xclbin format forcing us to collect the blocks and stitch them together here.
- * TODO:
- * 1. Add a variant of API, icap_download_bitstream_axlf() which works off kernel buffer
- * 2. Call this new API from FPGA Manager's write complete hook, xmgmt_pr_write_complete()
+ * Manager. Driver needs access to full xclbin to walk through xclbin sections.
+ * FPGA Manager's .write() backend sends incremental blocks without any
+ * knowledge of xclbin format forcing us to collect the blocks and stitch them
+ * together here.
  */
 
 struct xfpga_klass {
@@ -34,6 +33,7 @@ struct xfpga_klass {
 	struct axlf         *blob;
 	char                 name[64];
 	size_t               count;
+	size_t               total_count;
 	struct mutex         axlf_lock;
 	int                  reader_ref;
 	enum fpga_mgr_states state;
@@ -43,7 +43,7 @@ struct xfpga_klass {
 struct key *xfpga_keys;
 
 static int xmgmt_pr_write_init(struct fpga_manager *mgr,
-			       struct fpga_image_info *info, const char *buf, size_t count)
+	struct fpga_image_info *info, const char *buf, size_t count)
 {
 	struct xfpga_klass *obj = mgr->priv;
 	const struct axlf *bin = (const struct axlf *)buf;
@@ -66,34 +66,40 @@ static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 		return -ENOMEM;
 	}
 
-	memcpy(obj->blob, buf, count);
-	xocl_info(obj->pdev, "Begin download of xclbin %pUb of length %lld B", &obj->blob->m_header.uuid,
-		  obj->blob->m_header.m_length);
-	obj->count = count;
+	xocl_info(obj->pdev, "Begin download of xclbin %pUb of length %lld B",
+		&bin->m_header.uuid, bin->m_header.m_length);
+
+	obj->count = 0;
+	obj->total_count = bin->m_header.m_length;
 	obj->state = FPGA_MGR_STATE_WRITE_INIT;
 	return 0;
 }
 
 static int xmgmt_pr_write(struct fpga_manager *mgr,
-			 const char *buf, size_t count)
+	const char *buf, size_t count)
 {
 	struct xfpga_klass *obj = mgr->priv;
 	char *curr = (char *)obj->blob;
 
-	if ((obj->state != FPGA_MGR_STATE_WRITE_INIT) && (obj->state != FPGA_MGR_STATE_WRITE)) {
+	if ((obj->state != FPGA_MGR_STATE_WRITE_INIT) &&
+		(obj->state != FPGA_MGR_STATE_WRITE)) {
 		obj->state = FPGA_MGR_STATE_WRITE_ERR;
 		return -EINVAL;
 	}
 
 	curr += obj->count;
 	obj->count += count;
-	/* Check if the xclbin buffer is not longer than advertised in the header */
-	if (obj->blob->m_header.m_length < obj->count) {
+
+	/*
+	 * The xclbin buffer should not be longer than advertised in the header
+	 */
+	if (obj->total_count < obj->count) {
 		obj->state = FPGA_MGR_STATE_WRITE_ERR;
 		return -EINVAL;
 	}
+
+	xocl_info(obj->pdev, "Copying block of %zu B of xclbin", count);
 	memcpy(curr, buf, count);
-	xocl_info(obj->pdev, "Next block of %zu B of xclbin %pUb", count, &obj->blob->m_header.uuid);
 	obj->state = FPGA_MGR_STATE_WRITE;
 	return 0;
 }
@@ -118,8 +124,10 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 
 	result = xmgmt_impl_ulp_download((void *)obj->pdev, obj->blob);
 
-	obj->state = result ? FPGA_MGR_STATE_WRITE_COMPLETE_ERR : FPGA_MGR_STATE_WRITE_COMPLETE;
-	xocl_info(obj->pdev, "Finish download of xclbin %pUb of size %zu B", &obj->blob->m_header.uuid, obj->count);
+	obj->state = result ? FPGA_MGR_STATE_WRITE_COMPLETE_ERR :
+		FPGA_MGR_STATE_WRITE_COMPLETE;
+	xocl_info(obj->pdev, "Finish downloading of xclbin %pUb: %d",
+		&obj->blob->m_header.uuid, result);
 	vfree(obj->blob);
 	obj->blob = NULL;
 	obj->count = 0;

@@ -507,8 +507,6 @@ int xocl_md_get_intf_uuids(struct device *dev, char *blob,
 	int ret;
 	const char *uuid_str;
 
-	*num_uuids = 0;
-
 	ret = xocl_md_get_endpoint(dev, blob, NODE_INTERFACES, NULL, &offset);
 	if (ret)
 		return -ENOENT;
