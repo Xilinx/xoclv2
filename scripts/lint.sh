@@ -21,11 +21,6 @@ do
     if [[ $item =~ $regex ]]; then
 	continue
     fi
-    # Skip all the "ref" files which are for reference only
-    regex="^src\/ref\/.*$"
-    if [[ $item =~ $regex ]]; then
-	continue
-    fi
     regex="^.+xclbin\.h$"
     if [[ $item =~ $regex ]]; then
 	continue
