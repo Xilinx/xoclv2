@@ -224,10 +224,11 @@ void cmc_ctrl_remove(struct platform_device *pdev)
 	struct xocl_cmc_ctrl *cmc_ctrl =
 		(struct xocl_cmc_ctrl *)cmc_pdev2ctrl(pdev);
 
-	if (cmc_ctrl->evt_hdl)
-		(void) xocl_subdev_remove_event_cb(pdev, cmc_ctrl->evt_hdl);
 	if (!cmc_ctrl)
 		return;
+
+	if (cmc_ctrl->evt_hdl)
+		(void) xocl_subdev_remove_event_cb(pdev, cmc_ctrl->evt_hdl);
 	(void) sysfs_remove_group(&DEV(cmc_ctrl->pdev)->kobj,
 		&cmc_ctrl_attr_group);
 	(void) cmc_ulp_access(cmc_ctrl, false);
