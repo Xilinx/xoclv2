@@ -283,7 +283,7 @@ struct xcl_mailbox_conn_resp {
 	char comm_id[XCL_COMM_ID_SIZE];
 };
 
-#define	XCL_MB_STATE_ONLINE		(1UL << 0)
+#define	XCL_MB_STATE_ONLINE	(1UL << 0)
 #define	XCL_MB_STATE_OFFLINE	(1UL << 1)
 /**
  * struct mailbox_peer_state - MAILBOX_REQ_MGMT_STATE payload type
@@ -311,8 +311,6 @@ struct xcl_mailbox_clock_freqscaling {
 	unsigned short target_freqs[16];
 };
 
-#define XCL_MB_REQ_FLAG_RESPONSE	(1 << 0)
-#define XCL_MB_REQ_FLAG_REQUEST		(1 << 1)
 /**
  * struct mailbox_req - mailbox request message header
  * @req: opcode
@@ -322,26 +320,6 @@ struct xcl_mailbox_clock_freqscaling {
 struct xcl_mailbox_req {
 	uint64_t flags;
 	enum xcl_mailbox_request req;
-	char data[1]; /* variable length of payload */
-};
-
-/**
- * struct sw_chan - mailbox software channel message metadata. This defines the
- *                  interface between daemons (MPD and MSD) and mailbox's
- *                  read or write callbacks. A mailbox message (either a request
- *                  or response) is wrapped by this data structure as payload.
- *                  A sw_chan is passed between mailbox driver and daemon via
- *                  read / write driver callbacks. And it is also passed between
- *                  MPD and MSD via vendor defined interface (TCP socket, etc).
- * @sz: payload size
- * @flags: flags of this message as in struct mailbox_req
- * @id: message ID
- * @data: payload (struct mailbox_req or response data matching the request)
- */
-struct xcl_sw_chan {
-	uint64_t sz;
-	uint64_t flags;
-	uint64_t id;
 	char data[1]; /* variable length of payload */
 };
 
