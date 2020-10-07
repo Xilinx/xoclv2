@@ -1271,7 +1271,7 @@ static ssize_t mailbox_pkt_show(struct device *dev,
 		return -ENODEV;
 
 	if (!valid_pkt(pkt))
-		return 0;
+		return -ENOENT;
 
 	(void) memcpy(buf, pkt->body.data, sz);
 	reset_pkt(pkt);
@@ -1582,11 +1582,15 @@ static int mailbox_start(struct mailbox *mbx)
 		goto out;
 	}
 
-	timer_setup(&mbx->mbx_poll_timer, mailbox_poll_timer, 0);
+	/* Only see status change when we have full packet sent or received. */
+	mailbox_reg_wr(mbx, &mbx->mbx_regs->mbr_rit, PACKET_SIZE - 1);
+	mailbox_reg_wr(mbx, &mbx->mbx_regs->mbr_sit, 0);
 
 	/* Disable both TX / RX intrs. We only do polling. */
 	if (!MBX_SW_ONLY(mbx))
 		mailbox_reg_wr(mbx, &mbx->mbx_regs->mbr_ie, 0x0);
+	timer_setup(&mbx->mbx_poll_timer, mailbox_poll_timer, 0);
+	mod_timer(&mbx->mbx_poll_timer, jiffies + MAILBOX_TTL_TIMER);
 
 out:
 	return ret;
