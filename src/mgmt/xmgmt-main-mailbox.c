@@ -45,7 +45,7 @@ struct xmgmt_mailbox {
 	XMGMT_MAILBOX_PRT_REQ(pdev, false, req, sw_ch)
 #define	XMGMT_MAILBOX_PRT_RESP(pdev, resp)				\
 	xocl_info((pdev), "respond %ld bytes >>>>>%s",			\
-	(resp)->xmip_data_size, mailbox_chan2name((resp)->xmip_sw_ch));
+	(resp)->xmip_data_size, mailbox_chan2name((resp)->xmip_sw_ch))
 
 static inline struct xmgmt_mailbox *pdev2mbx(struct platform_device *pdev)
 {
