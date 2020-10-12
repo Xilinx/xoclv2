@@ -39,9 +39,6 @@ enum xocl_parent_ioctl_cmd {
 	/* Misc. */
 	XOCL_PARENT_HOT_RESET,
 	XOCL_PARENT_HWMON,
-
-	/* Peer communication. */
-	XOCL_PARENT_PEER_GET_TEST_MSG,
 };
 
 struct xocl_parent_ioctl_get_leaf {
