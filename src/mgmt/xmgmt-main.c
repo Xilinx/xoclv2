@@ -34,6 +34,7 @@ struct xmgmt_main {
 	bool flash_ready;
 	bool gpio_ready;
 	struct fpga_manager *fmgr;
+	void *mailbox_hdl;
 	struct mutex busy_mutex;
 
 	uuid_t *blp_intf_uuids;
@@ -226,7 +227,7 @@ static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
 	len = xclbin->m_header.m_length;
 	if (off + count >= len && off < len) {
 		memcpy(xmm->firmware_ulp + off, buffer, len - off);
-		xmgmt_impl_ulp_download(xmm->pdev, xmm->firmware_ulp);
+		xmgmt_ulp_download(xmm->pdev, xmm->firmware_ulp);
 	} else if (off + count < len) {
 		memcpy(xmm->firmware_ulp + off, buffer, count);
 	}
@@ -518,6 +519,7 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 	xmm->pdev = pdev;
 	platform_set_drvdata(pdev, xmm);
 	xmm->fmgr = xmgmt_fmgr_probe(pdev);
+	xmm->mailbox_hdl = xmgmt_mailbox_probe(pdev);
 	mutex_init(&xmm->busy_mutex);
 
 	xmm->evt_hdl = xocl_subdev_add_event_cb(pdev,
@@ -544,6 +546,7 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 	vfree(xmm->firmware_plp);
 	vfree(xmm->firmware_ulp);
 	(void) xmgmt_fmgr_remove(xmm->fmgr);
+	xmgmt_mailbox_remove(xmm->mailbox_hdl);
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup);
 	return 0;
 }
@@ -579,6 +582,13 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		ret = xrt_xclbin_get_section(xmm->firmware_ulp,
 			get->xmmigas_section_kind, &get->xmmigas_section,
 			&get->xmmigas_section_size);
+		break;
+	}
+	case XOCL_MGMT_MAIN_PEER_TEST_MSG: {
+		struct xocl_mgmt_main_peer_test_msg *tm =
+			(struct xocl_mgmt_main_peer_test_msg *)arg;
+
+		ret = xmgmt_peer_test_msg(xmm->mailbox_hdl, tm);
 		break;
 	}
 	default:
@@ -680,6 +690,13 @@ static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd,
 
 	mutex_unlock(&xmm->busy_mutex);
 	return result;
+}
+
+void *xmgmt_pdev2mailbox(struct platform_device *pdev)
+{
+	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+
+	return xmm->mailbox_hdl;
 }
 
 struct xocl_subdev_endpoints xocl_mgmt_main_endpoints[] = {

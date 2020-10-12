@@ -10,8 +10,18 @@
 #ifndef	_XMGMT_MAIN_IMPL_H_
 #define	_XMGMT_MAIN_IMPL_H_
 
+#include "xocl-subdev.h"
+#include "xmgmt-main.h"
+
 extern struct platform_driver xmgmt_main_driver;
 extern struct xocl_subdev_endpoints xocl_mgmt_main_endpoints[];
 
-extern int xmgmt_impl_ulp_download(struct platform_device *pdev, void *xclbin);
+extern int xmgmt_ulp_download(struct platform_device *pdev, void *xclbin);
+
+extern void *xmgmt_pdev2mailbox(struct platform_device *pdev);
+extern void *xmgmt_mailbox_probe(struct platform_device *pdev);
+extern void xmgmt_mailbox_remove(void *handle);
+extern int xmgmt_peer_test_msg(void *handle,
+	struct xocl_mgmt_main_peer_test_msg *tm);
+
 #endif	/* _XMGMT_MAIN_IMPL_H_ */

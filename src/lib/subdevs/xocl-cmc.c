@@ -31,35 +31,35 @@ struct xocl_cmc {
 	void *sc_hdl;
 };
 
-inline void *cmc_pdev2sc(struct platform_device *pdev)
+void *cmc_pdev2sc(struct platform_device *pdev)
 {
 	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
 
 	return cmc->sc_hdl;
 }
 
-inline void *cmc_pdev2bdinfo(struct platform_device *pdev)
+void *cmc_pdev2bdinfo(struct platform_device *pdev)
 {
 	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
 
 	return cmc->bdinfo_hdl;
 }
 
-inline void *cmc_pdev2ctrl(struct platform_device *pdev)
+void *cmc_pdev2ctrl(struct platform_device *pdev)
 {
 	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
 
 	return cmc->ctrl_hdl;
 }
 
-inline void *cmc_pdev2sensor(struct platform_device *pdev)
+void *cmc_pdev2sensor(struct platform_device *pdev)
 {
 	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
 
 	return cmc->sensor_hdl;
 }
 
-inline void *cmc_pdev2mbx(struct platform_device *pdev)
+void *cmc_pdev2mbx(struct platform_device *pdev)
 {
 	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
 

@@ -8,6 +8,8 @@
 
 #ifndef __KERNEL__
 #include <stdint.h>
+#else
+#include <linux/types.h>
 #endif
 
 /*
@@ -69,6 +71,28 @@ enum xcl_mailbox_request {
 	/* Version 0 OP code ends */
 };
 
+static inline const char *mailbox_req2name(enum xcl_mailbox_request req)
+{
+	switch (req) {
+	case XCL_MAILBOX_REQ_TEST_READY: return "XCL_MAILBOX_REQ_TEST_READY";
+	case XCL_MAILBOX_REQ_TEST_READ: return "XCL_MAILBOX_REQ_TEST_READ";
+	case XCL_MAILBOX_REQ_LOCK_BITSTREAM: return "XCL_MAILBOX_REQ_LOCK_BITSTREAM";
+	case XCL_MAILBOX_REQ_UNLOCK_BITSTREAM: return "XCL_MAILBOX_REQ_UNLOCK_BITSTREAM";
+	case XCL_MAILBOX_REQ_HOT_RESET: return "XCL_MAILBOX_REQ_HOT_RESET";
+	case XCL_MAILBOX_REQ_FIREWALL: return "XCL_MAILBOX_REQ_FIREWALL";
+	case XCL_MAILBOX_REQ_LOAD_XCLBIN_KADDR: return "XCL_MAILBOX_REQ_LOAD_XCLBIN_KADDR";
+	case XCL_MAILBOX_REQ_LOAD_XCLBIN: return "XCL_MAILBOX_REQ_LOAD_XCLBIN";
+	case XCL_MAILBOX_REQ_RECLOCK: return "XCL_MAILBOX_REQ_RECLOCK";
+	case XCL_MAILBOX_REQ_PEER_DATA: return "XCL_MAILBOX_REQ_PEER_DATA";
+	case XCL_MAILBOX_REQ_USER_PROBE: return "XCL_MAILBOX_REQ_USER_PROBE";
+	case XCL_MAILBOX_REQ_MGMT_STATE: return "XCL_MAILBOX_REQ_MGMT_STATE";
+	case XCL_MAILBOX_REQ_CHG_SHELL: return "XCL_MAILBOX_REQ_CHG_SHELL";
+	case XCL_MAILBOX_REQ_PROGRAM_SHELL: return "XCL_MAILBOX_REQ_PROGRAM_SHELL";
+	case XCL_MAILBOX_REQ_READ_P2P_BAR_ADDR: return "XCL_MAILBOX_REQ_READ_P2P_BAR_ADDR";
+	default: return "UNKNOWN";
+	}
+}
+
 /**
  * struct mailbox_req_bitstream_lock - MAILBOX_REQ_LOCK_BITSTREAM and
  *				       MAILBOX_REQ_UNLOCK_BITSTREAM payload type
@@ -96,6 +120,20 @@ enum xcl_group_kind {
 	XCL_DNA,
 	XCL_SUBDEV,
 };
+
+static inline const char *mailbox_group_kind2name(enum xcl_group_kind kind)
+{
+	switch (kind) {
+	case XCL_SENSOR: return "XCL_SENSOR";
+	case XCL_ICAP: return "XCL_ICAP";
+	case XCL_BDINFO: return "XCL_BDINFO";
+	case XCL_MIG_ECC: return "XCL_MIG_ECC";
+	case XCL_FIREWALL: return "XCL_FIREWALL";
+	case XCL_DNA: return "XCL_DNA";
+	case XCL_SUBDEV: return "XCL_SUBDEV";
+	default: return "UNKNOWN";
+	}
+}
 
 /**
  * struct xcl_board_info - Data structure used to fetch BDINFO group
@@ -332,5 +370,10 @@ struct xcl_mailbox_p2p_bar_addr {
 	uint64_t  p2p_bar_addr;
 	uint64_t  p2p_bar_len;
 };
+
+static inline const char *mailbox_chan2name(bool sw_ch)
+{
+	return sw_ch ? "SW-CHANNEL" : "HW-CHANNEL";
+}
 
 #endif /* _XCL_MB_PROTOCOL_H_ */

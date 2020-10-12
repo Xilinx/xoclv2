@@ -34,7 +34,7 @@ static int xocl_part_parent_cb(struct device *dev, void *parg,
 	struct xocl_partition *xp = (struct xocl_partition *)parg;
 
 	switch (cmd) {
-	case XOCL_PARENT_GET_HOLDERS: {
+	case XOCL_PARENT_GET_LEAF_HOLDERS: {
 		struct xocl_parent_ioctl_get_holders *holders =
 			(struct xocl_parent_ioctl_get_holders *)arg;
 		rc = xocl_subdev_pool_get_holders(&xp->leaves,

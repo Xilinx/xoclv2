@@ -19,7 +19,7 @@ enum xocl_mailbox_ioctl_cmd {
 };
 
 struct xocl_mailbox_ioctl_post {
-	u64 xmip_req_id;
+	u64 xmip_req_id; /* 0 means response */
 	bool xmip_sw_ch;
 	void *xmip_data;
 	size_t xmip_data_size;
