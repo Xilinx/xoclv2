@@ -199,6 +199,7 @@
 #include "xocl-metadata.h"
 #include "xocl-subdev.h"
 #include "xocl-mailbox.h"
+#include "xmgmt-main.h"
 
 #define	FLAG_STI	(1 << 0)
 #define	FLAG_RTI	(1 << 1)
@@ -216,7 +217,7 @@
 
 #define	MAILBOX_TTL_TIMER	(HZ / 10) /* in jiffies */
 #define	MAILBOX_SEC2TTL(s)	((s) * HZ / MAILBOX_TTL_TIMER)
-#define	MSG_MAX_TTL		0xFFFFFFFF /* used to disable TTL checking */
+#define	MSG_MAX_TTL		INT_MAX /* used to disable TTL checking */
 
 #define	INVALID_MSG_ID		((u64)-1)
 
@@ -1308,9 +1309,45 @@ static ssize_t mailbox_pkt_store(struct device *dev,
 /* Packet test i/f. */
 static DEVICE_ATTR_RW(mailbox_pkt);
 
+static ssize_t mailbox_test_msg(struct platform_device *pdev,
+	bool is_set, char *buf, size_t len)
+{
+	struct xocl_mgmt_main_peer_test_msg tm = { is_set, buf, len };
+	/*
+	 * TODO: since this code applies to both xmgmt and xuser, we need to
+	 * try both to get the proper pdev for main leaf.
+	 */
+	struct platform_device *main_leaf = xocl_subdev_get_leaf_by_id(pdev,
+		XOCL_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
+	int err;
+
+	BUG_ON(main_leaf == NULL);
+	err = xocl_subdev_ioctl(main_leaf, XOCL_MGMT_MAIN_PEER_TEST_MSG, &tm);
+	xocl_subdev_put_leaf(pdev, main_leaf);
+	if (err) {
+		xocl_err(pdev, "can not %s peer test msg: %d",
+			is_set ? "set" : "get", err);
+	}
+	return err == 0 ? tm.xmmpgtm_len : err;
+}
+static ssize_t mailbox_msg_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	return mailbox_test_msg(to_platform_device(dev), false, buf, 4096);
+}
+static ssize_t mailbox_msg_store(struct device *dev,
+	struct device_attribute *da, const char *buf, size_t count)
+{
+	return mailbox_test_msg(to_platform_device(dev),
+		true, (char *)buf, count);
+}
+/* Message test i/f. */
+static DEVICE_ATTR_RW(mailbox_msg);
+
 static struct attribute *mailbox_attrs[] = {
 	&dev_attr_mailbox_ctl.attr,
 	&dev_attr_mailbox_pkt.attr,
+	&dev_attr_mailbox_msg.attr,
 	NULL,
 };
 

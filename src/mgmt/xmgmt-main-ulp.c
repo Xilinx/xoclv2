@@ -20,7 +20,7 @@
 #include "xocl-icap.h"
 #include "xocl-axigate.h"
 
-static int xmgmt_impl_download_bitstream(struct platform_device  *pdev,
+static int xmgmt_download_bitstream(struct platform_device  *pdev,
 	void *xclbin)
 {
 	struct platform_device *icap_leaf = NULL;
@@ -107,7 +107,7 @@ static bool match_ulp(enum xocl_subdev_id id,
 	return true;
 }
 
-int xmgmt_impl_ulp_download(struct platform_device  *pdev, void *xclbin)
+int xmgmt_ulp_download(struct platform_device  *pdev, void *xclbin)
 {
 	struct platform_device *axigate_leaf;
 	char *dtb = NULL;
@@ -150,7 +150,7 @@ int xmgmt_impl_ulp_download(struct platform_device  *pdev, void *xclbin)
 			goto failed;
 		}
 	}
-	ret = xmgmt_impl_download_bitstream(pdev, xclbin);
+	ret = xmgmt_download_bitstream(pdev, xclbin);
 	if (axigate_leaf) {
 		xocl_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREE, NULL);
 

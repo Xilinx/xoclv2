@@ -122,7 +122,7 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 		return -EINVAL;
 	}
 
-	result = xmgmt_impl_ulp_download((void *)obj->pdev, obj->blob);
+	result = xmgmt_ulp_download((void *)obj->pdev, obj->blob);
 
 	obj->state = result ? FPGA_MGR_STATE_WRITE_COMPLETE_ERR :
 		FPGA_MGR_STATE_WRITE_COMPLETE;

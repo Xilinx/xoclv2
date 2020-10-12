@@ -461,6 +461,7 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 	int rc = 0;
 
 	switch (cmd) {
+	/* Leaf actions. */
 	case XOCL_PARENT_GET_LEAF: {
 		struct xocl_parent_ioctl_get_leaf *getleaf =
 			(struct xocl_parent_ioctl_get_leaf *)arg;
@@ -473,6 +474,17 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		rc = xroot_put_leaf(xr, putleaf);
 		break;
 	}
+	case XOCL_PARENT_GET_LEAF_HOLDERS: {
+		struct xocl_parent_ioctl_get_holders *holders =
+			(struct xocl_parent_ioctl_get_holders *)arg;
+		rc = xocl_subdev_pool_get_holders(&xr->parts.pool,
+			holders->xpigh_pdev, holders->xpigh_holder_buf,
+			holders->xpigh_holder_buf_len);
+		break;
+	}
+
+
+	/* Partition actions. */
 	case XOCL_PARENT_CREATE_PARTITION:
 		rc = xroot_create_partition(xr, (char *)arg);
 		break;
@@ -488,6 +500,9 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 	case XOCL_PARENT_WAIT_PARTITION_BRINGUP:
 		rc = xroot_wait_for_bringup(xr) ? 0 : -EINVAL;
 		break;
+
+
+	/* Event actions. */
 	case XOCL_PARENT_ADD_EVENT_CB: {
 		struct xocl_parent_ioctl_evt_cb *cb =
 			(struct xocl_parent_ioctl_evt_cb *)arg;
@@ -502,22 +517,13 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		rc = xroot_async_evt_add(xr,
 			(struct xocl_parent_ioctl_async_broadcast_evt *)arg);
 		break;
-	case XOCL_PARENT_GET_HOLDERS: {
-		struct xocl_parent_ioctl_get_holders *holders =
-			(struct xocl_parent_ioctl_get_holders *)arg;
-		rc = xocl_subdev_pool_get_holders(&xr->parts.pool,
-			holders->xpigh_pdev, holders->xpigh_holder_buf,
-			holders->xpigh_holder_buf_len);
-		break;
-	}
+
+
+	/* Device info. */
 	case XOCL_PARENT_GET_RESOURCE: {
 		struct xocl_parent_ioctl_get_res *res =
 			(struct xocl_parent_ioctl_get_res *)arg;
 		res->xpigr_res = xr->pdev->resource;
-		break;
-	}
-	case XOCL_PARENT_HOT_RESET: {
-		xroot_hot_reset(xr->pdev);
 		break;
 	}
 	case XOCL_PARENT_GET_ID: {
@@ -530,6 +536,13 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		id->xpigi_sub_device_id = xr->pdev->subsystem_device;
 		break;
 	}
+
+
+	case XOCL_PARENT_HOT_RESET: {
+		xroot_hot_reset(xr->pdev);
+		break;
+	}
+
 	case XOCL_PARENT_HWMON: {
 		struct xocl_parent_ioctl_hwmon *hwmon =
 			(struct xocl_parent_ioctl_hwmon *)arg;
@@ -544,6 +557,7 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		}
 		break;
 	}
+
 	default:
 		xroot_err(xr, "unknown IOCTL cmd %d", cmd);
 		rc = -EINVAL;

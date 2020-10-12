@@ -74,7 +74,8 @@ static ssize_t holders_show(struct device *dev,
 	struct platform_device *pdev = to_platform_device(dev);
 	struct xocl_parent_ioctl_get_holders holders = { pdev, buf, 1024 };
 
-	len = xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_HOLDERS, &holders);
+	len = xocl_subdev_parent_ioctl(pdev,
+		XOCL_PARENT_GET_LEAF_HOLDERS, &holders);
 	if (len >= holders.xpigh_holder_buf_len)
 		return len;
 	buf[len] = '\n';
