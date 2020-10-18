@@ -41,9 +41,10 @@ struct xmgmt_main {
 	u32 blp_intf_uuid_num;
 };
 
-static char *xmgmt_get_vbnv(struct xmgmt_main *xmm)
+char *xmgmt_get_vbnv(struct platform_device *pdev)
 {
-	char *vbnv;
+	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+	const char *vbnv;
 	char *ret;
 	int i;
 
@@ -58,9 +59,9 @@ static char *xmgmt_get_vbnv(struct xmgmt_main *xmm)
 	}
 
 	ret = kstrdup(vbnv, GFP_KERNEL);
-	for (i = 0; i < strlen(vbnv); i++) {
-		if (vbnv[i] == ':' || vbnv[i] == '.')
-			vbnv[i] = '_';
+	for (i = 0; i < strlen(ret); i++) {
+		if (ret[i] == ':' || ret[i] == '.')
+			ret[i] = '_';
 	}
 	return ret;
 }
@@ -131,9 +132,8 @@ static ssize_t VBNV_show(struct device *dev,
 	ssize_t ret;
 	char *vbnv;
 	struct platform_device *pdev = to_platform_device(dev);
-	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
 
-	vbnv = xmgmt_get_vbnv(xmm);
+	vbnv = xmgmt_get_vbnv(pdev);
 	ret = sprintf(buf, "%s\n", vbnv);
 	kfree(vbnv);
 	return ret;
@@ -425,16 +425,45 @@ static bool is_valid_firmware(struct platform_device *pdev,
 	return true;
 }
 
+char *xmgmt_get_dtb(struct platform_device *pdev, enum provider_kind kind)
+{
+	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+	char *dtb = NULL;
+	char *provider = NULL;
+	int rc;
+
+	switch (kind) {
+	case XMGMT_BLP:
+		provider = xmm->firmware_blp;
+		break;
+	case XMGMT_PLP:
+		provider = xmm->firmware_plp;
+		break;
+	case XMGMT_ULP:
+		provider = xmm->firmware_ulp;
+		break;
+	default:
+		xocl_err(pdev, "unknown provider kind: %d", kind);
+		return NULL;
+	}
+
+	if (provider == NULL)
+		return dtb;
+
+	rc = xrt_xclbin_get_metadata(DEV(pdev), provider, &dtb);
+	if (rc)
+		xocl_err(pdev, "failed to find BLP dtb: %d", rc);
+	return dtb;
+}
+
 static int xmgmt_create_blp(struct xmgmt_main *xmm)
 {
 	struct platform_device *pdev = xmm->pdev;
 	int rc = 0;
 	char *dtb = NULL;
 
-	rc = xrt_xclbin_get_metadata(DEV(xmm->pdev), xmm->firmware_blp, &dtb);
-	if (rc) {
-		xocl_err(pdev, "failed to find BLP dtb: %d", rc);
-	} else {
+	dtb = xmgmt_get_dtb(pdev, XMGMT_BLP);
+	if (dtb) {
 		rc = xocl_subdev_create_partition(pdev, dtb);
 		if (rc < 0)
 			xocl_err(pdev, "failed to create BLP: %d", rc);
@@ -450,8 +479,9 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 			xocl_md_get_intf_uuids(&pdev->dev, dtb,
 				&xmm->blp_intf_uuid_num, xmm->blp_intf_uuids);
 		}
-		vfree(dtb);
 	}
+
+	vfree(dtb);
 	return rc;
 }
 
@@ -494,10 +524,15 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 				xocl_err(pdev,
 					"failed to find firmware, giving up");
 			xmm->evt_hdl = NULL;
-			return XOCL_EVENT_CB_STOP;
 		}
 		break;
 	}
+	case XOCL_EVENT_POST_ATTACH:
+		xmgmt_peer_notify_state(xmm->mailbox_hdl, true);
+		break;
+	case XOCL_EVENT_PRE_DETACH:
+		xmgmt_peer_notify_state(xmm->mailbox_hdl, false);
+		break;
 	default:
 		xocl_info(pdev, "ignored event %d", evt);
 		break;
@@ -572,7 +607,7 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	case XOCL_MGMT_MAIN_GET_VBNV: {
 		char **vbnv_p = (char **)arg;
 
-		*vbnv_p = xmgmt_get_vbnv(xmm);
+		*vbnv_p = xmgmt_get_vbnv(pdev);
 		break;
 	}
 	case XOCL_MGMT_MAIN_GET_ULP_SECTION: {

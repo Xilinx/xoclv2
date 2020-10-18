@@ -1355,16 +1355,6 @@ static const struct attribute_group mailbox_attrgroup = {
 	.attrs = mailbox_attrs,
 };
 
-static void dft_post_msg_cb(void *arg, void *buf, size_t len, u64 id, int err,
-	bool sw_ch)
-{
-	struct mailbox_msg *msg = (struct mailbox_msg *)arg;
-
-	if (!err)
-		return;
-	MBX_ERR(msg->mbm_ch->mbc_parent, "failed to post msg, err=%d", err);
-}
-
 /*
  * Msg will be sent to peer and reply will be received.
  */
@@ -1449,16 +1439,19 @@ static int mailbox_post(struct platform_device *pdev,
 		return -ENOMEM;
 
 	(void) memcpy(msg->mbm_data, buf, len);
-	msg->mbm_cb = dft_post_msg_cb;
-	msg->mbm_cb_arg = msg;
 	msg->mbm_chan_sw = sw_ch;
 	msg->mbm_req_id = reqid ? reqid : (uintptr_t)msg->mbm_data;
 	msg->mbm_flags |= reqid ? MSG_FLAG_RESPONSE : MSG_FLAG_REQUEST;
 
 	rv = chan_msg_enqueue(&mbx->mbx_tx, msg);
-	if (rv)
-		free_msg(msg);
+	if (rv == 0) {
+		wait_for_completion(&msg->mbm_complete);
+		rv = msg->mbm_error;
+	}
 
+	if (rv)
+		MBX_ERR(mbx, "failed to post msg, err=%d", rv);
+	free_msg(msg);
 	return rv;
 }
 
