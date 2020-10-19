@@ -10,6 +10,7 @@
 #define	_XOCL_ROOT_H_
 
 #include <linux/pci.h>
+#include "xocl-subdev.h"
 
 int xroot_probe(struct pci_dev *pdev, void **root);
 void xroot_remove(void *root);
@@ -18,5 +19,6 @@ int xroot_add_vsec_node(void *root, char *dtb);
 int xroot_create_partition(void *root, char *dtb);
 int xroot_add_simple_node(void *root, char *dtb, const char *endpoint);
 void xroot_hot_reset(struct pci_dev *pdev);
+void xroot_broadcast(void *root, enum xocl_events evt);
 
 #endif	/* _XOCL_ROOT_H_ */

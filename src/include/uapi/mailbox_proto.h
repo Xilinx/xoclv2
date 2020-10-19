@@ -268,9 +268,15 @@ struct xcl_dna {
 /**
  * Data structure used to fetch SUBDEV group
  */
+enum xcl_subdev_return_code {
+	XOCL_MSG_SUBDEV_RTN_UNCHANGED = 1,
+	XOCL_MSG_SUBDEV_RTN_PARTIAL,
+	XOCL_MSG_SUBDEV_RTN_COMPLETE,
+	XOCL_MSG_SUBDEV_RTN_PENDINGPLP,
+};
 struct xcl_subdev {
 	uint32_t ver;
-	int32_t rtncode;
+	enum xcl_subdev_return_code rtncode;
 	uint64_t checksum;
 	uint64_t size;
 	uint64_t offset;
@@ -281,7 +287,7 @@ struct xcl_subdev {
  * @kind: data group
  * @size: buffer size for receiving response
  */
-struct xcl_mailbox_subdev_peer {
+struct xcl_mailbox_peer_data {
 	enum xcl_group_kind kind;
 	uint32_t padding;
 	uint64_t size;

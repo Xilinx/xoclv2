@@ -58,7 +58,8 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 	struct xocl_subdev_endpoints *eps = NULL;
 	int ep_count = 0, i, ret = 0, failed = 0;
 	long mlen;
-	char *dtb, *part_dtb = NULL, *ep_name;
+	char *dtb, *part_dtb = NULL;
+	const char *ep_name;
 
 
 	mutex_lock(&xp->lock);
@@ -112,7 +113,7 @@ static int xocl_part_create_leaves(struct xocl_partition *xp)
 				ep_name = (char *)eps->xse_names[i].ep_name;
 			ret = xocl_md_copy_endpoint(DEV(xp->pdev),
 				dtb, part_dtb, ep_name,
-				(char *)eps->xse_names[i].regmap_name);
+				(char *)eps->xse_names[i].regmap_name, NULL);
 			if (ret)
 				continue;
 			xocl_md_del_endpoint(DEV(xp->pdev), part_dtb, ep_name,

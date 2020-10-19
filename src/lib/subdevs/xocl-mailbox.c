@@ -195,6 +195,7 @@
 #include <linux/io.h>
 #include <linux/ioctl.h>
 #include <linux/delay.h>
+#include <linux/crc32c.h>
 #include "uapi/mailbox_transport.h"
 #include "xocl-metadata.h"
 #include "xocl-subdev.h"
@@ -262,6 +263,11 @@ struct mailbox_msg {
 	u32			mbm_flags;
 	atomic_t		mbm_ttl;
 	bool			mbm_chan_sw;
+
+	/* Statistics for debugging. */
+	u64			mbm_num_pkts;
+	u64			mbm_start_ts;
+	u64			mbm_end_ts;
 };
 
 /* Mailbox communication channel state. */
@@ -438,9 +444,13 @@ static void msg_done(struct mailbox_msg *msg, int err)
 {
 	struct mailbox_channel *ch = msg->mbm_ch;
 	struct mailbox *mbx = ch->mbc_parent;
+	u64 elapsed = (msg->mbm_end_ts - msg->mbm_start_ts) / 1000; /* in us. */
 
-	MBX_DBG(ch->mbc_parent, "%s finishing msg id=0x%llx err=%d",
-		ch_name(ch), msg->mbm_req_id, err);
+	MBX_INFO(ch->mbc_parent,
+		"msg(id=0x%llx sz=%ldB crc=0x%x): %s %lldpkts in %lldus: %d",
+		msg->mbm_req_id, msg->mbm_len,
+		crc32c_le(~0, msg->mbm_data, msg->mbm_len),
+		ch_name(ch), msg->mbm_num_pkts, elapsed, err);
 
 	msg->mbm_error = err;
 
@@ -501,6 +511,7 @@ static void chan_msg_done(struct mailbox_channel *ch, int err)
 	if (!ch->mbc_cur_msg)
 		return;
 
+	ch->mbc_cur_msg->mbm_end_ts = ktime_get_ns();
 	if (err) {
 		if (ch->mbc_cur_msg->mbm_chan_sw) {
 			mutex_lock(&ch->sw_chan_mutex);
@@ -881,6 +892,7 @@ static int chan_pkt2msg(struct mailbox_channel *ch)
 	msg_data = msg->mbm_data + ch->mbc_bytes_done;
 	(void) memcpy(msg_data, pkt_data, cnt);
 	ch->mbc_bytes_done += cnt;
+	msg->mbm_num_pkts++;
 
 	reset_pkt(pkt);
 	return 0;
@@ -921,6 +933,8 @@ static void dequeue_rx_msg(struct mailbox_channel *ch,
 		MBX_ERR(mbx, "Invalid incoming msg flags: 0x%x\n", flags);
 	}
 
+	msg->mbm_start_ts = ktime_get_ns();
+	msg->mbm_num_pkts = 0;
 	ch->mbc_cur_msg = msg;
 
 	/* Fail received msg now on error. */
@@ -1141,6 +1155,10 @@ static void dequeue_tx_msg(struct mailbox_channel *ch)
 		return;
 
 	ch->mbc_cur_msg = chan_msg_dequeue(ch, INVALID_MSG_ID);
+	if (ch->mbc_cur_msg) {
+		ch->mbc_cur_msg->mbm_start_ts = ktime_get_ns();
+		ch->mbc_cur_msg->mbm_num_pkts = 0;
+	}
 }
 
 /* Check if HW TX channel is ready for next msg. */
@@ -1173,12 +1191,15 @@ static bool chan_do_tx(struct mailbox_channel *ch)
 	bool progress = false;
 
 	/* Check if current outstanding msg is fully sent. */
-	if (curmsg && (curmsg->mbm_len == ch->mbc_bytes_done)) {
+	if (curmsg) {
 		bool done = curmsg->mbm_chan_sw ? tx_sw_chan_ready(ch) :
 			tx_hw_chan_ready(ch);
-		if (done)
-			chan_msg_done(ch, 0);
-		progress |= done;
+		if (done) {
+			curmsg->mbm_num_pkts++;
+			if (curmsg->mbm_len == ch->mbc_bytes_done)
+				chan_msg_done(ch, 0);
+			progress = true;
+		}
 	}
 
 	dequeue_tx_msg(ch);
@@ -1355,16 +1376,6 @@ static const struct attribute_group mailbox_attrgroup = {
 	.attrs = mailbox_attrs,
 };
 
-static void dft_post_msg_cb(void *arg, void *buf, size_t len, u64 id, int err,
-	bool sw_ch)
-{
-	struct mailbox_msg *msg = (struct mailbox_msg *)arg;
-
-	if (!err)
-		return;
-	MBX_ERR(msg->mbm_ch->mbc_parent, "failed to post msg, err=%d", err);
-}
-
 /*
  * Msg will be sent to peer and reply will be received.
  */
@@ -1449,16 +1460,19 @@ static int mailbox_post(struct platform_device *pdev,
 		return -ENOMEM;
 
 	(void) memcpy(msg->mbm_data, buf, len);
-	msg->mbm_cb = dft_post_msg_cb;
-	msg->mbm_cb_arg = msg;
 	msg->mbm_chan_sw = sw_ch;
 	msg->mbm_req_id = reqid ? reqid : (uintptr_t)msg->mbm_data;
 	msg->mbm_flags |= reqid ? MSG_FLAG_RESPONSE : MSG_FLAG_REQUEST;
 
 	rv = chan_msg_enqueue(&mbx->mbx_tx, msg);
-	if (rv)
-		free_msg(msg);
+	if (rv == 0) {
+		wait_for_completion(&msg->mbm_complete);
+		rv = msg->mbm_error;
+	}
 
+	if (rv)
+		MBX_ERR(mbx, "failed to post msg, err=%d", rv);
+	free_msg(msg);
 	return rv;
 }
 

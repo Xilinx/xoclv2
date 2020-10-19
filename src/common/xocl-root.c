@@ -717,3 +717,28 @@ void xroot_remove(void *root)
 	xroot_evt_fini(xr);
 	xroot_parts_fini(xr);
 }
+
+static void xroot_broadcast_event_cb(struct platform_device *pdev,
+	enum xocl_events evt, void *arg, bool success)
+{
+	struct completion *comp = (struct completion *)arg;
+
+	complete(comp);
+}
+
+void xroot_broadcast(void *root, enum xocl_events evt)
+{
+	int rc;
+	struct completion comp;
+	struct xroot *xr = (struct xroot *)root;
+	struct xocl_parent_ioctl_async_broadcast_evt e = {
+		NULL, evt, xroot_broadcast_event_cb, &comp
+	};
+
+	init_completion(&comp);
+	rc = xroot_async_evt_add(xr, &e);
+	if (rc == 0)
+		wait_for_completion(&comp);
+	else
+		xroot_err(xr, "can't broadcast event (%d): %d", evt, rc);
+}

@@ -210,6 +210,8 @@ enum xocl_events {
 	XOCL_EVENT_POST_HOT_RESET,
 	XOCL_EVENT_PRE_GATE_CLOSE,
 	XOCL_EVENT_POST_GATE_OPEN,
+	XOCL_EVENT_POST_ATTACH,
+	XOCL_EVENT_PRE_DETACH,
 };
 
 typedef int (*xocl_event_cb_t)(struct platform_device *pdev,

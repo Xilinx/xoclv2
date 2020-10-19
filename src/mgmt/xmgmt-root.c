@@ -293,23 +293,23 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto failed_metadata;
 
 	ret = xroot_create_partition(xm->root, dtb);
+	vfree(dtb);
 	if (ret)
 		xmgmt_err(xm, "failed to create root partition: %d", ret);
 
-	if (!xroot_wait_for_bringup(xm->root)) {
+	if (!xroot_wait_for_bringup(xm->root))
 		xmgmt_err(xm, "failed to bringup all partitions");
-	} else {
+	else
 		xm->ready = true;
-		xmgmt_info(xm, "%s started successfully", XMGMT_MODULE_NAME);
-	}
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &xmgmt_root_attr_group);
 	if (ret) {
 		/* Warning instead of failing the probe. */
-		xocl_err(pdev, "create xmgmt root attrs failed: %d", ret);
+		xocl_warn(pdev, "create xmgmt root attrs failed: %d", ret);
 	}
 
-	vfree(dtb);
+	xroot_broadcast(xm->root, XOCL_EVENT_POST_ATTACH);
+	xmgmt_info(xm, "%s started successfully", XMGMT_MODULE_NAME);
 	return 0;
 
 failed_metadata:
@@ -323,6 +323,7 @@ static void xmgmt_remove(struct pci_dev *pdev)
 {
 	struct xmgmt *xm = pci_get_drvdata(pdev);
 
+	xroot_broadcast(xm->root, XOCL_EVENT_PRE_DETACH);
 	sysfs_remove_group(&pdev->dev.kobj, &xmgmt_root_attr_group);
 	(void) xroot_remove(xm->root);
 	pci_disable_pcie_error_reporting(xm->pdev);
