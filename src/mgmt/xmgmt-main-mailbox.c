@@ -337,7 +337,7 @@ static void xmgmt_mailbox_resp_subdev(struct xmgmt_mailbox *xmbx,
 		return;
 
 	dtbsz = xocl_md_size(DEV(pdev), dtb);
-	totalsz = dtbsz + sizeof(hdr) - 1;
+	totalsz = dtbsz + sizeof(*hdr) - sizeof(hdr->data);
 	if (offset != 0 || totalsz > size) {
 		/* Only support fetching dtb in one shot. */
 		vfree(dtb);
