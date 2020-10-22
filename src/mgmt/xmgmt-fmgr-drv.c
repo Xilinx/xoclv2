@@ -15,9 +15,9 @@
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 
-#include "xocl-subdev.h"
+#include "xrt-subdev.h"
 #include "xmgmt-fmgr.h"
-#include "xocl-axigate.h"
+#include "xrt-axigate.h"
 #include "xmgmt-main-impl.h"
 
 /*
@@ -66,7 +66,7 @@ static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 		return -ENOMEM;
 	}
 
-	xocl_info(obj->pdev, "Begin download of xclbin %pUb of length %lld B",
+	xrt_info(obj->pdev, "Begin download of xclbin %pUb of length %lld B",
 		&bin->m_header.uuid, bin->m_header.m_length);
 
 	obj->count = 0;
@@ -98,7 +98,7 @@ static int xmgmt_pr_write(struct fpga_manager *mgr,
 		return -EINVAL;
 	}
 
-	xocl_info(obj->pdev, "Copying block of %zu B of xclbin", count);
+	xrt_info(obj->pdev, "Copying block of %zu B of xclbin", count);
 	memcpy(curr, buf, count);
 	obj->state = FPGA_MGR_STATE_WRITE;
 	return 0;
@@ -126,7 +126,7 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 
 	obj->state = result ? FPGA_MGR_STATE_WRITE_COMPLETE_ERR :
 		FPGA_MGR_STATE_WRITE_COMPLETE;
-	xocl_info(obj->pdev, "Finish downloading of xclbin %pUb: %d",
+	xrt_info(obj->pdev, "Finish downloading of xclbin %pUb: %d",
 		&obj->blob->m_header.uuid, result);
 	vfree(obj->blob);
 	obj->blob = NULL;
@@ -156,7 +156,7 @@ struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct xfpga_klass *obj = vzalloc(sizeof(struct xfpga_klass));
 
-	xocl_info(pdev, "probing...");
+	xrt_info(pdev, "probing...");
 	if (!obj)
 		return ERR_PTR(-ENOMEM);
 

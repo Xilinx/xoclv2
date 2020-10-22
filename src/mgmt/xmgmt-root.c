@@ -14,10 +14,10 @@
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
 
-#include "xocl-root.h"
-#include "xocl-subdev.h"
+#include "xrt-root.h"
+#include "xrt-subdev.h"
 #include "xmgmt-main-impl.h"
-#include "xocl-metadata.h"
+#include "xrt-metadata.h"
 
 #define	XMGMT_MODULE_NAME	"xmgmt"
 #define	XMGMT_DRIVER_VERSION	"4.0.0"
@@ -217,7 +217,7 @@ static int xmgmt_create_root_metadata(struct xmgmt *xm, char **root_dtb)
 	char *dtb = NULL;
 	int ret;
 
-	ret = xocl_md_create(DEV(xm->pdev), &dtb);
+	ret = xrt_md_create(DEV(xm->pdev), &dtb);
 	if (ret) {
 		xmgmt_err(xm, "create metadata failed, ret %d", ret);
 		goto failed;
@@ -305,7 +305,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	ret = sysfs_create_group(&pdev->dev.kobj, &xmgmt_root_attr_group);
 	if (ret) {
 		/* Warning instead of failing the probe. */
-		xocl_warn(pdev, "create xmgmt root attrs failed: %d", ret);
+		xrt_warn(pdev, "create xmgmt root attrs failed: %d", ret);
 	}
 
 	xroot_broadcast(xm->root, XOCL_EVENT_POST_ATTACH);
@@ -339,8 +339,8 @@ static struct pci_driver xmgmt_driver = {
 
 static int __init xmgmt_init(void)
 {
-	int res = xocl_subdev_register_external_driver(XOCL_SUBDEV_MGMT_MAIN,
-		&xmgmt_main_driver, xocl_mgmt_main_endpoints);
+	int res = xrt_subdev_register_external_driver(XOCL_SUBDEV_MGMT_MAIN,
+		&xmgmt_main_driver, xrt_mgmt_main_endpoints);
 
 	if (res)
 		return res;
@@ -362,7 +362,7 @@ static __exit void xmgmt_exit(void)
 {
 	pci_unregister_driver(&xmgmt_driver);
 	class_destroy(xmgmt_class);
-	xocl_subdev_unregister_external_driver(XOCL_SUBDEV_MGMT_MAIN);
+	xrt_subdev_unregister_external_driver(XOCL_SUBDEV_MGMT_MAIN);
 }
 
 module_init(xmgmt_init);
