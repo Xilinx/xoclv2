@@ -14,9 +14,9 @@ xmgmt-y := xmgmt-root.o				\
 	   xmgmt-fmgr-drv.o      		\
 	   xmgmt-main-ulp.o			\
 	   xmgmt-main-mailbox.o			\
-	   $(commondir)/xocl-root.o		\
-	   $(commondir)/xocl-metadata.o		\
-	   $(commondir)/xocl-xclbin.o		\
+	   $(commondir)/xrt-root.o		\
+	   $(commondir)/xrt-metadata.o		\
+	   $(commondir)/xrt-xclbin.o		\
 	   $(fdtdir)/fdt.o			\
 	   $(fdtdir)/fdt_addresses.o		\
 	   $(fdtdir)/fdt_empty_tree.o		\

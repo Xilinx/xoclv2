@@ -5,34 +5,34 @@
 # Authors: Sonal.Santan@xilinx.com
 #
 
-obj-m   += xocl-lib.o
+obj-m   += xrt-lib.o
 
 fdtdir := ../common/libfdt
-xocl-lib-y := 				\
-	xocl-main.o			\
-	xocl-subdev.o			\
-	xocl-cdev.o			\
-	../common/xocl-metadata.o	\
-	subdevs/xocl-partition.o	\
-	subdevs/xocl-test.o		\
-	subdevs/xocl-vsec.o		\
-	subdevs/xocl-vsec-golden.o	\
-	subdevs/xocl-axigate.o		\
-	subdevs/xocl-qspi.o		\
-	subdevs/xocl-gpio.o		\
-	subdevs/xocl-mailbox.o		\
-	subdevs/xocl-icap.o		\
-	subdevs/xocl-cmc.o		\
-	subdevs/xocl-cmc-ctrl.o		\
-	subdevs/xocl-cmc-sensors.o	\
-	subdevs/xocl-cmc-mailbox.o	\
-	subdevs/xocl-cmc-bdinfo.o	\
-	subdevs/xocl-cmc-sc.o		\
-	subdevs/xocl-srsr.o		\
-	subdevs/xocl-clock.o		\
-	subdevs/xocl-clkfreq.o		\
-	subdevs/xocl-ucs.o		\
-	subdevs/xocl-calib.o		\
+xrt-lib-y := 				\
+	xrt-main.o			\
+	xrt-subdev.o			\
+	xrt-cdev.o			\
+	../common/xrt-metadata.o	\
+	subdevs/xrt-partition.o	\
+	subdevs/xrt-test.o		\
+	subdevs/xrt-vsec.o		\
+	subdevs/xrt-vsec-golden.o	\
+	subdevs/xrt-axigate.o		\
+	subdevs/xrt-qspi.o		\
+	subdevs/xrt-gpio.o		\
+	subdevs/xrt-mailbox.o		\
+	subdevs/xrt-icap.o		\
+	subdevs/xrt-cmc.o		\
+	subdevs/xrt-cmc-ctrl.o		\
+	subdevs/xrt-cmc-sensors.o	\
+	subdevs/xrt-cmc-mailbox.o	\
+	subdevs/xrt-cmc-bdinfo.o	\
+	subdevs/xrt-cmc-sc.o		\
+	subdevs/xrt-srsr.o		\
+	subdevs/xrt-clock.o		\
+	subdevs/xrt-clkfreq.o		\
+	subdevs/xrt-ucs.o		\
+	subdevs/xrt-calib.o		\
 	$(fdtdir)/fdt.o			\
 	$(fdtdir)/fdt_addresses.o	\
 	$(fdtdir)/fdt_empty_tree.o	\
