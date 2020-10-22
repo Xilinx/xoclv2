@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#include "xocl-subdev.h"
-#include "xocl-cmc-impl.h"
+#include "xrt-subdev.h"
+#include "xrt-cmc-impl.h"
 
 enum board_info_key {
 	BDINFO_SN = 0x21,
@@ -23,14 +23,14 @@ enum board_info_key {
 	BDINFO_CONFIG_MODE,
 };
 
-struct xocl_cmc_bdinfo {
+struct xrt_cmc_bdinfo {
 	struct platform_device *pdev;
 	struct mutex lock;
 	char *bdinfo;
 	size_t bdinfo_sz;
 };
 
-static const char *cmc_get_board_info(struct xocl_cmc_bdinfo *cmc_bdi,
+static const char *cmc_get_board_info(struct xrt_cmc_bdinfo *cmc_bdi,
 	enum board_info_key key, size_t *len)
 {
 	const char *buf = cmc_bdi->bdinfo, *p;
@@ -56,7 +56,7 @@ static const char *cmc_get_board_info(struct xocl_cmc_bdinfo *cmc_bdi,
 	return NULL;
 }
 
-static int cmc_refresh_board_info_nolock(struct xocl_cmc_bdinfo *cmc_bdi)
+static int cmc_refresh_board_info_nolock(struct xrt_cmc_bdinfo *cmc_bdi)
 {
 	int ret = 0;
 	int gen = -EINVAL;
@@ -76,19 +76,19 @@ static int cmc_refresh_board_info_nolock(struct xocl_cmc_bdinfo *cmc_bdi)
 	/* Load new info from HW. */
 	gen = cmc_mailbox_acquire(pdev);
 	if (gen < 0) {
-		xocl_err(pdev, "failed to hold mailbox: %d", gen);
+		xrt_err(pdev, "failed to hold mailbox: %d", gen);
 		ret = gen;
 		goto done;
 	}
 	ret = cmc_mailbox_send_packet(pdev, gen, CMC_MBX_PKT_OP_BOARD_INFO,
 		NULL, 0);
 	if (ret) {
-		xocl_err(pdev, "failed to send pkt: %d", ret);
+		xrt_err(pdev, "failed to send pkt: %d", ret);
 		goto done;
 	}
 	ret = cmc_mailbox_recv_packet(pdev, gen, bdinfo_raw, &bd_info_sz);
 	if (ret) {
-		xocl_err(pdev, "failed to receive pkt: %d", ret);
+		xrt_err(pdev, "failed to receive pkt: %d", ret);
 		goto done;
 	}
 
@@ -112,7 +112,7 @@ done:
 int cmc_refresh_board_info(struct platform_device *pdev)
 {
 	int ret;
-	struct xocl_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);
+	struct xrt_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);
 
 	if (!cmc_bdi)
 		return -ENODEV;
@@ -129,7 +129,7 @@ int cmc_refresh_board_info(struct platform_device *pdev)
 	{								\
 		const char *s;						\
 		struct platform_device *pdev = to_platform_device(dev);	\
-		struct xocl_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);\
+		struct xrt_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);\
 									\
 		mutex_lock(&cmc_bdi->lock);				\
 		s = cmc_get_board_info(cmc_bdi, key, NULL);		\
@@ -153,7 +153,7 @@ static ssize_t bdinfo_raw_show(struct file *filp, struct kobject *kobj,
 	ssize_t ret = 0;
 	struct device *dev = container_of(kobj, struct device, kobj);
 	struct platform_device *pdev = to_platform_device(dev);
-	struct xocl_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);
+	struct xrt_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);
 
 	if (!cmc_bdi || !cmc_bdi->bdinfo_sz)
 		return 0;
@@ -192,7 +192,7 @@ static struct attribute_group cmc_bdinfo_attr_group = {
 
 void cmc_bdinfo_remove(struct platform_device *pdev)
 {
-	struct xocl_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);
+	struct xrt_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);
 
 	if (!cmc_bdi)
 		return;
@@ -205,7 +205,7 @@ int cmc_bdinfo_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl)
 {
 	int ret;
-	struct xocl_cmc_bdinfo *cmc_bdi;
+	struct xrt_cmc_bdinfo *cmc_bdi;
 
 	cmc_bdi = devm_kzalloc(DEV(pdev), sizeof(*cmc_bdi), GFP_KERNEL);
 	if (!cmc_bdi)
@@ -218,13 +218,13 @@ int cmc_bdinfo_probe(struct platform_device *pdev,
 	ret = cmc_refresh_board_info_nolock(cmc_bdi);
 	mutex_unlock(&cmc_bdi->lock);
 	if (ret) {
-		xocl_err(pdev, "failed to load board info: %d", ret);
+		xrt_err(pdev, "failed to load board info: %d", ret);
 		goto fail;
 	}
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &cmc_bdinfo_attr_group);
 	if (ret) {
-		xocl_err(pdev, "create bdinfo attrs failed: %d", ret);
+		xrt_err(pdev, "create bdinfo attrs failed: %d", ret);
 		goto fail;
 	}
 

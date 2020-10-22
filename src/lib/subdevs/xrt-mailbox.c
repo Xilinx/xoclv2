@@ -11,7 +11,7 @@
 /**
  * DOC: Statement of Theory
  *
- * This is the mailbox sub-device driver added into existing xclmgmt / xocl
+ * This is the mailbox sub-device driver added into existing xclmgmt / xrt
  * driver so that user pf and mgmt pf can send and receive messages of
  * arbitrary length to / from the peer. The driver is written based on the
  * spec of pg114 document (https://www.xilinx.com/support/documentation/
@@ -114,7 +114,7 @@
  *
  * When a new request or notification is received from peer, driver will
  * allocate a msg buffer and copy the msg into it then passes it to the callback
- * provided by upper layer (mgmt or user pf driver) through xocl_peer_listen()
+ * provided by upper layer (mgmt or user pf driver) through xrt_peer_listen()
  * API for further processing.
  *
  * Currently, the driver implements one kernel thread for RX channel (RX thread)
@@ -124,7 +124,7 @@
  * The RX thread is responsible for receiving incoming msgs. If it's a request
  * or notification msg, it'll punt it to REQ thread for processing, which, in
  * turn, will call the callback provided by mgmt pf driver
- * (xclmgmt_mailbox_srv()) or user pf driver (xocl_mailbox_srv()) to further
+ * (xclmgmt_mailbox_srv()) or user pf driver (xrt_mailbox_srv()) to further
  * process it. If it's a response, it'll simply wake up the waiting thread (
  * currently, all response msgs are waited synchronously by caller)
  *
@@ -197,9 +197,9 @@
 #include <linux/delay.h>
 #include <linux/crc32c.h>
 #include "uapi/mailbox_transport.h"
-#include "xocl-metadata.h"
-#include "xocl-subdev.h"
-#include "xocl-mailbox.h"
+#include "xrt-metadata.h"
+#include "xrt-subdev.h"
+#include "xrt-mailbox.h"
 #include "xmgmt-main.h"
 
 #define	FLAG_STI	(1 << 0)
@@ -211,10 +211,10 @@
 #define	STATUS_RTA	(1 << 3)
 #define	STATUS_VALID	(STATUS_EMPTY|STATUS_FULL|STATUS_STA|STATUS_RTA)
 
-#define	MBX_ERR(mbx, fmt, arg...) xocl_err(mbx->mbx_pdev, fmt "\n", ##arg)
-#define	MBX_WARN(mbx, fmt, arg...) xocl_warn(mbx->mbx_pdev, fmt "\n", ##arg)
-#define	MBX_INFO(mbx, fmt, arg...) xocl_info(mbx->mbx_pdev, fmt "\n", ##arg)
-#define	MBX_DBG(mbx, fmt, arg...) xocl_dbg(mbx->mbx_pdev, fmt "\n", ##arg)
+#define	MBX_ERR(mbx, fmt, arg...) xrt_err(mbx->mbx_pdev, fmt "\n", ##arg)
+#define	MBX_WARN(mbx, fmt, arg...) xrt_warn(mbx->mbx_pdev, fmt "\n", ##arg)
+#define	MBX_INFO(mbx, fmt, arg...) xrt_info(mbx->mbx_pdev, fmt "\n", ##arg)
+#define	MBX_DBG(mbx, fmt, arg...) xrt_dbg(mbx->mbx_pdev, fmt "\n", ##arg)
 
 #define	MAILBOX_TTL_TIMER	(HZ / 10) /* in jiffies */
 #define	MAILBOX_SEC2TTL(s)	((s) * HZ / MAILBOX_TTL_TIMER)
@@ -1333,20 +1333,20 @@ static DEVICE_ATTR_RW(mailbox_pkt);
 static ssize_t mailbox_test_msg(struct platform_device *pdev,
 	bool is_set, char *buf, size_t len)
 {
-	struct xocl_mgmt_main_peer_test_msg tm = { is_set, buf, len };
+	struct xrt_mgmt_main_peer_test_msg tm = { is_set, buf, len };
 	/*
 	 * TODO: since this code applies to both xmgmt and xuser, we need to
 	 * try both to get the proper pdev for main leaf.
 	 */
-	struct platform_device *main_leaf = xocl_subdev_get_leaf_by_id(pdev,
+	struct platform_device *main_leaf = xrt_subdev_get_leaf_by_id(pdev,
 		XOCL_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
 	int err;
 
 	BUG_ON(main_leaf == NULL);
-	err = xocl_subdev_ioctl(main_leaf, XOCL_MGMT_MAIN_PEER_TEST_MSG, &tm);
-	xocl_subdev_put_leaf(pdev, main_leaf);
+	err = xrt_subdev_ioctl(main_leaf, XOCL_MGMT_MAIN_PEER_TEST_MSG, &tm);
+	xrt_subdev_put_leaf(pdev, main_leaf);
 	if (err) {
-		xocl_err(pdev, "can not %s peer test msg: %d",
+		xrt_err(pdev, "can not %s peer test msg: %d",
 			is_set ? "set" : "get", err);
 	}
 	return err == 0 ? tm.xmmpgtm_len : err;
@@ -1558,16 +1558,16 @@ static int mailbox_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 
 	switch (cmd) {
 	case XOCL_MAILBOX_POST: {
-		struct xocl_mailbox_ioctl_post *post =
-			(struct xocl_mailbox_ioctl_post *)arg;
+		struct xrt_mailbox_ioctl_post *post =
+			(struct xrt_mailbox_ioctl_post *)arg;
 
 		ret = mailbox_post(pdev, post->xmip_req_id, post->xmip_data,
 			post->xmip_data_size, post->xmip_sw_ch);
 		break;
 	}
 	case XOCL_MAILBOX_REQUEST: {
-		struct xocl_mailbox_ioctl_request *req =
-			(struct xocl_mailbox_ioctl_request *)arg;
+		struct xrt_mailbox_ioctl_request *req =
+			(struct xrt_mailbox_ioctl_request *)arg;
 
 		ret = mailbox_request(pdev, req->xmir_req, req->xmir_req_size,
 			req->xmir_resp, &req->xmir_resp_size, req->xmir_sw_ch,
@@ -1575,8 +1575,8 @@ static int mailbox_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	case XOCL_MAILBOX_LISTEN: {
-		struct xocl_mailbox_ioctl_listen *listen =
-			(struct xocl_mailbox_ioctl_listen *)arg;
+		struct xrt_mailbox_ioctl_listen *listen =
+			(struct xrt_mailbox_ioctl_listen *)arg;
 
 		ret = mailbox_listen(pdev,
 			listen->xmil_cb, listen->xmil_cb_arg);
@@ -1653,7 +1653,7 @@ static int mailbox_open(struct inode *inode, struct file *file)
 	 * Only allow one open from daemon. Mailbox msg can only be polled
 	 * by one daemon.
 	 */
-	struct platform_device *pdev = xocl_devnode_open_excl(inode);
+	struct platform_device *pdev = xrt_devnode_open_excl(inode);
 	struct mailbox *mbx = NULL;
 
 	if (!pdev)
@@ -1685,7 +1685,7 @@ static int mailbox_close(struct inode *inode, struct file *file)
 	mutex_lock(&mbx->mbx_lock);
 	mbx->mbx_opened--;
 	mutex_unlock(&mbx->mbx_lock);
-	xocl_devnode_close(inode);
+	xrt_devnode_close(inode);
 	return 0;
 }
 
@@ -1923,9 +1923,9 @@ failed:
 	return ret;
 }
 
-struct xocl_subdev_endpoints xocl_mailbox_endpoints[] = {
+struct xrt_subdev_endpoints xrt_mailbox_endpoints[] = {
 	{
-		.xse_names = (struct xocl_subdev_ep_names []){
+		.xse_names = (struct xrt_subdev_ep_names []){
 			{ .ep_name = NODE_MAILBOX_VSEC},
 			{ NULL },
 		},
@@ -1934,7 +1934,7 @@ struct xocl_subdev_endpoints xocl_mailbox_endpoints[] = {
 	{ 0 },
 };
 
-struct xocl_subdev_drvdata mailbox_drvdata = {
+struct xrt_subdev_drvdata mailbox_drvdata = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = mailbox_leaf_ioctl,
 	},
@@ -1951,14 +1951,14 @@ struct xocl_subdev_drvdata mailbox_drvdata = {
 	},
 };
 
-#define	XOCL_MAILBOX	"xocl_mailbox"
+#define	XOCL_MAILBOX	"xrt_mailbox"
 
 struct platform_device_id mailbox_id_table[] = {
 	{ XOCL_MAILBOX, (kernel_ulong_t)&mailbox_drvdata },
 	{ },
 };
 
-struct platform_driver xocl_mailbox_driver = {
+struct platform_driver xrt_mailbox_driver = {
 	.probe		= mailbox_probe,
 	.remove		= mailbox_remove,
 	.driver		= {

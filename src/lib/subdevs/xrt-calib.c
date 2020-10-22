@@ -10,11 +10,11 @@
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
  */
 #include <linux/delay.h>
-#include "xocl-xclbin.h"
-#include "xocl-metadata.h"
-#include "xocl-ddr-srsr.h"
+#include "xrt-xclbin.h"
+#include "xrt-metadata.h"
+#include "xrt-ddr-srsr.h"
 
-#define XOCL_CALIB	"xocl_calib"
+#define XOCL_CALIB	"xrt_calib"
 
 struct calib_cache {
 	struct list_head	link;
@@ -35,7 +35,7 @@ struct calib {
 #define CALIB_DONE(calib)			\
 	(ioread32(calib->calib_base) & BIT(0))
 
-static bool xocl_calib_leaf_match(enum xocl_subdev_id id,
+static bool xrt_calib_leaf_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	if (id == XOCL_SUBDEV_UCS || id == XOCL_SUBDEV_SRSR)
@@ -69,25 +69,25 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 	const char		*ep_name;
 	int			ret;
 	struct calib_cache	*cache = NULL, *temp;
-	struct xocl_srsr_ioctl_calib req = { 0 };
+	struct xrt_srsr_ioctl_calib req = { 0 };
 
-	ret = xocl_subdev_ioctl(srsr_leaf, XOCL_SRSR_EP_NAME,
+	ret = xrt_subdev_ioctl(srsr_leaf, XOCL_SRSR_EP_NAME,
 		(void *)&ep_name);
 	if (ret) {
-		xocl_err(calib->pdev, "failed to get SRSR name %d", ret);
+		xrt_err(calib->pdev, "failed to get SRSR name %d", ret);
 		goto done;
 	}
-	xocl_info(calib->pdev, "Calibrate SRSR %s", ep_name);
+	xrt_info(calib->pdev, "Calibrate SRSR %s", ep_name);
 
 	mutex_lock(&calib->lock);
 	list_for_each_entry_safe(cache, temp, &calib->cache_list, link) {
 		if (!strncmp(ep_name, cache->ep_name, strlen(ep_name) + 1)) {
 			req.xsic_buf = cache->data;
 			req.xsic_size = cache->data_size;
-			ret = xocl_subdev_ioctl(srsr_leaf,
+			ret = xrt_subdev_ioctl(srsr_leaf,
 				XOCL_SRSR_FAST_CALIB, &req);
 			if (ret) {
-				xocl_err(calib->pdev, "Fast calib failed %d",
+				xrt_err(calib->pdev, "Fast calib failed %d",
 					ret);
 				break;
 			}
@@ -97,7 +97,7 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 
 	if (ret) {
 		/* fall back to full calibration */
-		xocl_info(calib->pdev, "fall back to full calibration");
+		xrt_info(calib->pdev, "fall back to full calibration");
 		vfree(cache->data);
 		memset(cache, 0, sizeof(*cache));
 	} else {
@@ -112,9 +112,9 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 	}
 
 	req.xsic_buf = &cache->data;
-	ret = xocl_subdev_ioctl(srsr_leaf, XOCL_SRSR_CALIB, &req);
+	ret = xrt_subdev_ioctl(srsr_leaf, XOCL_SRSR_CALIB, &req);
 	if (ret) {
-		xocl_err(calib->pdev, "Full calib failed %d", ret);
+		xrt_err(calib->pdev, "Full calib failed %d", ret);
 		list_del(&cache->link);
 		calib->cache_num--;
 		goto done;
@@ -143,47 +143,47 @@ static int calib_calibration(struct calib *calib)
 	}
 
 	if (i == 20) {
-		xocl_err(calib->pdev,
+		xrt_err(calib->pdev,
 			"MIG calibration timeout after bitstream download");
 		return -ETIMEDOUT;
 	}
 
-	xocl_info(calib->pdev, "took %dms", i * 500);
+	xrt_info(calib->pdev, "took %dms", i * 500);
 	return 0;
 }
 
-static int xocl_calib_event_cb(struct platform_device *pdev,
-	enum xocl_events evt, void *arg)
+static int xrt_calib_event_cb(struct platform_device *pdev,
+	enum xrt_events evt, void *arg)
 {
 	struct calib *calib = platform_get_drvdata(pdev);
-	struct xocl_event_arg_subdev *esd = (struct xocl_event_arg_subdev *)arg;
+	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
 	struct platform_device *leaf;
 
 	switch (evt) {
 	case XOCL_EVENT_POST_CREATION: {
 		if (esd->xevt_subdev_id == XOCL_SUBDEV_SRSR) {
-			leaf = xocl_subdev_get_leaf_by_id(pdev,
+			leaf = xrt_subdev_get_leaf_by_id(pdev,
 				XOCL_SUBDEV_SRSR, esd->xevt_subdev_instance);
 			BUG_ON(!leaf);
 			calib_srsr(calib, leaf);
-			xocl_subdev_put_leaf(pdev, leaf);
+			xrt_subdev_put_leaf(pdev, leaf);
 		} else if (esd->xevt_subdev_id == XOCL_SUBDEV_UCS)
 			calib_calibration(calib);
 		break;
 	}
 	default:
-		xocl_info(pdev, "ignored event %d", evt);
+		xrt_info(pdev, "ignored event %d", evt);
 		break;
 	}
 
 	return XOCL_EVENT_CB_CONTINUE;
 }
 
-int xocl_calib_remove(struct platform_device *pdev)
+int xrt_calib_remove(struct platform_device *pdev)
 {
 	struct calib *calib = platform_get_drvdata(pdev);
 
-	xocl_subdev_remove_event_cb(pdev, calib->evt_hdl);
+	xrt_subdev_remove_event_cb(pdev, calib->evt_hdl);
 	calib_cache_clean(calib);
 
 	if (calib->calib_base)
@@ -195,7 +195,7 @@ int xocl_calib_remove(struct platform_device *pdev)
 	return 0;
 }
 
-int xocl_calib_probe(struct platform_device *pdev)
+int xrt_calib_probe(struct platform_device *pdev)
 {
 	struct calib *calib;
 	struct resource *res;
@@ -215,12 +215,12 @@ int xocl_calib_probe(struct platform_device *pdev)
 	calib->calib_base = ioremap(res->start, res->end - res->start + 1);
 	if (!calib->calib_base) {
 		err = -EIO;
-		xocl_err(pdev, "Map iomem failed");
+		xrt_err(pdev, "Map iomem failed");
 		goto failed;
 	}
 
-	calib->evt_hdl = xocl_subdev_add_event_cb(pdev, xocl_calib_leaf_match,
-		NULL, xocl_calib_event_cb);
+	calib->evt_hdl = xrt_subdev_add_event_cb(pdev, xrt_calib_leaf_match,
+		NULL, xrt_calib_event_cb);
 
 	mutex_init(&calib->lock);
 	INIT_LIST_HEAD(&calib->cache_list);
@@ -228,13 +228,13 @@ int xocl_calib_probe(struct platform_device *pdev)
 	return 0;
 
 failed:
-	xocl_calib_remove(pdev);
+	xrt_calib_remove(pdev);
 	return err;
 }
 
-struct xocl_subdev_endpoints xocl_calib_endpoints[] = {
+struct xrt_subdev_endpoints xrt_calib_endpoints[] = {
 	{
-		.xse_names = (struct xocl_subdev_ep_names[]) {
+		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .ep_name = NODE_DDR_CALIB },
 			{ NULL },
 		},
@@ -243,16 +243,16 @@ struct xocl_subdev_endpoints xocl_calib_endpoints[] = {
 	{ 0 },
 };
 
-static const struct platform_device_id xocl_calib_table[] = {
+static const struct platform_device_id xrt_calib_table[] = {
 	{ XOCL_CALIB, },
 	{ },
 };
 
-struct platform_driver xocl_calib_driver = {
+struct platform_driver xrt_calib_driver = {
 	.driver = {
 		.name = XOCL_CALIB,
 	},
-	.probe = xocl_calib_probe,
-	.remove = xocl_calib_remove,
-	.id_table = xocl_calib_table,
+	.probe = xrt_calib_probe,
+	.remove = xrt_calib_remove,
+	.id_table = xrt_calib_table,
 };

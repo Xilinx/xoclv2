@@ -9,12 +9,12 @@
 #ifndef	_XOCL_CLKFREQ_H_
 #define	_XOCL_CLKFREQ_H_
 
-#include "xocl-subdev.h"
+#include "xrt-subdev.h"
 
 /*
  * CLKFREQ driver IOCTL calls.
  */
-enum xocl_clkfreq_ioctl_cmd {
+enum xrt_clkfreq_ioctl_cmd {
 	XOCL_CLKFREQ_READ = 0,
 };
 

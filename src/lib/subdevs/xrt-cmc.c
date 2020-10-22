@@ -8,20 +8,20 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#include "xocl-metadata.h"
-#include "xocl-subdev.h"
-#include "xocl-cmc-impl.h"
+#include "xrt-metadata.h"
+#include "xrt-subdev.h"
+#include "xrt-cmc-impl.h"
 
-#define	XOCL_CMC "xocl_cmc"
+#define	XOCL_CMC "xrt_cmc"
 
-static struct xocl_iores_map cmc_iores_id_map[] = {
+static struct xrt_iores_map cmc_iores_id_map[] = {
 	{ NODE_CMC_REG, IO_REG},
 	{ NODE_CMC_RESET, IO_GPIO},
 	{ NODE_CMC_FW_MEM, IO_IMAGE_MGMT},
 	{ NODE_CMC_MUTEX, IO_MUTEX},
 };
 
-struct xocl_cmc {
+struct xrt_cmc {
 	struct platform_device *pdev;
 	struct cmc_reg_map regs[NUM_IOADDR];
 	void *ctrl_hdl;
@@ -33,56 +33,56 @@ struct xocl_cmc {
 
 void *cmc_pdev2sc(struct platform_device *pdev)
 {
-	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
 
 	return cmc->sc_hdl;
 }
 
 void *cmc_pdev2bdinfo(struct platform_device *pdev)
 {
-	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
 
 	return cmc->bdinfo_hdl;
 }
 
 void *cmc_pdev2ctrl(struct platform_device *pdev)
 {
-	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
 
 	return cmc->ctrl_hdl;
 }
 
 void *cmc_pdev2sensor(struct platform_device *pdev)
 {
-	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
 
 	return cmc->sensor_hdl;
 }
 
 void *cmc_pdev2mbx(struct platform_device *pdev)
 {
-	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
 
 	return cmc->mbx_hdl;
 }
 
-static int cmc_map_io(struct xocl_cmc *cmc, struct resource *res)
+static int cmc_map_io(struct xrt_cmc *cmc, struct resource *res)
 {
 	int	id;
 
-	id = xocl_md_res_name2id(cmc_iores_id_map, ARRAY_SIZE(cmc_iores_id_map),
+	id = xrt_md_res_name2id(cmc_iores_id_map, ARRAY_SIZE(cmc_iores_id_map),
 		res->name);
 	if (id < 0) {
-		xocl_err(cmc->pdev, "resource %s ignored", res->name);
+		xrt_err(cmc->pdev, "resource %s ignored", res->name);
 		return -EINVAL;
 	}
 	if (cmc->regs[id].crm_addr) {
-		xocl_err(cmc->pdev, "resource %s already mapped", res->name);
+		xrt_err(cmc->pdev, "resource %s already mapped", res->name);
 		return -EINVAL;
 	}
 	cmc->regs[id].crm_addr = ioremap(res->start, res->end - res->start + 1);
 	if (!cmc->regs[id].crm_addr) {
-		xocl_err(cmc->pdev, "resource %s map failed", res->name);
+		xrt_err(cmc->pdev, "resource %s map failed", res->name);
 		return -EIO;
 	}
 	cmc->regs[id].crm_size = res->end - res->start + 1;
@@ -93,9 +93,9 @@ static int cmc_map_io(struct xocl_cmc *cmc, struct resource *res)
 static int cmc_remove(struct platform_device *pdev)
 {
 	int i;
-	struct xocl_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
 
-	xocl_info(pdev, "leaving...");
+	xrt_info(pdev, "leaving...");
 
 	cmc_sc_remove(pdev);
 	cmc_bdinfo_remove(pdev);
@@ -114,12 +114,12 @@ static int cmc_remove(struct platform_device *pdev)
 
 static int cmc_probe(struct platform_device *pdev)
 {
-	struct xocl_cmc *cmc;
+	struct xrt_cmc *cmc;
 	struct resource *res;
 	int i = 0;
 	int ret = 0;
 
-	xocl_info(pdev, "probing...");
+	xrt_info(pdev, "probing...");
 
 	cmc = devm_kzalloc(DEV(pdev), sizeof(*cmc), GFP_KERNEL);
 	if (!cmc)
@@ -139,7 +139,7 @@ static int cmc_probe(struct platform_device *pdev)
 			break;
 	}
 	if (i != NUM_IOADDR) {
-		xocl_err(cmc->pdev, "not all needed resources are found");
+		xrt_err(cmc->pdev, "not all needed resources are found");
 		ret = -EINVAL;
 		goto done;
 	}
@@ -161,9 +161,9 @@ done:
 	return ret;
 }
 
-struct xocl_subdev_endpoints xocl_cmc_endpoints[] = {
+struct xrt_subdev_endpoints xrt_cmc_endpoints[] = {
 	{
-		.xse_names = (struct xocl_subdev_ep_names []) {
+		.xse_names = (struct xrt_subdev_ep_names []) {
 			{ .ep_name = NODE_CMC_REG },
 			{ .ep_name = NODE_CMC_RESET },
 			{ .ep_name = NODE_CMC_MUTEX },
@@ -175,7 +175,7 @@ struct xocl_subdev_endpoints xocl_cmc_endpoints[] = {
 	{ 0 },
 };
 
-struct xocl_subdev_drvdata xocl_cmc_data = {
+struct xrt_subdev_drvdata xrt_cmc_data = {
 	.xsd_file_ops = {
 		.xsf_ops = {
 			.owner = THIS_MODULE,
@@ -189,11 +189,11 @@ struct xocl_subdev_drvdata xocl_cmc_data = {
 };
 
 static const struct platform_device_id cmc_id_table[] = {
-	{ XOCL_CMC, (kernel_ulong_t)&xocl_cmc_data },
+	{ XOCL_CMC, (kernel_ulong_t)&xrt_cmc_data },
 	{ },
 };
 
-struct platform_driver xocl_cmc_driver = {
+struct platform_driver xrt_cmc_driver = {
 	.driver	= {
 		.name    = XOCL_CMC,
 	},

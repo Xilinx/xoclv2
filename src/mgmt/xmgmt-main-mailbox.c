@@ -13,8 +13,8 @@
 #include <linux/crc32c.h>
 #include "uapi/mailbox_proto.h"
 #include "xmgmt-main-impl.h"
-#include "xocl-mailbox.h"
-#include "xocl-metadata.h"
+#include "xrt-mailbox.h"
+#include "xrt-metadata.h"
 
 struct xmgmt_mailbox {
 	struct platform_device *pdev;
@@ -31,12 +31,12 @@ struct xmgmt_mailbox {
 		struct xcl_mailbox_peer_data *p =			\
 			(struct xcl_mailbox_peer_data *)(request)->data;\
 									\
-		xocl_info((xmbx)->pdev, "%s(%s) %s%s",			\
+		xrt_info((xmbx)->pdev, "%s(%s) %s%s",			\
 			mailbox_req2name((request)->req),		\
 			mailbox_group_kind2name(p->kind),		\
 			dir, mailbox_chan2name(sw_ch));			\
 	} else {							\
-		xocl_info((xmbx)->pdev, "%s %s%s",			\
+		xrt_info((xmbx)->pdev, "%s %s%s",			\
 			mailbox_req2name((request)->req),		\
 			dir, mailbox_chan2name(sw_ch));			\
 	}								\
@@ -46,7 +46,7 @@ struct xmgmt_mailbox {
 #define	XMGMT_MAILBOX_PRT_REQ_RECV(xmbx, req, sw_ch)			\
 	XMGMT_MAILBOX_PRT_REQ(xmbx, false, req, sw_ch)
 #define	XMGMT_MAILBOX_PRT_RESP(xmbx, resp)				\
-	xocl_info((xmbx)->pdev, "respond %ld bytes >>>>>%s",		\
+	xrt_info((xmbx)->pdev, "respond %ld bytes >>>>>%s",		\
 	(resp)->xmip_data_size, mailbox_chan2name((resp)->xmip_sw_ch))
 
 static inline struct xmgmt_mailbox *pdev2mbx(struct platform_device *pdev)
@@ -58,7 +58,7 @@ static void xmgmt_mailbox_post(struct xmgmt_mailbox *xmbx,
 	u64 msgid, bool sw_ch, void *buf, size_t len)
 {
 	int rc;
-	struct xocl_mailbox_ioctl_post post = {
+	struct xrt_mailbox_ioctl_post post = {
 		.xmip_req_id = msgid,
 		.xmip_sw_ch = sw_ch,
 		.xmip_data = buf,
@@ -68,7 +68,7 @@ static void xmgmt_mailbox_post(struct xmgmt_mailbox *xmbx,
 	BUG_ON(!mutex_is_locked(&xmbx->lock));
 
 	if (!xmbx->mailbox) {
-		xocl_err(xmbx->pdev, "mailbox not available");
+		xrt_err(xmbx->pdev, "mailbox not available");
 		return;
 	}
 
@@ -79,9 +79,9 @@ static void xmgmt_mailbox_post(struct xmgmt_mailbox *xmbx,
 		XMGMT_MAILBOX_PRT_RESP(xmbx, &post);
 	}
 
-	rc = xocl_subdev_ioctl(xmbx->mailbox, XOCL_MAILBOX_POST, &post);
+	rc = xrt_subdev_ioctl(xmbx->mailbox, XOCL_MAILBOX_POST, &post);
 	if (rc)
-		xocl_err(xmbx->pdev, "failed to post msg: %d", rc);
+		xrt_err(xmbx->pdev, "failed to post msg: %d", rc);
 }
 
 static void xmgmt_mailbox_notify(struct xmgmt_mailbox *xmbx, bool sw_ch,
@@ -105,7 +105,7 @@ static void xmgmt_mailbox_resp_test_msg(struct xmgmt_mailbox *xmbx,
 
 	if (xmbx->test_msg == NULL) {
 		mutex_unlock(&xmbx->lock);
-		xocl_err(pdev, "test msg is not set, drop request");
+		xrt_err(pdev, "test msg is not set, drop request");
 		return;
 	}
 
@@ -120,11 +120,11 @@ static int xmgmt_mailbox_dtb_add_prop(struct platform_device *pdev,
 	char *dst_dtb, const char *ep_name, const char *regmap_name,
 	const char *prop, const void *val, int size)
 {
-	int rc = xocl_md_set_prop(DEV(pdev), dst_dtb, ep_name, regmap_name,
+	int rc = xrt_md_set_prop(DEV(pdev), dst_dtb, ep_name, regmap_name,
 		prop, val, size);
 
 	if (rc) {
-		xocl_err(pdev, "failed to set %s@(%s, %s): %d",
+		xrt_err(pdev, "failed to set %s@(%s, %s): %d",
 			ep_name, regmap_name, prop, rc);
 	}
 	return rc;
@@ -136,7 +136,7 @@ static int xmgmt_mailbox_dtb_add_vbnv(struct platform_device *pdev, char *dtb)
 	char *vbnv = xmgmt_get_vbnv(pdev);
 
 	if (vbnv == NULL) {
-		xocl_err(pdev, "failed to get VBNV");
+		xrt_err(pdev, "failed to get VBNV");
 		return -ENOENT;
 	}
 	rc = xmgmt_mailbox_dtb_add_prop(pdev, dtb, NULL, NULL,
@@ -150,11 +150,11 @@ static int xmgmt_mailbox_dtb_copy_logic_uuid(struct platform_device *pdev,
 {
 	const void *val;
 	int sz;
-	int rc = xocl_md_get_prop(DEV(pdev), src_dtb, NULL, NULL,
+	int rc = xrt_md_get_prop(DEV(pdev), src_dtb, NULL, NULL,
 		PROP_LOGIC_UUID, &val, &sz);
 
 	if (rc) {
-		xocl_err(pdev, "failed to get %s: %d", PROP_LOGIC_UUID, rc);
+		xrt_err(pdev, "failed to get %s: %d", PROP_LOGIC_UUID, rc);
 		return rc;
 	}
 	return xmgmt_mailbox_dtb_add_prop(pdev, dst_dtb, NULL, NULL,
@@ -164,7 +164,7 @@ static int xmgmt_mailbox_dtb_copy_logic_uuid(struct platform_device *pdev,
 static int xmgmt_mailbox_dtb_add_vrom(struct platform_device *pdev,
 	const char *src_dtb, char *dst_dtb)
 {
-	/* For compatibility for legacy xocl driver. */
+	/* For compatibility for legacy xrt driver. */
 	enum FeatureBitMask {
 		UNIFIED_PLATFORM		= 0x0000000000000001
 		, XARE_ENBLD			= 0x0000000000000002
@@ -208,11 +208,11 @@ static int xmgmt_mailbox_dtb_add_vrom(struct platform_device *pdev,
 	kfree(vbnv);
 
 	header.FeatureBitMap = UNIFIED_PLATFORM;
-	rc = xocl_md_get_prop(DEV(pdev), src_dtb,
+	rc = xrt_md_get_prop(DEV(pdev), src_dtb,
 		NODE_CMC_FW_MEM, NULL, PROP_IO_OFFSET, NULL, NULL);
 	if (rc == 0)
 		header.FeatureBitMap |= BOARD_MGMT_ENBLD;
-	rc = xocl_md_get_prop(DEV(pdev), src_dtb,
+	rc = xrt_md_get_prop(DEV(pdev), src_dtb,
 		NODE_ERT_FW_MEM, NULL, PROP_IO_OFFSET, NULL, NULL);
 	if (rc == 0)
 		header.FeatureBitMap |= MB_SCHEDULER;
@@ -225,7 +225,7 @@ static u32 xmgmt_mailbox_dtb_user_pf(struct platform_device *pdev,
 	const char *dtb, const char *epname, const char *regmap)
 {
 	const u32 *pfnump;
-	int rc = xocl_md_get_prop(DEV(pdev), dtb, epname, regmap,
+	int rc = xrt_md_get_prop(DEV(pdev), dtb, epname, regmap,
 		PROP_PF_NUM, (const void **)&pfnump, NULL);
 
 	if (rc)
@@ -244,26 +244,26 @@ static int xmgmt_mailbox_dtb_copy_user_endpoints(struct platform_device *pdev,
 	struct device *dev = DEV(pdev);
 
 	if (pfnum == (u32)-1) {
-		xocl_err(pdev, "failed to get user pf num");
+		xrt_err(pdev, "failed to get user pf num");
 		rc = -EINVAL;
 	}
 
-	for (xocl_md_get_next_endpoint(dev, src, NULL, NULL, &epname, &regmap);
+	for (xrt_md_get_next_endpoint(dev, src, NULL, NULL, &epname, &regmap);
 		rc == 0 && epname != NULL;
-		xocl_md_get_next_endpoint(dev, src, epname, regmap,
+		xrt_md_get_next_endpoint(dev, src, epname, regmap,
 		&epname, &regmap)) {
 		if (pfnum !=
 			xmgmt_mailbox_dtb_user_pf(pdev, src, epname, regmap))
 			continue;
-		rc = xocl_md_copy_endpoint(dev, dst, src, epname, regmap, NULL);
+		rc = xrt_md_copy_endpoint(dev, dst, src, epname, regmap, NULL);
 		if (rc) {
-			xocl_err(pdev, "failed to copy (%s, %s): %d",
+			xrt_err(pdev, "failed to copy (%s, %s): %d",
 				epname, regmap, rc);
 		} else {
-			rc = xocl_md_set_prop(dev, dst, epname, regmap,
+			rc = xrt_md_set_prop(dev, dst, epname, regmap,
 				PROP_PARTITION_LEVEL, &level, sizeof(level));
 			if (rc) {
-				xocl_err(pdev,
+				xrt_err(pdev,
 					"can't set level for (%s, %s): %d",
 					epname, regmap, rc);
 			}
@@ -278,7 +278,7 @@ static char *xmgmt_mailbox_user_dtb(struct platform_device *pdev)
 	const char *src = NULL;
 	char *dst = NULL;
 	struct device *dev = DEV(pdev);
-	int rc = xocl_md_create(dev, &dst);
+	int rc = xrt_md_create(dev, &dst);
 
 	if (rc || dst == NULL)
 		return NULL;
@@ -289,7 +289,7 @@ static char *xmgmt_mailbox_user_dtb(struct platform_device *pdev)
 
 	src = xmgmt_get_dtb(pdev, XMGMT_BLP);
 	if (src == NULL) {
-		xocl_err(pdev, "failed to get BLP dtb");
+		xrt_err(pdev, "failed to get BLP dtb");
 		goto fail;
 	}
 
@@ -301,12 +301,12 @@ static char *xmgmt_mailbox_user_dtb(struct platform_device *pdev)
 	if (rc)
 		goto fail;
 
-	rc = xocl_md_copy_endpoint(dev, dst, src, NODE_PARTITION_INFO,
+	rc = xrt_md_copy_endpoint(dev, dst, src, NODE_PARTITION_INFO,
 		NULL, NODE_PARTITION_INFO_BLP);
 	if (rc)
 		goto fail;
 
-	rc = xocl_md_copy_endpoint(dev, dst, src, NODE_INTERFACES, NULL, NULL);
+	rc = xrt_md_copy_endpoint(dev, dst, src, NODE_INTERFACES, NULL, NULL);
 	if (rc)
 		goto fail;
 
@@ -314,7 +314,7 @@ static char *xmgmt_mailbox_user_dtb(struct platform_device *pdev)
 	if (rc)
 		goto fail;
 
-	xocl_md_pack(dev, dst);
+	xrt_md_pack(dev, dst);
 	vfree(src);
 	return dst;
 
@@ -336,12 +336,12 @@ static void xmgmt_mailbox_resp_subdev(struct xmgmt_mailbox *xmbx,
 	if (dtb == NULL)
 		return;
 
-	dtbsz = xocl_md_size(DEV(pdev), dtb);
+	dtbsz = xrt_md_size(DEV(pdev), dtb);
 	totalsz = dtbsz + sizeof(*hdr) - sizeof(hdr->data);
 	if (offset != 0 || totalsz > size) {
 		/* Only support fetching dtb in one shot. */
 		vfree(dtb);
-		xocl_err(pdev, "need %lldB, user buffer size is %lldB, dropped",
+		xrt_err(pdev, "need %lldB, user buffer size is %lldB, dropped",
 			totalsz, size);
 		return;
 	}
@@ -372,7 +372,7 @@ static void xmgmt_mailbox_resp_peer_data(struct xmgmt_mailbox *xmbx,
 		(struct xcl_mailbox_peer_data *)req->data;
 
 	if (len < (sizeof(*req) + sizeof(*pdata) - 1)) {
-		xocl_err(xmbx->pdev, "received corrupted %s, dropped",
+		xrt_err(xmbx->pdev, "received corrupted %s, dropped",
 			mailbox_req2name(req->req));
 		return;
 	}
@@ -383,7 +383,7 @@ static void xmgmt_mailbox_resp_peer_data(struct xmgmt_mailbox *xmbx,
 			pdata->offset, pdata->size);
 		break;
 	default:
-		xocl_err(xmbx->pdev, "%s(%s) request not handled",
+		xrt_err(xmbx->pdev, "%s(%s) request not handled",
 			mailbox_req2name(req->req),
 			mailbox_group_kind2name(pdata->kind));
 		break;
@@ -407,14 +407,14 @@ static bool xmgmt_mailbox_is_same_domain(struct xmgmt_mailbox *xmbx,
 
 	paddr = virt_to_phys((void *)mb_conn->kaddr);
 	if (paddr != (phys_addr_t)mb_conn->paddr) {
-		xocl_info(pdev, "paddrs differ, user 0x%llx, mgmt 0x%llx",
+		xrt_info(pdev, "paddrs differ, user 0x%llx, mgmt 0x%llx",
 			mb_conn->paddr, paddr);
 		return false;
 	}
 
 	crc_chk = crc32c_le(~0, (void *)mb_conn->kaddr, PAGE_SIZE);
 	if (crc_chk != mb_conn->crc32) {
-		xocl_info(pdev, "CRCs differ, user 0x%x, mgmt 0x%x",
+		xrt_info(pdev, "CRCs differ, user 0x%x, mgmt 0x%x",
 			mb_conn->crc32, crc_chk);
 		return false;
 	}
@@ -432,7 +432,7 @@ static void xmgmt_mailbox_resp_user_probe(struct xmgmt_mailbox *xmbx,
 		return;
 
 	if (len < (sizeof(*req) + sizeof(*conn) - 1)) {
-		xocl_err(xmbx->pdev, "received corrupted %s, dropped",
+		xrt_err(xmbx->pdev, "received corrupted %s, dropped",
 			mailbox_req2name(req->req));
 		vfree(resp);
 		return;
@@ -456,11 +456,11 @@ static void xmgmt_mailbox_listener(void *arg, void *data, size_t len,
 	struct xcl_mailbox_req *req = (struct xcl_mailbox_req *)data;
 
 	if (err) {
-		xocl_err(pdev, "failed to receive request: %d", err);
+		xrt_err(pdev, "failed to receive request: %d", err);
 		return;
 	}
 	if (len < sizeof(*req)) {
-		xocl_err(pdev, "received corrupted request");
+		xrt_err(pdev, "received corrupted request");
 		return;
 	}
 
@@ -479,7 +479,7 @@ static void xmgmt_mailbox_listener(void *arg, void *data, size_t len,
 		xmgmt_mailbox_resp_user_probe(xmbx, req, len, msgid, sw_ch);
 		break;
 	default:
-		xocl_err(pdev, "%s(%d) request not handled",
+		xrt_err(pdev, "%s(%d) request not handled",
 			mailbox_req2name(req->req), req->req);
 		break;
 	}
@@ -487,42 +487,42 @@ static void xmgmt_mailbox_listener(void *arg, void *data, size_t len,
 
 static void xmgmt_mailbox_reg_listener(struct xmgmt_mailbox *xmbx)
 {
-	struct xocl_mailbox_ioctl_listen listen = {
+	struct xrt_mailbox_ioctl_listen listen = {
 		xmgmt_mailbox_listener, xmbx };
 
 	BUG_ON(!mutex_is_locked(&xmbx->lock));
 	if (!xmbx->mailbox)
 		return;
-	(void) xocl_subdev_ioctl(xmbx->mailbox, XOCL_MAILBOX_LISTEN, &listen);
+	(void) xrt_subdev_ioctl(xmbx->mailbox, XOCL_MAILBOX_LISTEN, &listen);
 }
 
 static void xmgmt_mailbox_unreg_listener(struct xmgmt_mailbox *xmbx)
 {
-	struct xocl_mailbox_ioctl_listen listen = { 0 };
+	struct xrt_mailbox_ioctl_listen listen = { 0 };
 
 	BUG_ON(!mutex_is_locked(&xmbx->lock));
 	BUG_ON(!xmbx->mailbox);
-	(void) xocl_subdev_ioctl(xmbx->mailbox, XOCL_MAILBOX_LISTEN, &listen);
+	(void) xrt_subdev_ioctl(xmbx->mailbox, XOCL_MAILBOX_LISTEN, &listen);
 }
 
-static bool xmgmt_mailbox_leaf_match(enum xocl_subdev_id id,
+static bool xmgmt_mailbox_leaf_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	return (id == XOCL_SUBDEV_MAILBOX);
 }
 
 static int xmgmt_mailbox_event_cb(struct platform_device *pdev,
-	enum xocl_events evt, void *arg)
+	enum xrt_events evt, void *arg)
 {
 	struct xmgmt_mailbox *xmbx = pdev2mbx(pdev);
-	struct xocl_event_arg_subdev *esd = (struct xocl_event_arg_subdev *)arg;
+	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
 
 	switch (evt) {
 	case XOCL_EVENT_POST_CREATION:
 		BUG_ON(esd->xevt_subdev_id != XOCL_SUBDEV_MAILBOX);
 		BUG_ON(xmbx->mailbox);
 		mutex_lock(&xmbx->lock);
-		xmbx->mailbox = xocl_subdev_get_leaf_by_id(pdev,
+		xmbx->mailbox = xrt_subdev_get_leaf_by_id(pdev,
 			XOCL_SUBDEV_MAILBOX, PLATFORM_DEVID_NONE);
 		xmgmt_mailbox_reg_listener(xmbx);
 		mutex_unlock(&xmbx->lock);
@@ -532,7 +532,7 @@ static int xmgmt_mailbox_event_cb(struct platform_device *pdev,
 		BUG_ON(!xmbx->mailbox);
 		mutex_lock(&xmbx->lock);
 		xmgmt_mailbox_unreg_listener(xmbx);
-		(void) xocl_subdev_put_leaf(pdev, xmbx->mailbox);
+		(void) xrt_subdev_put_leaf(pdev, xmbx->mailbox);
 		xmbx->mailbox = NULL;
 		mutex_unlock(&xmbx->lock);
 		break;
@@ -559,7 +559,7 @@ static ssize_t xmgmt_mailbox_user_dtb_show(struct file *filp,
 		goto failed;
 	}
 
-	size = xocl_md_size(dev, blob);
+	size = xrt_md_size(dev, blob);
 	if (size <= 0) {
 		ret = -EINVAL;
 		goto failed;
@@ -605,7 +605,7 @@ void *xmgmt_mailbox_probe(struct platform_device *pdev)
 	xmbx->pdev = pdev;
 	mutex_init(&xmbx->lock);
 
-	xmbx->evt_hdl = xocl_subdev_add_event_cb(pdev,
+	xmbx->evt_hdl = xrt_subdev_add_event_cb(pdev,
 		xmgmt_mailbox_leaf_match, NULL, xmgmt_mailbox_event_cb);
 	(void) sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_mailbox_attrgroup);
 	return xmbx;
@@ -618,15 +618,15 @@ void xmgmt_mailbox_remove(void *handle)
 
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_mailbox_attrgroup);
 	if (xmbx->evt_hdl)
-		(void) xocl_subdev_remove_event_cb(pdev, xmbx->evt_hdl);
+		(void) xrt_subdev_remove_event_cb(pdev, xmbx->evt_hdl);
 	if (xmbx->mailbox)
-		(void) xocl_subdev_put_leaf(pdev, xmbx->mailbox);
+		(void) xrt_subdev_put_leaf(pdev, xmbx->mailbox);
 	if (xmbx->test_msg)
 		vfree(xmbx->test_msg);
 }
 
 int xmgmt_mailbox_set_test_msg(struct xmgmt_mailbox *xmbx,
-	struct xocl_mgmt_main_peer_test_msg *tm)
+	struct xrt_mgmt_main_peer_test_msg *tm)
 {
 	mutex_lock(&xmbx->lock);
 
@@ -644,12 +644,12 @@ int xmgmt_mailbox_set_test_msg(struct xmgmt_mailbox *xmbx,
 }
 
 int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx,
-	struct xocl_mgmt_main_peer_test_msg *tm)
+	struct xrt_mgmt_main_peer_test_msg *tm)
 {
 	int rc;
 	struct platform_device *pdev = xmbx->pdev;
 	struct xcl_mailbox_req req = { 0, XCL_MAILBOX_REQ_TEST_READ, };
-	struct xocl_mailbox_ioctl_request leaf_req = {
+	struct xrt_mailbox_ioctl_request leaf_req = {
 		.xmir_sw_ch = false,
 		.xmir_resp_ttl = 1,
 		.xmir_req = &req,
@@ -666,11 +666,11 @@ int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx,
 		 * either notification or response. here is the only exception
 		 * for debugging purpose.
 		 */
-		rc = xocl_subdev_ioctl(xmbx->mailbox,
+		rc = xrt_subdev_ioctl(xmbx->mailbox,
 			XOCL_MAILBOX_REQUEST, &leaf_req);
 	} else {
 		rc = -ENODEV;
-		xocl_err(pdev, "mailbox not available");
+		xrt_err(pdev, "mailbox not available");
 	}
 	mutex_unlock(&xmbx->lock);
 
@@ -678,7 +678,7 @@ int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx,
 	return rc;
 }
 
-int xmgmt_peer_test_msg(void *handle, struct xocl_mgmt_main_peer_test_msg *tm)
+int xmgmt_peer_test_msg(void *handle, struct xrt_mgmt_main_peer_test_msg *tm)
 {
 	struct xmgmt_mailbox *xmbx = (struct xmgmt_mailbox *)handle;
 

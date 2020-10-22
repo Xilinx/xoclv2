@@ -10,11 +10,11 @@
 
 #include <linux/delay.h>
 #include <linux/uaccess.h>
-#include "xocl-metadata.h"
-#include "xocl-subdev.h"
-#include "xocl-flash.h"
+#include "xrt-metadata.h"
+#include "xrt-subdev.h"
+#include "xrt-flash.h"
 
-#define	XOCL_QSPI "xocl_qspi"
+#define	XOCL_QSPI "xrt_qspi"
 
 /* Status write command */
 #define QSPI_CMD_STATUSREG_WRITE		0x01
@@ -69,10 +69,10 @@
 /* Quad IO Fast Read */
 #define QSPI_CMD_QUAD_IO_READ			0xEB
 
-#define	QSPI_ERR(flash, fmt, arg...)	xocl_err((flash)->pdev, fmt, ##arg)
-#define	QSPI_WARN(flash, fmt, arg...)	xocl_warn((flash)->pdev, fmt, ##arg)
-#define	QSPI_INFO(flash, fmt, arg...)	xocl_info((flash)->pdev, fmt, ##arg)
-#define	QSPI_DBG(flash, fmt, arg...)	xocl_dbg((flash)->pdev, fmt, ##arg)
+#define	QSPI_ERR(flash, fmt, arg...)	xrt_err((flash)->pdev, fmt, ##arg)
+#define	QSPI_WARN(flash, fmt, arg...)	xrt_warn((flash)->pdev, fmt, ##arg)
+#define	QSPI_INFO(flash, fmt, arg...)	xrt_info((flash)->pdev, fmt, ##arg)
+#define	QSPI_DBG(flash, fmt, arg...)	xrt_dbg((flash)->pdev, fmt, ##arg)
 
 /*
  * QSPI control reg bits.
@@ -234,7 +234,7 @@ struct qspi_reg {
 	u32	qspi_rx_fifo;
 } __packed;
 
-struct xocl_qspi {
+struct xrt_qspi {
 	struct platform_device	*pdev;
 	struct resource *res;
 	struct mutex io_lock;
@@ -247,7 +247,7 @@ struct xocl_qspi {
 	int qspi_curr_slave;
 };
 
-static inline const char *reg2name(struct xocl_qspi *flash, u32 *reg)
+static inline const char *reg2name(struct xrt_qspi *flash, u32 *reg)
 {
 	static const char * const reg_names[] = {
 		"qspi_ctrl",
@@ -268,7 +268,7 @@ static inline const char *reg2name(struct xocl_qspi *flash, u32 *reg)
 	return reg_names[off / sizeof(u32)];
 }
 
-static inline u32 qspi_reg_rd(struct xocl_qspi *flash, u32 *reg)
+static inline u32 qspi_reg_rd(struct xrt_qspi *flash, u32 *reg)
 {
 	u32 val = ioread32(reg);
 
@@ -276,28 +276,28 @@ static inline u32 qspi_reg_rd(struct xocl_qspi *flash, u32 *reg)
 	return val;
 }
 
-static inline void qspi_reg_wr(struct xocl_qspi *flash, u32 *reg, u32 val)
+static inline void qspi_reg_wr(struct xrt_qspi *flash, u32 *reg, u32 val)
 {
 	QSPI_DBG(flash, "REG_WR(%s,0x%x)", reg2name(flash, reg), val);
 	iowrite32(val, reg);
 }
 
-static inline u32 qspi_get_status(struct xocl_qspi *flash)
+static inline u32 qspi_get_status(struct xrt_qspi *flash)
 {
 	return qspi_reg_rd(flash, &flash->qspi_regs->qspi_status);
 }
 
-static inline u32 qspi_get_ctrl(struct xocl_qspi *flash)
+static inline u32 qspi_get_ctrl(struct xrt_qspi *flash)
 {
 	return qspi_reg_rd(flash, &flash->qspi_regs->qspi_ctrl);
 }
 
-static inline void qspi_set_ctrl(struct xocl_qspi *flash, u32 ctrl)
+static inline void qspi_set_ctrl(struct xrt_qspi *flash, u32 ctrl)
 {
 	qspi_reg_wr(flash, &flash->qspi_regs->qspi_ctrl, ctrl);
 }
 
-static inline void qspi_activate_slave(struct xocl_qspi *flash, int index)
+static inline void qspi_activate_slave(struct xrt_qspi *flash, int index)
 {
 	u32 slave_reg;
 
@@ -312,7 +312,7 @@ static inline void qspi_activate_slave(struct xocl_qspi *flash, int index)
  * Pull one byte from flash RX fifo.
  * So far, only 8-bit data width is supported.
  */
-static inline u8 qspi_read8(struct xocl_qspi *flash)
+static inline u8 qspi_read8(struct xrt_qspi *flash)
 {
 	return (u8)qspi_reg_rd(flash, &flash->qspi_regs->qspi_rx);
 }
@@ -321,12 +321,12 @@ static inline u8 qspi_read8(struct xocl_qspi *flash)
  * Push one byte to flash TX fifo.
  * So far, only 8-bit data width is supported.
  */
-static inline void qspi_send8(struct xocl_qspi *flash, u8 val)
+static inline void qspi_send8(struct xrt_qspi *flash, u8 val)
 {
 	qspi_reg_wr(flash, &flash->qspi_regs->qspi_tx, val);
 }
 
-static inline bool qspi_has_err(struct xocl_qspi *flash)
+static inline bool qspi_has_err(struct xrt_qspi *flash)
 {
 	u32 status = qspi_get_status(flash);
 
@@ -341,7 +341,7 @@ static inline bool qspi_has_err(struct xocl_qspi *flash)
  * Caller should make sure the flash controller has exactly
  * len bytes in the fifo. It's an error if we pull out less.
  */
-static int qspi_rx(struct xocl_qspi *flash, u8 *buf, size_t len)
+static int qspi_rx(struct xrt_qspi *flash, u8 *buf, size_t len)
 {
 	size_t cnt;
 	u8 c;
@@ -370,7 +370,7 @@ static int qspi_rx(struct xocl_qspi *flash, u8 *buf, size_t len)
 /*
  * Caller should make sure the fifo is large enough to host len bytes.
  */
-static int qspi_tx(struct xocl_qspi *flash, u8 *buf, size_t len)
+static int qspi_tx(struct xrt_qspi *flash, u8 *buf, size_t len)
 {
 	u32 ctrl = qspi_get_ctrl(flash);
 	int i;
@@ -411,7 +411,7 @@ static int qspi_tx(struct xocl_qspi *flash, u8 *buf, size_t len)
 /*
  * Reset both RX and TX FIFO.
  */
-static int qspi_reset_fifo(struct xocl_qspi *flash)
+static int qspi_reset_fifo(struct xrt_qspi *flash)
 {
 	const u32 status_fifo_mask = QSPI_SR_TX_FULL | QSPI_SR_RX_FULL |
 		QSPI_SR_TX_EMPTY | QSPI_SR_RX_EMPTY;
@@ -432,7 +432,7 @@ static int qspi_reset_fifo(struct xocl_qspi *flash)
 	return 0;
 }
 
-static int qspi_transaction(struct xocl_qspi *flash,
+static int qspi_transaction(struct xrt_qspi *flash,
 	u8 *buf, size_t len, bool need_output)
 {
 	int ret = 0;
@@ -464,7 +464,7 @@ static int qspi_transaction(struct xocl_qspi *flash,
 	return ret;
 }
 
-static size_t qspi_get_fifo_depth(struct xocl_qspi *flash)
+static size_t qspi_get_fifo_depth(struct xrt_qspi *flash)
 {
 	size_t depth = 0;
 	u32 ctrl;
@@ -501,7 +501,7 @@ static size_t qspi_get_fifo_depth(struct xocl_qspi *flash)
 /*
  * Exec flash IO command on specified slave.
  */
-static inline int qspi_exec_io_cmd(struct xocl_qspi *flash,
+static inline int qspi_exec_io_cmd(struct xrt_qspi *flash,
 	size_t len, bool output_needed)
 {
 	char *buf = flash->io_buf;
@@ -510,7 +510,7 @@ static inline int qspi_exec_io_cmd(struct xocl_qspi *flash,
 }
 
 /* Test if flash memory is ready. */
-static bool qspi_is_ready(struct xocl_qspi *flash)
+static bool qspi_is_ready(struct xrt_qspi *flash)
 {
 	/*
 	 * Reading flash device status input needs a dummy byte
@@ -525,7 +525,7 @@ static bool qspi_is_ready(struct xocl_qspi *flash)
 	return true;
 }
 
-static int qspi_enable_write(struct xocl_qspi *flash)
+static int qspi_enable_write(struct xrt_qspi *flash)
 {
 	u8 cmd = QSPI_CMD_WRITE_ENABLE;
 	int ret = qspi_transaction(flash, &cmd, 1, false);
@@ -535,7 +535,7 @@ static int qspi_enable_write(struct xocl_qspi *flash)
 	return ret;
 }
 
-static int qspi_set_sector(struct xocl_qspi *flash, u8 sector)
+static int qspi_set_sector(struct xrt_qspi *flash, u8 sector)
 {
 	int ret = 0;
 	u8 cmd[] = { QSPI_CMD_EXTENDED_ADDRESS_REG_WRITE, sector };
@@ -586,7 +586,7 @@ static inline loff_t qspi_faddr2offset(struct qspi_flash_addr *faddr)
 
 /* IO cmd starts with op code followed by address. */
 static inline int
-qspi_setup_io_cmd_header(struct xocl_qspi *flash,
+qspi_setup_io_cmd_header(struct xrt_qspi *flash,
 	u8 op, struct qspi_flash_addr *faddr, size_t *header_len)
 {
 	int ret = 0;
@@ -604,7 +604,7 @@ qspi_setup_io_cmd_header(struct xocl_qspi *flash,
 	return ret;
 }
 
-static bool qspi_wait_until_ready(struct xocl_qspi *flash)
+static bool qspi_wait_until_ready(struct xrt_qspi *flash)
 {
 	if (QSPI_BUSY_WAIT(qspi_is_ready(flash))) {
 		QSPI_ERR(flash, "QSPI flash device is not ready");
@@ -617,7 +617,7 @@ static bool qspi_wait_until_ready(struct xocl_qspi *flash)
  * Do one FIFO read from flash.
  * @cnt contains bytes actually read on successful return.
  */
-static int qspi_fifo_rd(struct xocl_qspi *flash,
+static int qspi_fifo_rd(struct xrt_qspi *flash,
 	loff_t off, u8 *buf, size_t *cnt)
 {
 	/* For read cmd, we need to exclude a few more dummy bytes in FIFO. */
@@ -672,7 +672,7 @@ static int qspi_fifo_rd(struct xocl_qspi *flash,
  * Do one FIFO write to flash. Assuming erase is already done.
  * @cnt contains bytes actually written on successful return.
  */
-static int qspi_fifo_wr(struct xocl_qspi *flash,
+static int qspi_fifo_wr(struct xrt_qspi *flash,
 	loff_t off, u8 *buf, size_t *cnt)
 {
 	/*
@@ -726,7 +726,7 @@ static int qspi_fifo_wr(struct xocl_qspi *flash,
 /*
  * Load/store the whole buf of data from/to flash memory.
  */
-static int qspi_buf_rdwr(struct xocl_qspi *flash,
+static int qspi_buf_rdwr(struct xrt_qspi *flash,
 	u8 *buf, loff_t off, size_t len, bool write)
 {
 	int ret = 0;
@@ -774,7 +774,7 @@ static u8 qspi_erase_cmd(size_t pagesz)
 /*
  * Erase one flash page.
  */
-static int qspi_page_erase(struct xocl_qspi *flash, loff_t off, size_t pagesz)
+static int qspi_page_erase(struct xrt_qspi *flash, loff_t off, size_t pagesz)
 {
 	int ret = 0;
 	struct qspi_flash_addr faddr;
@@ -811,7 +811,7 @@ static int qspi_page_erase(struct xocl_qspi *flash, loff_t off, size_t pagesz)
 	return 0;
 }
 
-static bool is_valid_offset(struct xocl_qspi *flash, loff_t off)
+static bool is_valid_offset(struct xrt_qspi *flash, loff_t off)
 {
 	struct qspi_flash_addr faddr;
 
@@ -825,7 +825,7 @@ static bool is_valid_offset(struct xocl_qspi *flash, loff_t off)
 }
 
 static int
-qspi_do_read(struct xocl_qspi *flash, char *kbuf, size_t n, loff_t off)
+qspi_do_read(struct xrt_qspi *flash, char *kbuf, size_t n, loff_t off)
 {
 	u8 *page = NULL;
 	size_t cnt = 0;
@@ -869,7 +869,7 @@ qspi_do_read(struct xocl_qspi *flash, char *kbuf, size_t n, loff_t off)
 static ssize_t
 qspi_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
 {
-	struct xocl_qspi *flash = file->private_data;
+	struct xrt_qspi *flash = file->private_data;
 	char *kbuf = NULL;
 	int ret = 0;
 
@@ -902,7 +902,7 @@ qspi_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
 static int qspi_kernel_read(struct platform_device *pdev,
 	char *buf, size_t n, loff_t off)
 {
-	struct xocl_qspi *flash = platform_get_drvdata(pdev);
+	struct xrt_qspi *flash = platform_get_drvdata(pdev);
 
 	QSPI_INFO(flash, "kernel reading %ld bytes @0x%llx", n, off);
 	return qspi_do_read(flash, buf, n, off);
@@ -912,7 +912,7 @@ static int qspi_kernel_read(struct platform_device *pdev,
  * Write a page. Perform read-modify-write as needed.
  * @cnt contains actual bytes copied from user on successful return.
  */
-static int qspi_page_rmw(struct xocl_qspi *flash,
+static int qspi_page_rmw(struct xrt_qspi *flash,
 	const char __user *ubuf, u8 *kbuf, loff_t off, size_t *cnt)
 {
 	loff_t thisoff = QSPI_PAGE_ALIGN(off);
@@ -968,7 +968,7 @@ static inline size_t qspi_get_page_io_size(loff_t off, size_t sz)
  * @cnt contains actual bytes copied from user on successful return.
  * Needs to fallback to RMW, if not possible.
  */
-static int qspi_page_wr(struct xocl_qspi *flash,
+static int qspi_page_wr(struct xrt_qspi *flash,
 	const char __user *ubuf, u8 *kbuf, loff_t off, size_t *cnt)
 {
 	int ret;
@@ -994,7 +994,7 @@ static int qspi_page_wr(struct xocl_qspi *flash,
 static ssize_t
 qspi_write(struct file *file, const char __user *buf, size_t n, loff_t *off)
 {
-	struct xocl_qspi *flash = file->private_data;
+	struct xrt_qspi *flash = file->private_data;
 	u8 *page = NULL;
 	size_t cnt = 0;
 	int ret = 0;
@@ -1076,8 +1076,8 @@ qspi_llseek(struct file *filp, loff_t off, int whence)
  */
 static int qspi_open(struct inode *inode, struct file *file)
 {
-	struct xocl_qspi *flash;
-	struct platform_device *pdev = xocl_devnode_open_excl(inode);
+	struct xrt_qspi *flash;
+	struct platform_device *pdev = xrt_devnode_open_excl(inode);
 
 	if (!pdev)
 		return -EBUSY;
@@ -1089,13 +1089,13 @@ static int qspi_open(struct inode *inode, struct file *file)
 
 static int qspi_close(struct inode *inode, struct file *file)
 {
-	struct xocl_qspi *flash = file->private_data;
+	struct xrt_qspi *flash = file->private_data;
 
 	if (!flash)
 		return -EINVAL;
 
 	file->private_data = NULL;
-	xocl_devnode_close(inode);
+	xrt_devnode_close(inode);
 	return 0;
 }
 
@@ -1110,7 +1110,7 @@ static DEVICE_ATTR_RO(flash_type);
 static ssize_t size_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct xocl_qspi *flash = dev_get_drvdata(dev);
+	struct xrt_qspi *flash = dev_get_drvdata(dev);
 
 	return sprintf(buf, "%ld\n", flash->flash_size);
 }
@@ -1128,7 +1128,7 @@ static struct attribute_group qspi_attr_group = {
 
 static int qspi_remove(struct platform_device *pdev)
 {
-	struct xocl_qspi *flash = platform_get_drvdata(pdev);
+	struct xrt_qspi *flash = platform_get_drvdata(pdev);
 
 	if (!flash)
 		return -EINVAL;
@@ -1146,7 +1146,7 @@ static int qspi_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int qspi_get_ID(struct xocl_qspi *flash)
+static int qspi_get_ID(struct xrt_qspi *flash)
 {
 	int i;
 	struct qspi_flash_vendor *vendor = NULL;
@@ -1187,7 +1187,7 @@ static int qspi_get_ID(struct xocl_qspi *flash)
 	return 0;
 }
 
-static int qspi_controller_probe(struct xocl_qspi *flash)
+static int qspi_controller_probe(struct xrt_qspi *flash)
 {
 	int ret;
 
@@ -1217,7 +1217,7 @@ static int qspi_controller_probe(struct xocl_qspi *flash)
 
 static int qspi_probe(struct platform_device *pdev)
 {
-	struct xocl_qspi *flash;
+	struct xrt_qspi *flash;
 	int ret;
 
 	flash = devm_kzalloc(DEV(pdev), sizeof(*flash), GFP_KERNEL);
@@ -1268,7 +1268,7 @@ error:
 
 static size_t qspi_get_size(struct platform_device *pdev)
 {
-	struct xocl_qspi *flash = platform_get_drvdata(pdev);
+	struct xrt_qspi *flash = platform_get_drvdata(pdev);
 
 	return flash->flash_size;
 }
@@ -1276,7 +1276,7 @@ static size_t qspi_get_size(struct platform_device *pdev)
 static int
 qspi_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	struct xocl_qspi *flash = platform_get_drvdata(pdev);
+	struct xrt_qspi *flash = platform_get_drvdata(pdev);
 	int ret = 0;
 
 	QSPI_INFO(flash, "handling IOCTL cmd: %d", cmd);
@@ -1288,8 +1288,8 @@ qspi_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	case XOCL_FLASH_READ: {
-		struct xocl_flash_ioctl_read *rd =
-			(struct xocl_flash_ioctl_read *)arg;
+		struct xrt_flash_ioctl_read *rd =
+			(struct xrt_flash_ioctl_read *)arg;
 		ret = qspi_kernel_read(pdev,
 			rd->xfir_buf, rd->xfir_size, rd->xfir_offset);
 		break;
@@ -1302,9 +1302,9 @@ qspi_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	return ret;
 }
 
-struct xocl_subdev_endpoints xocl_qspi_endpoints[] = {
+struct xrt_subdev_endpoints xrt_qspi_endpoints[] = {
 	{
-		.xse_names = (struct xocl_subdev_ep_names []){
+		.xse_names = (struct xrt_subdev_ep_names []){
 			{
 				.ep_name = NODE_FLASH_VSEC,
 			},
@@ -1315,7 +1315,7 @@ struct xocl_subdev_endpoints xocl_qspi_endpoints[] = {
 	{ 0 },
 };
 
-struct xocl_subdev_drvdata qspi_data = {
+struct xrt_subdev_drvdata qspi_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = qspi_leaf_ioctl,
 	},
@@ -1337,7 +1337,7 @@ static const struct platform_device_id qspi_id_table[] = {
 	{ },
 };
 
-struct platform_driver xocl_qspi_driver = {
+struct platform_driver xrt_qspi_driver = {
 	.driver	= {
 		.name    = XOCL_QSPI,
 	},

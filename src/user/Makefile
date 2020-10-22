@@ -7,12 +7,12 @@
 
 obj-m	+= xmgmt.o
 obj-m	+= xmgmt-fmgr.o
-obj-m   += xocl-lib.o
+obj-m   += xrt-lib.o
 #obj-m   += ptest.o
 
 xmgmt-y := xmgmt-drv.o alveo-ctx.o xmgmt-ioctl.o
 xmgmt-fmgr-y := xmgmt-fmgr-xclbin.o xmgmt-fmgr-drv.o
-xocl-lib-y := xocl-from.o xocl-xmc.o xocl-icap.o xocl-icap-ioctl.o xocl-region.o xocl-core.o
+xrt-lib-y := xrt-from.o xrt-xmc.o xrt-icap.o xrt-icap-ioctl.o xrt-region.o xrt-core.o
 #ptest-y := ptest.o
 
 CONFIG_MODULE_SIG=n

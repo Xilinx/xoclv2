@@ -7,16 +7,16 @@
  */
 
 #include <linux/module.h>
-#include "xocl-subdev.h"
-#include "xocl-main.h"
+#include "xrt-subdev.h"
+#include "xrt-main.h"
 
-#define	XOCL_IPLIB_MODULE_NAME		"xocl-lib"
+#define	XOCL_IPLIB_MODULE_NAME		"xrt-lib"
 #define	XOCL_IPLIB_MODULE_VERSION	"4.0.0"
 #define	XOCL_DRVNAME(drv)		((drv)->driver.name)
 #define	XOCL_MAX_DEVICE_NODES		128
 
-struct mutex xocl_class_lock;
-struct class *xocl_class;
+struct mutex xrt_class_lock;
+struct class *xrt_class;
 
 /*
  * Subdev driver is known by ID to others. We map the ID to it's
@@ -24,43 +24,43 @@ struct class *xocl_class;
  * We also map it to the endpoint name in DTB as well, if it's different
  * than the driver's binding name.
  */
-static struct xocl_drv_map {
-	enum xocl_subdev_id id;
+static struct xrt_drv_map {
+	enum xrt_subdev_id id;
 	struct platform_driver *drv;
-	struct xocl_subdev_endpoints *eps;
+	struct xrt_subdev_endpoints *eps;
 	struct ida ida; /* manage driver instance and char dev minor */
-} xocl_drv_maps[] = {
-	{ XOCL_SUBDEV_PART, &xocl_partition_driver, },
-	{ XOCL_SUBDEV_VSEC, &xocl_vsec_driver, xocl_vsec_endpoints, },
-	{ XOCL_SUBDEV_VSEC_GOLDEN, &xocl_vsec_golden_driver, xocl_vsec_golden_endpoints, },
-	{ XOCL_SUBDEV_GPIO, &xocl_gpio_driver, xocl_gpio_endpoints,},
-	{ XOCL_SUBDEV_AXIGATE, &xocl_axigate_driver, xocl_axigate_endpoints, },
-	{ XOCL_SUBDEV_ICAP, &xocl_icap_driver, xocl_icap_endpoints, },
-	{ XOCL_SUBDEV_CALIB, &xocl_calib_driver, xocl_calib_endpoints, },
-	{ XOCL_SUBDEV_TEST, &xocl_test_driver, xocl_test_endpoints, },
+} xrt_drv_maps[] = {
+	{ XOCL_SUBDEV_PART, &xrt_partition_driver, },
+	{ XOCL_SUBDEV_VSEC, &xrt_vsec_driver, xrt_vsec_endpoints, },
+	{ XOCL_SUBDEV_VSEC_GOLDEN, &xrt_vsec_golden_driver, xrt_vsec_golden_endpoints, },
+	{ XOCL_SUBDEV_GPIO, &xrt_gpio_driver, xrt_gpio_endpoints,},
+	{ XOCL_SUBDEV_AXIGATE, &xrt_axigate_driver, xrt_axigate_endpoints, },
+	{ XOCL_SUBDEV_ICAP, &xrt_icap_driver, xrt_icap_endpoints, },
+	{ XOCL_SUBDEV_CALIB, &xrt_calib_driver, xrt_calib_endpoints, },
+	{ XOCL_SUBDEV_TEST, &xrt_test_driver, xrt_test_endpoints, },
 	{ XOCL_SUBDEV_MGMT_MAIN, NULL, },
-	{ XOCL_SUBDEV_QSPI, &xocl_qspi_driver, xocl_qspi_endpoints, },
-	{ XOCL_SUBDEV_MAILBOX, &xocl_mailbox_driver, xocl_mailbox_endpoints, },
-	{ XOCL_SUBDEV_CMC, &xocl_cmc_driver, xocl_cmc_endpoints, },
-	{ XOCL_SUBDEV_CLKFREQ, &xocl_clkfreq_driver, xocl_clkfreq_endpoints, },
-	{ XOCL_SUBDEV_CLOCK, &xocl_clock_driver, xocl_clock_endpoints, },
-	{ XOCL_SUBDEV_UCS, &xocl_ucs_driver, xocl_ucs_endpoints, },
+	{ XOCL_SUBDEV_QSPI, &xrt_qspi_driver, xrt_qspi_endpoints, },
+	{ XOCL_SUBDEV_MAILBOX, &xrt_mailbox_driver, xrt_mailbox_endpoints, },
+	{ XOCL_SUBDEV_CMC, &xrt_cmc_driver, xrt_cmc_endpoints, },
+	{ XOCL_SUBDEV_CLKFREQ, &xrt_clkfreq_driver, xrt_clkfreq_endpoints, },
+	{ XOCL_SUBDEV_CLOCK, &xrt_clock_driver, xrt_clock_endpoints, },
+	{ XOCL_SUBDEV_UCS, &xrt_ucs_driver, xrt_ucs_endpoints, },
 };
 
-static inline struct xocl_subdev_drvdata *
-xocl_drv_map2drvdata(struct xocl_drv_map *map)
+static inline struct xrt_subdev_drvdata *
+xrt_drv_map2drvdata(struct xrt_drv_map *map)
 {
-	return (struct xocl_subdev_drvdata *)map->drv->id_table[0].driver_data;
+	return (struct xrt_subdev_drvdata *)map->drv->id_table[0].driver_data;
 }
 
-static struct xocl_drv_map *
-xocl_drv_find_map_by_id(enum xocl_subdev_id id)
+static struct xrt_drv_map *
+xrt_drv_find_map_by_id(enum xrt_subdev_id id)
 {
 	int i;
-	struct xocl_drv_map *map = NULL;
+	struct xrt_drv_map *map = NULL;
 
-	for (i = 0; i < ARRAY_SIZE(xocl_drv_maps); i++) {
-		struct xocl_drv_map *tmap = &xocl_drv_maps[i];
+	for (i = 0; i < ARRAY_SIZE(xrt_drv_maps); i++) {
+		struct xrt_drv_map *tmap = &xrt_drv_maps[i];
 
 		if (tmap->id != id)
 			continue;
@@ -70,10 +70,10 @@ xocl_drv_find_map_by_id(enum xocl_subdev_id id)
 	return map;
 }
 
-static int xocl_drv_register_driver(enum xocl_subdev_id id)
+static int xrt_drv_register_driver(enum xrt_subdev_id id)
 {
-	struct xocl_drv_map *map = xocl_drv_find_map_by_id(id);
-	struct xocl_subdev_drvdata *drvdata;
+	struct xrt_drv_map *map = xrt_drv_find_map_by_id(id);
+	struct xrt_subdev_drvdata *drvdata;
 	int rc = 0;
 	const char *drvname;
 
@@ -91,7 +91,7 @@ static int xocl_drv_register_driver(enum xocl_subdev_id id)
 		return rc;
 	}
 
-	drvdata = xocl_drv_map2drvdata(map);
+	drvdata = xrt_drv_map2drvdata(map);
 	if (drvdata && drvdata->xsd_dev_ops.xsd_post_init) {
 		rc = drvdata->xsd_dev_ops.xsd_post_init();
 		if (rc) {
@@ -103,7 +103,7 @@ static int xocl_drv_register_driver(enum xocl_subdev_id id)
 
 	if (drvdata) {
 		/* Initialize dev_t for char dev node. */
-		if (xocl_devnode_enabled(drvdata)) {
+		if (xrt_devnode_enabled(drvdata)) {
 			rc = alloc_chrdev_region(
 				&drvdata->xsd_file_ops.xsf_dev_t, 0,
 				XOCL_MAX_DEVICE_NODES, drvname);
@@ -126,10 +126,10 @@ static int xocl_drv_register_driver(enum xocl_subdev_id id)
 	return 0;
 }
 
-static void xocl_drv_unregister_driver(enum xocl_subdev_id id)
+static void xrt_drv_unregister_driver(enum xrt_subdev_id id)
 {
-	struct xocl_drv_map *map = xocl_drv_find_map_by_id(id);
-	struct xocl_subdev_drvdata *drvdata;
+	struct xrt_drv_map *map = xrt_drv_find_map_by_id(id);
+	struct xrt_subdev_drvdata *drvdata;
 	const char *drvname;
 
 	BUG_ON(!map);
@@ -142,7 +142,7 @@ static void xocl_drv_unregister_driver(enum xocl_subdev_id id)
 
 	ida_destroy(&map->ida);
 
-	drvdata = xocl_drv_map2drvdata(map);
+	drvdata = xrt_drv_map2drvdata(map);
 	if (drvdata && drvdata->xsd_file_ops.xsf_dev_t != (dev_t)-1) {
 		unregister_chrdev_region(drvdata->xsd_file_ops.xsf_dev_t,
 			XOCL_MAX_DEVICE_NODES);
@@ -156,15 +156,15 @@ static void xocl_drv_unregister_driver(enum xocl_subdev_id id)
 	pr_info("unregistered %s subdev driver\n", drvname);
 }
 
-int xocl_subdev_register_external_driver(enum xocl_subdev_id id,
-	struct platform_driver *drv, struct xocl_subdev_endpoints *eps)
+int xrt_subdev_register_external_driver(enum xrt_subdev_id id,
+	struct platform_driver *drv, struct xrt_subdev_endpoints *eps)
 {
 	int i;
 	int result = 0;
 
-	mutex_lock(&xocl_class_lock);
-	for (i = 0; i < ARRAY_SIZE(xocl_drv_maps); i++) {
-		struct xocl_drv_map *map = &xocl_drv_maps[i];
+	mutex_lock(&xrt_class_lock);
+	for (i = 0; i < ARRAY_SIZE(xrt_drv_maps); i++) {
+		struct xrt_drv_map *map = &xrt_drv_maps[i];
 
 		if (map->id != id)
 			continue;
@@ -177,44 +177,44 @@ int xocl_subdev_register_external_driver(enum xocl_subdev_id id,
 		map->drv = drv;
 		BUG_ON(map->eps);
 		map->eps = eps;
-		xocl_drv_register_driver(id);
+		xrt_drv_register_driver(id);
 	}
-	mutex_unlock(&xocl_class_lock);
+	mutex_unlock(&xrt_class_lock);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_register_external_driver);
+EXPORT_SYMBOL_GPL(xrt_subdev_register_external_driver);
 
-void xocl_subdev_unregister_external_driver(enum xocl_subdev_id id)
+void xrt_subdev_unregister_external_driver(enum xrt_subdev_id id)
 {
 	int i;
 
-	mutex_lock(&xocl_class_lock);
-	for (i = 0; i < ARRAY_SIZE(xocl_drv_maps); i++) {
-		struct xocl_drv_map *map = &xocl_drv_maps[i];
+	mutex_lock(&xrt_class_lock);
+	for (i = 0; i < ARRAY_SIZE(xrt_drv_maps); i++) {
+		struct xrt_drv_map *map = &xrt_drv_maps[i];
 
 		if (map->id != id)
 			continue;
-		xocl_drv_unregister_driver(id);
+		xrt_drv_unregister_driver(id);
 		map->drv = NULL;
 		map->eps = NULL;
 		break;
 	}
-	mutex_unlock(&xocl_class_lock);
+	mutex_unlock(&xrt_class_lock);
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_unregister_external_driver);
+EXPORT_SYMBOL_GPL(xrt_subdev_unregister_external_driver);
 
-static __init int xocl_drv_register_drivers(void)
+static __init int xrt_drv_register_drivers(void)
 {
 	int i;
 	int rc = 0;
 
-	mutex_init(&xocl_class_lock);
-	xocl_class = class_create(THIS_MODULE, XOCL_IPLIB_MODULE_NAME);
-	if (IS_ERR(xocl_class))
-		return PTR_ERR(xocl_class);
+	mutex_init(&xrt_class_lock);
+	xrt_class = class_create(THIS_MODULE, XOCL_IPLIB_MODULE_NAME);
+	if (IS_ERR(xrt_class))
+		return PTR_ERR(xrt_class);
 
-	for (i = 0; i < ARRAY_SIZE(xocl_drv_maps); i++) {
-		rc = xocl_drv_register_driver(xocl_drv_maps[i].id);
+	for (i = 0; i < ARRAY_SIZE(xrt_drv_maps); i++) {
+		rc = xrt_drv_register_driver(xrt_drv_maps[i].id);
 		if (rc)
 			break;
 	}
@@ -222,52 +222,52 @@ static __init int xocl_drv_register_drivers(void)
 		return 0;
 
 	while (i-- > 0)
-		xocl_drv_unregister_driver(xocl_drv_maps[i].id);
-	class_destroy(xocl_class);
+		xrt_drv_unregister_driver(xrt_drv_maps[i].id);
+	class_destroy(xrt_class);
 	return rc;
 }
 
-static __exit void xocl_drv_unregister_drivers(void)
+static __exit void xrt_drv_unregister_drivers(void)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(xocl_drv_maps); i++)
-		xocl_drv_unregister_driver(xocl_drv_maps[i].id);
-	class_destroy(xocl_class);
+	for (i = 0; i < ARRAY_SIZE(xrt_drv_maps); i++)
+		xrt_drv_unregister_driver(xrt_drv_maps[i].id);
+	class_destroy(xrt_class);
 }
 
-const char *xocl_drv_name(enum xocl_subdev_id id)
+const char *xrt_drv_name(enum xrt_subdev_id id)
 {
-	struct xocl_drv_map *map = xocl_drv_find_map_by_id(id);
+	struct xrt_drv_map *map = xrt_drv_find_map_by_id(id);
 
 	if (map)
 		return XOCL_DRVNAME(map->drv);
 	return NULL;
 }
 
-int xocl_drv_get_instance(enum xocl_subdev_id id)
+int xrt_drv_get_instance(enum xrt_subdev_id id)
 {
-	struct xocl_drv_map *map = xocl_drv_find_map_by_id(id);
+	struct xrt_drv_map *map = xrt_drv_find_map_by_id(id);
 
 	return ida_alloc_range(&map->ida, 0, XOCL_MAX_DEVICE_NODES, GFP_KERNEL);
 }
 
-void xocl_drv_put_instance(enum xocl_subdev_id id, int instance)
+void xrt_drv_put_instance(enum xrt_subdev_id id, int instance)
 {
-	struct xocl_drv_map *map = xocl_drv_find_map_by_id(id);
+	struct xrt_drv_map *map = xrt_drv_find_map_by_id(id);
 
 	ida_free(&map->ida, instance);
 }
 
-struct xocl_subdev_endpoints *xocl_drv_get_endpoints(enum xocl_subdev_id id)
+struct xrt_subdev_endpoints *xrt_drv_get_endpoints(enum xrt_subdev_id id)
 {
-	struct xocl_drv_map *map = xocl_drv_find_map_by_id(id);
+	struct xrt_drv_map *map = xrt_drv_find_map_by_id(id);
 
 	return map ? map->eps : NULL;
 }
 
-module_init(xocl_drv_register_drivers);
-module_exit(xocl_drv_unregister_drivers);
+module_init(xrt_drv_register_drivers);
+module_exit(xrt_drv_unregister_drivers);
 
 MODULE_VERSION(XOCL_IPLIB_MODULE_VERSION);
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");

@@ -10,17 +10,17 @@
 
 #include <linux/firmware.h>
 #include <linux/uaccess.h>
-#include "xocl-xclbin.h"
-#include "xocl-metadata.h"
-#include "xocl-flash.h"
-#include "xocl-subdev.h"
+#include "xrt-xclbin.h"
+#include "xrt-metadata.h"
+#include "xrt-flash.h"
+#include "xrt-subdev.h"
 #include "uapi/flash_xrt_data.h"
 #include "uapi/xmgmt-ioctl.h"
-#include "xocl-gpio.h"
+#include "xrt-gpio.h"
 #include "xmgmt-main.h"
 #include "xmgmt-fmgr.h"
-#include "xocl-icap.h"
-#include "xocl-axigate.h"
+#include "xrt-icap.h"
+#include "xrt-axigate.h"
 #include "xmgmt-main-impl.h"
 
 #define	XMGMT_MAIN "xmgmt_main"
@@ -66,11 +66,11 @@ char *xmgmt_get_vbnv(struct platform_device *pdev)
 	return ret;
 }
 
-static bool xmgmt_main_leaf_match(enum xocl_subdev_id id,
+static bool xmgmt_main_leaf_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	if (id == XOCL_SUBDEV_GPIO)
-		return xocl_subdev_match_epname(id, pdev, arg);
+		return xrt_subdev_match_epname(id, pdev, arg);
 	else if (id == XOCL_SUBDEV_QSPI)
 		return true;
 
@@ -81,13 +81,13 @@ static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 {
 	char uuid[16];
 	struct platform_device *gpio_leaf;
-	struct xocl_gpio_ioctl_rw gpio_arg = { 0 };
+	struct xrt_gpio_ioctl_rw gpio_arg = { 0 };
 	int err, i, count;
 
-	gpio_leaf = xocl_subdev_get_leaf(pdev, xocl_subdev_match_epname,
+	gpio_leaf = xrt_subdev_get_leaf(pdev, xrt_subdev_match_epname,
 		NODE_BLP_ROM);
 	if (!gpio_leaf) {
-		xocl_err(pdev, "can not get %s", NODE_BLP_ROM);
+		xrt_err(pdev, "can not get %s", NODE_BLP_ROM);
 		return -EINVAL;
 	}
 
@@ -95,10 +95,10 @@ static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 	gpio_arg.xgir_buf = uuid;
 	gpio_arg.xgir_len = sizeof(uuid);
 	gpio_arg.xgir_offset = 0;
-	err = xocl_subdev_ioctl(gpio_leaf, XOCL_GPIO_READ, &gpio_arg);
-	xocl_subdev_put_leaf(pdev, gpio_leaf);
+	err = xrt_subdev_ioctl(gpio_leaf, XOCL_GPIO_READ, &gpio_arg);
+	xrt_subdev_put_leaf(pdev, gpio_leaf);
 	if (err) {
-		xocl_err(pdev, "can not get uuid: %d", err);
+		xrt_err(pdev, "can not get uuid: %d", err);
 		return err;
 	}
 
@@ -115,13 +115,13 @@ static ssize_t reset_store(struct device *dev,
 {
 	struct platform_device *pdev = to_platform_device(dev);
 
-	if (xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET) == 0) {
-		xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET);
-		(void) xocl_subdev_hot_reset(pdev);
+	if (xrt_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET) == 0) {
+		xrt_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET);
+		(void) xrt_subdev_hot_reset(pdev);
 	} else {
-		xocl_err(pdev, "offline failed, hot reset is canceled");
+		xrt_err(pdev, "offline failed, hot reset is canceled");
 	}
-	xocl_subdev_broadcast_event(pdev, XOCL_EVENT_POST_HOT_RESET);
+	xrt_subdev_broadcast_event(pdev, XOCL_EVENT_POST_HOT_RESET);
 	return count;
 }
 static DEVICE_ATTR_WO(reset);
@@ -209,7 +209,7 @@ static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
 
 	if (off == 0) {
 		if (count < sizeof(*xclbin)) {
-			xocl_err(xmm->pdev, "count is too small %ld", count);
+			xrt_err(xmm->pdev, "count is too small %ld", count);
 			return -EINVAL;
 		}
 
@@ -264,20 +264,20 @@ static int load_firmware_from_flash(struct platform_device *pdev,
 	int ret = 0;
 	char *buf = NULL;
 	struct flash_data_ident id = { 0 };
-	struct xocl_flash_ioctl_read frd = { 0 };
+	struct xrt_flash_ioctl_read frd = { 0 };
 
-	xocl_info(pdev, "try loading fw from flash");
+	xrt_info(pdev, "try loading fw from flash");
 
-	flash_leaf = xocl_subdev_get_leaf_by_id(pdev, XOCL_SUBDEV_QSPI,
+	flash_leaf = xrt_subdev_get_leaf_by_id(pdev, XOCL_SUBDEV_QSPI,
 		PLATFORM_DEVID_NONE);
 	if (flash_leaf == NULL) {
-		xocl_err(pdev, "failed to hold flash leaf");
+		xrt_err(pdev, "failed to hold flash leaf");
 		return -ENODEV;
 	}
 
-	(void) xocl_subdev_ioctl(flash_leaf, XOCL_FLASH_GET_SIZE, &flash_size);
+	(void) xrt_subdev_ioctl(flash_leaf, XOCL_FLASH_GET_SIZE, &flash_size);
 	if (flash_size == 0) {
-		xocl_err(pdev, "failed to get flash size");
+		xrt_err(pdev, "failed to get flash size");
 		ret = -EINVAL;
 		goto done;
 	}
@@ -285,9 +285,9 @@ static int load_firmware_from_flash(struct platform_device *pdev,
 	frd.xfir_buf = (char *)&header;
 	frd.xfir_size = sizeof(header);
 	frd.xfir_offset = flash_size - sizeof(header);
-	ret = xocl_subdev_ioctl(flash_leaf, XOCL_FLASH_READ, &frd);
+	ret = xrt_subdev_ioctl(flash_leaf, XOCL_FLASH_READ, &frd);
 	if (ret) {
-		xocl_err(pdev, "failed to read header from flash: %d", ret);
+		xrt_err(pdev, "failed to read header from flash: %d", ret);
 		goto done;
 	}
 
@@ -297,12 +297,12 @@ static int load_firmware_from_flash(struct platform_device *pdev,
 		char tmp[sizeof(id.fdi_magic) + 1] = { 0 };
 
 		memcpy(tmp, id.fdi_magic, magiclen);
-		xocl_info(pdev, "ignore meta data, bad magic: %s", tmp);
+		xrt_info(pdev, "ignore meta data, bad magic: %s", tmp);
 		ret = -ENOENT;
 		goto done;
 	}
 	if (id.fdi_version != 0) {
-		xocl_info(pdev, "flash meta data version is not supported: %d",
+		xrt_info(pdev, "flash meta data version is not supported: %d",
 			id.fdi_version);
 		ret = -EOPNOTSUPP;
 		goto done;
@@ -317,24 +317,24 @@ static int load_firmware_from_flash(struct platform_device *pdev,
 	frd.xfir_buf = buf;
 	frd.xfir_size = header.fdh_data_len;
 	frd.xfir_offset = header.fdh_data_offset;
-	ret = xocl_subdev_ioctl(flash_leaf, XOCL_FLASH_READ, &frd);
+	ret = xrt_subdev_ioctl(flash_leaf, XOCL_FLASH_READ, &frd);
 	if (ret) {
-		xocl_err(pdev, "failed to read meta data from flash: %d", ret);
+		xrt_err(pdev, "failed to read meta data from flash: %d", ret);
 		goto done;
 	} else if (flash_xrt_data_get_parity32(buf, header.fdh_data_len) ^
 		header.fdh_data_parity) {
-		xocl_err(pdev, "meta data is corrupted");
+		xrt_err(pdev, "meta data is corrupted");
 		ret = -EINVAL;
 		goto done;
 	}
 
-	xocl_info(pdev, "found meta data of %d bytes @0x%x",
+	xrt_info(pdev, "found meta data of %d bytes @0x%x",
 		header.fdh_data_len, header.fdh_data_offset);
 	*fw_buf = buf;
 	*len = header.fdh_data_len;
 
 done:
-	(void) xocl_subdev_put_leaf(pdev, flash_leaf);
+	(void) xrt_subdev_put_leaf(pdev, flash_leaf);
 	return ret;
 }
 
@@ -352,7 +352,7 @@ static int load_firmware_from_disk(struct platform_device *pdev, char **fw_buf,
 
 	(void) snprintf(fw_name,
 		sizeof(fw_name), "xilinx/%s/partition.xsabin", uuid);
-	xocl_info(pdev, "try loading fw: %s", fw_name);
+	xrt_info(pdev, "try loading fw: %s", fw_name);
 
 	err = request_firmware(&fw, fw_name, DEV(pdev));
 	if (err)
@@ -381,7 +381,7 @@ static const char *get_uuid_from_firmware(struct platform_device *pdev,
 	if (rc)
 		return NULL;
 
-	rc = xocl_md_get_prop(DEV(pdev), dtb, NULL, NULL,
+	rc = xrt_md_get_prop(DEV(pdev), dtb, NULL, NULL,
 		PROP_LOGIC_UUID, &uuid, NULL);
 	if (!rc)
 		uuiddup = kstrdup(uuid, GFP_KERNEL);
@@ -403,19 +403,19 @@ static bool is_valid_firmware(struct platform_device *pdev,
 		return false;
 
 	if (memcmp(fw_buf, ICAP_XCLBIN_V2, sizeof(ICAP_XCLBIN_V2)) != 0) {
-		xocl_err(pdev, "unknown fw format");
+		xrt_err(pdev, "unknown fw format");
 		return false;
 	}
 
 	if (axlflen > fw_len) {
-		xocl_err(pdev, "truncated fw, length: %ld, expect: %ld",
+		xrt_err(pdev, "truncated fw, length: %ld, expect: %ld",
 			fw_len, axlflen);
 		return false;
 	}
 
 	fw_uuid = get_uuid_from_firmware(pdev, fw_buf);
 	if (fw_uuid == NULL || strcmp(fw_uuid, dev_uuid) != 0) {
-		xocl_err(pdev, "bad fw UUID: %s, expect: %s",
+		xrt_err(pdev, "bad fw UUID: %s, expect: %s",
 			fw_uuid ? fw_uuid : "<none>", dev_uuid);
 		kfree(fw_uuid);
 		return false;
@@ -443,7 +443,7 @@ char *xmgmt_get_dtb(struct platform_device *pdev, enum provider_kind kind)
 		provider = xmm->firmware_ulp;
 		break;
 	default:
-		xocl_err(pdev, "unknown provider kind: %d", kind);
+		xrt_err(pdev, "unknown provider kind: %d", kind);
 		return NULL;
 	}
 
@@ -452,7 +452,7 @@ char *xmgmt_get_dtb(struct platform_device *pdev, enum provider_kind kind)
 
 	rc = xrt_xclbin_get_metadata(DEV(pdev), provider, &dtb);
 	if (rc)
-		xocl_err(pdev, "failed to find BLP dtb: %d", rc);
+		xrt_err(pdev, "failed to find BLP dtb: %d", rc);
 	return dtb;
 }
 
@@ -464,19 +464,19 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 
 	dtb = xmgmt_get_dtb(pdev, XMGMT_BLP);
 	if (dtb) {
-		rc = xocl_subdev_create_partition(pdev, dtb);
+		rc = xrt_subdev_create_partition(pdev, dtb);
 		if (rc < 0)
-			xocl_err(pdev, "failed to create BLP: %d", rc);
+			xrt_err(pdev, "failed to create BLP: %d", rc);
 		else
 			rc = 0;
 
 		BUG_ON(xmm->blp_intf_uuids);
-		xocl_md_get_intf_uuids(&pdev->dev, dtb,
+		xrt_md_get_intf_uuids(&pdev->dev, dtb,
 			&xmm->blp_intf_uuid_num, NULL);
 		if (xmm->blp_intf_uuid_num > 0) {
 			xmm->blp_intf_uuids = vzalloc(sizeof(uuid_t) *
 				xmm->blp_intf_uuid_num);
-			xocl_md_get_intf_uuids(&pdev->dev, dtb,
+			xrt_md_get_intf_uuids(&pdev->dev, dtb,
 				&xmm->blp_intf_uuid_num, xmm->blp_intf_uuids);
 		}
 	}
@@ -486,11 +486,11 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 }
 
 static int xmgmt_main_event_cb(struct platform_device *pdev,
-	enum xocl_events evt, void *arg)
+	enum xrt_events evt, void *arg)
 {
 	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
-	struct xocl_event_arg_subdev *esd = (struct xocl_event_arg_subdev *)arg;
-	enum xocl_subdev_id id;
+	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
+	enum xrt_subdev_id id;
 	int instance;
 	size_t fwlen;
 
@@ -498,7 +498,7 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 	case XOCL_EVENT_POST_CREATION: {
 		id = esd->xevt_subdev_id;
 		instance = esd->xevt_subdev_instance;
-		xocl_info(pdev, "processing event %d for (%d, %d)",
+		xrt_info(pdev, "processing event %d for (%d, %d)",
 			evt, id, instance);
 
 		if (id == XOCL_SUBDEV_GPIO)
@@ -521,7 +521,7 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 			    xmm->firmware_blp, fwlen))
 				(void) xmgmt_create_blp(xmm);
 			else
-				xocl_err(pdev,
+				xrt_err(pdev,
 					"failed to find firmware, giving up");
 			xmm->evt_hdl = NULL;
 		}
@@ -534,7 +534,7 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 		xmgmt_peer_notify_state(xmm->mailbox_hdl, false);
 		break;
 	default:
-		xocl_info(pdev, "ignored event %d", evt);
+		xrt_info(pdev, "ignored event %d", evt);
 		break;
 	}
 
@@ -545,7 +545,7 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 {
 	struct xmgmt_main *xmm;
 
-	xocl_info(pdev, "probing...");
+	xrt_info(pdev, "probing...");
 
 	xmm = devm_kzalloc(DEV(pdev), sizeof(*xmm), GFP_KERNEL);
 	if (!xmm)
@@ -557,12 +557,12 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 	xmm->mailbox_hdl = xmgmt_mailbox_probe(pdev);
 	mutex_init(&xmm->busy_mutex);
 
-	xmm->evt_hdl = xocl_subdev_add_event_cb(pdev,
+	xmm->evt_hdl = xrt_subdev_add_event_cb(pdev,
 		xmgmt_main_leaf_match, NODE_BLP_ROM, xmgmt_main_event_cb);
 
 	/* Ready to handle req thru sysfs nodes. */
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup))
-		xocl_err(pdev, "failed to create sysfs group");
+		xrt_err(pdev, "failed to create sysfs group");
 	return 0;
 }
 
@@ -572,10 +572,10 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 
 	/* By now, partition driver should prevent any inter-leaf call. */
 
-	xocl_info(pdev, "leaving...");
+	xrt_info(pdev, "leaving...");
 
 	if (xmm->evt_hdl)
-		(void) xocl_subdev_remove_event_cb(pdev, xmm->evt_hdl);
+		(void) xrt_subdev_remove_event_cb(pdev, xmm->evt_hdl);
 	vfree(xmm->blp_intf_uuids);
 	vfree(xmm->firmware_blp);
 	vfree(xmm->firmware_plp);
@@ -592,12 +592,12 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
 	int ret = 0;
 
-	xocl_info(pdev, "handling IOCTL cmd: %d", cmd);
+	xrt_info(pdev, "handling IOCTL cmd: %d", cmd);
 
 	switch (cmd) {
 	case XOCL_MGMT_MAIN_GET_XSABIN_SECTION: {
-		struct xocl_mgmt_main_ioctl_get_axlf_section *get =
-			(struct xocl_mgmt_main_ioctl_get_axlf_section *)arg;
+		struct xrt_mgmt_main_ioctl_get_axlf_section *get =
+			(struct xrt_mgmt_main_ioctl_get_axlf_section *)arg;
 
 		ret = xrt_xclbin_get_section(xmm->firmware_blp,
 			get->xmmigas_section_kind, &get->xmmigas_section,
@@ -611,8 +611,8 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	case XOCL_MGMT_MAIN_GET_ULP_SECTION: {
-		struct xocl_mgmt_main_ioctl_get_axlf_section *get =
-			(struct xocl_mgmt_main_ioctl_get_axlf_section *)arg;
+		struct xrt_mgmt_main_ioctl_get_axlf_section *get =
+			(struct xrt_mgmt_main_ioctl_get_axlf_section *)arg;
 
 		ret = xrt_xclbin_get_section(xmm->firmware_ulp,
 			get->xmmigas_section_kind, &get->xmmigas_section,
@@ -620,14 +620,14 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	case XOCL_MGMT_MAIN_PEER_TEST_MSG: {
-		struct xocl_mgmt_main_peer_test_msg *tm =
-			(struct xocl_mgmt_main_peer_test_msg *)arg;
+		struct xrt_mgmt_main_peer_test_msg *tm =
+			(struct xrt_mgmt_main_peer_test_msg *)arg;
 
 		ret = xmgmt_peer_test_msg(xmm->mailbox_hdl, tm);
 		break;
 	}
 	default:
-		xocl_err(pdev, "unknown cmd: %d", cmd);
+		xrt_err(pdev, "unknown cmd: %d", cmd);
 		ret = -EINVAL;
 		break;
 	}
@@ -636,13 +636,13 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 
 static int xmgmt_main_open(struct inode *inode, struct file *file)
 {
-	struct platform_device *pdev = xocl_devnode_open(inode);
+	struct platform_device *pdev = xrt_devnode_open(inode);
 
 	/* Device may have gone already when we get here. */
 	if (!pdev)
 		return -ENODEV;
 
-	xocl_info(pdev, "opened");
+	xrt_info(pdev, "opened");
 	file->private_data = platform_get_drvdata(pdev);
 	return 0;
 }
@@ -651,9 +651,9 @@ static int xmgmt_main_close(struct inode *inode, struct file *file)
 {
 	struct xmgmt_main *xmm = file->private_data;
 
-	xocl_devnode_close(inode);
+	xrt_devnode_close(inode);
 
-	xocl_info(xmm->pdev, "closed");
+	xrt_info(xmm->pdev, "closed");
 	return 0;
 }
 
@@ -713,7 +713,7 @@ static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd,
 
 	mutex_lock(&xmm->busy_mutex);
 
-	xocl_info(xmm->pdev, "ioctl cmd %d, arg %ld", cmd, arg);
+	xrt_info(xmm->pdev, "ioctl cmd %d, arg %ld", cmd, arg);
 	switch (cmd) {
 	case XCLMGMT_IOCICAPDOWNLOAD_AXLF:
 		result = bitstream_axlf_ioctl(xmm, (const void __user *)arg);
@@ -734,9 +734,9 @@ void *xmgmt_pdev2mailbox(struct platform_device *pdev)
 	return xmm->mailbox_hdl;
 }
 
-struct xocl_subdev_endpoints xocl_mgmt_main_endpoints[] = {
+struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 	{
-		.xse_names = (struct xocl_subdev_ep_names []){
+		.xse_names = (struct xrt_subdev_ep_names []){
 			{ .ep_name = NODE_MGMT_MAIN },
 			{ NULL },
 		},
@@ -745,7 +745,7 @@ struct xocl_subdev_endpoints xocl_mgmt_main_endpoints[] = {
 	{ 0 },
 };
 
-struct xocl_subdev_drvdata xmgmt_main_data = {
+struct xrt_subdev_drvdata xmgmt_main_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xmgmt_main_leaf_ioctl,
 	},

@@ -9,31 +9,31 @@
 #ifndef	_XOCL_GPIO_H_
 #define	_XOCL_GPIO_H_
 
-#include "xocl-subdev.h"
+#include "xrt-subdev.h"
 
 /*
  * GPIO driver IOCTL calls.
  */
-enum xocl_gpio_ioctl_cmd {
+enum xrt_gpio_ioctl_cmd {
 	XOCL_GPIO_READ = 0,
 	XOCL_GPIO_WRITE,
 };
 
-enum xocl_gpio_id {
+enum xrt_gpio_id {
 	XOCL_GPIO_ROM_UUID,
 	XOCL_GPIO_DDR_CALIB,
 	XOCL_GPIO_GOLDEN_VER,
 	XOCL_GPIO_MAX
 };
 
-struct xocl_gpio_ioctl_rw {
+struct xrt_gpio_ioctl_rw {
 	u32	xgir_id;
 	void	*xgir_buf;
 	u32	xgir_len;
 	u32	xgir_offset;
 };
 
-struct xocl_gpio_ioctl_intf_uuid {
+struct xrt_gpio_ioctl_intf_uuid {
 	u32	xgir_uuid_num;
 	uuid_t	*xgir_uuids;
 };

@@ -9,16 +9,16 @@
 #ifndef	_XOCL_ICAP_H_
 #define	_XOCL_ICAP_H_
 
-#include "xocl-subdev.h"
+#include "xrt-subdev.h"
 
 /*
  * ICAP driver IOCTL calls.
  */
-enum xocl_icap_ioctl_cmd {
+enum xrt_icap_ioctl_cmd {
 	XOCL_ICAP_WRITE = 0,
 };
 
-struct xocl_icap_ioctl_wr {
+struct xrt_icap_ioctl_wr {
 	void	*xiiw_bit_data;
 	u32	xiiw_data_len;
 };

@@ -13,30 +13,30 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include "xocl-metadata.h"
-#include "xocl-subdev.h"
-#include "xocl-parent.h"
-#include "xocl-gpio.h"
+#include "xrt-metadata.h"
+#include "xrt-subdev.h"
+#include "xrt-parent.h"
+#include "xrt-gpio.h"
 
-#define XOCL_GPIO "xocl_gpio"
+#define XOCL_GPIO "xrt_gpio"
 
-struct xocl_name_id {
+struct xrt_name_id {
 	char *ep_name;
 	int id;
 };
 
-static struct xocl_name_id name_id[XOCL_GPIO_MAX] = {
+static struct xrt_name_id name_id[XOCL_GPIO_MAX] = {
 	{ NODE_BLP_ROM, XOCL_GPIO_ROM_UUID },
 	{ NODE_GOLDEN_VER, XOCL_GPIO_GOLDEN_VER },
 };
 
-struct xocl_gpio {
+struct xrt_gpio {
 	struct platform_device	*pdev;
 	void		__iomem *base_addrs[XOCL_GPIO_MAX];
 	ulong			sizes[XOCL_GPIO_MAX];
 };
 
-static int xocl_gpio_name2id(struct xocl_gpio *gpio, const char *name)
+static int xrt_gpio_name2id(struct xrt_gpio *gpio, const char *name)
 {
 	int	i;
 
@@ -50,37 +50,37 @@ static int xocl_gpio_name2id(struct xocl_gpio *gpio, const char *name)
 }
 
 static int
-xocl_gpio_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_gpio_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	struct xocl_gpio	*gpio;
+	struct xrt_gpio	*gpio;
 	int			ret = 0;
 
 	gpio = platform_get_drvdata(pdev);
 
 	switch (cmd) {
 	case XOCL_GPIO_READ: {
-		struct xocl_gpio_ioctl_rw	*rw_arg = arg;
+		struct xrt_gpio_ioctl_rw	*rw_arg = arg;
 		u32				*p_src, *p_dst, i;
 
 		if (rw_arg->xgir_len & 0x3) {
-			xocl_err(pdev, "invalid len %d", rw_arg->xgir_len);
+			xrt_err(pdev, "invalid len %d", rw_arg->xgir_len);
 			return -EINVAL;
 		}
 
 		if (rw_arg->xgir_id >= XOCL_GPIO_MAX) {
-			xocl_err(pdev, "invalid id %d", rw_arg->xgir_id);
+			xrt_err(pdev, "invalid id %d", rw_arg->xgir_id);
 			return -EINVAL;
 		}
 
 		p_src = gpio->base_addrs[rw_arg->xgir_id];
 		if (!p_src) {
-			xocl_err(pdev, "io not found, id %d",
+			xrt_err(pdev, "io not found, id %d",
 				rw_arg->xgir_id);
 			return -EINVAL;
 		}
 		if (rw_arg->xgir_offset + rw_arg->xgir_len >
 		    gpio->sizes[rw_arg->xgir_id]) {
-			xocl_err(pdev, "invalid argument, off %d, len %d",
+			xrt_err(pdev, "invalid argument, off %d, len %d",
 				rw_arg->xgir_offset, rw_arg->xgir_len);
 			return -EINVAL;
 		}
@@ -93,16 +93,16 @@ xocl_gpio_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	default:
-		xocl_err(pdev, "unsupported cmd %d", cmd);
+		xrt_err(pdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
 	return ret;
 }
 
-static int xocl_gpio_remove(struct platform_device *pdev)
+static int xrt_gpio_remove(struct platform_device *pdev)
 {
-	struct xocl_gpio	*gpio;
+	struct xrt_gpio	*gpio;
 	int			i;
 
 	gpio = platform_get_drvdata(pdev);
@@ -118,9 +118,9 @@ static int xocl_gpio_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int xocl_gpio_probe(struct platform_device *pdev)
+static int xrt_gpio_probe(struct platform_device *pdev)
 {
-	struct xocl_gpio	*gpio;
+	struct xrt_gpio	*gpio;
 	int			i, id, ret = 0;
 	struct resource		*res;
 
@@ -131,19 +131,19 @@ static int xocl_gpio_probe(struct platform_device *pdev)
 	gpio->pdev = pdev;
 	platform_set_drvdata(pdev, gpio);
 
-	xocl_info(pdev, "probing...");
+	xrt_info(pdev, "probing...");
 	for (i = 0, res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	    res;
 	    res = platform_get_resource(pdev, IORESOURCE_MEM, ++i)) {
-		id = xocl_gpio_name2id(gpio, res->name);
+		id = xrt_gpio_name2id(gpio, res->name);
 		if (id < 0) {
-			xocl_err(pdev, "ep %s not found", res->name);
+			xrt_err(pdev, "ep %s not found", res->name);
 			continue;
 		}
 		gpio->base_addrs[id] = ioremap(res->start,
 			res->end - res->start + 1);
 		if (!gpio->base_addrs[id]) {
-			xocl_err(pdev, "map base failed %pR", res);
+			xrt_err(pdev, "map base failed %pR", res);
 			ret = -EIO;
 			goto failed;
 		}
@@ -152,14 +152,14 @@ static int xocl_gpio_probe(struct platform_device *pdev)
 
 failed:
 	if (ret)
-		xocl_gpio_remove(pdev);
+		xrt_gpio_remove(pdev);
 
 	return ret;
 }
 
-struct xocl_subdev_endpoints xocl_gpio_endpoints[] = {
+struct xrt_subdev_endpoints xrt_gpio_endpoints[] = {
 	{
-		.xse_names = (struct xocl_subdev_ep_names[]) {
+		.xse_names = (struct xrt_subdev_ep_names[]) {
 			/* add name if ep is in same partition */
 			{ .ep_name = NODE_BLP_ROM },
 			{ NULL },
@@ -167,7 +167,7 @@ struct xocl_subdev_endpoints xocl_gpio_endpoints[] = {
 		.xse_min_ep = 1,
 	},
 	{
-		.xse_names = (struct xocl_subdev_ep_names[]) {
+		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .ep_name = NODE_GOLDEN_VER },
 			{ NULL },
 		},
@@ -177,22 +177,22 @@ struct xocl_subdev_endpoints xocl_gpio_endpoints[] = {
 	{ 0 },
 };
 
-struct xocl_subdev_drvdata xocl_gpio_data = {
+struct xrt_subdev_drvdata xrt_gpio_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xocl_gpio_leaf_ioctl,
+		.xsd_ioctl = xrt_gpio_leaf_ioctl,
 	},
 };
 
-static const struct platform_device_id xocl_gpio_table[] = {
-	{ XOCL_GPIO, (kernel_ulong_t)&xocl_gpio_data },
+static const struct platform_device_id xrt_gpio_table[] = {
+	{ XOCL_GPIO, (kernel_ulong_t)&xrt_gpio_data },
 	{ },
 };
 
-struct platform_driver xocl_gpio_driver = {
+struct platform_driver xrt_gpio_driver = {
 	.driver = {
 		.name = XOCL_GPIO,
 	},
-	.probe = xocl_gpio_probe,
-	.remove = xocl_gpio_remove,
-	.id_table = xocl_gpio_table,
+	.probe = xrt_gpio_probe,
+	.remove = xrt_gpio_remove,
+	.id_table = xrt_gpio_table,
 };

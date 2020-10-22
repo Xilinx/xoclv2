@@ -9,17 +9,17 @@
 #ifndef	_XOCL_FLASH_H_
 #define	_XOCL_FLASH_H_
 
-#include "xocl-subdev.h"
+#include "xrt-subdev.h"
 
 /*
  * Flash controller driver IOCTL calls.
  */
-enum xocl_flash_ioctl_cmd {
+enum xrt_flash_ioctl_cmd {
 	XOCL_FLASH_GET_SIZE = 0,
 	XOCL_FLASH_READ,
 };
 
-struct xocl_flash_ioctl_read {
+struct xrt_flash_ioctl_read {
 	char *xfir_buf;
 	size_t xfir_size;
 	loff_t xfir_offset;

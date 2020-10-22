@@ -13,12 +13,12 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include "xocl-metadata.h"
-#include "xocl-subdev.h"
-#include "xocl-parent.h"
-#include "xocl-axigate.h"
+#include "xrt-metadata.h"
+#include "xrt-subdev.h"
+#include "xrt-parent.h"
+#include "xrt-axigate.h"
 
-#define XOCL_AXIGATE "xocl_axigate"
+#define XOCL_AXIGATE "xrt_axigate"
 
 struct axigate_regs {
 	u32		iag_wr;
@@ -26,7 +26,7 @@ struct axigate_regs {
 	u32		iag_rd;
 } __packed;
 
-struct xocl_axigate {
+struct xrt_axigate {
 	struct platform_device	*pdev;
 	void			*base;
 	struct mutex		gate_lock;
@@ -59,7 +59,7 @@ struct xocl_axigate {
 		reg_rd(gate, iag_rd);		\
 	} while (0)				\
 
-static int xocl_axigate_epname_idx(struct platform_device *pdev)
+static int xrt_axigate_epname_idx(struct platform_device *pdev)
 {
 	int			i;
 	int			ret;
@@ -67,21 +67,21 @@ static int xocl_axigate_epname_idx(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		xocl_err(pdev, "Empty Resource!");
+		xrt_err(pdev, "Empty Resource!");
 		return -EINVAL;
 	}
 
-	for (i = 0; xocl_axigate_epnames[i]; i++) {
-		ret = strncmp(xocl_axigate_epnames[i], res->name,
-			strlen(xocl_axigate_epnames[i]) + 1);
+	for (i = 0; xrt_axigate_epnames[i]; i++) {
+		ret = strncmp(xrt_axigate_epnames[i], res->name,
+			strlen(xrt_axigate_epnames[i]) + 1);
 		if (!ret)
 			break;
 	}
 
-	return (xocl_axigate_epnames[i]) ? i : -EINVAL;
+	return (xrt_axigate_epnames[i]) ? i : -EINVAL;
 }
 
-static bool xocl_axigate_leaf_match(enum xocl_subdev_id id,
+static bool xrt_axigate_leaf_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	const char		*ep_name = arg;
@@ -92,7 +92,7 @@ static bool xocl_axigate_leaf_match(enum xocl_subdev_id id,
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		xocl_err(pdev, "Empty Resource!");
+		xrt_err(pdev, "Empty Resource!");
 		return false;
 	}
 
@@ -102,9 +102,9 @@ static bool xocl_axigate_leaf_match(enum xocl_subdev_id id,
 	return false;
 }
 
-static void xocl_axigate_freeze(struct platform_device *pdev)
+static void xrt_axigate_freeze(struct platform_device *pdev)
 {
-	struct xocl_axigate	*gate;
+	struct xrt_axigate	*gate;
 	u32			freeze = 0;
 
 	gate = platform_get_drvdata(pdev);
@@ -112,19 +112,19 @@ static void xocl_axigate_freeze(struct platform_device *pdev)
 	mutex_lock(&gate->gate_lock);
 	freeze = reg_rd(gate, iag_rd);
 	if (freeze) {		/* gate is opened */
-		xocl_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_GATE_CLOSE);
+		xrt_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_GATE_CLOSE);
 		freeze_gate(gate);
 	}
 
 	gate->gate_freezed = true;
 	mutex_unlock(&gate->gate_lock);
 
-	xocl_info(pdev, "freeze gate %s", gate->ep_name);
+	xrt_info(pdev, "freeze gate %s", gate->ep_name);
 }
 
-static void xocl_axigate_free(struct platform_device *pdev)
+static void xrt_axigate_free(struct platform_device *pdev)
 {
-	struct xocl_axigate	*gate;
+	struct xrt_axigate	*gate;
 	u32			freeze;
 
 	gate = platform_get_drvdata(pdev);
@@ -133,9 +133,9 @@ static void xocl_axigate_free(struct platform_device *pdev)
 	freeze = reg_rd(gate, iag_rd);
 	if (!freeze) {		/* gate is closed */
 		free_gate(gate);
-		xocl_subdev_broadcast_event_async(pdev,
+		xrt_subdev_broadcast_event_async(pdev,
 			XOCL_EVENT_POST_GATE_OPEN, NULL, NULL);
-		/* xocl_axigate_free() could be called in event cb, thus
+		/* xrt_axigate_free() could be called in event cb, thus
 		 * we can not wait for the completes
 		 */
 	}
@@ -143,16 +143,16 @@ static void xocl_axigate_free(struct platform_device *pdev)
 	gate->gate_freezed = false;
 	mutex_unlock(&gate->gate_lock);
 
-	xocl_info(pdev, "free gate %s", gate->ep_name);
+	xrt_info(pdev, "free gate %s", gate->ep_name);
 }
 
 static int
-xocl_axigate_event_cb(struct platform_device *pdev,
-	enum xocl_events evt, void *arg)
+xrt_axigate_event_cb(struct platform_device *pdev,
+	enum xrt_events evt, void *arg)
 {
 	struct platform_device *leaf;
-	struct xocl_event_arg_subdev *esd = (struct xocl_event_arg_subdev *)arg;
-	enum xocl_subdev_id id;
+	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
+	enum xrt_subdev_id id;
 	int instance;
 
 	switch (evt) {
@@ -170,40 +170,40 @@ xocl_axigate_event_cb(struct platform_device *pdev,
 	 * make sure the gate is openned. This covers 1RP flow which
 	 * has plp gate as well.
 	 */
-	leaf = xocl_subdev_get_leaf_by_id(pdev, id, instance);
+	leaf = xrt_subdev_get_leaf_by_id(pdev, id, instance);
 	if (leaf) {
-		if (xocl_axigate_epname_idx(leaf) >
-		    xocl_axigate_epname_idx(pdev))
-			xocl_axigate_free(pdev);
+		if (xrt_axigate_epname_idx(leaf) >
+		    xrt_axigate_epname_idx(pdev))
+			xrt_axigate_free(pdev);
 		else
-			xocl_subdev_ioctl(leaf, XOCL_AXIGATE_FREE, NULL);
-		xocl_subdev_put_leaf(pdev, leaf);
+			xrt_subdev_ioctl(leaf, XOCL_AXIGATE_FREE, NULL);
+		xrt_subdev_put_leaf(pdev, leaf);
 	}
 
 	return XOCL_EVENT_CB_CONTINUE;
 }
 
 static int
-xocl_axigate_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_axigate_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	switch (cmd) {
 	case XOCL_AXIGATE_FREEZE:
-		xocl_axigate_freeze(pdev);
+		xrt_axigate_freeze(pdev);
 		break;
 	case XOCL_AXIGATE_FREE:
-		xocl_axigate_free(pdev);
+		xrt_axigate_free(pdev);
 		break;
 	default:
-		xocl_err(pdev, "unsupported cmd %d", cmd);
+		xrt_err(pdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
 	return 0;
 }
 
-static int xocl_axigate_remove(struct platform_device *pdev)
+static int xrt_axigate_remove(struct platform_device *pdev)
 {
-	struct xocl_axigate	*gate;
+	struct xrt_axigate	*gate;
 
 	gate = platform_get_drvdata(pdev);
 
@@ -216,9 +216,9 @@ static int xocl_axigate_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int xocl_axigate_probe(struct platform_device *pdev)
+static int xrt_axigate_probe(struct platform_device *pdev)
 {
-	struct xocl_axigate	*gate;
+	struct xrt_axigate	*gate;
 	struct resource		*res;
 	int			ret;
 
@@ -229,24 +229,24 @@ static int xocl_axigate_probe(struct platform_device *pdev)
 	gate->pdev = pdev;
 	platform_set_drvdata(pdev, gate);
 
-	xocl_info(pdev, "probing...");
+	xrt_info(pdev, "probing...");
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		xocl_err(pdev, "Empty resource 0");
+		xrt_err(pdev, "Empty resource 0");
 		ret = -EINVAL;
 		goto failed;
 	}
 
 	gate->base = ioremap(res->start, res->end - res->start + 1);
 	if (!gate->base) {
-		xocl_err(pdev, "map base iomem failed");
+		xrt_err(pdev, "map base iomem failed");
 		ret = -EFAULT;
 		goto failed;
 	}
 
-	gate->evt_hdl = xocl_subdev_add_event_cb(pdev,
-		xocl_axigate_leaf_match, (void *)res->name,
-		xocl_axigate_event_cb);
+	gate->evt_hdl = xrt_subdev_add_event_cb(pdev,
+		xrt_axigate_leaf_match, (void *)res->name,
+		xrt_axigate_event_cb);
 
 	gate->ep_name = res->name;
 
@@ -255,20 +255,20 @@ static int xocl_axigate_probe(struct platform_device *pdev)
 	return 0;
 
 failed:
-	xocl_axigate_remove(pdev);
+	xrt_axigate_remove(pdev);
 	return ret;
 }
 
-struct xocl_subdev_endpoints xocl_axigate_endpoints[] = {
+struct xrt_subdev_endpoints xrt_axigate_endpoints[] = {
 	{
-		.xse_names = (struct xocl_subdev_ep_names[]) {
+		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .ep_name = "ep_pr_isolate_ulp_00" },
 			{ NULL },
 		},
 		.xse_min_ep = 1,
 	},
 	{
-		.xse_names = (struct xocl_subdev_ep_names[]) {
+		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .ep_name = "ep_pr_isolate_plp_00" },
 			{ NULL },
 		},
@@ -277,22 +277,22 @@ struct xocl_subdev_endpoints xocl_axigate_endpoints[] = {
 	{ 0 },
 };
 
-struct xocl_subdev_drvdata xocl_axigate_data = {
+struct xrt_subdev_drvdata xrt_axigate_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xocl_axigate_leaf_ioctl,
+		.xsd_ioctl = xrt_axigate_leaf_ioctl,
 	},
 };
 
-static const struct platform_device_id xocl_axigate_table[] = {
-	{ XOCL_AXIGATE, (kernel_ulong_t)&xocl_axigate_data },
+static const struct platform_device_id xrt_axigate_table[] = {
+	{ XOCL_AXIGATE, (kernel_ulong_t)&xrt_axigate_data },
 	{ },
 };
 
-struct platform_driver xocl_axigate_driver = {
+struct platform_driver xrt_axigate_driver = {
 	.driver = {
 		.name = XOCL_AXIGATE,
 	},
-	.probe = xocl_axigate_probe,
-	.remove = xocl_axigate_remove,
-	.id_table = xocl_axigate_table,
+	.probe = xrt_axigate_probe,
+	.remove = xrt_axigate_remove,
+	.id_table = xrt_axigate_table,
 };

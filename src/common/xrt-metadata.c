@@ -10,7 +10,7 @@
 
 #include <linux/libfdt_env.h>
 #include "libfdt.h"
-#include "xocl-metadata.h"
+#include "xrt-metadata.h"
 
 #define MAX_BLOB_SIZE	(4096 * 25)
 
@@ -23,21 +23,21 @@
 #define md_dbg(dev, fmt, args...)			\
 	dev_dbg(dev, "%s: "fmt, __func__, ##args)
 
-static int xocl_md_setprop(struct device *dev, char *blob, int offset,
+static int xrt_md_setprop(struct device *dev, char *blob, int offset,
 	const char *prop, const void *val, int size);
-static int xocl_md_overlay(struct device *dev, char *blob, int target,
+static int xrt_md_overlay(struct device *dev, char *blob, int target,
 	const char *overlay_blob, int overlay_offset);
-static int xocl_md_get_endpoint(struct device *dev, const char *blob,
+static int xrt_md_get_endpoint(struct device *dev, const char *blob,
 	const char *ep_name, const char *regmap_name, int *ep_offset);
 
-long xocl_md_size(struct device *dev, const char *blob)
+long xrt_md_size(struct device *dev, const char *blob)
 {
 	long len = (long) fdt_totalsize(blob);
 
 	return (len > MAX_BLOB_SIZE) ? -EINVAL : len;
 }
 
-int xocl_md_create(struct device *dev, char **blob)
+int xrt_md_create(struct device *dev, char **blob)
 {
 	int ret = 0;
 
@@ -73,7 +73,7 @@ failed:
 	return ret;
 }
 
-int xocl_md_add_node(struct device *dev, char *blob, int parent_offset,
+int xrt_md_add_node(struct device *dev, char *blob, int parent_offset,
 	const char *ep_name)
 {
 	int ret;
@@ -85,13 +85,13 @@ int xocl_md_add_node(struct device *dev, char *blob, int parent_offset,
 	return ret;
 }
 
-int xocl_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
+int xrt_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
 	char *regmap_name)
 {
 	int ret;
 	int ep_offset;
 
-	ret = xocl_md_get_endpoint(dev, blob, ep_name, regmap_name, &ep_offset);
+	ret = xrt_md_get_endpoint(dev, blob, ep_name, regmap_name, &ep_offset);
 	if (ret) {
 		md_err(dev, "can not find ep %s", ep_name);
 		return -EINVAL;
@@ -104,8 +104,8 @@ int xocl_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
 	return ret;
 }
 
-static int __xocl_md_add_endpoint(struct device *dev, char *blob,
-	struct xocl_md_endpoint *ep, int *offset, bool root)
+static int __xrt_md_add_endpoint(struct device *dev, char *blob,
+	struct xrt_md_endpoint *ep, int *offset, bool root)
 {
 	int ret = 0;
 	int ep_offset;
@@ -119,7 +119,7 @@ static int __xocl_md_add_endpoint(struct device *dev, char *blob,
 	}
 
 	if (!root) {
-		ret = xocl_md_get_endpoint(dev, blob, NODE_ENDPOINTS, NULL,
+		ret = xrt_md_get_endpoint(dev, blob, NODE_ENDPOINTS, NULL,
 			&ep_offset);
 		if (ret) {
 			md_err(dev, "invalid blob, ret = %d", ret);
@@ -129,7 +129,7 @@ static int __xocl_md_add_endpoint(struct device *dev, char *blob,
 		ep_offset = 0;
 	}
 
-	ep_offset = xocl_md_add_node(dev, blob, ep_offset, ep->ep_name);
+	ep_offset = xrt_md_add_node(dev, blob, ep_offset, ep->ep_name);
 	if (ep_offset < 0) {
 		md_err(dev, "add endpoint failed, ret = %d", ret);
 		return -EINVAL;
@@ -139,7 +139,7 @@ static int __xocl_md_add_endpoint(struct device *dev, char *blob,
 
 	if (ep->size != 0) {
 		val = cpu_to_be32(ep->bar);
-		ret = xocl_md_setprop(dev, blob, ep_offset, PROP_BAR_IDX,
+		ret = xrt_md_setprop(dev, blob, ep_offset, PROP_BAR_IDX,
 				&val, sizeof(u32));
 		if (ret) {
 			md_err(dev, "set %s failed, ret %d",
@@ -148,7 +148,7 @@ static int __xocl_md_add_endpoint(struct device *dev, char *blob,
 		}
 		io_range[0] = cpu_to_be64((u64)ep->bar_off);
 		io_range[1] = cpu_to_be64((u64)ep->size);
-		ret = xocl_md_setprop(dev, blob, ep_offset, PROP_IO_OFFSET,
+		ret = xrt_md_setprop(dev, blob, ep_offset, PROP_IO_OFFSET,
 			io_range, sizeof(io_range));
 		if (ret) {
 			md_err(dev, "set %s failed, ret %d",
@@ -168,7 +168,7 @@ static int __xocl_md_add_endpoint(struct device *dev, char *blob,
 			"%s", ep->regmap);
 		count++;
 
-		ret = xocl_md_setprop(dev, blob, ep_offset, PROP_COMPATIBLE,
+		ret = xrt_md_setprop(dev, blob, ep_offset, PROP_COMPATIBLE,
 			comp, count);
 		if (ret) {
 			md_err(dev, "set %s failed, ret %d",
@@ -179,18 +179,18 @@ static int __xocl_md_add_endpoint(struct device *dev, char *blob,
 
 failed:
 	if (ret)
-		xocl_md_del_endpoint(dev, blob, ep->ep_name, NULL);
+		xrt_md_del_endpoint(dev, blob, ep->ep_name, NULL);
 
 	return ret;
 }
 
-int xocl_md_add_endpoint(struct device *dev, char *blob,
-	struct xocl_md_endpoint *ep)
+int xrt_md_add_endpoint(struct device *dev, char *blob,
+	struct xrt_md_endpoint *ep)
 {
-	return __xocl_md_add_endpoint(dev, blob, ep, NULL, false);
+	return __xrt_md_add_endpoint(dev, blob, ep, NULL, false);
 }
 
-static int xocl_md_get_endpoint(struct device *dev, const char *blob,
+static int xrt_md_get_endpoint(struct device *dev, const char *blob,
 	const char *ep_name, const char *regmap_name, int *ep_offset)
 {
 	int offset;
@@ -214,13 +214,13 @@ static int xocl_md_get_endpoint(struct device *dev, const char *blob,
 	return 0;
 }
 
-int xocl_md_get_epname_pointer(struct device *dev, const char *blob,
+int xrt_md_get_epname_pointer(struct device *dev, const char *blob,
 	 const char *ep_name, const char *regmap_name, const char **epname)
 {
 	int offset;
 	int ret;
 
-	ret = xocl_md_get_endpoint(dev, blob, ep_name, regmap_name,
+	ret = xrt_md_get_endpoint(dev, blob, ep_name, regmap_name,
 		&offset);
 	if (!ret && epname && offset >= 0)
 		*epname = fdt_get_name(blob, offset, NULL);
@@ -228,7 +228,7 @@ int xocl_md_get_epname_pointer(struct device *dev, const char *blob,
 	return ret;
 }
 
-int xocl_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
+int xrt_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
 	const char *regmap_name, const char *prop, const void **val, int *size)
 {
 	int offset;
@@ -237,7 +237,7 @@ int xocl_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
 	if (val)
 		*val = NULL;
 	if (ep_name) {
-		ret = xocl_md_get_endpoint(dev, blob, ep_name, regmap_name,
+		ret = xrt_md_get_endpoint(dev, blob, ep_name, regmap_name,
 			&offset);
 		if (ret) {
 			md_err(dev, "cannot get ep %s, regmap %s, ret = %d",
@@ -263,7 +263,7 @@ int xocl_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
 	return 0;
 }
 
-static int xocl_md_setprop(struct device *dev, char *blob, int offset,
+static int xrt_md_setprop(struct device *dev, char *blob, int offset,
 	 const char *prop, const void *val, int size)
 {
 	int ret;
@@ -275,7 +275,7 @@ static int xocl_md_setprop(struct device *dev, char *blob, int offset,
 	return ret;
 }
 
-int xocl_md_set_prop(struct device *dev, char *blob,
+int xrt_md_set_prop(struct device *dev, char *blob,
 	const char *ep_name, const char *regmap_name,
 	const char *prop, const void *val, int size)
 {
@@ -283,7 +283,7 @@ int xocl_md_set_prop(struct device *dev, char *blob,
 	int ret;
 
 	if (ep_name) {
-		ret = xocl_md_get_endpoint(dev, blob, ep_name,
+		ret = xrt_md_get_endpoint(dev, blob, ep_name,
 			regmap_name, &offset);
 		if (ret) {
 			md_err(dev, "cannot get node %s, ret = %d",
@@ -298,57 +298,57 @@ int xocl_md_set_prop(struct device *dev, char *blob,
 		}
 	}
 
-	ret = xocl_md_setprop(dev, blob, offset, prop, val, size);
+	ret = xrt_md_setprop(dev, blob, offset, prop, val, size);
 	if (ret)
 		md_err(dev, "set prop %s failed, ret = %d", prop, ret);
 
 	return ret;
 }
 
-int xocl_md_copy_endpoint(struct device *dev, char *blob, const char *src_blob,
+int xrt_md_copy_endpoint(struct device *dev, char *blob, const char *src_blob,
 	const char *ep_name, const char *regmap_name, const char *new_ep_name)
 {
 	int offset, target;
 	int ret;
-	struct xocl_md_endpoint ep = {0};
+	struct xrt_md_endpoint ep = {0};
 	const char *newepnm = new_ep_name ? new_ep_name : ep_name;
 
-	ret = xocl_md_get_endpoint(dev, src_blob, ep_name, regmap_name,
+	ret = xrt_md_get_endpoint(dev, src_blob, ep_name, regmap_name,
 		&offset);
 	if (ret)
 		return -EINVAL;
 
-	ret = xocl_md_get_endpoint(dev, blob, newepnm, regmap_name, &target);
+	ret = xrt_md_get_endpoint(dev, blob, newepnm, regmap_name, &target);
 	if (ret) {
 		ep.ep_name = newepnm;
-		ret = __xocl_md_add_endpoint(dev, blob, &ep, &target,
+		ret = __xrt_md_add_endpoint(dev, blob, &ep, &target,
 			fdt_parent_offset(src_blob, offset) == 0);
 		if (ret)
 			return -EINVAL;
 	}
 
-	ret = xocl_md_overlay(dev, blob, target, src_blob, offset);
+	ret = xrt_md_overlay(dev, blob, target, src_blob, offset);
 	if (ret)
 		md_err(dev, "overlay failed, ret = %d", ret);
 
 	return ret;
 }
 
-int xocl_md_copy_all_eps(struct device *dev, char *blob, const char *src_blob)
+int xrt_md_copy_all_eps(struct device *dev, char *blob, const char *src_blob)
 {
-	return xocl_md_copy_endpoint(dev, blob, src_blob, NODE_ENDPOINTS,
+	return xrt_md_copy_endpoint(dev, blob, src_blob, NODE_ENDPOINTS,
 		NULL, NULL);
 }
 
-char *xocl_md_dup(struct device *dev, const char *blob)
+char *xrt_md_dup(struct device *dev, const char *blob)
 {
 	int ret;
 	char *dup_blob;
 
-	ret = xocl_md_create(dev, &dup_blob);
+	ret = xrt_md_create(dev, &dup_blob);
 	if (ret)
 		return NULL;
-	ret = xocl_md_overlay(dev, dup_blob, -1, blob, -1);
+	ret = xrt_md_overlay(dev, dup_blob, -1, blob, -1);
 	if (ret) {
 		vfree(dup_blob);
 		return NULL;
@@ -357,7 +357,7 @@ char *xocl_md_dup(struct device *dev, const char *blob)
 	return dup_blob;
 }
 
-static int xocl_md_overlay(struct device *dev, char *blob, int target,
+static int xrt_md_overlay(struct device *dev, char *blob, int target,
 	const char *overlay_blob, int overlay_offset)
 {
 	int	property, subnode;
@@ -397,7 +397,7 @@ static int xocl_md_overlay(struct device *dev, char *blob, int target,
 			return -EINVAL;
 		}
 
-		ret = xocl_md_setprop(dev, blob, target, name, prop,
+		ret = xrt_md_setprop(dev, blob, target, name, prop,
 			prop_len);
 		if (ret) {
 			md_err(dev, "setprop failed, ret = %d", ret);
@@ -409,7 +409,7 @@ static int xocl_md_overlay(struct device *dev, char *blob, int target,
 		const char *name = fdt_get_name(overlay_blob, subnode, NULL);
 		int nnode;
 
-		nnode = xocl_md_add_node(dev, blob, target, name);
+		nnode = xrt_md_add_node(dev, blob, target, name);
 		if (nnode == -FDT_ERR_EXISTS)
 			nnode = fdt_subnode_offset(blob, target, name);
 		if (nnode < 0) {
@@ -417,7 +417,7 @@ static int xocl_md_overlay(struct device *dev, char *blob, int target,
 			return nnode;
 		}
 
-		ret = xocl_md_overlay(dev, blob, nnode, overlay_blob, subnode);
+		ret = xrt_md_overlay(dev, blob, nnode, overlay_blob, subnode);
 		if (ret)
 			return ret;
 	}
@@ -425,17 +425,17 @@ static int xocl_md_overlay(struct device *dev, char *blob, int target,
 	return 0;
 }
 
-int xocl_md_get_next_endpoint(struct device *dev, const char *blob,
+int xrt_md_get_next_endpoint(struct device *dev, const char *blob,
 	const char *ep_name, const char *regmap_name,
 	char **next_ep, char **next_regmap)
 {
 	int offset, ret;
 
 	if (!ep_name) {
-		ret = xocl_md_get_endpoint(dev, blob, NODE_ENDPOINTS, NULL,
+		ret = xrt_md_get_endpoint(dev, blob, NODE_ENDPOINTS, NULL,
 			&offset);
 	} else {
-		ret = xocl_md_get_endpoint(dev, blob, ep_name, regmap_name,
+		ret = xrt_md_get_endpoint(dev, blob, ep_name, regmap_name,
 			&offset);
 	}
 
@@ -460,7 +460,7 @@ int xocl_md_get_next_endpoint(struct device *dev, const char *blob,
 	return 0;
 }
 
-int xocl_md_get_compatible_epname(struct device *dev, const char *blob,
+int xrt_md_get_compatible_epname(struct device *dev, const char *blob,
 	const char *regmap_name, const char **ep_name)
 {
 	int ep_offset;
@@ -476,7 +476,7 @@ int xocl_md_get_compatible_epname(struct device *dev, const char *blob,
 	return 0;
 }
 
-static int xocl_md_uuid_strtoid(struct device *dev, const char *uuidstr,
+static int xrt_md_uuid_strtoid(struct device *dev, const char *uuidstr,
 	uuid_t *p_uuid)
 {
 	char *p;
@@ -503,7 +503,7 @@ static int xocl_md_uuid_strtoid(struct device *dev, const char *uuidstr,
 	return 0;
 }
 
-void xocl_md_pack(struct device *dev, char *blob)
+void xrt_md_pack(struct device *dev, char *blob)
 {
 	int ret;
 
@@ -512,14 +512,14 @@ void xocl_md_pack(struct device *dev, char *blob)
 		md_err(dev, "pack failed %d", ret);
 }
 
-int xocl_md_get_intf_uuids(struct device *dev, const char *blob,
+int xrt_md_get_intf_uuids(struct device *dev, const char *blob,
 	u32 *num_uuids, uuid_t *intf_uuids)
 {
 	int offset, count = 0;
 	int ret;
 	const char *uuid_str;
 
-	ret = xocl_md_get_endpoint(dev, blob, NODE_INTERFACES, NULL, &offset);
+	ret = xrt_md_get_endpoint(dev, blob, NODE_INTERFACES, NULL, &offset);
 	if (ret)
 		return -ENOENT;
 
@@ -534,7 +534,7 @@ int xocl_md_get_intf_uuids(struct device *dev, const char *blob,
 		}
 
 		if (intf_uuids && count < *num_uuids) {
-			ret = xocl_md_uuid_strtoid(dev, uuid_str,
+			ret = xrt_md_uuid_strtoid(dev, uuid_str,
 				&intf_uuids[count]);
 			if (ret)
 				return -EINVAL;
@@ -547,19 +547,19 @@ int xocl_md_get_intf_uuids(struct device *dev, const char *blob,
 	return 0;
 }
 
-int xocl_md_check_uuids(struct device *dev, const char *blob, char *subset_blob)
+int xrt_md_check_uuids(struct device *dev, const char *blob, char *subset_blob)
 {
 	const char *subset_int_uuid = NULL;
 	const char *int_uuid = NULL;
 	int offset, subset_offset, off;
 	int ret;
 
-	ret = xocl_md_get_endpoint(dev, subset_blob, NODE_INTERFACES, NULL,
+	ret = xrt_md_get_endpoint(dev, subset_blob, NODE_INTERFACES, NULL,
 		&subset_offset);
 	if (ret)
 		return -EINVAL;
 
-	ret = xocl_md_get_endpoint(dev, blob, NODE_INTERFACES, NULL,
+	ret = xrt_md_get_endpoint(dev, blob, NODE_INTERFACES, NULL,
 		&offset);
 	if (ret)
 		return -EINVAL;

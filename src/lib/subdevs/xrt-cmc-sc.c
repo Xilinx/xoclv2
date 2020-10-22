@@ -7,8 +7,8 @@
  */
 
 #include <linux/uaccess.h>
-#include "xocl-subdev.h"
-#include "xocl-cmc-impl.h"
+#include "xrt-subdev.h"
+#include "xrt-cmc-impl.h"
 
 #define	CMC_CORE_SUPPORT_NOTUPGRADABLE	0x0c010004
 
@@ -35,7 +35,7 @@ struct cmc_pkt_payload_sector_data {
 	u8 data[1];
 };
 
-struct xocl_cmc_sc {
+struct xrt_cmc_sc {
 	struct platform_device *pdev;
 	struct cmc_reg_map reg_io;
 	bool sc_fw_erased;
@@ -43,17 +43,17 @@ struct xocl_cmc_sc {
 	size_t mbx_max_payload_sz;
 };
 
-static inline void cmc_io_wr(struct xocl_cmc_sc *cmc_sc, u32 off, u32 val)
+static inline void cmc_io_wr(struct xrt_cmc_sc *cmc_sc, u32 off, u32 val)
 {
 	iowrite32(val, cmc_sc->reg_io.crm_addr + off);
 }
 
-static inline u32 cmc_io_rd(struct xocl_cmc_sc *cmc_sc, u32 off)
+static inline u32 cmc_io_rd(struct xrt_cmc_sc *cmc_sc, u32 off)
 {
 	return ioread32(cmc_sc->reg_io.crm_addr + off);
 }
 
-static bool is_sc_ready(struct xocl_cmc_sc *cmc_sc, bool quiet)
+static bool is_sc_ready(struct xrt_cmc_sc *cmc_sc, bool quiet)
 {
 	union cmc_status st;
 
@@ -62,13 +62,13 @@ static bool is_sc_ready(struct xocl_cmc_sc *cmc_sc, bool quiet)
 		return true;
 
 	if (!quiet) {
-		xocl_err(cmc_sc->pdev, "SC is not ready, state=%d",
+		xrt_err(cmc_sc->pdev, "SC is not ready, state=%d",
 			st.status.sc_mode);
 	}
 	return false;
 }
 
-static bool is_sc_fixed(struct xocl_cmc_sc *cmc_sc)
+static bool is_sc_fixed(struct xrt_cmc_sc *cmc_sc)
 {
 	union cmc_status st;
 	u32 cmc_core_version = cmc_io_rd(cmc_sc, CMC_REG_IO_CORE_VERSION);
@@ -84,14 +84,14 @@ static bool is_sc_fixed(struct xocl_cmc_sc *cmc_sc)
 	return false;
 }
 
-static int cmc_erase_sc_firmware(struct xocl_cmc_sc *cmc_sc)
+static int cmc_erase_sc_firmware(struct xrt_cmc_sc *cmc_sc)
 {
 	int ret = 0;
 
 	if (cmc_sc->sc_fw_erased)
 		return 0;
 
-	xocl_info(cmc_sc->pdev, "erasing SC firmware...");
+	xrt_info(cmc_sc->pdev, "erasing SC firmware...");
 	ret = cmc_mailbox_send_packet(cmc_sc->pdev, cmc_sc->mbx_generation,
 		CMC_MBX_PKT_OP_MSP432_ERASE_FW, NULL, 0);
 	if (ret == 0)
@@ -99,7 +99,7 @@ static int cmc_erase_sc_firmware(struct xocl_cmc_sc *cmc_sc)
 	return ret;
 }
 
-static int cmc_write_sc_firmware_section(struct xocl_cmc_sc *cmc_sc,
+static int cmc_write_sc_firmware_section(struct xrt_cmc_sc *cmc_sc,
 	loff_t start, size_t n, const char *buf)
 {
 	int ret = 0;
@@ -109,7 +109,7 @@ static int cmc_write_sc_firmware_section(struct xocl_cmc_sc *cmc_sc,
 	struct cmc_pkt_payload_sector_data *data_payload;
 	u8 pkt_op;
 
-	xocl_info(cmc_sc->pdev, "writing %ld bytes @0x%llx", n, start);
+	xrt_info(cmc_sc->pdev, "writing %ld bytes @0x%llx", n, start);
 
 	if (n == 0)
 		return 0;
@@ -151,12 +151,12 @@ static int cmc_write_sc_firmware_section(struct xocl_cmc_sc *cmc_sc,
 }
 
 static int
-cmc_boot_sc(struct xocl_cmc_sc *cmc_sc, u32 jump_addr)
+cmc_boot_sc(struct xrt_cmc_sc *cmc_sc, u32 jump_addr)
 {
 	int ret = 0;
 	struct cmc_pkt_payload_image_end pkt = { 0 };
 
-	xocl_info(cmc_sc->pdev, "rebooting SC @0x%x", jump_addr);
+	xrt_info(cmc_sc->pdev, "rebooting SC @0x%x", jump_addr);
 
 	BUG_ON(!cmc_sc->sc_fw_erased);
 
@@ -185,7 +185,7 @@ ssize_t cmc_update_sc_firmware(struct file *file,
 	const char __user *ubuf, size_t n, loff_t *off)
 {
 	u32 jump_addr = 0;
-	struct xocl_cmc_sc *cmc_sc = file->private_data;
+	struct xrt_cmc_sc *cmc_sc = file->private_data;
 	/* Special offset for writing SC's BSL jump address. */
 	const loff_t jump_offset = 0xffffffff;
 	ssize_t ret = 0;
@@ -212,14 +212,14 @@ ssize_t cmc_update_sc_firmware(struct file *file,
 
 	ret = cmc_erase_sc_firmware(cmc_sc);
 	if (ret) {
-		xocl_err(cmc_sc->pdev, "can't erase SC firmware");
+		xrt_err(cmc_sc->pdev, "can't erase SC firmware");
 	} else if (*off == jump_offset) {
 		/*
 		 * Write to jump_offset will cause a reboot of SC and jump
 		 * to address that is passed in.
 		 */
 		if (n != sizeof(jump_addr)) {
-			xocl_err(cmc_sc->pdev, "invalid jump addr size");
+			xrt_err(cmc_sc->pdev, "invalid jump addr size");
 			ret = -EINVAL;
 		} else {
 			jump_addr = *(u32 *)kbuf;
@@ -251,7 +251,7 @@ ssize_t cmc_update_sc_firmware(struct file *file,
  */
 int cmc_sc_open(struct inode *inode, struct file *file)
 {
-	struct platform_device *pdev = xocl_devnode_open_excl(inode);
+	struct platform_device *pdev = xrt_devnode_open_excl(inode);
 
 	file->private_data = cmc_pdev2sc(pdev);
 	return 0;
@@ -259,13 +259,13 @@ int cmc_sc_open(struct inode *inode, struct file *file)
 
 int cmc_sc_close(struct inode *inode, struct file *file)
 {
-	struct xocl_cmc_sc *cmc_sc = file->private_data;
+	struct xrt_cmc_sc *cmc_sc = file->private_data;
 
 	if (!cmc_sc)
 		return -EINVAL;
 
 	file->private_data = NULL;
-	xocl_devnode_close(inode);
+	xrt_devnode_close(inode);
 	return 0;
 }
 
@@ -296,7 +296,7 @@ static ssize_t sc_is_fixed_show(struct device *dev,
 	struct device_attribute *da, char *buf)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct xocl_cmc_sc *cmc_sc = cmc_pdev2sc(pdev);
+	struct xrt_cmc_sc *cmc_sc = cmc_pdev2sc(pdev);
 
 	return sprintf(buf, "%d\n", is_sc_fixed(cmc_sc));
 }
@@ -321,7 +321,7 @@ static struct attribute_group cmc_sc_attr_group = {
 
 void cmc_sc_remove(struct platform_device *pdev)
 {
-	struct xocl_cmc_sc *cmc_sc = cmc_pdev2sc(pdev);
+	struct xrt_cmc_sc *cmc_sc = cmc_pdev2sc(pdev);
 
 	if (!cmc_sc)
 		return;
@@ -333,7 +333,7 @@ int cmc_sc_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl)
 {
 	int ret;
-	struct xocl_cmc_sc *cmc_sc;
+	struct xrt_cmc_sc *cmc_sc;
 
 	cmc_sc = devm_kzalloc(DEV(pdev), sizeof(*cmc_sc), GFP_KERNEL);
 	if (!cmc_sc)
@@ -347,7 +347,7 @@ int cmc_sc_probe(struct platform_device *pdev,
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &cmc_sc_attr_group);
 	if (ret) {
-		xocl_err(pdev, "create sc attrs failed: %d", ret);
+		xrt_err(pdev, "create sc attrs failed: %d", ret);
 		goto fail;
 	}
 

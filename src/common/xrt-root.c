@@ -10,12 +10,12 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/hwmon.h>
-#include "xocl-subdev.h"
-#include "xocl-parent.h"
-#include "xocl-partition.h"
-#include "xocl-root.h"
-#include "xocl-metadata.h"
-#include "xocl-root.h"
+#include "xrt-subdev.h"
+#include "xrt-parent.h"
+#include "xrt-partition.h"
+#include "xrt-root.h"
+#include "xrt-metadata.h"
+#include "xrt-root.h"
 
 #define	XROOT_PDEV(xr)		((xr)->pdev)
 #define	XROOT_DEV(xr)		(&(XROOT_PDEV(xr)->dev))
@@ -36,13 +36,13 @@ static int xroot_parent_cb(struct device *, void *, u32, void *);
 
 struct xroot_async_evt {
 	struct list_head list;
-	struct xocl_parent_ioctl_async_broadcast_evt evt;
+	struct xrt_parent_ioctl_async_broadcast_evt evt;
 };
 
 struct xroot_event_cb {
 	struct list_head list;
 	bool initialized;
-	struct xocl_parent_ioctl_evt_cb cb;
+	struct xrt_parent_ioctl_evt_cb cb;
 };
 
 struct xroot_events {
@@ -55,7 +55,7 @@ struct xroot_events {
 };
 
 struct xroot_parts {
-	struct xocl_subdev_pool pool;
+	struct xrt_subdev_pool pool;
 	struct work_struct bringup_work;
 	atomic_t bringup_pending;
 	atomic_t bringup_failed;
@@ -69,11 +69,11 @@ struct xroot {
 };
 
 struct xroot_part_match_arg {
-	enum xocl_subdev_id id;
+	enum xrt_subdev_id id;
 	int instance;
 };
 
-static bool xroot_part_match(enum xocl_subdev_id id,
+static bool xroot_part_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	struct xroot_part_match_arg *a = (struct xroot_part_match_arg *)arg;
@@ -84,18 +84,18 @@ static int xroot_get_partition(struct xroot *xr, int instance,
 	struct platform_device **partp)
 {
 	int rc = 0;
-	struct xocl_subdev_pool *parts = &xr->parts.pool;
+	struct xrt_subdev_pool *parts = &xr->parts.pool;
 	struct device *dev = DEV(xr->pdev);
 	struct xroot_part_match_arg arg = { XOCL_SUBDEV_PART, instance };
 
 	if (instance == XROOT_PART_LAST) {
-		rc = xocl_subdev_pool_get(parts, XOCL_SUBDEV_MATCH_NEXT,
+		rc = xrt_subdev_pool_get(parts, XOCL_SUBDEV_MATCH_NEXT,
 			*partp, dev, partp);
 	} else if (instance == XROOT_PART_FIRST) {
-		rc = xocl_subdev_pool_get(parts, XOCL_SUBDEV_MATCH_PREV,
+		rc = xrt_subdev_pool_get(parts, XOCL_SUBDEV_MATCH_PREV,
 			*partp, dev, partp);
 	} else {
-		rc = xocl_subdev_pool_get(parts, xroot_part_match,
+		rc = xrt_subdev_pool_get(parts, xroot_part_match,
 			&arg, dev, partp);
 	}
 
@@ -107,7 +107,7 @@ static int xroot_get_partition(struct xroot *xr, int instance,
 static void xroot_put_partition(struct xroot *xr, struct platform_device *part)
 {
 	int inst = part->id;
-	int rc = xocl_subdev_pool_put(&xr->parts.pool, part, DEV(xr->pdev));
+	int rc = xrt_subdev_pool_put(&xr->parts.pool, part, DEV(xr->pdev));
 
 	if (rc)
 		xroot_err(xr, "failed to release partition %d: %d", inst, rc);
@@ -115,13 +115,13 @@ static void xroot_put_partition(struct xroot *xr, struct platform_device *part)
 
 static int
 xroot_partition_trigger_evt(struct xroot *xr, struct xroot_event_cb *cb,
-	struct platform_device *part, enum xocl_events evt)
+	struct platform_device *part, enum xrt_events evt)
 {
-	xocl_subdev_match_t match = cb->cb.xevt_match_cb;
-	xocl_event_cb_t evtcb = cb->cb.xevt_cb;
+	xrt_subdev_match_t match = cb->cb.xevt_match_cb;
+	xrt_event_cb_t evtcb = cb->cb.xevt_cb;
 	void *arg = cb->cb.xevt_match_arg;
-	struct xocl_partition_ioctl_event e = { evt, &cb->cb };
-	struct xocl_event_arg_subdev esd = { XOCL_SUBDEV_PART, part->id };
+	struct xrt_partition_ioctl_event e = { evt, &cb->cb };
+	struct xrt_event_arg_subdev esd = { XOCL_SUBDEV_PART, part->id };
 	int rc;
 
 	if (match(XOCL_SUBDEV_PART, part, arg)) {
@@ -130,11 +130,11 @@ xroot_partition_trigger_evt(struct xroot *xr, struct xroot_event_cb *cb,
 			return rc;
 	}
 
-	return xocl_subdev_ioctl(part, XOCL_PARTITION_EVENT, &e);
+	return xrt_subdev_ioctl(part, XOCL_PARTITION_EVENT, &e);
 }
 
 static void
-xroot_event_partition(struct xroot *xr, int instance, enum xocl_events evt)
+xroot_event_partition(struct xroot *xr, int instance, enum xrt_events evt)
 {
 	int ret;
 	struct platform_device *pdev = NULL;
@@ -171,7 +171,7 @@ int xroot_create_partition(void *root, char *dtb)
 	int ret;
 
 	atomic_inc(&xr->parts.bringup_pending);
-	ret = xocl_subdev_pool_add(&xr->parts.pool,
+	ret = xrt_subdev_pool_add(&xr->parts.pool,
 		XOCL_SUBDEV_PART, xroot_parent_cb, xr, dtb);
 	if (ret >= 0) {
 		schedule_work(&xr->parts.bringup_work);
@@ -196,10 +196,10 @@ static int xroot_destroy_single_partition(struct xroot *xr, int instance)
 	xroot_event_partition(xr, instance, XOCL_EVENT_PRE_REMOVAL);
 
 	/* Now tear down all children in this partition. */
-	ret = xocl_subdev_ioctl(pdev, XOCL_PARTITION_FINI_CHILDREN, NULL);
+	ret = xrt_subdev_ioctl(pdev, XOCL_PARTITION_FINI_CHILDREN, NULL);
 	(void) xroot_put_partition(xr, pdev);
 	if (!ret) {
-		ret = xocl_subdev_pool_del(&xr->parts.pool,
+		ret = xrt_subdev_pool_del(&xr->parts.pool,
 			XOCL_SUBDEV_PART, instance);
 	}
 
@@ -242,7 +242,7 @@ static int xroot_destroy_partition(struct xroot *xr, int instance)
 }
 
 static int xroot_lookup_partition(struct xroot *xr,
-	struct xocl_parent_ioctl_lookup_partition *arg)
+	struct xrt_parent_ioctl_lookup_partition *arg)
 {
 	int rc = -ENOENT;
 	struct platform_device *part = NULL;
@@ -294,7 +294,7 @@ static void xroot_evt_cb_init_work(struct work_struct *work)
 	mutex_unlock(&xr->events.cb_lock);
 }
 
-static bool xroot_evt(struct xroot *xr, enum xocl_events evt)
+static bool xroot_evt(struct xroot *xr, enum xrt_events evt)
 {
 	const struct list_head *ptr, *next;
 	struct xroot_event_cb *tmp;
@@ -373,7 +373,7 @@ static void xroot_evt_fini(struct xroot *xr)
 }
 
 static int xroot_evt_cb_add(struct xroot *xr,
-	struct xocl_parent_ioctl_evt_cb *cb)
+	struct xrt_parent_ioctl_evt_cb *cb)
 {
 	struct xroot_event_cb *new = vzalloc(sizeof(*new));
 
@@ -393,7 +393,7 @@ static int xroot_evt_cb_add(struct xroot *xr,
 }
 
 static int xroot_async_evt_add(struct xroot *xr,
-	struct xocl_parent_ioctl_async_broadcast_evt *arg)
+	struct xrt_parent_ioctl_async_broadcast_evt *arg)
 {
 	struct xroot_async_evt *new = vzalloc(sizeof(*new));
 
@@ -428,28 +428,28 @@ static void xroot_evt_cb_del(struct xroot *xr, void *hdl)
 }
 
 static int xroot_get_leaf(struct xroot *xr,
-	struct xocl_parent_ioctl_get_leaf *arg)
+	struct xrt_parent_ioctl_get_leaf *arg)
 {
 	int rc = -ENOENT;
 	struct platform_device *part = NULL;
 
 	while (rc && xroot_get_partition(xr, XROOT_PART_LAST,
 		&part) != -ENOENT) {
-		rc = xocl_subdev_ioctl(part, XOCL_PARTITION_GET_LEAF, arg);
+		rc = xrt_subdev_ioctl(part, XOCL_PARTITION_GET_LEAF, arg);
 		xroot_put_partition(xr, part);
 	}
 	return rc;
 }
 
 static int xroot_put_leaf(struct xroot *xr,
-	struct xocl_parent_ioctl_put_leaf *arg)
+	struct xrt_parent_ioctl_put_leaf *arg)
 {
 	int rc = -ENOENT;
 	struct platform_device *part = NULL;
 
 	while (rc && xroot_get_partition(xr, XROOT_PART_LAST,
 		&part) != -ENOENT) {
-		rc = xocl_subdev_ioctl(part, XOCL_PARTITION_PUT_LEAF, arg);
+		rc = xrt_subdev_ioctl(part, XOCL_PARTITION_PUT_LEAF, arg);
 		xroot_put_partition(xr, part);
 	}
 	return rc;
@@ -463,21 +463,21 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 	switch (cmd) {
 	/* Leaf actions. */
 	case XOCL_PARENT_GET_LEAF: {
-		struct xocl_parent_ioctl_get_leaf *getleaf =
-			(struct xocl_parent_ioctl_get_leaf *)arg;
+		struct xrt_parent_ioctl_get_leaf *getleaf =
+			(struct xrt_parent_ioctl_get_leaf *)arg;
 		rc = xroot_get_leaf(xr, getleaf);
 		break;
 	}
 	case XOCL_PARENT_PUT_LEAF: {
-		struct xocl_parent_ioctl_put_leaf *putleaf =
-			(struct xocl_parent_ioctl_put_leaf *)arg;
+		struct xrt_parent_ioctl_put_leaf *putleaf =
+			(struct xrt_parent_ioctl_put_leaf *)arg;
 		rc = xroot_put_leaf(xr, putleaf);
 		break;
 	}
 	case XOCL_PARENT_GET_LEAF_HOLDERS: {
-		struct xocl_parent_ioctl_get_holders *holders =
-			(struct xocl_parent_ioctl_get_holders *)arg;
-		rc = xocl_subdev_pool_get_holders(&xr->parts.pool,
+		struct xrt_parent_ioctl_get_holders *holders =
+			(struct xrt_parent_ioctl_get_holders *)arg;
+		rc = xrt_subdev_pool_get_holders(&xr->parts.pool,
 			holders->xpigh_pdev, holders->xpigh_holder_buf,
 			holders->xpigh_holder_buf_len);
 		break;
@@ -492,8 +492,8 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		rc = xroot_destroy_partition(xr, (int)(uintptr_t)arg);
 		break;
 	case XOCL_PARENT_LOOKUP_PARTITION: {
-		struct xocl_parent_ioctl_lookup_partition *getpart =
-			(struct xocl_parent_ioctl_lookup_partition *)arg;
+		struct xrt_parent_ioctl_lookup_partition *getpart =
+			(struct xrt_parent_ioctl_lookup_partition *)arg;
 		rc = xroot_lookup_partition(xr, getpart);
 		break;
 	}
@@ -504,8 +504,8 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 
 	/* Event actions. */
 	case XOCL_PARENT_ADD_EVENT_CB: {
-		struct xocl_parent_ioctl_evt_cb *cb =
-			(struct xocl_parent_ioctl_evt_cb *)arg;
+		struct xrt_parent_ioctl_evt_cb *cb =
+			(struct xrt_parent_ioctl_evt_cb *)arg;
 		rc = xroot_evt_cb_add(xr, cb);
 		break;
 	}
@@ -515,20 +515,20 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		break;
 	case XOCL_PARENT_ASYNC_BOARDCAST_EVENT:
 		rc = xroot_async_evt_add(xr,
-			(struct xocl_parent_ioctl_async_broadcast_evt *)arg);
+			(struct xrt_parent_ioctl_async_broadcast_evt *)arg);
 		break;
 
 
 	/* Device info. */
 	case XOCL_PARENT_GET_RESOURCE: {
-		struct xocl_parent_ioctl_get_res *res =
-			(struct xocl_parent_ioctl_get_res *)arg;
+		struct xrt_parent_ioctl_get_res *res =
+			(struct xrt_parent_ioctl_get_res *)arg;
 		res->xpigr_res = xr->pdev->resource;
 		break;
 	}
 	case XOCL_PARENT_GET_ID: {
-		struct xocl_parent_ioctl_get_id *id =
-			(struct xocl_parent_ioctl_get_id *)arg;
+		struct xrt_parent_ioctl_get_id *id =
+			(struct xrt_parent_ioctl_get_id *)arg;
 
 		id->xpigi_vendor_id = xr->pdev->vendor;
 		id->xpigi_device_id = xr->pdev->device;
@@ -544,8 +544,8 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 	}
 
 	case XOCL_PARENT_HWMON: {
-		struct xocl_parent_ioctl_hwmon *hwmon =
-			(struct xocl_parent_ioctl_hwmon *)arg;
+		struct xrt_parent_ioctl_hwmon *hwmon =
+			(struct xrt_parent_ioctl_hwmon *)arg;
 
 		if (hwmon->xpih_register) {
 			hwmon->xpih_hwmon_dev =
@@ -576,7 +576,7 @@ static void xroot_bringup_partition_work(struct work_struct *work)
 		int r, i;
 
 		i = pdev->id;
-		r = xocl_subdev_ioctl(pdev, XOCL_PARTITION_INIT_CHILDREN, NULL);
+		r = xrt_subdev_ioctl(pdev, XOCL_PARTITION_INIT_CHILDREN, NULL);
 		(void) xroot_put_partition(xr, pdev);
 		if (r == -EEXIST)
 			continue; /* Already brough up, nothing to do. */
@@ -592,7 +592,7 @@ static void xroot_bringup_partition_work(struct work_struct *work)
 
 static void xroot_parts_init(struct xroot *xr)
 {
-	xocl_subdev_pool_init(DEV(xr->pdev), &xr->parts.pool);
+	xrt_subdev_pool_init(DEV(xr->pdev), &xr->parts.pool);
 	INIT_WORK(&xr->parts.bringup_work, xroot_bringup_partition_work);
 	atomic_set(&xr->parts.bringup_pending, 0);
 	atomic_set(&xr->parts.bringup_failed, 0);
@@ -602,14 +602,14 @@ static void xroot_parts_init(struct xroot *xr)
 static void xroot_parts_fini(struct xroot *xr)
 {
 	flush_scheduled_work();
-	(void) xocl_subdev_pool_fini(&xr->parts.pool);
+	(void) xrt_subdev_pool_fini(&xr->parts.pool);
 }
 
 int xroot_add_vsec_node(void *root, char *dtb)
 {
 	struct xroot *xr = (struct xroot *)root;
 	struct device *dev = DEV(xr->pdev);
-	struct xocl_md_endpoint ep = { 0 };
+	struct xrt_md_endpoint ep = { 0 };
 	int cap = 0, ret = 0;
 	u32 off_low, off_high, vsec_bar, header;
 	u64 vsec_off;
@@ -632,14 +632,14 @@ int xroot_add_vsec_node(void *root, char *dtb)
 	}
 
 	ep.ep_name = NODE_VSEC;
-	ret = xocl_md_add_endpoint(dev, dtb, &ep);
+	ret = xrt_md_add_endpoint(dev, dtb, &ep);
 	if (ret) {
 		xroot_err(xr, "add vsec metadata failed, ret %d", ret);
 		goto failed;
 	}
 
 	vsec_bar = cpu_to_be32(off_low & 0xf);
-	ret = xocl_md_set_prop(dev, dtb, NODE_VSEC,
+	ret = xrt_md_set_prop(dev, dtb, NODE_VSEC,
 		NULL, PROP_BAR_IDX, &vsec_bar, sizeof(vsec_bar));
 	if (ret) {
 		xroot_err(xr, "add vsec bar idx failed, ret %d", ret);
@@ -647,7 +647,7 @@ int xroot_add_vsec_node(void *root, char *dtb)
 	}
 
 	vsec_off = cpu_to_be64(((u64)off_high << 32) | (off_low & ~0xfU));
-	ret = xocl_md_set_prop(dev, dtb, NODE_VSEC,
+	ret = xrt_md_set_prop(dev, dtb, NODE_VSEC,
 		NULL, PROP_OFFSET, &vsec_off, sizeof(vsec_off));
 	if (ret) {
 		xroot_err(xr, "add vsec offset failed, ret %d", ret);
@@ -662,11 +662,11 @@ int xroot_add_simple_node(void *root, char *dtb, const char *endpoint)
 {
 	struct xroot *xr = (struct xroot *)root;
 	struct device *dev = DEV(xr->pdev);
-	struct xocl_md_endpoint ep = { 0 };
+	struct xrt_md_endpoint ep = { 0 };
 	int ret = 0;
 
 	ep.ep_name = endpoint;
-	ret = xocl_md_add_endpoint(dev, dtb, &ep);
+	ret = xrt_md_add_endpoint(dev, dtb, &ep);
 	if (ret)
 		xroot_err(xr, "add %s failed, ret %d", endpoint, ret);
 
@@ -719,19 +719,19 @@ void xroot_remove(void *root)
 }
 
 static void xroot_broadcast_event_cb(struct platform_device *pdev,
-	enum xocl_events evt, void *arg, bool success)
+	enum xrt_events evt, void *arg, bool success)
 {
 	struct completion *comp = (struct completion *)arg;
 
 	complete(comp);
 }
 
-void xroot_broadcast(void *root, enum xocl_events evt)
+void xroot_broadcast(void *root, enum xrt_events evt)
 {
 	int rc;
 	struct completion comp;
 	struct xroot *xr = (struct xroot *)root;
-	struct xocl_parent_ioctl_async_broadcast_evt e = {
+	struct xrt_parent_ioctl_async_broadcast_evt e = {
 		NULL, evt, xroot_broadcast_event_cb, &comp
 	};
 

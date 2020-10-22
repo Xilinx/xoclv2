@@ -9,12 +9,12 @@
 #ifndef	_XOCL_UCS_H_
 #define	_XOCL_UCS_H_
 
-#include "xocl-subdev.h"
+#include "xrt-subdev.h"
 
 /*
  * UCS driver IOCTL calls.
  */
-enum xocl_ucs_ioctl_cmd {
+enum xrt_ucs_ioctl_cmd {
 	XOCL_UCS_CHECK = 0,
 	XOCL_UCS_ENABLE,
 };

@@ -9,18 +9,18 @@
 #ifndef _XOCL_DDR_SRSR_H_
 #define _XOCL_DDR_SRSR_H_
 
-#include "xocl-subdev.h"
+#include "xrt-subdev.h"
 
 /*
  * ddr-srsr driver IOCTL calls.
  */
-enum xocl_ddr_srsr_ioctl_cmd {
+enum xrt_ddr_srsr_ioctl_cmd {
 	XOCL_SRSR_FAST_CALIB,
 	XOCL_SRSR_CALIB,
 	XOCL_SRSR_EP_NAME,
 };
 
-struct xocl_srsr_ioctl_calib {
+struct xrt_srsr_ioctl_calib {
 	void	*xsic_buf;
 	u32	xsic_size;
 	bool	xsic_retention;

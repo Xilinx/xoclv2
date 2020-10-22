@@ -8,21 +8,21 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#include "xocl-subdev.h"
+#include "xrt-subdev.h"
 
-extern struct class *xocl_class;
+extern struct class *xrt_class;
 
 #define	XOCL_CDEV_DIR		"xfpga"
 #define	INODE2PDATA(inode)	\
-	container_of((inode)->i_cdev, struct xocl_subdev_platdata, xsp_cdev)
+	container_of((inode)->i_cdev, struct xrt_subdev_platdata, xsp_cdev)
 #define	INODE2PDEV(inode)	\
 	to_platform_device(kobj_to_dev((inode)->i_cdev->kobj.parent))
 #define	CDEV_NAME(sysdev)	(strchr((sysdev)->kobj.name, '!') + 1)
 
 /* Allow it to be accessed from cdev. */
-static void xocl_devnode_allowed(struct platform_device *pdev)
+static void xrt_devnode_allowed(struct platform_device *pdev)
 {
-	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(pdev);
 
 	/* Allow new opens. */
 	mutex_lock(&pdata->xsp_devnode_lock);
@@ -31,10 +31,10 @@ static void xocl_devnode_allowed(struct platform_device *pdev)
 }
 
 /* Turn off access from cdev and wait for all existing user to go away. */
-static int xocl_devnode_disallowed(struct platform_device *pdev)
+static int xrt_devnode_disallowed(struct platform_device *pdev)
 {
 	int ret = 0;
-	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(pdev);
 
 	mutex_lock(&pdata->xsp_devnode_lock);
 
@@ -51,7 +51,7 @@ static int xocl_devnode_disallowed(struct platform_device *pdev)
 		if (rc == -ERESTARTSYS) {
 			/* Restore online state. */
 			pdata->xsp_devnode_online = true;
-			xocl_err(pdev, "%s is in use, ref=%d",
+			xrt_err(pdev, "%s is in use, ref=%d",
 				CDEV_NAME(pdata->xsp_sysdev),
 				pdata->xsp_devnode_ref);
 			ret = -EBUSY;
@@ -64,9 +64,9 @@ static int xocl_devnode_disallowed(struct platform_device *pdev)
 }
 
 static struct platform_device *
-__xocl_devnode_open(struct inode *inode, bool excl)
+__xrt_devnode_open(struct inode *inode, bool excl)
 {
-	struct xocl_subdev_platdata *pdata = INODE2PDATA(inode);
+	struct xrt_subdev_platdata *pdata = INODE2PDATA(inode);
 	struct platform_device *pdev = INODE2PDEV(inode);
 	bool opened = false;
 
@@ -74,21 +74,21 @@ __xocl_devnode_open(struct inode *inode, bool excl)
 
 	if (pdata->xsp_devnode_online) {
 		if (excl && pdata->xsp_devnode_ref) {
-			xocl_err(pdev, "%s has already been opened exclusively",
+			xrt_err(pdev, "%s has already been opened exclusively",
 				CDEV_NAME(pdata->xsp_sysdev));
 		} else if (!excl && pdata->xsp_devnode_excl) {
-			xocl_err(pdev, "%s has been opened exclusively",
+			xrt_err(pdev, "%s has been opened exclusively",
 				CDEV_NAME(pdata->xsp_sysdev));
 		} else {
 			pdata->xsp_devnode_ref++;
 			pdata->xsp_devnode_excl = excl;
 			opened = true;
-			xocl_info(pdev, "opened %s, ref=%d",
+			xrt_info(pdev, "opened %s, ref=%d",
 				CDEV_NAME(pdata->xsp_sysdev),
 				pdata->xsp_devnode_ref);
 		}
 	} else {
-		xocl_err(pdev, "%s is offline", CDEV_NAME(pdata->xsp_sysdev));
+		xrt_err(pdev, "%s is offline", CDEV_NAME(pdata->xsp_sysdev));
 	}
 
 	mutex_unlock(&pdata->xsp_devnode_lock);
@@ -97,21 +97,21 @@ __xocl_devnode_open(struct inode *inode, bool excl)
 }
 
 struct platform_device *
-xocl_devnode_open_excl(struct inode *inode)
+xrt_devnode_open_excl(struct inode *inode)
 {
-	return __xocl_devnode_open(inode, true);
+	return __xrt_devnode_open(inode, true);
 }
 
 struct platform_device *
-xocl_devnode_open(struct inode *inode)
+xrt_devnode_open(struct inode *inode)
 {
-	return __xocl_devnode_open(inode, false);
+	return __xrt_devnode_open(inode, false);
 }
-EXPORT_SYMBOL_GPL(xocl_devnode_open);
+EXPORT_SYMBOL_GPL(xrt_devnode_open);
 
-void xocl_devnode_close(struct inode *inode)
+void xrt_devnode_close(struct inode *inode)
 {
-	struct xocl_subdev_platdata *pdata = INODE2PDATA(inode);
+	struct xrt_subdev_platdata *pdata = INODE2PDATA(inode);
 	struct platform_device *pdev = INODE2PDEV(inode);
 	bool notify = false;
 
@@ -123,10 +123,10 @@ void xocl_devnode_close(struct inode *inode)
 		notify = true;
 	}
 	if (notify) {
-		xocl_info(pdev, "closed %s, ref=%d",
+		xrt_info(pdev, "closed %s, ref=%d",
 			CDEV_NAME(pdata->xsp_sysdev), pdata->xsp_devnode_ref);
 	} else {
-		xocl_info(pdev, "closed %s, notifying waiter",
+		xrt_info(pdev, "closed %s, notifying waiter",
 			CDEV_NAME(pdata->xsp_sysdev));
 	}
 
@@ -135,20 +135,20 @@ void xocl_devnode_close(struct inode *inode)
 	if (notify)
 		complete(&pdata->xsp_devnode_comp);
 }
-EXPORT_SYMBOL_GPL(xocl_devnode_close);
+EXPORT_SYMBOL_GPL(xrt_devnode_close);
 
-static inline enum xocl_subdev_file_mode
-devnode_mode(struct xocl_subdev_drvdata *drvdata)
+static inline enum xrt_subdev_file_mode
+devnode_mode(struct xrt_subdev_drvdata *drvdata)
 {
 	return drvdata->xsd_file_ops.xsf_mode;
 }
 
-int xocl_devnode_create(struct platform_device *pdev, const char *file_name,
+int xrt_devnode_create(struct platform_device *pdev, const char *file_name,
 	const char *inst_name)
 {
-	struct xocl_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
-	struct xocl_subdev_file_ops *fops = &drvdata->xsd_file_ops;
-	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
+	struct xrt_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
+	struct xrt_subdev_file_ops *fops = &drvdata->xsd_file_ops;
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(pdev);
 	struct cdev *cdevp;
 	struct device *sysdev;
 	int ret = 0;
@@ -172,7 +172,7 @@ int xocl_devnode_create(struct platform_device *pdev, const char *file_name,
 
 	ret = cdev_add(cdevp, cdevp->dev, 1);
 	if (ret) {
-		xocl_err(pdev, "failed to add cdev: %d", ret);
+		xrt_err(pdev, "failed to add cdev: %d", ret);
 		goto failed;
 	}
 	if (!file_name)
@@ -191,43 +191,43 @@ int xocl_devnode_create(struct platform_device *pdev, const char *file_name,
 		snprintf(fname, sizeof(fname), "%s/%s.%s-%s", XOCL_CDEV_DIR,
 			file_name, DEV_PDATA(pdev)->xsp_root_name, inst_name);
 	}
-	sysdev = device_create(xocl_class, NULL, cdevp->dev, NULL, "%s", fname);
+	sysdev = device_create(xrt_class, NULL, cdevp->dev, NULL, "%s", fname);
 	if (IS_ERR(sysdev)) {
 		ret = PTR_ERR(sysdev);
-		xocl_err(pdev, "failed to create device node: %d", ret);
+		xrt_err(pdev, "failed to create device node: %d", ret);
 		goto failed;
 	}
 	pdata->xsp_sysdev = sysdev;
 
-	xocl_devnode_allowed(pdev);
+	xrt_devnode_allowed(pdev);
 
-	xocl_info(pdev, "created (%d, %d): /dev/%s",
+	xrt_info(pdev, "created (%d, %d): /dev/%s",
 		MAJOR(cdevp->dev), pdev->id, fname);
 	return 0;
 
 failed:
-	device_destroy(xocl_class, cdevp->dev);
+	device_destroy(xrt_class, cdevp->dev);
 	cdev_del(cdevp);
 	cdevp->owner = NULL;
 	return ret;
 }
 
-int xocl_devnode_destroy(struct platform_device *pdev)
+int xrt_devnode_destroy(struct platform_device *pdev)
 {
-	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(pdev);
 	struct cdev *cdevp = &pdata->xsp_cdev;
 	dev_t dev = cdevp->dev;
 	int rc;
 
 	BUG_ON(!cdevp->owner);
 
-	rc = xocl_devnode_disallowed(pdev);
+	rc = xrt_devnode_disallowed(pdev);
 	if (rc)
 		return rc;
 
-	xocl_info(pdev, "removed (%d, %d): /dev/%s/%s", MAJOR(dev), MINOR(dev),
+	xrt_info(pdev, "removed (%d, %d): /dev/%s/%s", MAJOR(dev), MINOR(dev),
 		XOCL_CDEV_DIR, CDEV_NAME(pdata->xsp_sysdev));
-	device_destroy(xocl_class, cdevp->dev);
+	device_destroy(xrt_class, cdevp->dev);
 	pdata->xsp_sysdev = NULL;
 	cdev_del(cdevp);
 	return 0;

@@ -111,7 +111,7 @@
 #define	PROP_VROM "vrom"
 #define PROP_PARTITION_LEVEL "partition_level"
 
-struct xocl_md_endpoint {
+struct xrt_md_endpoint {
 	const char	*ep_name;
 	u32		bar;
 	long		bar_off;
@@ -121,12 +121,12 @@ struct xocl_md_endpoint {
 };
 
 /* Note: res_id is defined by leaf driver and must start with 0. */
-struct xocl_iores_map {
+struct xrt_iores_map {
 	char		*res_name;
 	int		res_id;
 };
 
-static inline int xocl_md_res_name2id(const struct xocl_iores_map *res_map,
+static inline int xrt_md_res_name2id(const struct xrt_iores_map *res_map,
 	int entry_num, const char *res_name)
 {
 	int i;
@@ -141,7 +141,7 @@ static inline int xocl_md_res_name2id(const struct xocl_iores_map *res_map,
 }
 
 static inline const char *
-xocl_md_res_id2name(const struct xocl_iores_map *res_map, int entry_num, int id)
+xrt_md_res_id2name(const struct xrt_iores_map *res_map, int entry_num, int id)
 {
 	int i;
 
@@ -154,30 +154,30 @@ xocl_md_res_id2name(const struct xocl_iores_map *res_map, int entry_num, int id)
 	return NULL;
 }
 
-long xocl_md_size(struct device *dev, const char *blob);
-int xocl_md_create(struct device *dev, char **blob);
-int xocl_md_add_endpoint(struct device *dev, char *blob,
-	struct xocl_md_endpoint *ep);
-int xocl_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
+long xrt_md_size(struct device *dev, const char *blob);
+int xrt_md_create(struct device *dev, char **blob);
+int xrt_md_add_endpoint(struct device *dev, char *blob,
+	struct xrt_md_endpoint *ep);
+int xrt_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
 	char *regmap_name);
-int xocl_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
+int xrt_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
 	const char *regmap_name, const char *prop, const void **val, int *size);
-int xocl_md_set_prop(struct device *dev, char *blob, const char *ep_name,
+int xrt_md_set_prop(struct device *dev, char *blob, const char *ep_name,
 	const char *regmap_name, const char *prop, const void *val, int size);
-int xocl_md_copy_endpoint(struct device *dev, char *blob, const char *src_blob,
+int xrt_md_copy_endpoint(struct device *dev, char *blob, const char *src_blob,
 	const char *ep_name, const char *regmap_name, const char *new_ep_name);
-int xocl_md_copy_all_eps(struct device *dev, char  *blob, const char *src_blob);
-int xocl_md_get_next_endpoint(struct device *dev, const char *blob,
+int xrt_md_copy_all_eps(struct device *dev, char  *blob, const char *src_blob);
+int xrt_md_get_next_endpoint(struct device *dev, const char *blob,
 	const char *ep_name,  const char *regmap_name,
 	char **next_ep, char **next_regmap);
-int xocl_md_get_compatible_epname(struct device *dev, const char *blob,
+int xrt_md_get_compatible_epname(struct device *dev, const char *blob,
 	const char *regmap_name, const char **ep_name);
-int xocl_md_get_epname_pointer(struct device *dev, const char *blob,
+int xrt_md_get_epname_pointer(struct device *dev, const char *blob,
 	const char *ep_name, const char *regmap_name, const char **epname);
-void xocl_md_pack(struct device *dev, char *blob);
-char *xocl_md_dup(struct device *dev, const char *blob);
-int xocl_md_get_intf_uuids(struct device *dev, const char *blob,
+void xrt_md_pack(struct device *dev, char *blob);
+char *xrt_md_dup(struct device *dev, const char *blob);
+int xrt_md_get_intf_uuids(struct device *dev, const char *blob,
 	u32 *num_uuids, uuid_t *intf_uuids);
-int xocl_md_check_uuids(struct device *dev, const char *blob, char *subset_blob);
+int xrt_md_check_uuids(struct device *dev, const char *blob, char *subset_blob);
 
 #endif

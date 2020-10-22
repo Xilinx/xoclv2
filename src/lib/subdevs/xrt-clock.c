@@ -13,11 +13,11 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include "xocl-metadata.h"
-#include "xocl-subdev.h"
-#include "xocl-parent.h"
-#include "xocl-clock.h"
-#include "xocl-clkfreq.h"
+#include "xrt-metadata.h"
+#include "xrt-subdev.h"
+#include "xrt-parent.h"
+#include "xrt-clock.h"
+#include "xrt-clkfreq.h"
 
 /* CLOCK_MAX_NUM_CLOCKS should be a concept from XCLBIN_ in the future */
 #define	CLOCK_MAX_NUM_CLOCKS		4
@@ -29,15 +29,15 @@
 #define	CLOCK_DEFAULT_EXPIRE_SECS	1
 
 #define	CLOCK_ERR(clock, fmt, arg...)	\
-	xocl_err((clock)->pdev, fmt "\n", ##arg)
+	xrt_err((clock)->pdev, fmt "\n", ##arg)
 #define	CLOCK_WARN(clock, fmt, arg...)	\
-	xocl_warn((clock)->pdev, fmt "\n", ##arg)
+	xrt_warn((clock)->pdev, fmt "\n", ##arg)
 #define	CLOCK_INFO(clock, fmt, arg...)	\
-	xocl_info((clock)->pdev, fmt "\n", ##arg)
+	xrt_info((clock)->pdev, fmt "\n", ##arg)
 #define	CLOCK_DBG(clock, fmt, arg...)	\
-	xocl_dbg((clock)->pdev, fmt "\n", ##arg)
+	xrt_dbg((clock)->pdev, fmt "\n", ##arg)
 
-#define XOCL_CLOCK	"xocl_clock"
+#define XOCL_CLOCK	"xrt_clock"
 
 struct clock {
 	struct platform_device  *pdev;
@@ -392,32 +392,32 @@ static int clock_set_freq(struct clock *clock, u16 freq)
 
 static int clock_verify_freq(struct clock *clock)
 {
-	struct xocl_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
 	int err = 0;
 	const char *counter;
 	u16 freq;
 	struct platform_device *clkfreq_leaf;
 	u32 lookup_freq, clock_freq_counter, request_in_khz, tolerance;
 
-	err = xocl_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
+	err = xrt_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
 		clock->clock_ep_name, NULL, PROP_CLK_CNT,
 		(const void **)&counter, NULL);
 	if (err) {
-		xocl_err(clock->pdev, "no counter specified");
+		xrt_err(clock->pdev, "no counter specified");
 		return err;
 	}
 
 	mutex_lock(&clock->clock_lock);
 	err = get_freq(clock, &freq);
 	if (err) {
-		xocl_err(clock->pdev, "get freq failed, %d", err);
+		xrt_err(clock->pdev, "get freq failed, %d", err);
 		goto end;
 	}
 
-	clkfreq_leaf = xocl_subdev_get_leaf(clock->pdev,
-		xocl_subdev_match_epname, (void *)counter);
+	clkfreq_leaf = xrt_subdev_get_leaf(clock->pdev,
+		xrt_subdev_match_epname, (void *)counter);
 	if (clkfreq_leaf) {
-		err = xocl_subdev_ioctl(clkfreq_leaf, XOCL_CLKFREQ_READ,
+		err = xrt_subdev_ioctl(clkfreq_leaf, XOCL_CLKFREQ_READ,
 				&clock_freq_counter);
 		if (err)
 			goto end;
@@ -425,7 +425,7 @@ static int clock_verify_freq(struct clock *clock)
 			ARRAY_SIZE(frequency_table));
 		request_in_khz = lookup_freq * 1000;
 		tolerance = lookup_freq * 50;
-		xocl_subdev_put_leaf(clock->pdev, clkfreq_leaf);
+		xrt_subdev_put_leaf(clock->pdev, clkfreq_leaf);
 
 		if (tolerance < abs(clock_freq_counter-request_in_khz)) {
 			CLOCK_ERR(clock,
@@ -447,15 +447,15 @@ end:
 
 static int clock_init(struct clock *clock)
 {
-	struct xocl_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
 	int err = 0;
 	const u16 *freq;
 
-	err = xocl_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
+	err = xrt_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
 		clock->clock_ep_name, NULL, PROP_CLK_FREQ,
 		(const void **)&freq, NULL);
 	if (err) {
-		xocl_info(clock->pdev, "no default freq");
+		xrt_info(clock->pdev, "no default freq");
 		return 0;
 	}
 
@@ -493,7 +493,7 @@ static struct attribute_group clock_attr_group = {
 };
 
 static int
-xocl_clock_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_clock_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct clock		*clock;
 	int			ret = 0;
@@ -512,7 +512,7 @@ xocl_clock_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	default:
-		xocl_err(pdev, "unsupported cmd %d", cmd);
+		xrt_err(pdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
@@ -525,7 +525,7 @@ static int clock_remove(struct platform_device *pdev)
 
 	clock = platform_get_drvdata(pdev);
 	if (!clock) {
-		xocl_err(pdev, "driver data is NULL");
+		xrt_err(pdev, "driver data is NULL");
 		return -EINVAL;
 	}
 
@@ -581,9 +581,9 @@ failed:
 	return ret;
 }
 
-struct xocl_subdev_endpoints xocl_clock_endpoints[] = {
+struct xrt_subdev_endpoints xrt_clock_endpoints[] = {
 	{
-		.xse_names = (struct xocl_subdev_ep_names[]) {
+		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .regmap_name = "clkwiz" },
 			{ NULL },
 		},
@@ -592,22 +592,22 @@ struct xocl_subdev_endpoints xocl_clock_endpoints[] = {
 	{ 0 },
 };
 
-struct xocl_subdev_drvdata xocl_clock_data = {
+struct xrt_subdev_drvdata xrt_clock_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xocl_clock_leaf_ioctl,
+		.xsd_ioctl = xrt_clock_leaf_ioctl,
 	},
 };
 
-static const struct platform_device_id xocl_clock_table[] = {
-	{ XOCL_CLOCK, (kernel_ulong_t)&xocl_clock_data },
+static const struct platform_device_id xrt_clock_table[] = {
+	{ XOCL_CLOCK, (kernel_ulong_t)&xrt_clock_data },
 	{ },
 };
 
-struct platform_driver xocl_clock_driver = {
+struct platform_driver xrt_clock_driver = {
 	.driver = {
 		.name = XOCL_CLOCK,
 	},
 	.probe = clock_probe,
 	.remove = clock_remove,
-	.id_table = xocl_clock_table,
+	.id_table = xrt_clock_table,
 };

@@ -9,7 +9,7 @@
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
 #include "xmgmt-main.h"
-#include "xocl-cmc-impl.h"
+#include "xrt-cmc-impl.h"
 
 #define	CMC_12V_PEX_REG			0x20
 #define	CMC_3V3_PEX_REG			0x2C
@@ -65,14 +65,14 @@
 #define	CMC_VCCAUX_PMC_REG              0x350
 #define	CMC_VCCRAM_REG                  0x35C
 
-struct xocl_cmc_sensor {
+struct xrt_cmc_sensor {
 	struct platform_device *pdev;
 	struct cmc_reg_map reg_io;
 	struct device *hwmon_dev;
 };
 
 static inline u32
-cmc_reg_rd(struct xocl_cmc_sensor *cmc_sensor, u32 off)
+cmc_reg_rd(struct xrt_cmc_sensor *cmc_sensor, u32 off)
 {
 	return ioread32(cmc_sensor->reg_io.crm_addr + off);
 }
@@ -98,7 +98,7 @@ enum sensor_val_kind {
 static ssize_t hwmon_show(struct device *dev,
 	struct device_attribute *da, char *buf)
 {
-	struct xocl_cmc_sensor *cmc_sensor = dev_get_drvdata(dev);
+	struct xrt_cmc_sensor *cmc_sensor = dev_get_drvdata(dev);
 	int index = to_sensor_dev_attr(da)->index;
 	u32 val = READ_SENSOR(cmc_sensor, HWMON_INDEX2SENSOR(index),
 		HWMON_INDEX2VAL_KIND(index));
@@ -156,7 +156,7 @@ static ssize_t hwmon_show(struct device *dev,
 static ssize_t hwmon_temp_show(struct device *dev,
 	struct device_attribute *da, char *buf)
 {
-	struct xocl_cmc_sensor *cmc_sensor = dev_get_drvdata(dev);
+	struct xrt_cmc_sensor *cmc_sensor = dev_get_drvdata(dev);
 	int index = to_sensor_dev_attr(da)->index;
 	u32 val = READ_SENSOR(cmc_sensor, HWMON_INDEX2SENSOR(index),
 		HWMON_INDEX2VAL_KIND(index));
@@ -187,7 +187,7 @@ static ssize_t hwmon_temp_show(struct device *dev,
 	}
 
 /* For power */
-uint64_t cmc_get_power(struct xocl_cmc_sensor *cmc_sensor,
+uint64_t cmc_get_power(struct xrt_cmc_sensor *cmc_sensor,
 	enum sensor_val_kind kind)
 {
 	u32 v_pex, v_aux, v_3v3, c_pex, c_aux, c_3v3;
@@ -207,7 +207,7 @@ uint64_t cmc_get_power(struct xocl_cmc_sensor *cmc_sensor,
 static ssize_t hwmon_power_show(struct device *dev,
 	struct device_attribute *da, char *buf)
 {
-	struct xocl_cmc_sensor *cmc_sensor = dev_get_drvdata(dev);
+	struct xrt_cmc_sensor *cmc_sensor = dev_get_drvdata(dev);
 	int index = to_sensor_dev_attr(da)->index;
 	u64 val = cmc_get_power(cmc_sensor, HWMON_INDEX2VAL_KIND(index));
 
@@ -325,26 +325,26 @@ static const struct attribute_group *hwmon_cmc_attrgroups[] = {
 
 void cmc_sensor_remove(struct platform_device *pdev)
 {
-	struct xocl_cmc_sensor *cmc_sensor =
-		(struct xocl_cmc_sensor *)cmc_pdev2sensor(pdev);
+	struct xrt_cmc_sensor *cmc_sensor =
+		(struct xrt_cmc_sensor *)cmc_pdev2sensor(pdev);
 
 	if (cmc_sensor && cmc_sensor->hwmon_dev)
-		xocl_subdev_unregister_hwmon(pdev, cmc_sensor->hwmon_dev);
+		xrt_subdev_unregister_hwmon(pdev, cmc_sensor->hwmon_dev);
 }
 
-static char *cmc_get_vbnv(struct xocl_cmc_sensor *cmc_sensor)
+static char *cmc_get_vbnv(struct xrt_cmc_sensor *cmc_sensor)
 {
 	int ret;
 	char *vbnv;
 	struct platform_device *mgmt_leaf =
-		xocl_subdev_get_leaf_by_id(cmc_sensor->pdev,
+		xrt_subdev_get_leaf_by_id(cmc_sensor->pdev,
 		XOCL_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
 
 	if (mgmt_leaf == NULL)
 		return NULL;
 
-	ret = xocl_subdev_ioctl(mgmt_leaf, XOCL_MGMT_MAIN_GET_VBNV, &vbnv);
-	(void) xocl_subdev_put_leaf(cmc_sensor->pdev, mgmt_leaf);
+	ret = xrt_subdev_ioctl(mgmt_leaf, XOCL_MGMT_MAIN_GET_VBNV, &vbnv);
+	(void) xrt_subdev_put_leaf(cmc_sensor->pdev, mgmt_leaf);
 	if (ret)
 		return NULL;
 	return vbnv;
@@ -353,7 +353,7 @@ static char *cmc_get_vbnv(struct xocl_cmc_sensor *cmc_sensor)
 int cmc_sensor_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl)
 {
-	struct xocl_cmc_sensor *cmc_sensor;
+	struct xrt_cmc_sensor *cmc_sensor;
 	char *vbnv;
 
 	cmc_sensor = devm_kzalloc(DEV(pdev), sizeof(*cmc_sensor), GFP_KERNEL);
@@ -369,10 +369,10 @@ int cmc_sensor_probe(struct platform_device *pdev,
 	 * Make a parent call to ask root to register. If we register using
 	 * platform device, we'll be treated as ISA device, not PCI device.
 	 */
-	cmc_sensor->hwmon_dev = xocl_subdev_register_hwmon(pdev,
+	cmc_sensor->hwmon_dev = xrt_subdev_register_hwmon(pdev,
 		vbnv ? vbnv : "golden-image", cmc_sensor, hwmon_cmc_attrgroups);
 	if (cmc_sensor->hwmon_dev == NULL)
-		xocl_err(pdev, "failed to create HWMON device");
+		xrt_err(pdev, "failed to create HWMON device");
 
 	kfree(vbnv);
 	*hdl = cmc_sensor;

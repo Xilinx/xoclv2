@@ -10,8 +10,8 @@
 #include <asm/errno.h>
 #include <linux/vmalloc.h>
 #include <linux/device.h>
-#include "xocl-xclbin.h"
-#include "xocl-metadata.h"
+#include "xrt-xclbin.h"
+#include "xrt-metadata.h"
 
 /* Used for parsing bitstream header */
 #define XHI_EVEN_MAGIC_BYTE     0x0f
@@ -272,7 +272,7 @@ void xrt_xclbin_free_header(struct XHwIcap_Bit_Header *header)
 	vfree(header->Time);
 }
 
-struct xocl_clock_desc {
+struct xrt_clock_desc {
 	char	*clock_ep_name;
 	u32	clock_xclbin_type;
 	char	*clkfreq_ep_name;
@@ -337,12 +337,12 @@ static int xrt_xclbin_add_clock_metadata(struct device *dev,
 			continue;
 
 		freq = cpu_to_be16(clock_topo->m_clock_freq[i].m_freq_Mhz);
-		rc = xocl_md_set_prop(dev, dtb, ep_name,
+		rc = xrt_md_set_prop(dev, dtb, ep_name,
 			NULL, PROP_CLK_FREQ, &freq, sizeof(freq));
 		if (rc)
 			break;
 
-		rc = xocl_md_set_prop(dev, dtb, ep_name,
+		rc = xrt_md_set_prop(dev, dtb, ep_name,
 			NULL, PROP_CLK_CNT, counter_name, strlen(counter_name) + 1);
 		if (rc)
 			break;
@@ -364,12 +364,12 @@ int xrt_xclbin_get_metadata(struct device *dev, const char *xclbin, char **dtb)
 		goto done;
 
 	/* Sanity check the dtb section. */
-	if (xocl_md_size(dev, md) > len) {
+	if (xrt_md_size(dev, md) > len) {
 		rc = -EINVAL;
 		goto done;
 	}
 
-	newmd = xocl_md_dup(dev, md);
+	newmd = xrt_md_dup(dev, md);
 	if (!newmd) {
 		rc = -EFAULT;
 		goto done;

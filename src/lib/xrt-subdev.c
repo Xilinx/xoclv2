@@ -9,10 +9,10 @@
 #include <linux/platform_device.h>
 #include <linux/pci.h>
 #include <linux/vmalloc.h>
-#include "xocl-subdev.h"
-#include "xocl-parent.h"
-#include "xocl-main.h"
-#include "xocl-metadata.h"
+#include "xrt-subdev.h"
+#include "xrt-parent.h"
+#include "xrt-main.h"
+#include "xrt-metadata.h"
 
 #define DEV_IS_PCI(dev) ((dev)->bus == &pci_bus_type)
 static inline struct device *find_root(struct platform_device *pdev)
@@ -28,7 +28,7 @@ static inline struct device *find_root(struct platform_device *pdev)
  * It represents a holder of a subdev. One holder can repeatedly hold a subdev
  * as long as there is a unhold corresponding to a hold.
  */
-struct xocl_subdev_holder {
+struct xrt_subdev_holder {
 	struct list_head xsh_holder_list;
 	struct device *xsh_holder;
 	int xsh_count;
@@ -38,17 +38,17 @@ struct xocl_subdev_holder {
  * It represents a specific instance of platform driver for a subdev, which
  * provides services to its clients (another subdev driver or root driver).
  */
-struct xocl_subdev {
+struct xrt_subdev {
 	struct list_head xs_dev_list;
 	struct list_head xs_holder_list;
-	enum xocl_subdev_id xs_id;		/* type of subdev */
+	enum xrt_subdev_id xs_id;		/* type of subdev */
 	struct platform_device *xs_pdev;	/* a particular subdev inst */
 	struct completion xs_holder_comp;
 };
 
-static struct xocl_subdev *xocl_subdev_alloc(void)
+static struct xrt_subdev *xrt_subdev_alloc(void)
 {
-	struct xocl_subdev *sdev = vzalloc(sizeof(struct xocl_subdev));
+	struct xrt_subdev *sdev = vzalloc(sizeof(struct xrt_subdev));
 
 	if (!sdev)
 		return NULL;
@@ -59,7 +59,7 @@ static struct xocl_subdev *xocl_subdev_alloc(void)
 	return sdev;
 }
 
-static void xocl_subdev_free(struct xocl_subdev *sdev)
+static void xrt_subdev_free(struct xrt_subdev *sdev)
 {
 	vfree(sdev);
 }
@@ -72,9 +72,9 @@ static ssize_t holders_show(struct device *dev,
 {
 	ssize_t len;
 	struct platform_device *pdev = to_platform_device(dev);
-	struct xocl_parent_ioctl_get_holders holders = { pdev, buf, 1024 };
+	struct xrt_parent_ioctl_get_holders holders = { pdev, buf, 1024 };
 
-	len = xocl_subdev_parent_ioctl(pdev,
+	len = xrt_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_GET_LEAF_HOLDERS, &holders);
 	if (len >= holders.xpigh_holder_buf_len)
 		return len;
@@ -83,7 +83,7 @@ static ssize_t holders_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(holders);
 
-static struct attribute *xocl_subdev_attrs[] = {
+static struct attribute *xrt_subdev_attrs[] = {
 	&dev_attr_holders.attr,
 	NULL,
 };
@@ -93,13 +93,13 @@ static ssize_t metadata_output(struct file *filp, struct kobject *kobj,
 {
 	struct device *dev = kobj_to_dev(kobj);
 	struct platform_device *pdev = to_platform_device(dev);
-	struct xocl_subdev_platdata *pdata = DEV_PDATA(pdev);
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(pdev);
 	unsigned char *blob;
 	long  size;
 	ssize_t ret = 0;
 
 	blob = pdata->xsp_dtb;
-	size = xocl_md_size(dev, blob);
+	size = xrt_md_size(dev, blob);
 	if (size <= 0) {
 		ret = -EINVAL;
 		goto failed;
@@ -126,21 +126,21 @@ static struct bin_attribute meta_data_attr = {
 	.size = 0
 };
 
-static struct bin_attribute  *xocl_subdev_bin_attrs[] = {
+static struct bin_attribute  *xrt_subdev_bin_attrs[] = {
 	&meta_data_attr,
 	NULL,
 };
 
-static const struct attribute_group xocl_subdev_attrgroup = {
-	.attrs = xocl_subdev_attrs,
-	.bin_attrs = xocl_subdev_bin_attrs,
+static const struct attribute_group xrt_subdev_attrgroup = {
+	.attrs = xrt_subdev_attrs,
+	.bin_attrs = xrt_subdev_bin_attrs,
 };
 
 static int
-xocl_subdev_getres(struct device *parent, enum xocl_subdev_id id,
+xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 	char *dtb, struct resource **res, int *res_num)
 {
-	struct xocl_subdev_platdata *pdata;
+	struct xrt_subdev_platdata *pdata;
 	struct resource *pci_res = NULL;
 	const u64 *bar_range;
 	const u32 *bar_idx;
@@ -153,12 +153,12 @@ xocl_subdev_getres(struct device *parent, enum xocl_subdev_id id,
 
 	pdata = DEV_PDATA(to_platform_device(parent));
 
-	for (xocl_md_get_next_endpoint(parent, dtb, NULL, NULL,
+	for (xrt_md_get_next_endpoint(parent, dtb, NULL, NULL,
 		&ep_name, &regmap);
 		ep_name != NULL;
-		xocl_md_get_next_endpoint(parent, dtb, ep_name, regmap,
+		xrt_md_get_next_endpoint(parent, dtb, ep_name, regmap,
 		&ep_name, &regmap)) {
-		ret = xocl_md_get_prop(parent, dtb, ep_name, regmap,
+		ret = xrt_md_get_prop(parent, dtb, ep_name, regmap,
 			PROP_IO_OFFSET, (const void **)&bar_range, NULL);
 		if (!ret)
 			count1++;
@@ -168,19 +168,19 @@ xocl_subdev_getres(struct device *parent, enum xocl_subdev_id id,
 
 	*res = vzalloc(sizeof(struct resource) * count1);
 
-	for (xocl_md_get_next_endpoint(parent, dtb, NULL, NULL,
+	for (xrt_md_get_next_endpoint(parent, dtb, NULL, NULL,
 		&ep_name, &regmap);
 		ep_name != NULL;
-		xocl_md_get_next_endpoint(parent, dtb, ep_name, regmap,
+		xrt_md_get_next_endpoint(parent, dtb, ep_name, regmap,
 		&ep_name, &regmap)) {
-		ret = xocl_md_get_prop(parent, dtb, ep_name, regmap,
+		ret = xrt_md_get_prop(parent, dtb, ep_name, regmap,
 			PROP_IO_OFFSET, (const void **)&bar_range, NULL);
 		if (ret)
 			continue;
-		xocl_md_get_prop(parent, dtb, ep_name, regmap,
+		xrt_md_get_prop(parent, dtb, ep_name, regmap,
 			PROP_BAR_IDX, (const void **)&bar_idx, NULL);
 		bar = bar_idx ? be32_to_cpu(*bar_idx) : 0;
-		xocl_subdev_get_barres(to_platform_device(parent), &pci_res,
+		xrt_subdev_get_barres(to_platform_device(parent), &pci_res,
 			bar);
 		(*res)[count2].start = pci_res->start +
 			be64_to_cpu(bar_range[0]);
@@ -202,7 +202,7 @@ xocl_subdev_getres(struct device *parent, enum xocl_subdev_id id,
 
 		(*res)[count2].parent = pci_res;
 
-		xocl_md_get_epname_pointer(parent, pdata->xsp_dtb, ep_name,
+		xrt_md_get_epname_pointer(parent, pdata->xsp_dtb, ep_name,
 			regmap, &(*res)[count2].name);
 
 		count2++;
@@ -214,38 +214,38 @@ xocl_subdev_getres(struct device *parent, enum xocl_subdev_id id,
 	return 0;
 }
 
-static inline enum xocl_subdev_file_mode
-xocl_devnode_mode(struct xocl_subdev_drvdata *drvdata)
+static inline enum xrt_subdev_file_mode
+xrt_devnode_mode(struct xrt_subdev_drvdata *drvdata)
 {
 	return drvdata->xsd_file_ops.xsf_mode;
 }
 
-static bool xocl_subdev_cdev_auto_creation(struct platform_device *pdev)
+static bool xrt_subdev_cdev_auto_creation(struct platform_device *pdev)
 {
-	struct xocl_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
+	struct xrt_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
 
 	if (!drvdata)
 		return false;
 
-	return xocl_devnode_enabled(drvdata) &&
-		(xocl_devnode_mode(drvdata) == XOCL_SUBDEV_FILE_DEFAULT ||
-		(xocl_devnode_mode(drvdata) == XOCL_SUBDEV_FILE_MULTI_INST));
+	return xrt_devnode_enabled(drvdata) &&
+		(xrt_devnode_mode(drvdata) == XOCL_SUBDEV_FILE_DEFAULT ||
+		(xrt_devnode_mode(drvdata) == XOCL_SUBDEV_FILE_MULTI_INST));
 }
 
-static struct xocl_subdev *
-xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
-	xocl_subdev_parent_cb_t pcb, void *pcb_arg, char *dtb)
+static struct xrt_subdev *
+xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
+	xrt_subdev_parent_cb_t pcb, void *pcb_arg, char *dtb)
 {
-	struct xocl_subdev *sdev = NULL;
+	struct xrt_subdev *sdev = NULL;
 	struct platform_device *pdev = NULL;
-	struct xocl_subdev_platdata *pdata = NULL;
+	struct xrt_subdev_platdata *pdata = NULL;
 	long dtb_len = 0;
 	size_t pdata_sz;
 	int inst = PLATFORM_DEVID_NONE;
 	struct resource *res = NULL;
 	int res_num = 0;
 
-	sdev = xocl_subdev_alloc();
+	sdev = xrt_subdev_alloc();
 	if (!sdev) {
 		dev_err(parent, "failed to alloc subdev for ID %d", id);
 		goto fail;
@@ -253,14 +253,14 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	sdev->xs_id = id;
 
 	if (dtb) {
-		xocl_md_pack(parent, dtb);
-		dtb_len = xocl_md_size(parent, dtb);
+		xrt_md_pack(parent, dtb);
+		dtb_len = xrt_md_size(parent, dtb);
 		if (dtb_len <= 0) {
 			dev_err(parent, "invalid metadata len %ld", dtb_len);
 			goto fail;
 		}
 	}
-	pdata_sz = sizeof(struct xocl_subdev_platdata) + dtb_len - 1;
+	pdata_sz = sizeof(struct xrt_subdev_platdata) + dtb_len - 1;
 
 	/* Prepare platform data passed to subdev. */
 	pdata = vzalloc(pdata_sz);
@@ -278,13 +278,13 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 		struct platform_device *part = to_platform_device(parent);
 		/* Leaf can only be created by partition driver. */
 		BUG_ON(parent->bus != &platform_bus_type);
-		BUG_ON(strcmp(xocl_drv_name(XOCL_SUBDEV_PART),
+		BUG_ON(strcmp(xrt_drv_name(XOCL_SUBDEV_PART),
 			platform_get_device_id(part)->name));
 		pdata->xsp_root_name = DEV_PDATA(part)->xsp_root_name;
 	}
 
 	/* Obtain dev instance number. */
-	inst = xocl_drv_get_instance(id);
+	inst = xrt_drv_get_instance(id);
 	if (inst < 0) {
 		dev_err(parent, "failed to obtain instance: %d", inst);
 		goto fail;
@@ -293,33 +293,33 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	/* Create subdev. */
 	if (id == XOCL_SUBDEV_PART) {
 		pdev = platform_device_register_data(parent,
-			xocl_drv_name(XOCL_SUBDEV_PART), inst, pdata, pdata_sz);
+			xrt_drv_name(XOCL_SUBDEV_PART), inst, pdata, pdata_sz);
 	} else {
-		int rc = xocl_subdev_getres(parent, id, dtb, &res, &res_num);
+		int rc = xrt_subdev_getres(parent, id, dtb, &res, &res_num);
 
 		if (rc) {
 			dev_err(parent, "failed to get resource for %s.%d: %d",
-				xocl_drv_name(id), inst, rc);
+				xrt_drv_name(id), inst, rc);
 			goto fail;
 		}
 		pdev = platform_device_register_resndata(parent,
-			xocl_drv_name(id), inst, res, res_num, pdata, pdata_sz);
+			xrt_drv_name(id), inst, res, res_num, pdata, pdata_sz);
 		vfree(res);
 	}
 	if (IS_ERR(pdev)) {
 		dev_err(parent, "failed to create subdev for %s inst %d: %ld",
-			xocl_drv_name(id), inst, PTR_ERR(pdev));
+			xrt_drv_name(id), inst, PTR_ERR(pdev));
 		goto fail;
 	}
 	sdev->xs_pdev = pdev;
 
 	if (device_attach(DEV(pdev)) != 1) {
-		xocl_err(pdev, "failed to attach");
+		xrt_err(pdev, "failed to attach");
 		goto fail;
 	}
 
-	if (sysfs_create_group(&DEV(pdev)->kobj, &xocl_subdev_attrgroup))
-		xocl_err(pdev, "failed to create sysfs group");
+	if (sysfs_create_group(&DEV(pdev)->kobj, &xrt_subdev_attrgroup))
+		xrt_err(pdev, "failed to create sysfs group");
 
 	/*
 	 * Create sysfs sym link under root for leaves
@@ -328,13 +328,13 @@ xocl_subdev_create(struct device *parent, enum xocl_subdev_id id,
 	if (id != XOCL_SUBDEV_PART) {
 		if (sysfs_create_link(&find_root(pdev)->kobj,
 			&DEV(pdev)->kobj, dev_name(DEV(pdev)))) {
-			xocl_err(pdev, "failed to create sysfs link");
+			xrt_err(pdev, "failed to create sysfs link");
 		}
 	}
 
 	/* All done, ready to handle req thru cdev. */
-	if (xocl_subdev_cdev_auto_creation(pdev)) {
-		(void) xocl_devnode_create(pdev,
+	if (xrt_subdev_cdev_auto_creation(pdev)) {
+		(void) xrt_devnode_create(pdev,
 			DEV_DRVDATA(pdev)->xsd_file_ops.xsf_dev_name, NULL);
 	}
 
@@ -346,66 +346,66 @@ fail:
 	if (sdev && !IS_ERR_OR_NULL(sdev->xs_pdev))
 		platform_device_unregister(sdev->xs_pdev);
 	if (inst >= 0)
-		xocl_drv_put_instance(id, inst);
-	xocl_subdev_free(sdev);
+		xrt_drv_put_instance(id, inst);
+	xrt_subdev_free(sdev);
 	return NULL;
 }
 
-static void xocl_subdev_destroy(struct xocl_subdev *sdev)
+static void xrt_subdev_destroy(struct xrt_subdev *sdev)
 {
 	struct platform_device *pdev = sdev->xs_pdev;
 	int inst = pdev->id;
 	struct device *dev = DEV(pdev);
 
 	/* Take down the device node */
-	if (xocl_subdev_cdev_auto_creation(pdev))
-		(void) xocl_devnode_destroy(pdev);
+	if (xrt_subdev_cdev_auto_creation(pdev))
+		(void) xrt_devnode_destroy(pdev);
 	if (sdev->xs_id != XOCL_SUBDEV_PART)
 		(void) sysfs_remove_link(&find_root(pdev)->kobj, dev_name(dev));
-	(void) sysfs_remove_group(&dev->kobj, &xocl_subdev_attrgroup);
+	(void) sysfs_remove_group(&dev->kobj, &xrt_subdev_attrgroup);
 	platform_device_unregister(pdev);
-	xocl_drv_put_instance(sdev->xs_id, inst);
-	xocl_subdev_free(sdev);
+	xrt_drv_put_instance(sdev->xs_id, inst);
+	xrt_subdev_free(sdev);
 }
 
-int xocl_subdev_parent_ioctl(struct platform_device *self, u32 cmd, void *arg)
+int xrt_subdev_parent_ioctl(struct platform_device *self, u32 cmd, void *arg)
 {
 	struct device *dev = DEV(self);
-	struct xocl_subdev_platdata *pdata = DEV_PDATA(self);
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(self);
 
 	return (*pdata->xsp_parent_cb)(dev->parent, pdata->xsp_parent_cb_arg,
 		cmd, arg);
 }
 
-int xocl_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
+int xrt_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
 {
-	struct xocl_subdev_drvdata *drvdata = DEV_DRVDATA(tgt);
+	struct xrt_subdev_drvdata *drvdata = DEV_DRVDATA(tgt);
 
 	return (*drvdata->xsd_dev_ops.xsd_ioctl)(tgt, cmd, arg);
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_ioctl);
+EXPORT_SYMBOL_GPL(xrt_subdev_ioctl);
 
 struct platform_device *
-xocl_subdev_get_leaf(struct platform_device *pdev,
-	xocl_subdev_match_t match_cb, void *match_arg)
+xrt_subdev_get_leaf(struct platform_device *pdev,
+	xrt_subdev_match_t match_cb, void *match_arg)
 {
 	int rc;
-	struct xocl_parent_ioctl_get_leaf get_leaf = {
+	struct xrt_parent_ioctl_get_leaf get_leaf = {
 		pdev, match_cb, match_arg, };
 
-	rc = xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_LEAF, &get_leaf);
+	rc = xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_LEAF, &get_leaf);
 	if (rc)
 		return NULL;
 	return get_leaf.xpigl_leaf;
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_get_leaf);
+EXPORT_SYMBOL_GPL(xrt_subdev_get_leaf);
 
 struct subdev_match_arg {
-	enum xocl_subdev_id id;
+	enum xrt_subdev_id id;
 	int instance;
 };
 
-static bool subdev_match(enum xocl_subdev_id id,
+static bool subdev_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	struct subdev_match_arg *a = (struct subdev_match_arg *)arg;
@@ -414,84 +414,84 @@ static bool subdev_match(enum xocl_subdev_id id,
 }
 
 struct platform_device *
-xocl_subdev_get_leaf_by_id(struct platform_device *pdev,
-	enum xocl_subdev_id id, int instance)
+xrt_subdev_get_leaf_by_id(struct platform_device *pdev,
+	enum xrt_subdev_id id, int instance)
 {
 	struct subdev_match_arg arg = { id, instance };
 
-	return xocl_subdev_get_leaf(pdev, subdev_match, &arg);
+	return xrt_subdev_get_leaf(pdev, subdev_match, &arg);
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_get_leaf_by_id);
+EXPORT_SYMBOL_GPL(xrt_subdev_get_leaf_by_id);
 
-int xocl_subdev_put_leaf(struct platform_device *pdev,
+int xrt_subdev_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf)
 {
-	struct xocl_parent_ioctl_put_leaf put_leaf = { pdev, leaf };
+	struct xrt_parent_ioctl_put_leaf put_leaf = { pdev, leaf };
 
-	return xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_PUT_LEAF, &put_leaf);
+	return xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_PUT_LEAF, &put_leaf);
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_put_leaf);
+EXPORT_SYMBOL_GPL(xrt_subdev_put_leaf);
 
-int xocl_subdev_create_partition(struct platform_device *pdev, char *dtb)
+int xrt_subdev_create_partition(struct platform_device *pdev, char *dtb)
 {
-	return xocl_subdev_parent_ioctl(pdev,
+	return xrt_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_CREATE_PARTITION, dtb);
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_create_partition);
+EXPORT_SYMBOL_GPL(xrt_subdev_create_partition);
 
-int xocl_subdev_destroy_partition(struct platform_device *pdev, int instance)
+int xrt_subdev_destroy_partition(struct platform_device *pdev, int instance)
 {
-	return xocl_subdev_parent_ioctl(pdev,
+	return xrt_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_REMOVE_PARTITION, (void *)(uintptr_t)instance);
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_destroy_partition);
+EXPORT_SYMBOL_GPL(xrt_subdev_destroy_partition);
 
-int xocl_subdev_lookup_partition(struct platform_device *pdev,
-	xocl_subdev_match_t match_cb, void *match_arg)
+int xrt_subdev_lookup_partition(struct platform_device *pdev,
+	xrt_subdev_match_t match_cb, void *match_arg)
 {
 	int rc;
-	struct xocl_parent_ioctl_lookup_partition lkp = {
+	struct xrt_parent_ioctl_lookup_partition lkp = {
 		pdev, match_cb, match_arg, };
 
-	rc = xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_LOOKUP_PARTITION, &lkp);
+	rc = xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_LOOKUP_PARTITION, &lkp);
 	if (rc)
 		return rc;
 	return lkp.xpilp_part_inst;
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_lookup_partition);
+EXPORT_SYMBOL_GPL(xrt_subdev_lookup_partition);
 
-int xocl_subdev_wait_for_partition_bringup(struct platform_device *pdev)
+int xrt_subdev_wait_for_partition_bringup(struct platform_device *pdev)
 {
-	return xocl_subdev_parent_ioctl(pdev,
+	return xrt_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_WAIT_PARTITION_BRINGUP, NULL);
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_wait_for_partition_bringup);
+EXPORT_SYMBOL_GPL(xrt_subdev_wait_for_partition_bringup);
 
-void *xocl_subdev_add_event_cb(struct platform_device *pdev,
-	xocl_subdev_match_t match, void *match_arg, xocl_event_cb_t cb)
+void *xrt_subdev_add_event_cb(struct platform_device *pdev,
+	xrt_subdev_match_t match, void *match_arg, xrt_event_cb_t cb)
 {
-	struct xocl_parent_ioctl_evt_cb c = { pdev, match, match_arg, cb };
+	struct xrt_parent_ioctl_evt_cb c = { pdev, match, match_arg, cb };
 
-	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_ADD_EVENT_CB, &c);
+	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_ADD_EVENT_CB, &c);
 	return c.xevt_hdl;
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_add_event_cb);
+EXPORT_SYMBOL_GPL(xrt_subdev_add_event_cb);
 
-void xocl_subdev_remove_event_cb(struct platform_device *pdev, void *hdl)
+void xrt_subdev_remove_event_cb(struct platform_device *pdev, void *hdl)
 {
-	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_REMOVE_EVENT_CB, hdl);
+	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_REMOVE_EVENT_CB, hdl);
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_remove_event_cb);
+EXPORT_SYMBOL_GPL(xrt_subdev_remove_event_cb);
 
 static ssize_t
-xocl_subdev_get_holders(struct xocl_subdev *sdev, char *buf, size_t len)
+xrt_subdev_get_holders(struct xrt_subdev *sdev, char *buf, size_t len)
 {
 	const struct list_head *ptr;
-	struct xocl_subdev_holder *h;
+	struct xrt_subdev_holder *h;
 	ssize_t n = 0;
 
 	list_for_each(ptr, &sdev->xs_holder_list) {
-		h = list_entry(ptr, struct xocl_subdev_holder, xsh_holder_list);
+		h = list_entry(ptr, struct xrt_subdev_holder, xsh_holder_list);
 		n += snprintf(buf + n, len - n, "%s:%d ",
 			dev_name(h->xsh_holder), h->xsh_count);
 		if (n >= len)
@@ -500,21 +500,21 @@ xocl_subdev_get_holders(struct xocl_subdev *sdev, char *buf, size_t len)
 	return n;
 }
 
-void xocl_subdev_pool_init(struct device *dev, struct xocl_subdev_pool *spool)
+void xrt_subdev_pool_init(struct device *dev, struct xrt_subdev_pool *spool)
 {
 	INIT_LIST_HEAD(&spool->xpool_dev_list);
 	spool->xpool_owner = dev;
 	mutex_init(&spool->xpool_lock);
 	spool->xpool_closing = false;
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_init);
+EXPORT_SYMBOL_GPL(xrt_subdev_pool_init);
 
-static void xocl_subdev_pool_wait_for_holders(struct xocl_subdev_pool *spool,
-	struct xocl_subdev *sdev)
+static void xrt_subdev_pool_wait_for_holders(struct xrt_subdev_pool *spool,
+	struct xrt_subdev *sdev)
 {
 	const struct list_head *ptr, *next;
 	char holders[128];
-	struct xocl_subdev_holder *holder;
+	struct xrt_subdev_holder *holder;
 	struct mutex *lk = &spool->xpool_lock;
 
 	BUG_ON(!mutex_is_locked(lk));
@@ -523,17 +523,17 @@ static void xocl_subdev_pool_wait_for_holders(struct xocl_subdev_pool *spool,
 		int rc;
 
 		/* It's most likely a bug if we ever enters this loop. */
-		(void) xocl_subdev_get_holders(sdev, holders, sizeof(holders));
-		xocl_err(sdev->xs_pdev, "awaits holders: %s", holders);
+		(void) xrt_subdev_get_holders(sdev, holders, sizeof(holders));
+		xrt_err(sdev->xs_pdev, "awaits holders: %s", holders);
 		mutex_unlock(lk);
 		rc = wait_for_completion_killable(&sdev->xs_holder_comp);
 		mutex_lock(lk);
 		if (rc == -ERESTARTSYS) {
-			xocl_err(sdev->xs_pdev,
+			xrt_err(sdev->xs_pdev,
 				"give up on waiting for holders, clean up now");
 			list_for_each_safe(ptr, next, &sdev->xs_holder_list) {
 				holder = list_entry(ptr,
-					struct xocl_subdev_holder,
+					struct xrt_subdev_holder,
 					xsh_holder_list);
 				list_del(&holder->xsh_holder_list);
 				vfree(holder);
@@ -542,7 +542,7 @@ static void xocl_subdev_pool_wait_for_holders(struct xocl_subdev_pool *spool,
 	}
 }
 
-int xocl_subdev_pool_fini(struct xocl_subdev_pool *spool)
+int xrt_subdev_pool_fini(struct xrt_subdev_pool *spool)
 {
 	int ret = 0;
 	struct list_head *dl = &spool->xpool_dev_list;
@@ -558,12 +558,12 @@ int xocl_subdev_pool_fini(struct xocl_subdev_pool *spool)
 	spool->xpool_closing = true;
 	/* Remove subdev in the reverse order of added. */
 	while (!ret && !list_empty(dl)) {
-		struct xocl_subdev *sdev = list_first_entry(dl,
-			struct xocl_subdev, xs_dev_list);
-		xocl_subdev_pool_wait_for_holders(spool, sdev);
+		struct xrt_subdev *sdev = list_first_entry(dl,
+			struct xrt_subdev, xs_dev_list);
+		xrt_subdev_pool_wait_for_holders(spool, sdev);
 		list_del(&sdev->xs_dev_list);
 		mutex_unlock(lk);
-		xocl_subdev_destroy(sdev);
+		xrt_subdev_destroy(sdev);
 		mutex_lock(lk);
 	}
 
@@ -571,17 +571,17 @@ int xocl_subdev_pool_fini(struct xocl_subdev_pool *spool)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_fini);
+EXPORT_SYMBOL_GPL(xrt_subdev_pool_fini);
 
-static int xocl_subdev_hold(struct xocl_subdev *sdev, struct device *holder_dev)
+static int xrt_subdev_hold(struct xrt_subdev *sdev, struct device *holder_dev)
 {
 	const struct list_head *ptr;
 	struct list_head *hl = &sdev->xs_holder_list;
-	struct xocl_subdev_holder *holder;
+	struct xrt_subdev_holder *holder;
 	bool found = false;
 
 	list_for_each(ptr, hl) {
-		holder = list_entry(ptr, struct xocl_subdev_holder,
+		holder = list_entry(ptr, struct xrt_subdev_holder,
 			xsh_holder_list);
 		if (holder->xsh_holder == holder_dev) {
 			holder->xsh_count++;
@@ -603,16 +603,16 @@ static int xocl_subdev_hold(struct xocl_subdev *sdev, struct device *holder_dev)
 }
 
 static int
-xocl_subdev_release(struct xocl_subdev *sdev, struct device *holder_dev)
+xrt_subdev_release(struct xrt_subdev *sdev, struct device *holder_dev)
 {
 	const struct list_head *ptr, *next;
 	struct list_head *hl = &sdev->xs_holder_list;
-	struct xocl_subdev_holder *holder;
+	struct xrt_subdev_holder *holder;
 	int count;
 	bool found = false;
 
 	list_for_each_safe(ptr, next, hl) {
-		holder = list_entry(ptr, struct xocl_subdev_holder,
+		holder = list_entry(ptr, struct xrt_subdev_holder,
 			xsh_holder_list);
 		if (holder->xsh_holder == holder_dev) {
 			found = true;
@@ -636,50 +636,50 @@ xocl_subdev_release(struct xocl_subdev *sdev, struct device *holder_dev)
 	return found ? count : -EINVAL;
 }
 
-int xocl_subdev_pool_add(struct xocl_subdev_pool *spool, enum xocl_subdev_id id,
-	xocl_subdev_parent_cb_t pcb, void *pcb_arg, char *dtb)
+int xrt_subdev_pool_add(struct xrt_subdev_pool *spool, enum xrt_subdev_id id,
+	xrt_subdev_parent_cb_t pcb, void *pcb_arg, char *dtb)
 {
 	struct mutex *lk = &spool->xpool_lock;
 	struct list_head *dl = &spool->xpool_dev_list;
-	struct xocl_subdev *sdev;
+	struct xrt_subdev *sdev;
 	int ret = 0;
 
-	sdev = xocl_subdev_create(spool->xpool_owner, id, pcb, pcb_arg, dtb);
+	sdev = xrt_subdev_create(spool->xpool_owner, id, pcb, pcb_arg, dtb);
 	if (sdev) {
 		mutex_lock(lk);
 		if (spool->xpool_closing) {
 			/* No new subdev when pool is going away. */
-			xocl_err(sdev->xs_pdev, "pool is closing");
+			xrt_err(sdev->xs_pdev, "pool is closing");
 			ret = -ENODEV;
 		} else {
 			list_add(&sdev->xs_dev_list, dl);
 		}
 		mutex_unlock(lk);
 		if (ret)
-			xocl_subdev_destroy(sdev);
+			xrt_subdev_destroy(sdev);
 	} else {
 		ret = -EINVAL;
 	}
 
 	return ret ? ret : sdev->xs_pdev->id;
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_add);
+EXPORT_SYMBOL_GPL(xrt_subdev_pool_add);
 
-int xocl_subdev_pool_del(struct xocl_subdev_pool *spool, enum xocl_subdev_id id,
+int xrt_subdev_pool_del(struct xrt_subdev_pool *spool, enum xrt_subdev_id id,
 	int instance)
 {
 	const struct list_head *ptr;
 	struct mutex *lk = &spool->xpool_lock;
 	struct list_head *dl = &spool->xpool_dev_list;
-	struct xocl_subdev *sdev;
+	struct xrt_subdev *sdev;
 	int ret = -ENOENT;
 
 	mutex_lock(lk);
 	list_for_each(ptr, dl) {
-		sdev = list_entry(ptr, struct xocl_subdev, xs_dev_list);
+		sdev = list_entry(ptr, struct xrt_subdev, xs_dev_list);
 		if (sdev->xs_id != id || sdev->xs_pdev->id != instance)
 			continue;
-		xocl_subdev_pool_wait_for_holders(spool, sdev);
+		xrt_subdev_pool_wait_for_holders(spool, sdev);
 		list_del(&sdev->xs_dev_list);
 		ret = 0;
 		break;
@@ -688,33 +688,33 @@ int xocl_subdev_pool_del(struct xocl_subdev_pool *spool, enum xocl_subdev_id id,
 	if (ret)
 		return ret;
 
-	xocl_subdev_destroy(sdev);
+	xrt_subdev_destroy(sdev);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_del);
+EXPORT_SYMBOL_GPL(xrt_subdev_pool_del);
 
-static int xocl_subdev_pool_get_impl(struct xocl_subdev_pool *spool,
-	xocl_subdev_match_t match, void *arg, struct device *holder_dev,
-	struct xocl_subdev **sdevp)
+static int xrt_subdev_pool_get_impl(struct xrt_subdev_pool *spool,
+	xrt_subdev_match_t match, void *arg, struct device *holder_dev,
+	struct xrt_subdev **sdevp)
 {
 	const struct list_head *ptr;
 	struct mutex *lk = &spool->xpool_lock;
 	struct list_head *dl = &spool->xpool_dev_list;
-	struct xocl_subdev *sdev = NULL;
+	struct xrt_subdev *sdev = NULL;
 	int ret = -ENOENT;
 
 	mutex_lock(lk);
 
 	if (match == XOCL_SUBDEV_MATCH_PREV) {
 		struct platform_device *pdev = (struct platform_device *)arg;
-		struct xocl_subdev *d = NULL;
+		struct xrt_subdev *d = NULL;
 
 		if (!pdev) {
 			sdev = list_empty(dl) ? NULL : list_last_entry(dl,
-				struct xocl_subdev, xs_dev_list);
+				struct xrt_subdev, xs_dev_list);
 		} else {
 			list_for_each(ptr, dl) {
-				d = list_entry(ptr, struct xocl_subdev,
+				d = list_entry(ptr, struct xrt_subdev,
 					xs_dev_list);
 				if (d->xs_pdev != pdev)
 					continue;
@@ -725,14 +725,14 @@ static int xocl_subdev_pool_get_impl(struct xocl_subdev_pool *spool,
 		}
 	} else if (match == XOCL_SUBDEV_MATCH_NEXT) {
 		struct platform_device *pdev = (struct platform_device *)arg;
-		struct xocl_subdev *d = NULL;
+		struct xrt_subdev *d = NULL;
 
 		if (!pdev) {
 			sdev = list_first_entry_or_null(dl,
-				struct xocl_subdev, xs_dev_list);
+				struct xrt_subdev, xs_dev_list);
 		} else {
 			list_for_each(ptr, dl) {
-				d = list_entry(ptr, struct xocl_subdev,
+				d = list_entry(ptr, struct xrt_subdev,
 					xs_dev_list);
 				if (d->xs_pdev != pdev)
 					continue;
@@ -743,9 +743,9 @@ static int xocl_subdev_pool_get_impl(struct xocl_subdev_pool *spool,
 		}
 	} else {
 		list_for_each(ptr, dl) {
-			struct xocl_subdev *d = NULL;
+			struct xrt_subdev *d = NULL;
 
-			d = list_entry(ptr, struct xocl_subdev, xs_dev_list);
+			d = list_entry(ptr, struct xrt_subdev, xs_dev_list);
 			if (d && !match(d->xs_id, d->xs_pdev, arg))
 				continue;
 			sdev = d;
@@ -754,7 +754,7 @@ static int xocl_subdev_pool_get_impl(struct xocl_subdev_pool *spool,
 	}
 
 	if (sdev)
-		ret = xocl_subdev_hold(sdev, holder_dev);
+		ret = xrt_subdev_hold(sdev, holder_dev);
 
 	mutex_unlock(lk);
 
@@ -762,16 +762,16 @@ static int xocl_subdev_pool_get_impl(struct xocl_subdev_pool *spool,
 		*sdevp = sdev;
 	return ret;
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_get);
+EXPORT_SYMBOL_GPL(xrt_subdev_pool_get);
 
-int xocl_subdev_pool_get(struct xocl_subdev_pool *spool,
-	xocl_subdev_match_t match, void *arg, struct device *holder_dev,
+int xrt_subdev_pool_get(struct xrt_subdev_pool *spool,
+	xrt_subdev_match_t match, void *arg, struct device *holder_dev,
 	struct platform_device **pdevp)
 {
 	int rc;
-	struct xocl_subdev *sdev;
+	struct xrt_subdev *sdev;
 
-	rc = xocl_subdev_pool_get_impl(spool, match, arg, holder_dev, &sdev);
+	rc = xrt_subdev_pool_get_impl(spool, match, arg, holder_dev, &sdev);
 	if (rc < 0) {
 		if (rc != -ENOENT)
 			dev_err(holder_dev, "failed to hold device: %d", rc);
@@ -784,7 +784,7 @@ int xocl_subdev_pool_get(struct xocl_subdev_pool *spool,
 			dev_name(holder_dev), dev_name(DEV(sdev->xs_pdev)), rc);
 #endif
 	} else {
-		xocl_info(to_platform_device(holder_dev), "%s <<==== %s",
+		xrt_info(to_platform_device(holder_dev), "%s <<==== %s",
 			dev_name(holder_dev), dev_name(DEV(sdev->xs_pdev)));
 	}
 
@@ -792,21 +792,21 @@ int xocl_subdev_pool_get(struct xocl_subdev_pool *spool,
 	return 0;
 }
 
-static int xocl_subdev_pool_put_impl(struct xocl_subdev_pool *spool,
+static int xrt_subdev_pool_put_impl(struct xrt_subdev_pool *spool,
 	struct platform_device *pdev, struct device *holder_dev)
 {
 	const struct list_head *ptr;
 	struct mutex *lk = &spool->xpool_lock;
 	struct list_head *dl = &spool->xpool_dev_list;
-	struct xocl_subdev *sdev;
+	struct xrt_subdev *sdev;
 	int ret = -ENOENT;
 
 	mutex_lock(lk);
 	list_for_each(ptr, dl) {
-		sdev = list_entry(ptr, struct xocl_subdev, xs_dev_list);
+		sdev = list_entry(ptr, struct xrt_subdev, xs_dev_list);
 		if (sdev->xs_pdev != pdev)
 			continue;
-		ret = xocl_subdev_release(sdev, holder_dev);
+		ret = xrt_subdev_release(sdev, holder_dev);
 		break;
 	}
 	mutex_unlock(lk);
@@ -816,10 +816,10 @@ static int xocl_subdev_pool_put_impl(struct xocl_subdev_pool *spool,
 	return ret;
 }
 
-int xocl_subdev_pool_put(struct xocl_subdev_pool *spool,
+int xrt_subdev_pool_put(struct xrt_subdev_pool *spool,
 	struct platform_device *pdev, struct device *holder_dev)
 {
-	int ret = xocl_subdev_pool_put_impl(spool, pdev, holder_dev);
+	int ret = xrt_subdev_pool_put_impl(spool, pdev, holder_dev);
 
 	if (ret < 0)
 		return ret;
@@ -832,123 +832,123 @@ int xocl_subdev_pool_put(struct xocl_subdev_pool *spool,
 	} else {
 		struct platform_device *d = to_platform_device(holder_dev);
 
-		xocl_info(d, "%s <<==X== %s",
+		xrt_info(d, "%s <<==X== %s",
 			dev_name(holder_dev), dev_name(DEV(pdev)));
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_put);
+EXPORT_SYMBOL_GPL(xrt_subdev_pool_put);
 
-int xocl_subdev_pool_event(struct xocl_subdev_pool *spool,
-	struct platform_device *pdev, xocl_subdev_match_t match, void *arg,
-	xocl_event_cb_t xevt_cb, enum xocl_events evt)
+int xrt_subdev_pool_event(struct xrt_subdev_pool *spool,
+	struct platform_device *pdev, xrt_subdev_match_t match, void *arg,
+	xrt_event_cb_t xevt_cb, enum xrt_events evt)
 {
 	int rc = 0;
 	struct platform_device *tgt = NULL;
-	struct xocl_subdev *sdev = NULL;
-	struct xocl_event_arg_subdev esd;
+	struct xrt_subdev *sdev = NULL;
+	struct xrt_event_arg_subdev esd;
 
-	while (!rc && xocl_subdev_pool_get_impl(spool, XOCL_SUBDEV_MATCH_NEXT,
+	while (!rc && xrt_subdev_pool_get_impl(spool, XOCL_SUBDEV_MATCH_NEXT,
 		tgt, DEV(pdev), &sdev) != -ENOENT) {
 		tgt = sdev->xs_pdev;
 		esd.xevt_subdev_id = sdev->xs_id;
 		esd.xevt_subdev_instance = tgt->id;
 		if (match(sdev->xs_id, sdev->xs_pdev, arg))
 			rc = xevt_cb(pdev, evt, &esd);
-		(void) xocl_subdev_pool_put_impl(spool, tgt, DEV(pdev));
+		(void) xrt_subdev_pool_put_impl(spool, tgt, DEV(pdev));
 	}
 	return rc;
 }
 
-ssize_t xocl_subdev_pool_get_holders(struct xocl_subdev_pool *spool,
+ssize_t xrt_subdev_pool_get_holders(struct xrt_subdev_pool *spool,
 	struct platform_device *pdev, char *buf, size_t len)
 {
 	const struct list_head *ptr;
 	struct mutex *lk = &spool->xpool_lock;
 	struct list_head *dl = &spool->xpool_dev_list;
-	struct xocl_subdev *sdev;
+	struct xrt_subdev *sdev;
 	ssize_t ret = 0;
 
 	mutex_lock(lk);
 	list_for_each(ptr, dl) {
-		sdev = list_entry(ptr, struct xocl_subdev, xs_dev_list);
+		sdev = list_entry(ptr, struct xrt_subdev, xs_dev_list);
 		if (sdev->xs_pdev != pdev)
 			continue;
-		ret = xocl_subdev_get_holders(sdev, buf, len);
+		ret = xrt_subdev_get_holders(sdev, buf, len);
 		break;
 	}
 	mutex_unlock(lk);
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_pool_get_holders);
+EXPORT_SYMBOL_GPL(xrt_subdev_pool_get_holders);
 
-int xocl_subdev_broadcast_event_async(struct platform_device *pdev,
-	enum xocl_events evt, xocl_async_broadcast_event_cb_t cb, void *arg)
+int xrt_subdev_broadcast_event_async(struct platform_device *pdev,
+	enum xrt_events evt, xrt_async_broadcast_event_cb_t cb, void *arg)
 {
-	struct xocl_parent_ioctl_async_broadcast_evt e = { pdev, evt, cb, arg };
+	struct xrt_parent_ioctl_async_broadcast_evt e = { pdev, evt, cb, arg };
 
-	return xocl_subdev_parent_ioctl(pdev,
+	return xrt_subdev_parent_ioctl(pdev,
 		XOCL_PARENT_ASYNC_BOARDCAST_EVENT, &e);
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_broadcast_event_async);
+EXPORT_SYMBOL_GPL(xrt_subdev_broadcast_event_async);
 
-struct xocl_broadcast_event_arg {
+struct xrt_broadcast_event_arg {
 	struct completion comp;
 	bool success;
 };
 
-static void xocl_broadcast_event_cb(struct platform_device *pdev,
-	enum xocl_events evt, void *arg, bool success)
+static void xrt_broadcast_event_cb(struct platform_device *pdev,
+	enum xrt_events evt, void *arg, bool success)
 {
-	struct xocl_broadcast_event_arg *e =
-		(struct xocl_broadcast_event_arg *)arg;
+	struct xrt_broadcast_event_arg *e =
+		(struct xrt_broadcast_event_arg *)arg;
 
 	e->success = success;
 	complete(&e->comp);
 }
 
-int xocl_subdev_broadcast_event(struct platform_device *pdev,
-	enum xocl_events evt)
+int xrt_subdev_broadcast_event(struct platform_device *pdev,
+	enum xrt_events evt)
 {
 	int ret;
-	struct xocl_broadcast_event_arg e;
+	struct xrt_broadcast_event_arg e;
 
 	init_completion(&e.comp);
 	e.success = false;
-	ret = xocl_subdev_broadcast_event_async(pdev, evt,
-		xocl_broadcast_event_cb, &e);
+	ret = xrt_subdev_broadcast_event_async(pdev, evt,
+		xrt_broadcast_event_cb, &e);
 	if (ret == 0)
 		wait_for_completion(&e.comp);
 	return e.success ? 0 : -EINVAL;
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_broadcast_event);
+EXPORT_SYMBOL_GPL(xrt_subdev_broadcast_event);
 
-void xocl_subdev_hot_reset(struct platform_device *pdev)
+void xrt_subdev_hot_reset(struct platform_device *pdev)
 {
-	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_HOT_RESET, NULL);
+	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_HOT_RESET, NULL);
 }
-EXPORT_SYMBOL_GPL(xocl_subdev_hot_reset);
+EXPORT_SYMBOL_GPL(xrt_subdev_hot_reset);
 
-void xocl_subdev_get_barres(struct platform_device *pdev,
+void xrt_subdev_get_barres(struct platform_device *pdev,
 	struct resource **res, uint bar_idx)
 {
-	struct xocl_parent_ioctl_get_res arg = { 0 };
+	struct xrt_parent_ioctl_get_res arg = { 0 };
 
 	BUG_ON(bar_idx > PCI_STD_RESOURCE_END);
 
-	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_RESOURCE, &arg);
+	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_RESOURCE, &arg);
 
 	*res = &arg.xpigr_res[bar_idx];
 }
 
-void xocl_subdev_get_parent_id(struct platform_device *pdev,
+void xrt_subdev_get_parent_id(struct platform_device *pdev,
 	unsigned short *vendor, unsigned short *device,
 	unsigned short *subvendor, unsigned short *subdevice)
 {
-	struct xocl_parent_ioctl_get_id id = { 0 };
+	struct xrt_parent_ioctl_get_id id = { 0 };
 
-	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_ID, (void *)&id);
+	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_ID, (void *)&id);
 	if (vendor)
 		*vendor = id.xpigi_vendor_id;
 	if (device)
@@ -959,20 +959,20 @@ void xocl_subdev_get_parent_id(struct platform_device *pdev,
 		*subdevice = id.xpigi_sub_device_id;
 }
 
-struct device *xocl_subdev_register_hwmon(struct platform_device *pdev,
+struct device *xrt_subdev_register_hwmon(struct platform_device *pdev,
 	const char *name, void *drvdata, const struct attribute_group **grps)
 {
-	struct xocl_parent_ioctl_hwmon hm = { true, name, drvdata, grps, };
+	struct xrt_parent_ioctl_hwmon hm = { true, name, drvdata, grps, };
 
-	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_HWMON, (void *)&hm);
+	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_HWMON, (void *)&hm);
 	return hm.xpih_hwmon_dev;
 }
 
-void xocl_subdev_unregister_hwmon(struct platform_device *pdev,
+void xrt_subdev_unregister_hwmon(struct platform_device *pdev,
 	struct device *hwmon)
 {
-	struct xocl_parent_ioctl_hwmon hm = { false, };
+	struct xrt_parent_ioctl_hwmon hm = { false, };
 
 	hm.xpih_hwmon_dev = hwmon;
-	(void) xocl_subdev_parent_ioctl(pdev, XOCL_PARENT_HWMON, (void *)&hm);
+	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_HWMON, (void *)&hm);
 }

@@ -10,7 +10,7 @@
 #define	_XOCL_CMC_IMPL_H_
 
 #include "linux/delay.h"
-#include "xocl-subdev.h"
+#include "xrt-subdev.h"
 
 #define	CMC_MAX_RETRY		150 /* Retry is set to 15s */
 #define	CMC_MAX_RETRY_LONG	(CMC_MAX_RETRY * 4) /* mailbox retry is 1min */

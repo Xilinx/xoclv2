@@ -13,12 +13,12 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include "xocl-metadata.h"
-#include "xocl-subdev.h"
-#include "xocl-parent.h"
-#include "xocl-ddr-srsr.h"
+#include "xrt-metadata.h"
+#include "xrt-subdev.h"
+#include "xrt-parent.h"
+#include "xrt-ddr-srsr.h"
 
-#define XOCL_DDR_SRSR "xocl_ddr_srsr"
+#define XOCL_DDR_SRSR "xrt_ddr_srsr"
 
 #define	REG_STATUS_OFFSET		0x00000000
 #define	REG_CTRL_OFFSET			0x00000004
@@ -38,7 +38,7 @@
 #define	STATUS_BIT_CALIB_COMPLETE	0x00000001
 #define	STATUS_BIT_SREF_ACK		0x00000100
 
-struct xocl_ddr_srsr {
+struct xrt_ddr_srsr {
 	void __iomem		*base;
 	struct platform_device	*pdev;
 	struct mutex		lock;
@@ -57,16 +57,16 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR_RO(status);
 
-static struct attribute *xocl_ddr_srsr_attributes[] = {
+static struct attribute *xrt_ddr_srsr_attributes[] = {
 	&dev_attr_status.attr,
 	NULL
 };
 
-static const struct attribute_group xocl_ddr_srsr_attrgroup = {
-	.attrs = xocl_ddr_srsr_attributes,
+static const struct attribute_group xrt_ddr_srsr_attrgroup = {
+	.attrs = xrt_ddr_srsr_attributes,
 };
 
-static int srsr_full_calib(struct xocl_ddr_srsr *srsr,
+static int srsr_full_calib(struct xrt_ddr_srsr *srsr,
 	char **data, u32 *data_len)
 {
 	int i = 0, err = -ETIMEDOUT;
@@ -89,11 +89,11 @@ static int srsr_full_calib(struct xocl_ddr_srsr *srsr,
 	}
 
 	if (err) {
-		xocl_err(srsr->pdev, "Calibration timeout");
+		xrt_err(srsr->pdev, "Calibration timeout");
 		goto failed;
 	}
 
-	xocl_info(srsr->pdev, "calibrate time %dms", i * FULL_CALIB_TIMEOUT);
+	xrt_info(srsr->pdev, "calibrate time %dms", i * FULL_CALIB_TIMEOUT);
 
 	/* END_ADDR0/1 provides the end address for a given memory
 	 * configuration
@@ -110,7 +110,7 @@ static int srsr_full_calib(struct xocl_ddr_srsr *srsr,
 
 	*data_len = (((sz_hi << 9) | sz_lo) + 1) * sizeof(uint32_t);
 	if (*data_len >= 0x4000) {
-		xocl_err(srsr->pdev, "Invalid data size 0x%x", *data_len);
+		xrt_err(srsr->pdev, "Invalid data size 0x%x", *data_len);
 		err = -EINVAL;
 		goto failed;
 	}
@@ -132,10 +132,10 @@ static int srsr_full_calib(struct xocl_ddr_srsr *srsr,
 		msleep(20);
 	}
 	if (err) {
-		xocl_err(srsr->pdev, "request data timeout");
+		xrt_err(srsr->pdev, "request data timeout");
 		goto failed;
 	}
-	xocl_info(srsr->pdev, "req data time %dms", i * FULL_CALIB_TIMEOUT);
+	xrt_info(srsr->pdev, "req data time %dms", i * FULL_CALIB_TIMEOUT);
 
 	reg_wr(srsr, CTRL_BIT_SREF_REQ | CTRL_BIT_XSDB_SELECT, REG_CTRL_OFFSET);
 
@@ -156,7 +156,7 @@ failed:
 	return err;
 }
 
-static int srsr_fast_calib(struct xocl_ddr_srsr *srsr, char *data,
+static int srsr_fast_calib(struct xrt_ddr_srsr *srsr, char *data,
 	u32 data_size, bool retention)
 {
 	int i = 0, err = -ETIMEDOUT;
@@ -190,9 +190,9 @@ static int srsr_fast_calib(struct xocl_ddr_srsr *srsr, char *data,
 		msleep(20);
 	}
 	if (err)
-		xocl_err(srsr->pdev, "timed out");
+		xrt_err(srsr->pdev, "timed out");
 	else
-		xocl_info(srsr->pdev, "time %dms", i * FAST_CALIB_TIMEOUT);
+		xrt_info(srsr->pdev, "time %dms", i * FAST_CALIB_TIMEOUT);
 
 	reg_wr(srsr, CTRL_BIT_RESTORE_COMPLETE, REG_CTRL_OFFSET);
 	val = reg_rd(srsr, REG_CTRL_OFFSET);
@@ -203,10 +203,10 @@ static int srsr_fast_calib(struct xocl_ddr_srsr *srsr, char *data,
 }
 
 static int
-xocl_srsr_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_srsr_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	struct xocl_ddr_srsr *srsr = platform_get_drvdata(pdev);
-	struct xocl_srsr_ioctl_calib *req = arg;
+	struct xrt_ddr_srsr *srsr = platform_get_drvdata(pdev);
+	struct xrt_srsr_ioctl_calib *req = arg;
 	int ret = 0;
 
 	switch (cmd) {
@@ -222,16 +222,16 @@ xocl_srsr_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		*(const char **)arg = srsr->ep_name;
 		break;
 	default:
-		xocl_err(pdev, "unsupported cmd %d", cmd);
+		xrt_err(pdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
 	return ret;
 }
 
-static int xocl_srsr_probe(struct platform_device *pdev)
+static int xrt_srsr_probe(struct platform_device *pdev)
 {
-	struct xocl_ddr_srsr *srsr;
+	struct xrt_ddr_srsr *srsr;
 	struct resource *res;
 	int err = 0;
 
@@ -246,40 +246,40 @@ static int xocl_srsr_probe(struct platform_device *pdev)
 	if (!res)
 		goto failed;
 
-	xocl_info(pdev, "IO start: 0x%llx, end: 0x%llx",
+	xrt_info(pdev, "IO start: 0x%llx, end: 0x%llx",
 		res->start, res->end);
 
 	srsr->ep_name = res->name;
 	srsr->base = ioremap(res->start, res->end - res->start + 1);
 	if (!srsr->base) {
 		err = -EIO;
-		xocl_err(pdev, "Map iomem failed");
+		xrt_err(pdev, "Map iomem failed");
 		goto failed;
 	}
 	mutex_init(&srsr->lock);
 
-	err = sysfs_create_group(&pdev->dev.kobj, &xocl_ddr_srsr_attrgroup);
+	err = sysfs_create_group(&pdev->dev.kobj, &xrt_ddr_srsr_attrgroup);
 	if (err)
-		goto create_xocl_ddr_srsr_failed;
+		goto create_xrt_ddr_srsr_failed;
 
 	return 0;
 
-create_xocl_ddr_srsr_failed:
+create_xrt_ddr_srsr_failed:
 	platform_set_drvdata(pdev, NULL);
 failed:
 	return err;
 }
 
-static int xocl_srsr_remove(struct platform_device *pdev)
+static int xrt_srsr_remove(struct platform_device *pdev)
 {
-	struct xocl_ddr_srsr *srsr = platform_get_drvdata(pdev);
+	struct xrt_ddr_srsr *srsr = platform_get_drvdata(pdev);
 
 	if (!srsr) {
-		xocl_err(pdev, "driver data is NULL");
+		xrt_err(pdev, "driver data is NULL");
 		return -EINVAL;
 	}
 
-	sysfs_remove_group(&pdev->dev.kobj, &xocl_ddr_srsr_attrgroup);
+	sysfs_remove_group(&pdev->dev.kobj, &xrt_ddr_srsr_attrgroup);
 
 	if (srsr->base)
 		iounmap(srsr->base);
@@ -290,9 +290,9 @@ static int xocl_srsr_remove(struct platform_device *pdev)
 	return 0;
 }
 
-struct xocl_subdev_endpoints xocl_srsr_endpoints[] = {
+struct xrt_subdev_endpoints xrt_srsr_endpoints[] = {
 	{
-		.xse_names = (struct xocl_subdev_ep_names[]) {
+		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .regmap_name = REGMAP_DDR_SRSR },
 			{ NULL },
 		},
@@ -301,22 +301,22 @@ struct xocl_subdev_endpoints xocl_srsr_endpoints[] = {
 	{ 0 },
 };
 
-struct xocl_subdev_drvdata xocl_srsr_data = {
+struct xrt_subdev_drvdata xrt_srsr_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xocl_srsr_leaf_ioctl,
+		.xsd_ioctl = xrt_srsr_leaf_ioctl,
 	},
 };
 
-static const struct platform_device_id xocl_srsr_table[] = {
-	{ XOCL_DDR_SRSR, (kernel_ulong_t)&xocl_srsr_data },
+static const struct platform_device_id xrt_srsr_table[] = {
+	{ XOCL_DDR_SRSR, (kernel_ulong_t)&xrt_srsr_data },
 	{ },
 };
 
-struct platform_driver xocl_ddr_srsr_driver = {
+struct platform_driver xrt_ddr_srsr_driver = {
 	.driver = {
 		.name = XOCL_DDR_SRSR,
 	},
-	.probe = xocl_srsr_probe,
-	.remove = xocl_srsr_remove,
-	.id_table = xocl_srsr_table,
+	.probe = xrt_srsr_probe,
+	.remove = xrt_srsr_remove,
+	.id_table = xrt_srsr_table,
 };

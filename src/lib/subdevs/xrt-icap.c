@@ -13,22 +13,22 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include "xocl-metadata.h"
-#include "xocl-subdev.h"
-#include "xocl-parent.h"
-#include "xocl-icap.h"
-#include "xocl-xclbin.h"
+#include "xrt-metadata.h"
+#include "xrt-subdev.h"
+#include "xrt-parent.h"
+#include "xrt-icap.h"
+#include "xrt-xclbin.h"
 
-#define XOCL_ICAP "xocl_icap"
+#define XOCL_ICAP "xrt_icap"
 
 #define	ICAP_ERR(icap, fmt, arg...)	\
-	xocl_err((icap)->pdev, fmt "\n", ##arg)
+	xrt_err((icap)->pdev, fmt "\n", ##arg)
 #define	ICAP_WARN(icap, fmt, arg...)	\
-	xocl_warn((icap)->pdev, fmt "\n", ##arg)
+	xrt_warn((icap)->pdev, fmt "\n", ##arg)
 #define	ICAP_INFO(icap, fmt, arg...)	\
-	xocl_info((icap)->pdev, fmt "\n", ##arg)
+	xrt_info((icap)->pdev, fmt "\n", ##arg)
 #define	ICAP_DBG(icap, fmt, arg...)	\
-	xocl_dbg((icap)->pdev, fmt "\n", ##arg)
+	xrt_dbg((icap)->pdev, fmt "\n", ##arg)
 
 /*
  * AXI-HWICAP IP register layout
@@ -207,9 +207,9 @@ static void icap_probe_chip(struct icap *icap)
 }
 
 static int
-xocl_icap_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_icap_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	struct xocl_icap_ioctl_wr	*wr_arg = arg;
+	struct xrt_icap_ioctl_wr	*wr_arg = arg;
 	struct icap			*icap;
 	int				ret = 0;
 
@@ -228,7 +228,7 @@ xocl_icap_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	return ret;
 }
 
-static int xocl_icap_remove(struct platform_device *pdev)
+static int xrt_icap_remove(struct platform_device *pdev)
 {
 	struct icap	*icap;
 
@@ -240,7 +240,7 @@ static int xocl_icap_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int xocl_icap_probe(struct platform_device *pdev)
+static int xrt_icap_probe(struct platform_device *pdev)
 {
 	struct icap	*icap;
 	int			ret = 0;
@@ -254,13 +254,13 @@ static int xocl_icap_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, icap);
 	mutex_init(&icap->icap_lock);
 
-	xocl_info(pdev, "probing");
+	xrt_info(pdev, "probing");
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res != NULL) {
 		icap->icap_regs = ioremap(res->start,
 			res->end - res->start + 1);
 		if (!icap->icap_regs) {
-			xocl_err(pdev, "map base failed %pR", res);
+			xrt_err(pdev, "map base failed %pR", res);
 			ret = -EIO;
 			goto failed;
 		}
@@ -271,9 +271,9 @@ failed:
 	return ret;
 }
 
-struct xocl_subdev_endpoints xocl_icap_endpoints[] = {
+struct xrt_subdev_endpoints xrt_icap_endpoints[] = {
 	{
-		.xse_names = (struct xocl_subdev_ep_names[]) {
+		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .ep_name = NODE_FPGA_CONFIG },
 			{ NULL },
 		},
@@ -282,22 +282,22 @@ struct xocl_subdev_endpoints xocl_icap_endpoints[] = {
 	{ 0 },
 };
 
-struct xocl_subdev_drvdata xocl_icap_data = {
+struct xrt_subdev_drvdata xrt_icap_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xocl_icap_leaf_ioctl,
+		.xsd_ioctl = xrt_icap_leaf_ioctl,
 	},
 };
 
-static const struct platform_device_id xocl_icap_table[] = {
-	{ XOCL_ICAP, (kernel_ulong_t)&xocl_icap_data },
+static const struct platform_device_id xrt_icap_table[] = {
+	{ XOCL_ICAP, (kernel_ulong_t)&xrt_icap_data },
 	{ },
 };
 
-struct platform_driver xocl_icap_driver = {
+struct platform_driver xrt_icap_driver = {
 	.driver = {
 		.name = XOCL_ICAP,
 	},
-	.probe = xocl_icap_probe,
-	.remove = xocl_icap_remove,
-	.id_table = xocl_icap_table,
+	.probe = xrt_icap_probe,
+	.remove = xrt_icap_remove,
+	.id_table = xrt_icap_table,
 };

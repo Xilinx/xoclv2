@@ -13,21 +13,21 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include "xocl-metadata.h"
-#include "xocl-subdev.h"
-#include "xocl-parent.h"
-#include "xocl-clkfreq.h"
+#include "xrt-metadata.h"
+#include "xrt-subdev.h"
+#include "xrt-parent.h"
+#include "xrt-clkfreq.h"
 
 #define CLKFREQ_ERR(clkfreq, fmt, arg...)   \
-	xocl_err((clkfreq)->pdev, fmt "\n", ##arg)
+	xrt_err((clkfreq)->pdev, fmt "\n", ##arg)
 #define CLKFREQ_WARN(clkfreq, fmt, arg...)  \
-	xocl_warn((clkfreq)->pdev, fmt "\n", ##arg)
+	xrt_warn((clkfreq)->pdev, fmt "\n", ##arg)
 #define CLKFREQ_INFO(clkfreq, fmt, arg...)  \
-	xocl_info((clkfreq)->pdev, fmt "\n", ##arg)
+	xrt_info((clkfreq)->pdev, fmt "\n", ##arg)
 #define CLKFREQ_DBG(clkfreq, fmt, arg...)   \
-	xocl_dbg((clkfreq)->pdev, fmt "\n", ##arg)
+	xrt_dbg((clkfreq)->pdev, fmt "\n", ##arg)
 
-#define XOCL_CLKFREQ		"xocl_clkfreq"
+#define XOCL_CLKFREQ		"xrt_clkfreq"
 
 #define OCL_CLKWIZ_STATUS_MASK		0xffff
 
@@ -104,7 +104,7 @@ static struct attribute_group clkfreq_attr_group = {
 };
 
 static int
-xocl_clkfreq_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_clkfreq_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct clkfreq		*clkfreq;
 	int			ret = 0;
@@ -117,7 +117,7 @@ xocl_clkfreq_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	default:
-		xocl_err(pdev, "unsupported cmd %d", cmd);
+		xrt_err(pdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
@@ -130,7 +130,7 @@ static int clkfreq_remove(struct platform_device *pdev)
 
 	clkfreq = platform_get_drvdata(pdev);
 	if (!clkfreq) {
-		xocl_err(pdev, "driver data is NULL");
+		xrt_err(pdev, "driver data is NULL");
 		return -EINVAL;
 	}
 
@@ -182,9 +182,9 @@ failed:
 }
 
 
-struct xocl_subdev_endpoints xocl_clkfreq_endpoints[] = {
+struct xrt_subdev_endpoints xrt_clkfreq_endpoints[] = {
 	{
-		.xse_names = (struct xocl_subdev_ep_names[]) {
+		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .regmap_name = "freq_cnt" },
 			{ NULL },
 		},
@@ -193,22 +193,22 @@ struct xocl_subdev_endpoints xocl_clkfreq_endpoints[] = {
 	{ 0 },
 };
 
-struct xocl_subdev_drvdata xocl_clkfreq_data = {
+struct xrt_subdev_drvdata xrt_clkfreq_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xocl_clkfreq_leaf_ioctl,
+		.xsd_ioctl = xrt_clkfreq_leaf_ioctl,
 	},
 };
 
-static const struct platform_device_id xocl_clkfreq_table[] = {
-	{ XOCL_CLKFREQ, (kernel_ulong_t)&xocl_clkfreq_data },
+static const struct platform_device_id xrt_clkfreq_table[] = {
+	{ XOCL_CLKFREQ, (kernel_ulong_t)&xrt_clkfreq_data },
 	{ },
 };
 
-struct platform_driver xocl_clkfreq_driver = {
+struct platform_driver xrt_clkfreq_driver = {
 	.driver = {
 		.name = XOCL_CLKFREQ,
 	},
 	.probe = clkfreq_probe,
 	.remove = clkfreq_remove,
-	.id_table = xocl_clkfreq_table,
+	.id_table = xrt_clkfreq_table,
 };

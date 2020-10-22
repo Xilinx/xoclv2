@@ -9,13 +9,13 @@
 #ifndef	_XOCL_CLOCK_H_
 #define	_XOCL_CLOCK_H_
 
-#include "xocl-subdev.h"
+#include "xrt-subdev.h"
 #include "xclbin.h"
 
 /*
  * CLOCK driver IOCTL calls.
  */
-enum xocl_clock_ioctl_cmd {
+enum xrt_clock_ioctl_cmd {
 	XOCL_CLOCK_SET = 0,
 	XOCL_CLOCK_VERIFY,
 };

@@ -13,23 +13,23 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include "xocl-metadata.h"
-#include "xocl-subdev.h"
-#include "xocl-parent.h"
-#include "xocl-ucs.h"
-#include "xocl-clock.h"
+#include "xrt-metadata.h"
+#include "xrt-subdev.h"
+#include "xrt-parent.h"
+#include "xrt-ucs.h"
+#include "xrt-clock.h"
 
 #define UCS_ERR(ucs, fmt, arg...)   \
-	xocl_err((ucs)->pdev, fmt "\n", ##arg)
+	xrt_err((ucs)->pdev, fmt "\n", ##arg)
 #define UCS_WARN(ucs, fmt, arg...)  \
-	xocl_warn((ucs)->pdev, fmt "\n", ##arg)
+	xrt_warn((ucs)->pdev, fmt "\n", ##arg)
 #define UCS_INFO(ucs, fmt, arg...)  \
-	xocl_info((ucs)->pdev, fmt "\n", ##arg)
+	xrt_info((ucs)->pdev, fmt "\n", ##arg)
 #define UCS_DBG(ucs, fmt, arg...)   \
-	xocl_dbg((ucs)->pdev, fmt "\n", ##arg)
+	xrt_dbg((ucs)->pdev, fmt "\n", ##arg)
 
 
-#define XOCL_UCS		"xocl_ucs"
+#define XOCL_UCS		"xrt_ucs"
 
 #define CHANNEL1_OFFSET			0
 #define CHANNEL2_OFFSET			8
@@ -44,24 +44,24 @@ struct ucs_control_status_ch1 {
 };
 
 
-struct xocl_ucs {
+struct xrt_ucs {
 	struct platform_device	*pdev;
 	void __iomem		*ucs_base;
 	struct mutex		ucs_lock;
 	void			*evt_hdl;
 };
 
-static inline u32 reg_rd(struct xocl_ucs *ucs, u32 offset)
+static inline u32 reg_rd(struct xrt_ucs *ucs, u32 offset)
 {
 	return ioread32(ucs->ucs_base + offset);
 }
 
-static inline void reg_wr(struct xocl_ucs *ucs, u32 val, u32 offset)
+static inline void reg_wr(struct xrt_ucs *ucs, u32 val, u32 offset)
 {
 	iowrite32(val, ucs->ucs_base + offset);
 }
 
-static bool xocl_ucs_leaf_match(enum xocl_subdev_id id,
+static bool xrt_ucs_leaf_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	if (id == XOCL_SUBDEV_CLOCK)
@@ -70,13 +70,13 @@ static bool xocl_ucs_leaf_match(enum xocl_subdev_id id,
 	return false;
 }
 
-static int xocl_ucs_event_cb(struct platform_device *pdev,
-	enum xocl_events evt, void *arg)
+static int xrt_ucs_event_cb(struct platform_device *pdev,
+	enum xrt_events evt, void *arg)
 {
 
-	struct xocl_ucs		*ucs;
+	struct xrt_ucs		*ucs;
 	struct platform_device	*leaf;
-	struct xocl_event_arg_subdev *esd = (struct xocl_event_arg_subdev *)arg;
+	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
 
 	ucs = platform_get_drvdata(pdev);
 
@@ -84,20 +84,20 @@ static int xocl_ucs_event_cb(struct platform_device *pdev,
 	case XOCL_EVENT_POST_CREATION:
 		break;
 	default:
-		xocl_info(pdev, "ignored event %d", evt);
+		xrt_info(pdev, "ignored event %d", evt);
 		return XOCL_EVENT_CB_CONTINUE;
 	}
 
-	leaf = xocl_subdev_get_leaf_by_id(pdev,
+	leaf = xrt_subdev_get_leaf_by_id(pdev,
 		XOCL_SUBDEV_CLOCK, esd->xevt_subdev_instance);
 	BUG_ON(!leaf);
-	xocl_subdev_ioctl(leaf, XOCL_CLOCK_VERIFY, NULL);
-	xocl_subdev_put_leaf(pdev, leaf);
+	xrt_subdev_ioctl(leaf, XOCL_CLOCK_VERIFY, NULL);
+	xrt_subdev_put_leaf(pdev, leaf);
 
 	return XOCL_EVENT_CB_CONTINUE;
 }
 
-static void ucs_check(struct xocl_ucs *ucs, bool *latched)
+static void ucs_check(struct xrt_ucs *ucs, bool *latched)
 {
 	struct ucs_control_status_ch1 *ucs_status_ch1;
 	u32 status;
@@ -122,15 +122,15 @@ static void ucs_check(struct xocl_ucs *ucs, bool *latched)
 	mutex_unlock(&ucs->ucs_lock);
 }
 
-static void ucs_enable(struct xocl_ucs *ucs)
+static void ucs_enable(struct xrt_ucs *ucs)
 {
 	reg_wr(ucs, 1, CHANNEL2_OFFSET);
 }
 
 static int
-xocl_ucs_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_ucs_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	struct xocl_ucs		*ucs;
+	struct xrt_ucs		*ucs;
 	int			ret = 0;
 
 	ucs = platform_get_drvdata(pdev);
@@ -144,7 +144,7 @@ xocl_ucs_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		ucs_enable(ucs);
 		break;
 	default:
-		xocl_err(pdev, "unsupported cmd %d", cmd);
+		xrt_err(pdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
@@ -153,15 +153,15 @@ xocl_ucs_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 
 static int ucs_remove(struct platform_device *pdev)
 {
-	struct xocl_ucs *ucs;
+	struct xrt_ucs *ucs;
 
 	ucs = platform_get_drvdata(pdev);
 	if (!ucs) {
-		xocl_err(pdev, "driver data is NULL");
+		xrt_err(pdev, "driver data is NULL");
 		return -EINVAL;
 	}
 
-	xocl_subdev_remove_event_cb(pdev, ucs->evt_hdl);
+	xrt_subdev_remove_event_cb(pdev, ucs->evt_hdl);
 	if (ucs->ucs_base)
 		iounmap(ucs->ucs_base);
 
@@ -175,7 +175,7 @@ static int ucs_remove(struct platform_device *pdev)
 
 static int ucs_probe(struct platform_device *pdev)
 {
-	struct xocl_ucs *ucs = NULL;
+	struct xrt_ucs *ucs = NULL;
 	struct resource *res;
 	int ret;
 
@@ -195,8 +195,8 @@ static int ucs_probe(struct platform_device *pdev)
 		goto failed;
 	}
 	ucs_enable(ucs);
-	ucs->evt_hdl = xocl_subdev_add_event_cb(pdev, xocl_ucs_leaf_match,
-		NULL, xocl_ucs_event_cb);
+	ucs->evt_hdl = xrt_subdev_add_event_cb(pdev, xrt_ucs_leaf_match,
+		NULL, xrt_ucs_event_cb);
 
 	return 0;
 
@@ -206,9 +206,9 @@ failed:
 }
 
 
-struct xocl_subdev_endpoints xocl_ucs_endpoints[] = {
+struct xrt_subdev_endpoints xrt_ucs_endpoints[] = {
 	{
-		.xse_names = (struct xocl_subdev_ep_names[]) {
+		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .ep_name = NODE_UCS_CONTROL_STATUS },
 			{ NULL },
 		},
@@ -217,22 +217,22 @@ struct xocl_subdev_endpoints xocl_ucs_endpoints[] = {
 	{ 0 },
 };
 
-struct xocl_subdev_drvdata xocl_ucs_data = {
+struct xrt_subdev_drvdata xrt_ucs_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xocl_ucs_leaf_ioctl,
+		.xsd_ioctl = xrt_ucs_leaf_ioctl,
 	},
 };
 
-static const struct platform_device_id xocl_ucs_table[] = {
-	{ XOCL_UCS, (kernel_ulong_t)&xocl_ucs_data },
+static const struct platform_device_id xrt_ucs_table[] = {
+	{ XOCL_UCS, (kernel_ulong_t)&xrt_ucs_data },
 	{ },
 };
 
-struct platform_driver xocl_ucs_driver = {
+struct platform_driver xrt_ucs_driver = {
 	.driver = {
 		.name = XOCL_UCS,
 	},
 	.probe = ucs_probe,
 	.remove = ucs_remove,
-	.id_table = xocl_ucs_table,
+	.id_table = xrt_ucs_table,
 };
