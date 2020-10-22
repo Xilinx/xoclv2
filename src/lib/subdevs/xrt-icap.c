@@ -220,6 +220,9 @@ xrt_icap_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		ret = icap_download(icap, wr_arg->xiiw_bit_data,
 				wr_arg->xiiw_data_len);
 		break;
+	case XRT_ICAP_IDCODE:
+		*(u64 *)arg = icap->idcode;
+		break;
 	default:
 		ICAP_ERR(icap, "unknown command %d", cmd);
 		return -EINVAL;

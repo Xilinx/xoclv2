@@ -138,19 +138,28 @@ static inline const char *mailbox_group_kind2name(enum xcl_group_kind kind)
 /**
  * struct xcl_board_info - Data structure used to fetch BDINFO group
  */
+#define BOARD_INFO_STR_LEN	256
+#define BOARD_INFO_MAC_LEN	6
+#define BOARD_INFO_PAD_LEN	26
 struct xcl_board_info {
-	char	 serial_num[256];
-	char	 mac_addr0[32];
-	char	 mac_addr1[32];
-	char	 mac_addr2[32];
-	char	 mac_addr3[32];
-	char	 revision[256];
-	char	 bd_name[256];
-	char	 bmc_ver[256];
+	char	 serial_num[BOARD_INFO_STR_LEN];
+	char	 mac_addr0[BOARD_INFO_MAC_LEN];
+	char	 padding0[BOARD_INFO_PAD_LEN];
+	char	 mac_addr1[BOARD_INFO_MAC_LEN];
+	char	 padding1[BOARD_INFO_PAD_LEN];
+	char	 mac_addr2[BOARD_INFO_MAC_LEN];
+	char	 padding2[BOARD_INFO_PAD_LEN];
+	char	 mac_addr3[BOARD_INFO_MAC_LEN];
+	char	 padding3[BOARD_INFO_PAD_LEN];
+	char	 revision[BOARD_INFO_STR_LEN];
+	char	 bd_name[BOARD_INFO_STR_LEN];
+	char	 bmc_ver[BOARD_INFO_STR_LEN];
 	uint32_t max_power;
 	uint32_t fan_presence;
 	uint32_t config_mode;
-	char exp_bmc_ver[256];
+	char     exp_bmc_ver[BOARD_INFO_STR_LEN];
+	uint32_t mac_contiguous_num;
+	char     mac_addr_first[BOARD_INFO_MAC_LEN];
 };
 
 /**
@@ -214,14 +223,14 @@ struct xcl_sensor {
  * struct xcl_hwicap - Data structure used to fetch ICAP group
  */
 struct xcl_pr_region {
-	uint64_t freq_0;
-	uint64_t freq_1;
-	uint64_t freq_2;
-	uint64_t freq_3;
-	uint64_t freq_cntr_0;
-	uint64_t freq_cntr_1;
-	uint64_t freq_cntr_2;
-	uint64_t freq_cntr_3;
+	uint64_t freq_data;
+	uint64_t freq_kernel;
+	uint64_t freq_system;
+	uint64_t freq_unused;
+	uint64_t freq_cntr_data;
+	uint64_t freq_cntr_kernel;
+	uint64_t freq_cntr_system;
+	uint64_t freq_cntr_unused;
 	uint64_t idcode;
 	uint8_t uuid[XCL_UUID_SZ];
 	uint64_t mig_calib;

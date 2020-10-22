@@ -179,5 +179,6 @@ char *xrt_md_dup(struct device *dev, const char *blob);
 int xrt_md_get_intf_uuids(struct device *dev, const char *blob,
 	u32 *num_uuids, uuid_t *intf_uuids);
 int xrt_md_check_uuids(struct device *dev, const char *blob, char *subset_blob);
+int xrt_md_uuid_strtoid(struct device *dev, const char *uuidstr, uuid_t *uuid);
 
 #endif

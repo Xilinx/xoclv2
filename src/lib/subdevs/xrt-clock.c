@@ -368,14 +368,49 @@ static int set_freq(struct clock *clock, u16 freq)
 	return 0;
 }
 
-static int clock_get_freq(struct clock *clock, u16 *freq)
+static int get_freq_counter(struct clock *clock, u32 *freq)
 {
-	int err;
+	const void *cnter;
+	struct platform_device *cnter_leaf;
+	struct platform_device *pdev = clock->pdev;
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
+	int err = xrt_md_get_prop(DEV(pdev), pdata->xsp_dtb,
+		clock->clock_ep_name, NULL, PROP_CLK_CNT, &cnter, NULL);
+
+	BUG_ON(!mutex_is_locked(&clock->clock_lock));
+
+	if (err) {
+		xrt_err(pdev, "no counter specified");
+		return err;
+	}
+
+	cnter_leaf = xrt_subdev_get_leaf_by_epname(pdev, cnter);
+	if (!cnter_leaf) {
+		xrt_err(pdev, "can't find counter");
+		return -ENOENT;
+	}
+
+	err = xrt_subdev_ioctl(cnter_leaf, XRT_CLKFREQ_READ, freq);
+	if (err)
+		xrt_err(pdev, "can't read counter");
+	xrt_subdev_put_leaf(clock->pdev, cnter_leaf);
+
+	return err;
+}
+
+static int clock_get_freq(struct clock *clock, u16 *freq, u32 *freq_cnter)
+{
+	int err = 0;
 
 	mutex_lock(&clock->clock_lock);
-	err = get_freq(clock, freq);
-	mutex_unlock(&clock->clock_lock);
 
+	if (err == 0 && freq)
+		err = get_freq(clock, freq);
+
+	if (err == 0 && freq_cnter)
+		err = get_freq_counter(clock, freq_cnter);
+
+	mutex_unlock(&clock->clock_lock);
 	return err;
 }
 
@@ -392,56 +427,39 @@ static int clock_set_freq(struct clock *clock, u16 freq)
 
 static int clock_verify_freq(struct clock *clock)
 {
-	struct xrt_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
 	int err = 0;
-	const char *counter;
 	u16 freq;
-	struct platform_device *clkfreq_leaf;
 	u32 lookup_freq, clock_freq_counter, request_in_khz, tolerance;
 
-	err = xrt_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
-		clock->clock_ep_name, NULL, PROP_CLK_CNT,
-		(const void **)&counter, NULL);
-	if (err) {
-		xrt_err(clock->pdev, "no counter specified");
-		return err;
-	}
-
 	mutex_lock(&clock->clock_lock);
+
 	err = get_freq(clock, &freq);
 	if (err) {
 		xrt_err(clock->pdev, "get freq failed, %d", err);
 		goto end;
 	}
 
-	clkfreq_leaf = xrt_subdev_get_leaf(clock->pdev,
-		xrt_subdev_match_epname, (void *)counter);
-	if (clkfreq_leaf) {
-		err = xrt_subdev_ioctl(clkfreq_leaf, XRT_CLKFREQ_READ,
-				&clock_freq_counter);
-		if (err)
-			goto end;
-		lookup_freq = find_matching_freq(freq, frequency_table,
-			ARRAY_SIZE(frequency_table));
-		request_in_khz = lookup_freq * 1000;
-		tolerance = lookup_freq * 50;
-		xrt_subdev_put_leaf(clock->pdev, clkfreq_leaf);
+	err = get_freq_counter(clock, &clock_freq_counter);
+	if (err) {
+		xrt_err(clock->pdev, "get freq counter failed, %d", err);
+		goto end;
+	}
 
-		if (tolerance < abs(clock_freq_counter-request_in_khz)) {
-			CLOCK_ERR(clock,
-			    "set clock(%s) failed, request %ukhz, actual %ukhz",
-			    clock->clock_ep_name, request_in_khz,
-			    clock_freq_counter);
-			err = -EDOM;
-		} else {
-			CLOCK_INFO(clock, "verified clock (%s)",
-				clock->clock_ep_name);
-		}
+	lookup_freq = find_matching_freq(freq, frequency_table,
+		ARRAY_SIZE(frequency_table));
+	request_in_khz = lookup_freq * 1000;
+	tolerance = lookup_freq * 50;
+	if (tolerance < abs(clock_freq_counter-request_in_khz)) {
+		CLOCK_ERR(clock,
+		    "set clock(%s) failed, request %ukhz, actual %dkhz",
+		    clock->clock_ep_name, request_in_khz, clock_freq_counter);
+		err = -EDOM;
+	} else {
+		CLOCK_INFO(clock, "verified clock (%s)", clock->clock_ep_name);
 	}
 
 end:
 	mutex_unlock(&clock->clock_lock);
-
 	return err;
 }
 
@@ -473,7 +491,7 @@ static ssize_t freq_show(struct device *dev,
 	u16 freq = 0;
 	ssize_t count;
 
-	count = clock_get_freq(clock, &freq);
+	count = clock_get_freq(clock, &freq, NULL);
 	if (count < 0)
 		return count;
 
@@ -509,6 +527,13 @@ xrt_clock_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	}
 	case XRT_CLOCK_VERIFY: {
 		ret = clock_verify_freq(clock);
+		break;
+	}
+	case XRT_CLOCK_GET: {
+		struct xrt_clock_ioctl_get *get =
+			(struct xrt_clock_ioctl_get *)arg;
+
+		ret = clock_get_freq(clock, &get->freq, &get->freq_cnter);
 		break;
 	}
 	default:

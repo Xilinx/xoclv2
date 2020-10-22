@@ -12,13 +12,21 @@
 #include "uapi/xclbin.h"
 
 enum xrt_mgmt_main_ioctl_cmd {
-	XRT_MGMT_MAIN_GET_XSABIN_SECTION = 0,
-	XRT_MGMT_MAIN_GET_VBNV, // vbnv needs to be kfree'd by caller
-	XRT_MGMT_MAIN_GET_ULP_SECTION,
+	// section needs to be vfree'd by caller
+	XRT_MGMT_MAIN_GET_AXLF_SECTION = 0,
+	// vbnv needs to be kfree'd by caller
+	XRT_MGMT_MAIN_GET_VBNV,
 	XRT_MGMT_MAIN_PEER_TEST_MSG,
 };
 
+enum provider_kind {
+	XMGMT_BLP,
+	XMGMT_PLP,
+	XMGMT_ULP,
+};
+
 struct xrt_mgmt_main_ioctl_get_axlf_section {
+	enum provider_kind xmmigas_axlf_kind;
 	enum axlf_section_kind xmmigas_section_kind;
 	void *xmmigas_section;
 	u64 xmmigas_section_size;

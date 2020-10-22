@@ -70,7 +70,7 @@ static bool xmgmt_main_leaf_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	if (id == XRT_SUBDEV_GPIO)
-		return xrt_subdev_match_epname(id, pdev, arg);
+		return xrt_subdev_has_epname(pdev, arg);
 	else if (id == XRT_SUBDEV_QSPI)
 		return true;
 
@@ -84,8 +84,7 @@ static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 	struct xrt_gpio_ioctl_rw gpio_arg = { 0 };
 	int err, i, count;
 
-	gpio_leaf = xrt_subdev_get_leaf(pdev, xrt_subdev_match_epname,
-		NODE_BLP_ROM);
+	gpio_leaf = xrt_subdev_get_leaf_by_epname(pdev, NODE_BLP_ROM);
 	if (!gpio_leaf) {
 		xrt_err(pdev, "can not get %s", NODE_BLP_ROM);
 		return -EINVAL;
@@ -369,6 +368,38 @@ static int load_firmware_from_disk(struct platform_device *pdev, char **fw_buf,
 	return 0;
 }
 
+static const char *xmgmt_get_axlf_firmware(struct xmgmt_main *xmm,
+	enum provider_kind kind)
+{
+	switch (kind) {
+	case XMGMT_BLP:
+		return xmm->firmware_blp;
+	case XMGMT_PLP:
+		return xmm->firmware_plp;
+	case XMGMT_ULP:
+		return xmm->firmware_ulp;
+	default:
+		xrt_err(xmm->pdev, "unknown axlf kind: %d", kind);
+		return NULL;
+	}
+}
+
+char *xmgmt_get_dtb(struct platform_device *pdev, enum provider_kind kind)
+{
+	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+	char *dtb = NULL;
+	const char *provider = xmgmt_get_axlf_firmware(xmm, kind);
+	int rc;
+
+	if (provider == NULL)
+		return dtb;
+
+	rc = xrt_xclbin_get_metadata(DEV(pdev), provider, &dtb);
+	if (rc)
+		xrt_err(pdev, "failed to find dtb: %d", rc);
+	return dtb;
+}
+
 static const char *get_uuid_from_firmware(struct platform_device *pdev,
 	const char *axlf)
 {
@@ -425,35 +456,30 @@ static bool is_valid_firmware(struct platform_device *pdev,
 	return true;
 }
 
-char *xmgmt_get_dtb(struct platform_device *pdev, enum provider_kind kind)
+int xmgmt_get_provider_uuid(struct platform_device *pdev,
+	enum provider_kind kind, uuid_t *uuid)
 {
 	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
-	char *dtb = NULL;
-	char *provider = NULL;
-	int rc;
+	const char *fwbuf;
+	const char *fw_uuid;
+	int rc = -ENOENT;
 
-	switch (kind) {
-	case XMGMT_BLP:
-		provider = xmm->firmware_blp;
-		break;
-	case XMGMT_PLP:
-		provider = xmm->firmware_plp;
-		break;
-	case XMGMT_ULP:
-		provider = xmm->firmware_ulp;
-		break;
-	default:
-		xrt_err(pdev, "unknown provider kind: %d", kind);
-		return NULL;
-	}
+	mutex_lock(&xmm->busy_mutex);
 
-	if (provider == NULL)
-		return dtb;
+	fwbuf = xmgmt_get_axlf_firmware(xmm, kind);
+	if (fwbuf == NULL)
+		goto done;
 
-	rc = xrt_xclbin_get_metadata(DEV(pdev), provider, &dtb);
-	if (rc)
-		xrt_err(pdev, "failed to find BLP dtb: %d", rc);
-	return dtb;
+	fw_uuid = get_uuid_from_firmware(pdev, fwbuf);
+	if (fw_uuid == NULL)
+		goto done;
+
+	rc = xrt_md_uuid_strtoid(DEV(pdev), fw_uuid, uuid);
+	kfree(fw_uuid);
+
+done:
+	mutex_unlock(&xmm->busy_mutex);
+	return rc;
 }
 
 static int xmgmt_create_blp(struct xmgmt_main *xmm)
@@ -595,28 +621,26 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	xrt_info(pdev, "handling IOCTL cmd: %d", cmd);
 
 	switch (cmd) {
-	case XRT_MGMT_MAIN_GET_XSABIN_SECTION: {
+	case XRT_MGMT_MAIN_GET_AXLF_SECTION: {
 		struct xrt_mgmt_main_ioctl_get_axlf_section *get =
 			(struct xrt_mgmt_main_ioctl_get_axlf_section *)arg;
+		const char *firmware =
+			xmgmt_get_axlf_firmware(xmm, get->xmmigas_axlf_kind);
 
-		ret = xrt_xclbin_get_section(xmm->firmware_blp,
-			get->xmmigas_section_kind, &get->xmmigas_section,
-			&get->xmmigas_section_size);
+		if (firmware == NULL) {
+			ret = -ENOENT;
+		} else {
+			ret = xrt_xclbin_get_section(firmware,
+				get->xmmigas_section_kind,
+				&get->xmmigas_section,
+				&get->xmmigas_section_size);
+		}
 		break;
 	}
 	case XRT_MGMT_MAIN_GET_VBNV: {
 		char **vbnv_p = (char **)arg;
 
 		*vbnv_p = xmgmt_get_vbnv(pdev);
-		break;
-	}
-	case XRT_MGMT_MAIN_GET_ULP_SECTION: {
-		struct xrt_mgmt_main_ioctl_get_axlf_section *get =
-			(struct xrt_mgmt_main_ioctl_get_axlf_section *)arg;
-
-		ret = xrt_xclbin_get_section(xmm->firmware_ulp,
-			get->xmmigas_section_kind, &get->xmmigas_section,
-			&get->xmmigas_section_size);
 		break;
 	}
 	case XRT_MGMT_MAIN_PEER_TEST_MSG: {

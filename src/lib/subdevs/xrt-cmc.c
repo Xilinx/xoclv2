@@ -11,6 +11,8 @@
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
 #include "xrt-cmc-impl.h"
+#include "xrt-cmc.h"
+#include "uapi/mailbox_proto.h"
 
 #define	XRT_CMC "xrt_cmc"
 
@@ -161,6 +163,37 @@ done:
 	return ret;
 }
 
+static int
+xrt_cmc_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+{
+	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
+	int ret = -ENOENT;
+
+	switch (cmd) {
+	case XRT_CMC_READ_BOARD_INFO: {
+		struct xcl_board_info *i = (struct xcl_board_info *)arg;
+
+		if (cmc->bdinfo_hdl)
+			ret = cmc_bdinfo_read(pdev, i);
+		break;
+	}
+	case XRT_CMC_READ_SENSORS: {
+		struct xcl_sensor *s = (struct xcl_sensor *)arg;
+
+		if (cmc->sensor_hdl) {
+			cmc_sensor_read(pdev, s);
+			ret = 0;
+		}
+		break;
+	}
+	default:
+		xrt_err(pdev, "unsupported cmd %d", cmd);
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
 struct xrt_subdev_endpoints xrt_cmc_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []) {
@@ -185,6 +218,9 @@ struct xrt_subdev_drvdata xrt_cmc_data = {
 			.write = cmc_update_sc_firmware,
 		},
 		.xsf_dev_name = "cmc",
+	},
+	.xsd_dev_ops = {
+		.xsd_ioctl = xrt_cmc_leaf_ioctl,
 	},
 };
 
