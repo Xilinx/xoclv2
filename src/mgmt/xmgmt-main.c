@@ -69,9 +69,9 @@ char *xmgmt_get_vbnv(struct platform_device *pdev)
 static bool xmgmt_main_leaf_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
-	if (id == XOCL_SUBDEV_GPIO)
+	if (id == XRT_SUBDEV_GPIO)
 		return xrt_subdev_match_epname(id, pdev, arg);
-	else if (id == XOCL_SUBDEV_QSPI)
+	else if (id == XRT_SUBDEV_QSPI)
 		return true;
 
 	return false;
@@ -91,11 +91,11 @@ static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 		return -EINVAL;
 	}
 
-	gpio_arg.xgir_id = XOCL_GPIO_ROM_UUID;
+	gpio_arg.xgir_id = XRT_GPIO_ROM_UUID;
 	gpio_arg.xgir_buf = uuid;
 	gpio_arg.xgir_len = sizeof(uuid);
 	gpio_arg.xgir_offset = 0;
-	err = xrt_subdev_ioctl(gpio_leaf, XOCL_GPIO_READ, &gpio_arg);
+	err = xrt_subdev_ioctl(gpio_leaf, XRT_GPIO_READ, &gpio_arg);
 	xrt_subdev_put_leaf(pdev, gpio_leaf);
 	if (err) {
 		xrt_err(pdev, "can not get uuid: %d", err);
@@ -115,13 +115,13 @@ static ssize_t reset_store(struct device *dev,
 {
 	struct platform_device *pdev = to_platform_device(dev);
 
-	if (xrt_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET) == 0) {
-		xrt_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_HOT_RESET);
+	if (xrt_subdev_broadcast_event(pdev, XRT_EVENT_PRE_HOT_RESET) == 0) {
+		xrt_subdev_broadcast_event(pdev, XRT_EVENT_PRE_HOT_RESET);
 		(void) xrt_subdev_hot_reset(pdev);
 	} else {
 		xrt_err(pdev, "offline failed, hot reset is canceled");
 	}
-	xrt_subdev_broadcast_event(pdev, XOCL_EVENT_POST_HOT_RESET);
+	xrt_subdev_broadcast_event(pdev, XRT_EVENT_POST_HOT_RESET);
 	return count;
 }
 static DEVICE_ATTR_WO(reset);
@@ -268,14 +268,14 @@ static int load_firmware_from_flash(struct platform_device *pdev,
 
 	xrt_info(pdev, "try loading fw from flash");
 
-	flash_leaf = xrt_subdev_get_leaf_by_id(pdev, XOCL_SUBDEV_QSPI,
+	flash_leaf = xrt_subdev_get_leaf_by_id(pdev, XRT_SUBDEV_QSPI,
 		PLATFORM_DEVID_NONE);
 	if (flash_leaf == NULL) {
 		xrt_err(pdev, "failed to hold flash leaf");
 		return -ENODEV;
 	}
 
-	(void) xrt_subdev_ioctl(flash_leaf, XOCL_FLASH_GET_SIZE, &flash_size);
+	(void) xrt_subdev_ioctl(flash_leaf, XRT_FLASH_GET_SIZE, &flash_size);
 	if (flash_size == 0) {
 		xrt_err(pdev, "failed to get flash size");
 		ret = -EINVAL;
@@ -285,7 +285,7 @@ static int load_firmware_from_flash(struct platform_device *pdev,
 	frd.xfir_buf = (char *)&header;
 	frd.xfir_size = sizeof(header);
 	frd.xfir_offset = flash_size - sizeof(header);
-	ret = xrt_subdev_ioctl(flash_leaf, XOCL_FLASH_READ, &frd);
+	ret = xrt_subdev_ioctl(flash_leaf, XRT_FLASH_READ, &frd);
 	if (ret) {
 		xrt_err(pdev, "failed to read header from flash: %d", ret);
 		goto done;
@@ -317,7 +317,7 @@ static int load_firmware_from_flash(struct platform_device *pdev,
 	frd.xfir_buf = buf;
 	frd.xfir_size = header.fdh_data_len;
 	frd.xfir_offset = header.fdh_data_offset;
-	ret = xrt_subdev_ioctl(flash_leaf, XOCL_FLASH_READ, &frd);
+	ret = xrt_subdev_ioctl(flash_leaf, XRT_FLASH_READ, &frd);
 	if (ret) {
 		xrt_err(pdev, "failed to read meta data from flash: %d", ret);
 		goto done;
@@ -495,15 +495,15 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 	size_t fwlen;
 
 	switch (evt) {
-	case XOCL_EVENT_POST_CREATION: {
+	case XRT_EVENT_POST_CREATION: {
 		id = esd->xevt_subdev_id;
 		instance = esd->xevt_subdev_instance;
 		xrt_info(pdev, "processing event %d for (%d, %d)",
 			evt, id, instance);
 
-		if (id == XOCL_SUBDEV_GPIO)
+		if (id == XRT_SUBDEV_GPIO)
 			xmm->gpio_ready = true;
-		else if (id == XOCL_SUBDEV_QSPI)
+		else if (id == XRT_SUBDEV_QSPI)
 			xmm->flash_ready = true;
 		else
 			BUG_ON(1);
@@ -527,10 +527,10 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 		}
 		break;
 	}
-	case XOCL_EVENT_POST_ATTACH:
+	case XRT_EVENT_POST_ATTACH:
 		xmgmt_peer_notify_state(xmm->mailbox_hdl, true);
 		break;
-	case XOCL_EVENT_PRE_DETACH:
+	case XRT_EVENT_PRE_DETACH:
 		xmgmt_peer_notify_state(xmm->mailbox_hdl, false);
 		break;
 	default:
@@ -538,7 +538,7 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 		break;
 	}
 
-	return XOCL_EVENT_CB_CONTINUE;
+	return XRT_EVENT_CB_CONTINUE;
 }
 
 static int xmgmt_main_probe(struct platform_device *pdev)
@@ -595,7 +595,7 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	xrt_info(pdev, "handling IOCTL cmd: %d", cmd);
 
 	switch (cmd) {
-	case XOCL_MGMT_MAIN_GET_XSABIN_SECTION: {
+	case XRT_MGMT_MAIN_GET_XSABIN_SECTION: {
 		struct xrt_mgmt_main_ioctl_get_axlf_section *get =
 			(struct xrt_mgmt_main_ioctl_get_axlf_section *)arg;
 
@@ -604,13 +604,13 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 			&get->xmmigas_section_size);
 		break;
 	}
-	case XOCL_MGMT_MAIN_GET_VBNV: {
+	case XRT_MGMT_MAIN_GET_VBNV: {
 		char **vbnv_p = (char **)arg;
 
 		*vbnv_p = xmgmt_get_vbnv(pdev);
 		break;
 	}
-	case XOCL_MGMT_MAIN_GET_ULP_SECTION: {
+	case XRT_MGMT_MAIN_GET_ULP_SECTION: {
 		struct xrt_mgmt_main_ioctl_get_axlf_section *get =
 			(struct xrt_mgmt_main_ioctl_get_axlf_section *)arg;
 
@@ -619,7 +619,7 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 			&get->xmmigas_section_size);
 		break;
 	}
-	case XOCL_MGMT_MAIN_PEER_TEST_MSG: {
+	case XRT_MGMT_MAIN_PEER_TEST_MSG: {
 		struct xrt_mgmt_main_peer_test_msg *tm =
 			(struct xrt_mgmt_main_peer_test_msg *)arg;
 

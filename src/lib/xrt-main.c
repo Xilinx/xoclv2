@@ -10,10 +10,10 @@
 #include "xrt-subdev.h"
 #include "xrt-main.h"
 
-#define	XOCL_IPLIB_MODULE_NAME		"xrt-lib"
-#define	XOCL_IPLIB_MODULE_VERSION	"4.0.0"
-#define	XOCL_DRVNAME(drv)		((drv)->driver.name)
-#define	XOCL_MAX_DEVICE_NODES		128
+#define	XRT_IPLIB_MODULE_NAME		"xrt-lib"
+#define	XRT_IPLIB_MODULE_VERSION	"4.0.0"
+#define	XRT_DRVNAME(drv)		((drv)->driver.name)
+#define	XRT_MAX_DEVICE_NODES		128
 
 struct mutex xrt_class_lock;
 struct class *xrt_class;
@@ -30,21 +30,21 @@ static struct xrt_drv_map {
 	struct xrt_subdev_endpoints *eps;
 	struct ida ida; /* manage driver instance and char dev minor */
 } xrt_drv_maps[] = {
-	{ XOCL_SUBDEV_PART, &xrt_partition_driver, },
-	{ XOCL_SUBDEV_VSEC, &xrt_vsec_driver, xrt_vsec_endpoints, },
-	{ XOCL_SUBDEV_VSEC_GOLDEN, &xrt_vsec_golden_driver, xrt_vsec_golden_endpoints, },
-	{ XOCL_SUBDEV_GPIO, &xrt_gpio_driver, xrt_gpio_endpoints,},
-	{ XOCL_SUBDEV_AXIGATE, &xrt_axigate_driver, xrt_axigate_endpoints, },
-	{ XOCL_SUBDEV_ICAP, &xrt_icap_driver, xrt_icap_endpoints, },
-	{ XOCL_SUBDEV_CALIB, &xrt_calib_driver, xrt_calib_endpoints, },
-	{ XOCL_SUBDEV_TEST, &xrt_test_driver, xrt_test_endpoints, },
-	{ XOCL_SUBDEV_MGMT_MAIN, NULL, },
-	{ XOCL_SUBDEV_QSPI, &xrt_qspi_driver, xrt_qspi_endpoints, },
-	{ XOCL_SUBDEV_MAILBOX, &xrt_mailbox_driver, xrt_mailbox_endpoints, },
-	{ XOCL_SUBDEV_CMC, &xrt_cmc_driver, xrt_cmc_endpoints, },
-	{ XOCL_SUBDEV_CLKFREQ, &xrt_clkfreq_driver, xrt_clkfreq_endpoints, },
-	{ XOCL_SUBDEV_CLOCK, &xrt_clock_driver, xrt_clock_endpoints, },
-	{ XOCL_SUBDEV_UCS, &xrt_ucs_driver, xrt_ucs_endpoints, },
+	{ XRT_SUBDEV_PART, &xrt_partition_driver, },
+	{ XRT_SUBDEV_VSEC, &xrt_vsec_driver, xrt_vsec_endpoints, },
+	{ XRT_SUBDEV_VSEC_GOLDEN, &xrt_vsec_golden_driver, xrt_vsec_golden_endpoints, },
+	{ XRT_SUBDEV_GPIO, &xrt_gpio_driver, xrt_gpio_endpoints,},
+	{ XRT_SUBDEV_AXIGATE, &xrt_axigate_driver, xrt_axigate_endpoints, },
+	{ XRT_SUBDEV_ICAP, &xrt_icap_driver, xrt_icap_endpoints, },
+	{ XRT_SUBDEV_CALIB, &xrt_calib_driver, xrt_calib_endpoints, },
+	{ XRT_SUBDEV_TEST, &xrt_test_driver, xrt_test_endpoints, },
+	{ XRT_SUBDEV_MGMT_MAIN, NULL, },
+	{ XRT_SUBDEV_QSPI, &xrt_qspi_driver, xrt_qspi_endpoints, },
+	{ XRT_SUBDEV_MAILBOX, &xrt_mailbox_driver, xrt_mailbox_endpoints, },
+	{ XRT_SUBDEV_CMC, &xrt_cmc_driver, xrt_cmc_endpoints, },
+	{ XRT_SUBDEV_CLKFREQ, &xrt_clkfreq_driver, xrt_clkfreq_endpoints, },
+	{ XRT_SUBDEV_CLOCK, &xrt_clock_driver, xrt_clock_endpoints, },
+	{ XRT_SUBDEV_UCS, &xrt_ucs_driver, xrt_ucs_endpoints, },
 };
 
 static inline struct xrt_subdev_drvdata *
@@ -83,7 +83,7 @@ static int xrt_drv_register_driver(enum xrt_subdev_id id)
 		pr_info("skip registration of subdev driver for id %d\n", id);
 		return rc;
 	}
-	drvname = XOCL_DRVNAME(map->drv);
+	drvname = XRT_DRVNAME(map->drv);
 
 	rc = platform_driver_register(map->drv);
 	if (rc) {
@@ -106,7 +106,7 @@ static int xrt_drv_register_driver(enum xrt_subdev_id id)
 		if (xrt_devnode_enabled(drvdata)) {
 			rc = alloc_chrdev_region(
 				&drvdata->xsd_file_ops.xsf_dev_t, 0,
-				XOCL_MAX_DEVICE_NODES, drvname);
+				XRT_MAX_DEVICE_NODES, drvname);
 			if (rc) {
 				if (drvdata->xsd_dev_ops.xsd_pre_exit)
 					drvdata->xsd_dev_ops.xsd_pre_exit();
@@ -138,14 +138,14 @@ static void xrt_drv_unregister_driver(enum xrt_subdev_id id)
 		return;
 	}
 
-	drvname = XOCL_DRVNAME(map->drv);
+	drvname = XRT_DRVNAME(map->drv);
 
 	ida_destroy(&map->ida);
 
 	drvdata = xrt_drv_map2drvdata(map);
 	if (drvdata && drvdata->xsd_file_ops.xsf_dev_t != (dev_t)-1) {
 		unregister_chrdev_region(drvdata->xsd_file_ops.xsf_dev_t,
-			XOCL_MAX_DEVICE_NODES);
+			XRT_MAX_DEVICE_NODES);
 	}
 
 	if (drvdata && drvdata->xsd_dev_ops.xsd_pre_exit)
@@ -209,7 +209,7 @@ static __init int xrt_drv_register_drivers(void)
 	int rc = 0;
 
 	mutex_init(&xrt_class_lock);
-	xrt_class = class_create(THIS_MODULE, XOCL_IPLIB_MODULE_NAME);
+	xrt_class = class_create(THIS_MODULE, XRT_IPLIB_MODULE_NAME);
 	if (IS_ERR(xrt_class))
 		return PTR_ERR(xrt_class);
 
@@ -241,7 +241,7 @@ const char *xrt_drv_name(enum xrt_subdev_id id)
 	struct xrt_drv_map *map = xrt_drv_find_map_by_id(id);
 
 	if (map)
-		return XOCL_DRVNAME(map->drv);
+		return XRT_DRVNAME(map->drv);
 	return NULL;
 }
 
@@ -249,7 +249,7 @@ int xrt_drv_get_instance(enum xrt_subdev_id id)
 {
 	struct xrt_drv_map *map = xrt_drv_find_map_by_id(id);
 
-	return ida_alloc_range(&map->ida, 0, XOCL_MAX_DEVICE_NODES, GFP_KERNEL);
+	return ida_alloc_range(&map->ida, 0, XRT_MAX_DEVICE_NODES, GFP_KERNEL);
 }
 
 void xrt_drv_put_instance(enum xrt_subdev_id id, int instance)
@@ -269,7 +269,7 @@ struct xrt_subdev_endpoints *xrt_drv_get_endpoints(enum xrt_subdev_id id)
 module_init(xrt_drv_register_drivers);
 module_exit(xrt_drv_unregister_drivers);
 
-MODULE_VERSION(XOCL_IPLIB_MODULE_VERSION);
+MODULE_VERSION(XRT_IPLIB_MODULE_VERSION);
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");
 MODULE_DESCRIPTION("Xilinx Alveo IP Lib driver");
 MODULE_LICENSE("GPL v2");

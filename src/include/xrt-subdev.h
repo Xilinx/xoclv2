@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XOCL_SUBDEV_H_
-#define	_XOCL_SUBDEV_H_
+#ifndef	_XRT_SUBDEV_H_
+#define	_XRT_SUBDEV_H_
 
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
@@ -26,23 +26,23 @@
  * partition are initialized by this order.
  */
 enum xrt_subdev_id {
-	XOCL_SUBDEV_PART = 0,
-	XOCL_SUBDEV_VSEC,
-	XOCL_SUBDEV_VSEC_GOLDEN,
-	XOCL_SUBDEV_GPIO,
-	XOCL_SUBDEV_AXIGATE,
-	XOCL_SUBDEV_ICAP,
-	XOCL_SUBDEV_TEST,
-	XOCL_SUBDEV_MGMT_MAIN,
-	XOCL_SUBDEV_QSPI,
-	XOCL_SUBDEV_MAILBOX,
-	XOCL_SUBDEV_CMC,
-	XOCL_SUBDEV_CALIB,
-	XOCL_SUBDEV_CLKFREQ,
-	XOCL_SUBDEV_CLOCK,
-	XOCL_SUBDEV_SRSR,
-	XOCL_SUBDEV_UCS,
-	XOCL_SUBDEV_NUM,
+	XRT_SUBDEV_PART = 0,
+	XRT_SUBDEV_VSEC,
+	XRT_SUBDEV_VSEC_GOLDEN,
+	XRT_SUBDEV_GPIO,
+	XRT_SUBDEV_AXIGATE,
+	XRT_SUBDEV_ICAP,
+	XRT_SUBDEV_TEST,
+	XRT_SUBDEV_MGMT_MAIN,
+	XRT_SUBDEV_QSPI,
+	XRT_SUBDEV_MAILBOX,
+	XRT_SUBDEV_CMC,
+	XRT_SUBDEV_CALIB,
+	XRT_SUBDEV_CLKFREQ,
+	XRT_SUBDEV_CLOCK,
+	XRT_SUBDEV_SRSR,
+	XRT_SUBDEV_UCS,
+	XRT_SUBDEV_NUM,
 };
 
 /*
@@ -51,11 +51,11 @@ enum xrt_subdev_id {
  */
 enum xrt_subdev_file_mode {
 	// Infra create cdev, default file name
-	XOCL_SUBDEV_FILE_DEFAULT = 0,
+	XRT_SUBDEV_FILE_DEFAULT = 0,
 	// Infra create cdev, need to encode inst num in file name
-	XOCL_SUBDEV_FILE_MULTI_INST,
+	XRT_SUBDEV_FILE_MULTI_INST,
 	// No auto creation of cdev by infra, leaf handles it by itself
-	XOCL_SUBDEV_FILE_NO_AUTO,
+	XRT_SUBDEV_FILE_NO_AUTO,
 };
 struct xrt_subdev_file_ops {
 	const struct file_operations xsf_ops;
@@ -173,8 +173,8 @@ struct xrt_subdev_pool {
 
 typedef bool (*xrt_subdev_match_t)(enum xrt_subdev_id,
 	struct platform_device *, void *);
-#define	XOCL_SUBDEV_MATCH_PREV	((xrt_subdev_match_t)-1)
-#define	XOCL_SUBDEV_MATCH_NEXT	((xrt_subdev_match_t)-2)
+#define	XRT_SUBDEV_MATCH_PREV	((xrt_subdev_match_t)-1)
+#define	XRT_SUBDEV_MATCH_NEXT	((xrt_subdev_match_t)-2)
 
 /* All subdev drivers should use below common routines to print out msg. */
 #define	DEV(pdev)	(&(pdev)->dev)
@@ -195,23 +195,23 @@ typedef bool (*xrt_subdev_match_t)(enum xrt_subdev_id,
  * Event notification.
  */
 enum xrt_events {
-	XOCL_EVENT_TEST = 0, // for testing
+	XRT_EVENT_TEST = 0, // for testing
 	/*
 	 * Events related to specific subdev
 	 * Callback arg: struct xrt_event_arg_subdev
 	 */
-	XOCL_EVENT_POST_CREATION,
-	XOCL_EVENT_PRE_REMOVAL,
+	XRT_EVENT_POST_CREATION,
+	XRT_EVENT_PRE_REMOVAL,
 	/*
 	 * Events related to change of the whole board
 	 * Callback arg: <none>
 	 */
-	XOCL_EVENT_PRE_HOT_RESET,
-	XOCL_EVENT_POST_HOT_RESET,
-	XOCL_EVENT_PRE_GATE_CLOSE,
-	XOCL_EVENT_POST_GATE_OPEN,
-	XOCL_EVENT_POST_ATTACH,
-	XOCL_EVENT_PRE_DETACH,
+	XRT_EVENT_PRE_HOT_RESET,
+	XRT_EVENT_POST_HOT_RESET,
+	XRT_EVENT_PRE_GATE_CLOSE,
+	XRT_EVENT_POST_GATE_OPEN,
+	XRT_EVENT_POST_ATTACH,
+	XRT_EVENT_PRE_DETACH,
 };
 
 typedef int (*xrt_event_cb_t)(struct platform_device *pdev,
@@ -228,11 +228,11 @@ struct xrt_event_arg_subdev {
  * Flags in return value from event callback.
  */
 /* Done with event handling, continue waiting for the next one */
-#define	XOCL_EVENT_CB_CONTINUE	0x0
+#define	XRT_EVENT_CB_CONTINUE	0x0
 /* Done with event handling, stop waiting for the next one */
-#define	XOCL_EVENT_CB_STOP	0x1
+#define	XRT_EVENT_CB_STOP	0x1
 /* Error processing event */
-#define	XOCL_EVENT_CB_ERR	0x2
+#define	XRT_EVENT_CB_ERR	0x2
 
 /*
  * Subdev pool API for root and partition drivers only.
@@ -341,4 +341,4 @@ static inline bool xrt_subdev_match_epname(enum xrt_subdev_id id,
 	return false;
 }
 
-#endif	/* _XOCL_SUBDEV_H_ */
+#endif	/* _XRT_SUBDEV_H_ */

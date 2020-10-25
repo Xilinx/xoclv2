@@ -6,8 +6,8 @@
  *	Lizhi Hou <Lizhi.Hou@xilinx.com>
  */
 
-#ifndef	_XOCL_ICAP_H_
-#define	_XOCL_ICAP_H_
+#ifndef	_XRT_ICAP_H_
+#define	_XRT_ICAP_H_
 
 #include "xrt-subdev.h"
 
@@ -15,7 +15,7 @@
  * ICAP driver IOCTL calls.
  */
 enum xrt_icap_ioctl_cmd {
-	XOCL_ICAP_WRITE = 0,
+	XRT_ICAP_WRITE = 0,
 };
 
 struct xrt_icap_ioctl_wr {
@@ -23,4 +23,4 @@ struct xrt_icap_ioctl_wr {
 	u32	xiiw_data_len;
 };
 
-#endif	/* _XOCL_ICAP_H_ */
+#endif	/* _XRT_ICAP_H_ */

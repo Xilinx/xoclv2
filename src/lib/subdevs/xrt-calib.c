@@ -14,7 +14,7 @@
 #include "xrt-metadata.h"
 #include "xrt-ddr-srsr.h"
 
-#define XOCL_CALIB	"xrt_calib"
+#define XRT_CALIB	"xrt_calib"
 
 struct calib_cache {
 	struct list_head	link;
@@ -38,7 +38,7 @@ struct calib {
 static bool xrt_calib_leaf_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
-	if (id == XOCL_SUBDEV_UCS || id == XOCL_SUBDEV_SRSR)
+	if (id == XRT_SUBDEV_UCS || id == XRT_SUBDEV_SRSR)
 		return true;
 
 	return false;
@@ -71,7 +71,7 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 	struct calib_cache	*cache = NULL, *temp;
 	struct xrt_srsr_ioctl_calib req = { 0 };
 
-	ret = xrt_subdev_ioctl(srsr_leaf, XOCL_SRSR_EP_NAME,
+	ret = xrt_subdev_ioctl(srsr_leaf, XRT_SRSR_EP_NAME,
 		(void *)&ep_name);
 	if (ret) {
 		xrt_err(calib->pdev, "failed to get SRSR name %d", ret);
@@ -85,7 +85,7 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 			req.xsic_buf = cache->data;
 			req.xsic_size = cache->data_size;
 			ret = xrt_subdev_ioctl(srsr_leaf,
-				XOCL_SRSR_FAST_CALIB, &req);
+				XRT_SRSR_FAST_CALIB, &req);
 			if (ret) {
 				xrt_err(calib->pdev, "Fast calib failed %d",
 					ret);
@@ -112,7 +112,7 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 	}
 
 	req.xsic_buf = &cache->data;
-	ret = xrt_subdev_ioctl(srsr_leaf, XOCL_SRSR_CALIB, &req);
+	ret = xrt_subdev_ioctl(srsr_leaf, XRT_SRSR_CALIB, &req);
 	if (ret) {
 		xrt_err(calib->pdev, "Full calib failed %d", ret);
 		list_del(&cache->link);
@@ -160,14 +160,14 @@ static int xrt_calib_event_cb(struct platform_device *pdev,
 	struct platform_device *leaf;
 
 	switch (evt) {
-	case XOCL_EVENT_POST_CREATION: {
-		if (esd->xevt_subdev_id == XOCL_SUBDEV_SRSR) {
+	case XRT_EVENT_POST_CREATION: {
+		if (esd->xevt_subdev_id == XRT_SUBDEV_SRSR) {
 			leaf = xrt_subdev_get_leaf_by_id(pdev,
-				XOCL_SUBDEV_SRSR, esd->xevt_subdev_instance);
+				XRT_SUBDEV_SRSR, esd->xevt_subdev_instance);
 			BUG_ON(!leaf);
 			calib_srsr(calib, leaf);
 			xrt_subdev_put_leaf(pdev, leaf);
-		} else if (esd->xevt_subdev_id == XOCL_SUBDEV_UCS)
+		} else if (esd->xevt_subdev_id == XRT_SUBDEV_UCS)
 			calib_calibration(calib);
 		break;
 	}
@@ -176,7 +176,7 @@ static int xrt_calib_event_cb(struct platform_device *pdev,
 		break;
 	}
 
-	return XOCL_EVENT_CB_CONTINUE;
+	return XRT_EVENT_CB_CONTINUE;
 }
 
 int xrt_calib_remove(struct platform_device *pdev)
@@ -244,13 +244,13 @@ struct xrt_subdev_endpoints xrt_calib_endpoints[] = {
 };
 
 static const struct platform_device_id xrt_calib_table[] = {
-	{ XOCL_CALIB, },
+	{ XRT_CALIB, },
 	{ },
 };
 
 struct platform_driver xrt_calib_driver = {
 	.driver = {
-		.name = XOCL_CALIB,
+		.name = XRT_CALIB,
 	},
 	.probe = xrt_calib_probe,
 	.remove = xrt_calib_remove,

@@ -175,14 +175,14 @@ static int cmc_fetch_firmware(struct xrt_cmc_ctrl *cmc_ctrl)
 	int ret = 0;
 	struct platform_device *pdev = cmc_ctrl->pdev;
 	struct platform_device *mgmt_leaf = xrt_subdev_get_leaf_by_id(pdev,
-		XOCL_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
+		XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
 	struct xrt_mgmt_main_ioctl_get_axlf_section gs = { FIRMWARE, };
 
 	if (mgmt_leaf == NULL)
 		return -ENOENT;
 
 	ret = xrt_subdev_ioctl(mgmt_leaf,
-		XOCL_MGMT_MAIN_GET_XSABIN_SECTION, &gs);
+		XRT_MGMT_MAIN_GET_XSABIN_SECTION, &gs);
 	if (ret == 0) {
 		cmc_ctrl->firmware = vmalloc(gs.xmmigas_section_size);
 		if (cmc_ctrl->firmware == NULL) {
@@ -250,17 +250,17 @@ static int cmc_ctrl_event_cb(struct platform_device *pdev,
 		(struct xrt_cmc_ctrl *)cmc_pdev2ctrl(pdev);
 
 	switch (evt) {
-	case XOCL_EVENT_PRE_GATE_CLOSE:
+	case XRT_EVENT_PRE_GATE_CLOSE:
 		(void) cmc_ulp_access(cmc_ctrl, false);
 		break;
-	case XOCL_EVENT_POST_GATE_OPEN:
+	case XRT_EVENT_POST_GATE_OPEN:
 		(void) cmc_ulp_access(cmc_ctrl, true);
 		break;
 	default:
 		xrt_info(pdev, "ignored event %d", evt);
 		break;
 	}
-	return XOCL_EVENT_CB_CONTINUE;
+	return XRT_EVENT_CB_CONTINUE;
 }
 
 int cmc_ctrl_probe(struct platform_device *pdev,

@@ -12,7 +12,7 @@
 #include "xrt-subdev.h"
 #include "xrt-cmc-impl.h"
 
-#define	XOCL_CMC "xrt_cmc"
+#define	XRT_CMC "xrt_cmc"
 
 static struct xrt_iores_map cmc_iores_id_map[] = {
 	{ NODE_CMC_REG, IO_REG},
@@ -189,13 +189,13 @@ struct xrt_subdev_drvdata xrt_cmc_data = {
 };
 
 static const struct platform_device_id cmc_id_table[] = {
-	{ XOCL_CMC, (kernel_ulong_t)&xrt_cmc_data },
+	{ XRT_CMC, (kernel_ulong_t)&xrt_cmc_data },
 	{ },
 };
 
 struct platform_driver xrt_cmc_driver = {
 	.driver	= {
-		.name    = XOCL_CMC,
+		.name    = XRT_CMC,
 	},
 	.probe   = cmc_probe,
 	.remove  = cmc_remove,

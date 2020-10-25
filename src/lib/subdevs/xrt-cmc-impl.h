@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XOCL_CMC_IMPL_H_
-#define	_XOCL_CMC_IMPL_H_
+#ifndef	_XRT_CMC_IMPL_H_
+#define	_XRT_CMC_IMPL_H_
 
 #include "linux/delay.h"
 #include "xrt-subdev.h"
@@ -128,4 +128,4 @@ extern ssize_t cmc_update_sc_firmware(struct file *file,
 	const char __user *ubuf, size_t n, loff_t *off);
 extern loff_t cmc_sc_llseek(struct file *filp, loff_t off, int whence);
 
-#endif	/* _XOCL_CMC_IMPL_H_ */
+#endif	/* _XRT_CMC_IMPL_H_ */

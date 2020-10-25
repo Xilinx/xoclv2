@@ -1339,11 +1339,11 @@ static ssize_t mailbox_test_msg(struct platform_device *pdev,
 	 * try both to get the proper pdev for main leaf.
 	 */
 	struct platform_device *main_leaf = xrt_subdev_get_leaf_by_id(pdev,
-		XOCL_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
+		XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
 	int err;
 
 	BUG_ON(main_leaf == NULL);
-	err = xrt_subdev_ioctl(main_leaf, XOCL_MGMT_MAIN_PEER_TEST_MSG, &tm);
+	err = xrt_subdev_ioctl(main_leaf, XRT_MGMT_MAIN_PEER_TEST_MSG, &tm);
 	xrt_subdev_put_leaf(pdev, main_leaf);
 	if (err) {
 		xrt_err(pdev, "can not %s peer test msg: %d",
@@ -1557,7 +1557,7 @@ static int mailbox_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	MBX_INFO(mbx, "handling IOCTL cmd: %d", cmd);
 
 	switch (cmd) {
-	case XOCL_MAILBOX_POST: {
+	case XRT_MAILBOX_POST: {
 		struct xrt_mailbox_ioctl_post *post =
 			(struct xrt_mailbox_ioctl_post *)arg;
 
@@ -1565,7 +1565,7 @@ static int mailbox_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 			post->xmip_data_size, post->xmip_sw_ch);
 		break;
 	}
-	case XOCL_MAILBOX_REQUEST: {
+	case XRT_MAILBOX_REQUEST: {
 		struct xrt_mailbox_ioctl_request *req =
 			(struct xrt_mailbox_ioctl_request *)arg;
 
@@ -1574,7 +1574,7 @@ static int mailbox_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 			req->xmir_resp_ttl);
 		break;
 	}
-	case XOCL_MAILBOX_LISTEN: {
+	case XRT_MAILBOX_LISTEN: {
 		struct xrt_mailbox_ioctl_listen *listen =
 			(struct xrt_mailbox_ioctl_listen *)arg;
 
@@ -1951,10 +1951,10 @@ struct xrt_subdev_drvdata mailbox_drvdata = {
 	},
 };
 
-#define	XOCL_MAILBOX	"xrt_mailbox"
+#define	XRT_MAILBOX	"xrt_mailbox"
 
 struct platform_device_id mailbox_id_table[] = {
-	{ XOCL_MAILBOX, (kernel_ulong_t)&mailbox_drvdata },
+	{ XRT_MAILBOX, (kernel_ulong_t)&mailbox_drvdata },
 	{ },
 };
 
@@ -1962,7 +1962,7 @@ struct platform_driver xrt_mailbox_driver = {
 	.probe		= mailbox_probe,
 	.remove		= mailbox_remove,
 	.driver		= {
-		.name	= XOCL_MAILBOX,
+		.name	= XRT_MAILBOX,
 	},
 	.id_table = mailbox_id_table,
 };

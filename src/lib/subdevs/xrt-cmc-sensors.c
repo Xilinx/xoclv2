@@ -69,6 +69,7 @@ struct xrt_cmc_sensor {
 	struct platform_device *pdev;
 	struct cmc_reg_map reg_io;
 	struct device *hwmon_dev;
+	const char *name;
 };
 
 static inline u32
@@ -330,23 +331,25 @@ void cmc_sensor_remove(struct platform_device *pdev)
 
 	if (cmc_sensor && cmc_sensor->hwmon_dev)
 		xrt_subdev_unregister_hwmon(pdev, cmc_sensor->hwmon_dev);
+	kfree(cmc_sensor->name);
 }
 
-static char *cmc_get_vbnv(struct xrt_cmc_sensor *cmc_sensor)
+static const char *cmc_get_vbnv(struct xrt_cmc_sensor *cmc_sensor)
 {
 	int ret;
-	char *vbnv;
+	const char *vbnv;
 	struct platform_device *mgmt_leaf =
 		xrt_subdev_get_leaf_by_id(cmc_sensor->pdev,
-		XOCL_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
+		XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
 
 	if (mgmt_leaf == NULL)
 		return NULL;
 
-	ret = xrt_subdev_ioctl(mgmt_leaf, XOCL_MGMT_MAIN_GET_VBNV, &vbnv);
+	ret = xrt_subdev_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_VBNV, &vbnv);
 	(void) xrt_subdev_put_leaf(cmc_sensor->pdev, mgmt_leaf);
 	if (ret)
 		return NULL;
+	xrt_info(cmc_sensor->pdev, "VBNV = %s", vbnv);
 	return vbnv;
 }
 
@@ -354,7 +357,7 @@ int cmc_sensor_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl)
 {
 	struct xrt_cmc_sensor *cmc_sensor;
-	char *vbnv;
+	const char *vbnv;
 
 	cmc_sensor = devm_kzalloc(DEV(pdev), sizeof(*cmc_sensor), GFP_KERNEL);
 	if (!cmc_sensor)
@@ -364,17 +367,17 @@ int cmc_sensor_probe(struct platform_device *pdev,
 	/* Obtain register maps we need to read sensor values. */
 	cmc_sensor->reg_io = regmaps[IO_REG];
 
-	vbnv = cmc_get_vbnv(cmc_sensor);
+	cmc_sensor->name = cmc_get_vbnv(cmc_sensor);
+	vbnv = cmc_sensor->name ? cmc_sensor->name : "golden-image";
 	/*
 	 * Make a parent call to ask root to register. If we register using
 	 * platform device, we'll be treated as ISA device, not PCI device.
 	 */
 	cmc_sensor->hwmon_dev = xrt_subdev_register_hwmon(pdev,
-		vbnv ? vbnv : "golden-image", cmc_sensor, hwmon_cmc_attrgroups);
+		vbnv, cmc_sensor, hwmon_cmc_attrgroups);
 	if (cmc_sensor->hwmon_dev == NULL)
 		xrt_err(pdev, "failed to create HWMON device");
 
-	kfree(vbnv);
 	*hdl = cmc_sensor;
 	return 0;
 }

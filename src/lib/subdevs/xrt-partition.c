@@ -16,7 +16,7 @@
 #include "xrt-metadata.h"
 #include "../xrt-main.h"
 
-#define	XOCL_PART "xrt_partition"
+#define	XRT_PART "xrt_partition"
 
 struct xrt_partition {
 	struct platform_device *pdev;
@@ -34,7 +34,7 @@ static int xrt_part_parent_cb(struct device *dev, void *parg,
 	struct xrt_partition *xp = (struct xrt_partition *)parg;
 
 	switch (cmd) {
-	case XOCL_PARENT_GET_LEAF_HOLDERS: {
+	case XRT_PARENT_GET_LEAF_HOLDERS: {
 		struct xrt_parent_ioctl_get_holders *holders =
 			(struct xrt_parent_ioctl_get_holders *)arg;
 		rc = xrt_subdev_pool_get_holders(&xp->leaves,
@@ -86,7 +86,7 @@ static int xrt_part_create_leaves(struct xrt_partition *xp)
 		goto bail;
 
 	memcpy(part_dtb, pdata->xsp_dtb, mlen);
-	for (did = 0; did < XOCL_SUBDEV_NUM;) {
+	for (did = 0; did < XRT_SUBDEV_NUM;) {
 		eps = eps ? eps + 1 : xrt_drv_get_endpoints(did);
 		if (!eps || !eps->xse_names) {
 			did++;
@@ -199,7 +199,7 @@ static int xrt_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	struct xrt_partition *xp = platform_get_drvdata(pdev);
 
 	switch (cmd) {
-	case XOCL_PARTITION_GET_LEAF: {
+	case XRT_PARTITION_GET_LEAF: {
 		struct xrt_parent_ioctl_get_leaf *get_leaf =
 			(struct xrt_parent_ioctl_get_leaf *)arg;
 
@@ -208,7 +208,7 @@ static int xrt_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 			&get_leaf->xpigl_leaf);
 		break;
 	}
-	case XOCL_PARTITION_PUT_LEAF: {
+	case XRT_PARTITION_PUT_LEAF: {
 		struct xrt_parent_ioctl_put_leaf *put_leaf =
 			(struct xrt_parent_ioctl_put_leaf *)arg;
 
@@ -216,13 +216,13 @@ static int xrt_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 			DEV(put_leaf->xpipl_pdev));
 		break;
 	}
-	case XOCL_PARTITION_INIT_CHILDREN:
+	case XRT_PARTITION_INIT_CHILDREN:
 		rc = xrt_part_create_leaves(xp);
 		break;
-	case XOCL_PARTITION_FINI_CHILDREN:
+	case XRT_PARTITION_FINI_CHILDREN:
 		rc = xrt_part_remove_leaves(xp);
 		break;
-	case XOCL_PARTITION_EVENT: {
+	case XRT_PARTITION_EVENT: {
 		struct xrt_partition_ioctl_event *evt =
 			(struct xrt_partition_ioctl_event *)arg;
 		struct xrt_parent_ioctl_evt_cb *cb = evt->xpie_cb;
@@ -247,13 +247,13 @@ struct xrt_subdev_drvdata xrt_part_data = {
 };
 
 static const struct platform_device_id xrt_part_id_table[] = {
-	{ XOCL_PART, (kernel_ulong_t)&xrt_part_data },
+	{ XRT_PART, (kernel_ulong_t)&xrt_part_data },
 	{ },
 };
 
 struct platform_driver xrt_partition_driver = {
 	.driver	= {
-		.name    = XOCL_PART,
+		.name    = XRT_PART,
 	},
 	.probe   = xrt_part_probe,
 	.remove  = xrt_part_remove,

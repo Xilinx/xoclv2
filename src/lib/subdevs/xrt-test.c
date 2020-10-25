@@ -12,7 +12,7 @@
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
 
-#define	XOCL_TEST "xrt_test"
+#define	XRT_TEST "xrt_test"
 
 struct xrt_test {
 	struct platform_device *pdev;
@@ -24,7 +24,7 @@ static bool xrt_test_leaf_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	int myid = (int)(uintptr_t)arg;
-	return id == XOCL_SUBDEV_TEST && pdev->id != myid;
+	return id == XRT_SUBDEV_TEST && pdev->id != myid;
 }
 
 static ssize_t hold_store(struct device *dev,
@@ -79,11 +79,11 @@ static int xrt_test_event_cb(struct platform_device *pdev,
 
 
 	switch (evt) {
-	case XOCL_EVENT_POST_CREATION:
+	case XRT_EVENT_POST_CREATION:
 		break;
 	default:
 		xrt_info(pdev, "ignored event %d", evt);
-		return XOCL_EVENT_CB_CONTINUE;
+		return XRT_EVENT_CB_CONTINUE;
 	}
 
 	leaf = xrt_subdev_get_leaf_by_id(pdev, esd->xevt_subdev_id,
@@ -95,13 +95,13 @@ static int xrt_test_event_cb(struct platform_device *pdev,
 
 	/* Broadcast event. */
 	if (pdev->id == 1) {
-		xrt_subdev_broadcast_event_async(pdev, XOCL_EVENT_TEST,
+		xrt_subdev_broadcast_event_async(pdev, XRT_EVENT_TEST,
 			xrt_test_async_evt_cb, NULL);
 	}
 
 	xrt_info(pdev, "processed event %d for (%d, %d)",
 		evt, esd->xevt_subdev_id, esd->xevt_subdev_instance);
-	return XOCL_EVENT_CB_CONTINUE;
+	return XRT_EVENT_CB_CONTINUE;
 }
 
 static int xrt_test_create_metadata(struct xrt_test *xt, char **root_dtb)
@@ -159,7 +159,7 @@ static int xrt_test_probe(struct platform_device *pdev)
 			(void) xrt_subdev_create_partition(pdev, dtb);
 		vfree(dtb);
 	} else {
-		xrt_subdev_broadcast_event(pdev, XOCL_EVENT_TEST);
+		xrt_subdev_broadcast_event(pdev, XRT_EVENT_TEST);
 	}
 
 	/* After we return here, we'll get inter-leaf calls. */
@@ -252,12 +252,12 @@ struct xrt_subdev_drvdata xrt_test_data = {
 			.release = xrt_test_close,
 			.read = xrt_test_read,
 		},
-		.xsf_mode = XOCL_SUBDEV_FILE_MULTI_INST,
+		.xsf_mode = XRT_SUBDEV_FILE_MULTI_INST,
 	},
 };
 
 static const struct platform_device_id xrt_test_id_table[] = {
-	{ XOCL_TEST, (kernel_ulong_t)&xrt_test_data },
+	{ XRT_TEST, (kernel_ulong_t)&xrt_test_data },
 	{ },
 };
 
@@ -266,7 +266,7 @@ static const struct platform_device_id xrt_test_id_table[] = {
  */
 struct platform_driver xrt_test_driver = {
 	.driver	= {
-		.name    = XOCL_TEST,
+		.name    = XRT_TEST,
 	},
 	.probe   = xrt_test_probe,
 	.remove  = xrt_test_remove,

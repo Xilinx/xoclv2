@@ -12,7 +12,7 @@
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
 
-#define XOCL_VSEC "xrt_vsec"
+#define XRT_VSEC "xrt_vsec"
 
 #define VSEC_TYPE_UUID		0x50
 #define VSEC_TYPE_FLASH		0x51
@@ -323,13 +323,13 @@ struct xrt_subdev_drvdata xrt_vsec_data = {
 };
 
 static const struct platform_device_id xrt_vsec_table[] = {
-	{ XOCL_VSEC, (kernel_ulong_t)&xrt_vsec_data },
+	{ XRT_VSEC, (kernel_ulong_t)&xrt_vsec_data },
 	{ },
 };
 
 struct platform_driver xrt_vsec_driver = {
 	.driver = {
-		.name = XOCL_VSEC,
+		.name = XRT_VSEC,
 	},
 	.probe = xrt_vsec_probe,
 	.remove = xrt_vsec_remove,

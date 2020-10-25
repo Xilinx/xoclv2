@@ -7,8 +7,8 @@
  * Authors: David Zhang <davidzha@xilinx.com>
  */
 
-#ifndef _XOCL_XCLBIN_H
-#define _XOCL_XCLBIN_H
+#ifndef _XRT_XCLBIN_H
+#define _XRT_XCLBIN_H
 
 #include <linux/types.h>
 #include <linux/device.h>
@@ -41,4 +41,4 @@ int xrt_xclbin_parse_header(const unsigned char *data,
 	unsigned int size, struct XHwIcap_Bit_Header *header);
 void xrt_xclbin_free_header(struct XHwIcap_Bit_Header *header);
 
-#endif /* _XOCL_XCLBIN_H */
+#endif /* _XRT_XCLBIN_H */

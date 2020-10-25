@@ -29,7 +29,7 @@
 	xrt_dbg((ucs)->pdev, fmt "\n", ##arg)
 
 
-#define XOCL_UCS		"xrt_ucs"
+#define XRT_UCS		"xrt_ucs"
 
 #define CHANNEL1_OFFSET			0
 #define CHANNEL2_OFFSET			8
@@ -64,7 +64,7 @@ static inline void reg_wr(struct xrt_ucs *ucs, u32 val, u32 offset)
 static bool xrt_ucs_leaf_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
-	if (id == XOCL_SUBDEV_CLOCK)
+	if (id == XRT_SUBDEV_CLOCK)
 		return true;
 
 	return false;
@@ -81,20 +81,20 @@ static int xrt_ucs_event_cb(struct platform_device *pdev,
 	ucs = platform_get_drvdata(pdev);
 
 	switch (evt) {
-	case XOCL_EVENT_POST_CREATION:
+	case XRT_EVENT_POST_CREATION:
 		break;
 	default:
 		xrt_info(pdev, "ignored event %d", evt);
-		return XOCL_EVENT_CB_CONTINUE;
+		return XRT_EVENT_CB_CONTINUE;
 	}
 
 	leaf = xrt_subdev_get_leaf_by_id(pdev,
-		XOCL_SUBDEV_CLOCK, esd->xevt_subdev_instance);
+		XRT_SUBDEV_CLOCK, esd->xevt_subdev_instance);
 	BUG_ON(!leaf);
-	xrt_subdev_ioctl(leaf, XOCL_CLOCK_VERIFY, NULL);
+	xrt_subdev_ioctl(leaf, XRT_CLOCK_VERIFY, NULL);
 	xrt_subdev_put_leaf(pdev, leaf);
 
-	return XOCL_EVENT_CB_CONTINUE;
+	return XRT_EVENT_CB_CONTINUE;
 }
 
 static void ucs_check(struct xrt_ucs *ucs, bool *latched)
@@ -136,11 +136,11 @@ xrt_ucs_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	ucs = platform_get_drvdata(pdev);
 
 	switch (cmd) {
-	case XOCL_UCS_CHECK: {
+	case XRT_UCS_CHECK: {
 		ucs_check(ucs, (bool *)arg);
 		break;
 	}
-	case XOCL_UCS_ENABLE:
+	case XRT_UCS_ENABLE:
 		ucs_enable(ucs);
 		break;
 	default:
@@ -224,13 +224,13 @@ struct xrt_subdev_drvdata xrt_ucs_data = {
 };
 
 static const struct platform_device_id xrt_ucs_table[] = {
-	{ XOCL_UCS, (kernel_ulong_t)&xrt_ucs_data },
+	{ XRT_UCS, (kernel_ulong_t)&xrt_ucs_data },
 	{ },
 };
 
 struct platform_driver xrt_ucs_driver = {
 	.driver = {
-		.name = XOCL_UCS,
+		.name = XRT_UCS,
 	},
 	.probe = ucs_probe,
 	.remove = ucs_remove,
