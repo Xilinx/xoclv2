@@ -19,7 +19,7 @@
 #include "xrt-icap.h"
 #include "xrt-xclbin.h"
 
-#define XOCL_ICAP "xrt_icap"
+#define XRT_ICAP "xrt_icap"
 
 #define	ICAP_ERR(icap, fmt, arg...)	\
 	xrt_err((icap)->pdev, fmt "\n", ##arg)
@@ -216,7 +216,7 @@ xrt_icap_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	icap = platform_get_drvdata(pdev);
 
 	switch (cmd) {
-	case XOCL_ICAP_WRITE:
+	case XRT_ICAP_WRITE:
 		ret = icap_download(icap, wr_arg->xiiw_bit_data,
 				wr_arg->xiiw_data_len);
 		break;
@@ -289,13 +289,13 @@ struct xrt_subdev_drvdata xrt_icap_data = {
 };
 
 static const struct platform_device_id xrt_icap_table[] = {
-	{ XOCL_ICAP, (kernel_ulong_t)&xrt_icap_data },
+	{ XRT_ICAP, (kernel_ulong_t)&xrt_icap_data },
 	{ },
 };
 
 struct platform_driver xrt_icap_driver = {
 	.driver = {
-		.name = XOCL_ICAP,
+		.name = XRT_ICAP,
 	},
 	.probe = xrt_icap_probe,
 	.remove = xrt_icap_remove,

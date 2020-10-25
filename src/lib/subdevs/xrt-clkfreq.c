@@ -27,7 +27,7 @@
 #define CLKFREQ_DBG(clkfreq, fmt, arg...)   \
 	xrt_dbg((clkfreq)->pdev, fmt "\n", ##arg)
 
-#define XOCL_CLKFREQ		"xrt_clkfreq"
+#define XRT_CLKFREQ		"xrt_clkfreq"
 
 #define OCL_CLKWIZ_STATUS_MASK		0xffff
 
@@ -112,7 +112,7 @@ xrt_clkfreq_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	clkfreq = platform_get_drvdata(pdev);
 
 	switch (cmd) {
-	case XOCL_CLKFREQ_READ: {
+	case XRT_CLKFREQ_READ: {
 		*(u32 *)arg = clkfreq_read(clkfreq);
 		break;
 	}
@@ -200,13 +200,13 @@ struct xrt_subdev_drvdata xrt_clkfreq_data = {
 };
 
 static const struct platform_device_id xrt_clkfreq_table[] = {
-	{ XOCL_CLKFREQ, (kernel_ulong_t)&xrt_clkfreq_data },
+	{ XRT_CLKFREQ, (kernel_ulong_t)&xrt_clkfreq_data },
 	{ },
 };
 
 struct platform_driver xrt_clkfreq_driver = {
 	.driver = {
-		.name = XOCL_CLKFREQ,
+		.name = XRT_CLKFREQ,
 	},
 	.probe = clkfreq_probe,
 	.remove = clkfreq_remove,

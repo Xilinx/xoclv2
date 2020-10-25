@@ -14,7 +14,7 @@
 #include "xrt-subdev.h"
 #include "xrt-flash.h"
 
-#define	XOCL_QSPI "xrt_qspi"
+#define	XRT_QSPI "xrt_qspi"
 
 /* Status write command */
 #define QSPI_CMD_STATUSREG_WRITE		0x01
@@ -1282,12 +1282,12 @@ qspi_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	QSPI_INFO(flash, "handling IOCTL cmd: %d", cmd);
 
 	switch (cmd) {
-	case XOCL_FLASH_GET_SIZE: {
+	case XRT_FLASH_GET_SIZE: {
 		size_t *sz = (size_t *)arg;
 		*sz = qspi_get_size(pdev);
 		break;
 	}
-	case XOCL_FLASH_READ: {
+	case XRT_FLASH_READ: {
 		struct xrt_flash_ioctl_read *rd =
 			(struct xrt_flash_ioctl_read *)arg;
 		ret = qspi_kernel_read(pdev,
@@ -1333,13 +1333,13 @@ struct xrt_subdev_drvdata qspi_data = {
 };
 
 static const struct platform_device_id qspi_id_table[] = {
-	{ XOCL_QSPI, (kernel_ulong_t)&qspi_data },
+	{ XRT_QSPI, (kernel_ulong_t)&qspi_data },
 	{ },
 };
 
 struct platform_driver xrt_qspi_driver = {
 	.driver	= {
-		.name    = XOCL_QSPI,
+		.name    = XRT_QSPI,
 	},
 	.probe   = qspi_probe,
 	.remove  = qspi_remove,

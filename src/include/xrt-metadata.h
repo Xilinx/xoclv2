@@ -8,8 +8,8 @@
  *      Lizhi Hou <Lizhi.Hou@xilinx.com>
  */
 
-#ifndef _XOCL_METADATA_H
-#define _XOCL_METADATA_H
+#ifndef _XRT_METADATA_H
+#define _XRT_METADATA_H
 
 #include <linux/device.h>
 #include <linux/vmalloc.h>

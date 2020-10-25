@@ -18,7 +18,7 @@
 #include "xrt-parent.h"
 #include "xrt-axigate.h"
 
-#define XOCL_AXIGATE "xrt_axigate"
+#define XRT_AXIGATE "xrt_axigate"
 
 struct axigate_regs {
 	u32		iag_wr;
@@ -87,7 +87,7 @@ static bool xrt_axigate_leaf_match(enum xrt_subdev_id id,
 	const char		*ep_name = arg;
 	struct resource		*res;
 
-	if (id != XOCL_SUBDEV_AXIGATE)
+	if (id != XRT_SUBDEV_AXIGATE)
 		return false;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -112,7 +112,7 @@ static void xrt_axigate_freeze(struct platform_device *pdev)
 	mutex_lock(&gate->gate_lock);
 	freeze = reg_rd(gate, iag_rd);
 	if (freeze) {		/* gate is opened */
-		xrt_subdev_broadcast_event(pdev, XOCL_EVENT_PRE_GATE_CLOSE);
+		xrt_subdev_broadcast_event(pdev, XRT_EVENT_PRE_GATE_CLOSE);
 		freeze_gate(gate);
 	}
 
@@ -134,7 +134,7 @@ static void xrt_axigate_free(struct platform_device *pdev)
 	if (!freeze) {		/* gate is closed */
 		free_gate(gate);
 		xrt_subdev_broadcast_event_async(pdev,
-			XOCL_EVENT_POST_GATE_OPEN, NULL, NULL);
+			XRT_EVENT_POST_GATE_OPEN, NULL, NULL);
 		/* xrt_axigate_free() could be called in event cb, thus
 		 * we can not wait for the completes
 		 */
@@ -156,10 +156,10 @@ xrt_axigate_event_cb(struct platform_device *pdev,
 	int instance;
 
 	switch (evt) {
-	case XOCL_EVENT_POST_CREATION:
+	case XRT_EVENT_POST_CREATION:
 		break;
 	default:
-		return XOCL_EVENT_CB_CONTINUE;
+		return XRT_EVENT_CB_CONTINUE;
 	}
 
 	id = esd->xevt_subdev_id;
@@ -176,21 +176,21 @@ xrt_axigate_event_cb(struct platform_device *pdev,
 		    xrt_axigate_epname_idx(pdev))
 			xrt_axigate_free(pdev);
 		else
-			xrt_subdev_ioctl(leaf, XOCL_AXIGATE_FREE, NULL);
+			xrt_subdev_ioctl(leaf, XRT_AXIGATE_FREE, NULL);
 		xrt_subdev_put_leaf(pdev, leaf);
 	}
 
-	return XOCL_EVENT_CB_CONTINUE;
+	return XRT_EVENT_CB_CONTINUE;
 }
 
 static int
 xrt_axigate_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	switch (cmd) {
-	case XOCL_AXIGATE_FREEZE:
+	case XRT_AXIGATE_FREEZE:
 		xrt_axigate_freeze(pdev);
 		break;
-	case XOCL_AXIGATE_FREE:
+	case XRT_AXIGATE_FREE:
 		xrt_axigate_free(pdev);
 		break;
 	default:
@@ -284,13 +284,13 @@ struct xrt_subdev_drvdata xrt_axigate_data = {
 };
 
 static const struct platform_device_id xrt_axigate_table[] = {
-	{ XOCL_AXIGATE, (kernel_ulong_t)&xrt_axigate_data },
+	{ XRT_AXIGATE, (kernel_ulong_t)&xrt_axigate_data },
 	{ },
 };
 
 struct platform_driver xrt_axigate_driver = {
 	.driver = {
-		.name = XOCL_AXIGATE,
+		.name = XRT_AXIGATE,
 	},
 	.probe = xrt_axigate_probe,
 	.remove = xrt_axigate_remove,

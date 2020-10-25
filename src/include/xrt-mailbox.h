@@ -6,16 +6,16 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XOCL_MAILBOX_H_
-#define	_XOCL_MAILBOX_H_
+#ifndef	_XRT_MAILBOX_H_
+#define	_XRT_MAILBOX_H_
 
 /*
  * Mailbox IP driver IOCTL calls.
  */
 enum xrt_mailbox_ioctl_cmd {
-	XOCL_MAILBOX_POST = 0,
-	XOCL_MAILBOX_REQUEST,
-	XOCL_MAILBOX_LISTEN,
+	XRT_MAILBOX_POST = 0,
+	XRT_MAILBOX_REQUEST,
+	XRT_MAILBOX_LISTEN,
 };
 
 struct xrt_mailbox_ioctl_post {
@@ -41,4 +41,4 @@ struct xrt_mailbox_ioctl_listen {
 	void *xmil_cb_arg;
 };
 
-#endif	/* _XOCL_MAILBOX_H_ */
+#endif	/* _XRT_MAILBOX_H_ */

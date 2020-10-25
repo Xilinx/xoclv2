@@ -6,8 +6,8 @@
  *	Lizhi Hou <Lizhi.Hou@xilinx.com>
  */
 
-#ifndef	_XOCL_GPIO_H_
-#define	_XOCL_GPIO_H_
+#ifndef	_XRT_GPIO_H_
+#define	_XRT_GPIO_H_
 
 #include "xrt-subdev.h"
 
@@ -15,15 +15,15 @@
  * GPIO driver IOCTL calls.
  */
 enum xrt_gpio_ioctl_cmd {
-	XOCL_GPIO_READ = 0,
-	XOCL_GPIO_WRITE,
+	XRT_GPIO_READ = 0,
+	XRT_GPIO_WRITE,
 };
 
 enum xrt_gpio_id {
-	XOCL_GPIO_ROM_UUID,
-	XOCL_GPIO_DDR_CALIB,
-	XOCL_GPIO_GOLDEN_VER,
-	XOCL_GPIO_MAX
+	XRT_GPIO_ROM_UUID,
+	XRT_GPIO_DDR_CALIB,
+	XRT_GPIO_GOLDEN_VER,
+	XRT_GPIO_MAX
 };
 
 struct xrt_gpio_ioctl_rw {
@@ -38,4 +38,4 @@ struct xrt_gpio_ioctl_intf_uuid {
 	uuid_t	*xgir_uuids;
 };
 
-#endif	/* _XOCL_GPIO_H_ */
+#endif	/* _XRT_GPIO_H_ */

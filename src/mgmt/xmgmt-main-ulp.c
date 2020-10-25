@@ -42,7 +42,7 @@ static int xmgmt_download_bitstream(struct platform_device  *pdev,
 		xrt_err(pdev, "invalid bitstream header");
 		goto done;
 	}
-	icap_leaf = xrt_subdev_get_leaf_by_id(pdev, XOCL_SUBDEV_ICAP,
+	icap_leaf = xrt_subdev_get_leaf_by_id(pdev, XRT_SUBDEV_ICAP,
 		PLATFORM_DEVID_NONE);
 	if (!icap_leaf) {
 		ret = -ENODEV;
@@ -51,7 +51,7 @@ static int xmgmt_download_bitstream(struct platform_device  *pdev,
 	}
 	arg.xiiw_bit_data = bitstream + bit_header.HeaderLength;
 	arg.xiiw_data_len = bit_header.BitstreamLength;
-	ret = xrt_subdev_ioctl(icap_leaf, XOCL_ICAP_WRITE, &arg);
+	ret = xrt_subdev_ioctl(icap_leaf, XRT_ICAP_WRITE, &arg);
 	if (ret)
 		xrt_err(pdev, "write bitstream failed, ret = %d", ret);
 
@@ -141,7 +141,7 @@ int xmgmt_ulp_download(struct platform_device  *pdev, void *xclbin)
 
 	/* gate may not be exist for 0rp */
 	if (axigate_leaf) {
-		ret = xrt_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREEZE,
+		ret = xrt_subdev_ioctl(axigate_leaf, XRT_AXIGATE_FREEZE,
 			NULL);
 		if (ret) {
 			xrt_err(pdev, "can not freeze gate %s, %d",
@@ -152,12 +152,12 @@ int xmgmt_ulp_download(struct platform_device  *pdev, void *xclbin)
 	}
 	ret = xmgmt_download_bitstream(pdev, xclbin);
 	if (axigate_leaf) {
-		xrt_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREE, NULL);
+		xrt_subdev_ioctl(axigate_leaf, XRT_AXIGATE_FREE, NULL);
 
 		/* Do we really need this extra toggling gate before setting
 		 * clocks?
-		 * xrt_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREEZE, NULL);
-		 * xrt_subdev_ioctl(axigate_leaf, XOCL_AXIGATE_FREE, NULL);
+		 * xrt_subdev_ioctl(axigate_leaf, XRT_AXIGATE_FREEZE, NULL);
+		 * xrt_subdev_ioctl(axigate_leaf, XRT_AXIGATE_FREE, NULL);
 		 */
 
 		xrt_subdev_put_leaf(pdev, axigate_leaf);

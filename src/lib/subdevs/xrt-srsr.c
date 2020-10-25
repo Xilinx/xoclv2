@@ -18,7 +18,7 @@
 #include "xrt-parent.h"
 #include "xrt-ddr-srsr.h"
 
-#define XOCL_DDR_SRSR "xrt_ddr_srsr"
+#define XRT_DDR_SRSR "xrt_ddr_srsr"
 
 #define	REG_STATUS_OFFSET		0x00000000
 #define	REG_CTRL_OFFSET			0x00000004
@@ -210,15 +210,15 @@ xrt_srsr_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	int ret = 0;
 
 	switch (cmd) {
-	case XOCL_SRSR_CALIB:
+	case XRT_SRSR_CALIB:
 		ret = srsr_full_calib(srsr, (char **)req->xsic_buf,
 			&req->xsic_size);
 		break;
-	case XOCL_SRSR_FAST_CALIB:
+	case XRT_SRSR_FAST_CALIB:
 		ret = srsr_fast_calib(srsr, req->xsic_buf, req->xsic_size,
 			req->xsic_retention);
 		break;
-	case XOCL_SRSR_EP_NAME:
+	case XRT_SRSR_EP_NAME:
 		*(const char **)arg = srsr->ep_name;
 		break;
 	default:
@@ -308,13 +308,13 @@ struct xrt_subdev_drvdata xrt_srsr_data = {
 };
 
 static const struct platform_device_id xrt_srsr_table[] = {
-	{ XOCL_DDR_SRSR, (kernel_ulong_t)&xrt_srsr_data },
+	{ XRT_DDR_SRSR, (kernel_ulong_t)&xrt_srsr_data },
 	{ },
 };
 
 struct platform_driver xrt_ddr_srsr_driver = {
 	.driver = {
-		.name = XOCL_DDR_SRSR,
+		.name = XRT_DDR_SRSR,
 	},
 	.probe = xrt_srsr_probe,
 	.remove = xrt_srsr_remove,

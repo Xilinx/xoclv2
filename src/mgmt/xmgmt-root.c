@@ -308,7 +308,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		xrt_warn(pdev, "create xmgmt root attrs failed: %d", ret);
 	}
 
-	xroot_broadcast(xm->root, XOCL_EVENT_POST_ATTACH);
+	xroot_broadcast(xm->root, XRT_EVENT_POST_ATTACH);
 	xmgmt_info(xm, "%s started successfully", XMGMT_MODULE_NAME);
 	return 0;
 
@@ -323,7 +323,7 @@ static void xmgmt_remove(struct pci_dev *pdev)
 {
 	struct xmgmt *xm = pci_get_drvdata(pdev);
 
-	xroot_broadcast(xm->root, XOCL_EVENT_PRE_DETACH);
+	xroot_broadcast(xm->root, XRT_EVENT_PRE_DETACH);
 	sysfs_remove_group(&pdev->dev.kobj, &xmgmt_root_attr_group);
 	(void) xroot_remove(xm->root);
 	pci_disable_pcie_error_reporting(xm->pdev);
@@ -339,7 +339,7 @@ static struct pci_driver xmgmt_driver = {
 
 static int __init xmgmt_init(void)
 {
-	int res = xrt_subdev_register_external_driver(XOCL_SUBDEV_MGMT_MAIN,
+	int res = xrt_subdev_register_external_driver(XRT_SUBDEV_MGMT_MAIN,
 		&xmgmt_main_driver, xrt_mgmt_main_endpoints);
 
 	if (res)
@@ -362,7 +362,7 @@ static __exit void xmgmt_exit(void)
 {
 	pci_unregister_driver(&xmgmt_driver);
 	class_destroy(xmgmt_class);
-	xrt_subdev_unregister_external_driver(XOCL_SUBDEV_MGMT_MAIN);
+	xrt_subdev_unregister_external_driver(XRT_SUBDEV_MGMT_MAIN);
 }
 
 module_init(xmgmt_init);

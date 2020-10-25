@@ -13,7 +13,7 @@
 #include "xrt-subdev.h"
 #include "xrt-gpio.h"
 
-#define XOCL_VSEC_GOLDEN "xrt_vsec_golden"
+#define XRT_VSEC_GOLDEN "xrt_vsec_golden"
 
 /*
  * Global static table listing all known devices we need to bring up
@@ -66,11 +66,11 @@ static int xrt_vsec_get_golden_ver(struct xrt_vsec *vsec)
 		return -EINVAL;
 	}
 
-	gpio_arg.xgir_id = XOCL_GPIO_GOLDEN_VER;
+	gpio_arg.xgir_id = XRT_GPIO_GOLDEN_VER;
 	gpio_arg.xgir_buf = &ver;
 	gpio_arg.xgir_len = sizeof(ver);
 	gpio_arg.xgir_offset = 0;
-	err = xrt_subdev_ioctl(gpio_leaf, XOCL_GPIO_READ, &gpio_arg);
+	err = xrt_subdev_ioctl(gpio_leaf, XRT_GPIO_READ, &gpio_arg);
 	(void) xrt_subdev_put_leaf(pdev, gpio_leaf);
 	if (err) {
 		xrt_err(pdev, "can't get golden image version: %d", err);
@@ -225,13 +225,13 @@ static struct xrt_subdev_drvdata xrt_vsec_data = {
 };
 
 static const struct platform_device_id xrt_vsec_table[] = {
-	{ XOCL_VSEC_GOLDEN, (kernel_ulong_t)&xrt_vsec_data },
+	{ XRT_VSEC_GOLDEN, (kernel_ulong_t)&xrt_vsec_data },
 	{ },
 };
 
 struct platform_driver xrt_vsec_golden_driver = {
 	.driver = {
-		.name = XOCL_VSEC_GOLDEN,
+		.name = XRT_VSEC_GOLDEN,
 	},
 	.probe = xrt_vsec_probe,
 	.remove = xrt_vsec_remove,

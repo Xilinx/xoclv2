@@ -269,10 +269,10 @@ struct xcl_dna {
  * Data structure used to fetch SUBDEV group
  */
 enum xcl_subdev_return_code {
-	XOCL_MSG_SUBDEV_RTN_UNCHANGED = 1,
-	XOCL_MSG_SUBDEV_RTN_PARTIAL,
-	XOCL_MSG_SUBDEV_RTN_COMPLETE,
-	XOCL_MSG_SUBDEV_RTN_PENDINGPLP,
+	XRT_MSG_SUBDEV_RTN_UNCHANGED = 1,
+	XRT_MSG_SUBDEV_RTN_PARTIAL,
+	XRT_MSG_SUBDEV_RTN_COMPLETE,
+	XRT_MSG_SUBDEV_RTN_PENDINGPLP,
 };
 struct xcl_subdev {
 	uint32_t ver;

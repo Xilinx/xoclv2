@@ -6,8 +6,8 @@
  *	Lizhi Hou <Lizhi.Hou@xilinx.com>
  */
 
-#ifndef	_XOCL_AXIGATE_H_
-#define	_XOCL_AXIGATE_H_
+#ifndef	_XRT_AXIGATE_H_
+#define	_XRT_AXIGATE_H_
 
 
 #include "xrt-subdev.h"
@@ -17,8 +17,8 @@
  * AXIGATE driver IOCTL calls.
  */
 enum xrt_axigate_ioctl_cmd {
-	XOCL_AXIGATE_FREEZE = 0,
-	XOCL_AXIGATE_FREE,
+	XRT_AXIGATE_FREEZE = 0,
+	XRT_AXIGATE_FREE,
 };
 
 /* the ep names are in the order of hardware layers */
@@ -28,4 +28,4 @@ static const char * const xrt_axigate_epnames[] = {
 	NULL
 };
 
-#endif	/* _XOCL_AXIGATE_H_ */
+#endif	/* _XRT_AXIGATE_H_ */

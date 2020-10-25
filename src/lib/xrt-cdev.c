@@ -12,7 +12,7 @@
 
 extern struct class *xrt_class;
 
-#define	XOCL_CDEV_DIR		"xfpga"
+#define	XRT_CDEV_DIR		"xfpga"
 #define	INODE2PDATA(inode)	\
 	container_of((inode)->i_cdev, struct xrt_subdev_platdata, xsp_cdev)
 #define	INODE2PDEV(inode)	\
@@ -178,17 +178,17 @@ int xrt_devnode_create(struct platform_device *pdev, const char *file_name,
 	if (!file_name)
 		file_name = pdev->name;
 	if (!inst_name) {
-		if (devnode_mode(drvdata) == XOCL_SUBDEV_FILE_MULTI_INST) {
+		if (devnode_mode(drvdata) == XRT_SUBDEV_FILE_MULTI_INST) {
 			snprintf(fname, sizeof(fname), "%s/%s.%s-%u",
-				XOCL_CDEV_DIR, file_name,
+				XRT_CDEV_DIR, file_name,
 				DEV_PDATA(pdev)->xsp_root_name, pdev->id);
 		} else {
 			snprintf(fname, sizeof(fname), "%s/%s.%s",
-				XOCL_CDEV_DIR, file_name,
+				XRT_CDEV_DIR, file_name,
 				DEV_PDATA(pdev)->xsp_root_name);
 		}
 	} else {
-		snprintf(fname, sizeof(fname), "%s/%s.%s-%s", XOCL_CDEV_DIR,
+		snprintf(fname, sizeof(fname), "%s/%s.%s-%s", XRT_CDEV_DIR,
 			file_name, DEV_PDATA(pdev)->xsp_root_name, inst_name);
 	}
 	sysdev = device_create(xrt_class, NULL, cdevp->dev, NULL, "%s", fname);
@@ -226,7 +226,7 @@ int xrt_devnode_destroy(struct platform_device *pdev)
 		return rc;
 
 	xrt_info(pdev, "removed (%d, %d): /dev/%s/%s", MAJOR(dev), MINOR(dev),
-		XOCL_CDEV_DIR, CDEV_NAME(pdata->xsp_sysdev));
+		XRT_CDEV_DIR, CDEV_NAME(pdata->xsp_sysdev));
 	device_destroy(xrt_class, cdevp->dev);
 	pdata->xsp_sysdev = NULL;
 	cdev_del(cdevp);

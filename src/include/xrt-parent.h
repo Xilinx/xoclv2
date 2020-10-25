@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XOCL_PARENT_H_
-#define	_XOCL_PARENT_H_
+#ifndef	_XRT_PARENT_H_
+#define	_XRT_PARENT_H_
 
 #include "xrt-subdev.h"
 #include "xrt-partition.h"
@@ -17,28 +17,28 @@
  */
 enum xrt_parent_ioctl_cmd {
 	/* Leaf actions. */
-	XOCL_PARENT_GET_LEAF = 0,
-	XOCL_PARENT_PUT_LEAF,
-	XOCL_PARENT_GET_LEAF_HOLDERS,
+	XRT_PARENT_GET_LEAF = 0,
+	XRT_PARENT_PUT_LEAF,
+	XRT_PARENT_GET_LEAF_HOLDERS,
 
 	/* Partition actions. */
-	XOCL_PARENT_CREATE_PARTITION,
-	XOCL_PARENT_REMOVE_PARTITION,
-	XOCL_PARENT_LOOKUP_PARTITION,
-	XOCL_PARENT_WAIT_PARTITION_BRINGUP,
+	XRT_PARENT_CREATE_PARTITION,
+	XRT_PARENT_REMOVE_PARTITION,
+	XRT_PARENT_LOOKUP_PARTITION,
+	XRT_PARENT_WAIT_PARTITION_BRINGUP,
 
 	/* Event actions. */
-	XOCL_PARENT_ADD_EVENT_CB,
-	XOCL_PARENT_REMOVE_EVENT_CB,
-	XOCL_PARENT_ASYNC_BOARDCAST_EVENT,
+	XRT_PARENT_ADD_EVENT_CB,
+	XRT_PARENT_REMOVE_EVENT_CB,
+	XRT_PARENT_ASYNC_BOARDCAST_EVENT,
 
 	/* Device info. */
-	XOCL_PARENT_GET_RESOURCE,
-	XOCL_PARENT_GET_ID,
+	XRT_PARENT_GET_RESOURCE,
+	XRT_PARENT_GET_ID,
 
 	/* Misc. */
-	XOCL_PARENT_HOT_RESET,
-	XOCL_PARENT_HWMON,
+	XRT_PARENT_HOT_RESET,
+	XRT_PARENT_HWMON,
 };
 
 struct xrt_parent_ioctl_get_leaf {
@@ -100,4 +100,4 @@ struct xrt_parent_ioctl_hwmon {
 	struct device *xpih_hwmon_dev;
 };
 
-#endif	/* _XOCL_PARENT_H_ */
+#endif	/* _XRT_PARENT_H_ */

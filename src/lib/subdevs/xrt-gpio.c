@@ -18,29 +18,29 @@
 #include "xrt-parent.h"
 #include "xrt-gpio.h"
 
-#define XOCL_GPIO "xrt_gpio"
+#define XRT_GPIO "xrt_gpio"
 
 struct xrt_name_id {
 	char *ep_name;
 	int id;
 };
 
-static struct xrt_name_id name_id[XOCL_GPIO_MAX] = {
-	{ NODE_BLP_ROM, XOCL_GPIO_ROM_UUID },
-	{ NODE_GOLDEN_VER, XOCL_GPIO_GOLDEN_VER },
+static struct xrt_name_id name_id[XRT_GPIO_MAX] = {
+	{ NODE_BLP_ROM, XRT_GPIO_ROM_UUID },
+	{ NODE_GOLDEN_VER, XRT_GPIO_GOLDEN_VER },
 };
 
 struct xrt_gpio {
 	struct platform_device	*pdev;
-	void		__iomem *base_addrs[XOCL_GPIO_MAX];
-	ulong			sizes[XOCL_GPIO_MAX];
+	void		__iomem *base_addrs[XRT_GPIO_MAX];
+	ulong			sizes[XRT_GPIO_MAX];
 };
 
 static int xrt_gpio_name2id(struct xrt_gpio *gpio, const char *name)
 {
 	int	i;
 
-	for (i = 0; i < XOCL_GPIO_MAX && name_id[i].ep_name; i++) {
+	for (i = 0; i < XRT_GPIO_MAX && name_id[i].ep_name; i++) {
 		if (!strncmp(name_id[i].ep_name, name,
 		    strlen(name_id[i].ep_name) + 1))
 			return name_id[i].id;
@@ -58,7 +58,7 @@ xrt_gpio_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	gpio = platform_get_drvdata(pdev);
 
 	switch (cmd) {
-	case XOCL_GPIO_READ: {
+	case XRT_GPIO_READ: {
 		struct xrt_gpio_ioctl_rw	*rw_arg = arg;
 		u32				*p_src, *p_dst, i;
 
@@ -67,7 +67,7 @@ xrt_gpio_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 			return -EINVAL;
 		}
 
-		if (rw_arg->xgir_id >= XOCL_GPIO_MAX) {
+		if (rw_arg->xgir_id >= XRT_GPIO_MAX) {
 			xrt_err(pdev, "invalid id %d", rw_arg->xgir_id);
 			return -EINVAL;
 		}
@@ -107,7 +107,7 @@ static int xrt_gpio_remove(struct platform_device *pdev)
 
 	gpio = platform_get_drvdata(pdev);
 
-	for (i = 0; i < XOCL_GPIO_MAX; i++) {
+	for (i = 0; i < XRT_GPIO_MAX; i++) {
 		if (gpio->base_addrs[i])
 			iounmap(gpio->base_addrs[i]);
 	}
@@ -184,13 +184,13 @@ struct xrt_subdev_drvdata xrt_gpio_data = {
 };
 
 static const struct platform_device_id xrt_gpio_table[] = {
-	{ XOCL_GPIO, (kernel_ulong_t)&xrt_gpio_data },
+	{ XRT_GPIO, (kernel_ulong_t)&xrt_gpio_data },
 	{ },
 };
 
 struct platform_driver xrt_gpio_driver = {
 	.driver = {
-		.name = XOCL_GPIO,
+		.name = XRT_GPIO,
 	},
 	.probe = xrt_gpio_probe,
 	.remove = xrt_gpio_remove,

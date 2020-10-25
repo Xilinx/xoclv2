@@ -6,8 +6,8 @@
  *	Lizhi Hou <Lizhi.Hou@xilinx.com>
  */
 
-#ifndef	_XOCL_CLKFREQ_H_
-#define	_XOCL_CLKFREQ_H_
+#ifndef	_XRT_CLKFREQ_H_
+#define	_XRT_CLKFREQ_H_
 
 #include "xrt-subdev.h"
 
@@ -15,7 +15,7 @@
  * CLKFREQ driver IOCTL calls.
  */
 enum xrt_clkfreq_ioctl_cmd {
-	XOCL_CLKFREQ_READ = 0,
+	XRT_CLKFREQ_READ = 0,
 };
 
-#endif	/* _XOCL_CLKFREQ_H_ */
+#endif	/* _XRT_CLKFREQ_H_ */

@@ -79,7 +79,7 @@ static void xmgmt_mailbox_post(struct xmgmt_mailbox *xmbx,
 		XMGMT_MAILBOX_PRT_RESP(xmbx, &post);
 	}
 
-	rc = xrt_subdev_ioctl(xmbx->mailbox, XOCL_MAILBOX_POST, &post);
+	rc = xrt_subdev_ioctl(xmbx->mailbox, XRT_MAILBOX_POST, &post);
 	if (rc)
 		xrt_err(xmbx->pdev, "failed to post msg: %d", rc);
 }
@@ -354,7 +354,7 @@ static void xmgmt_mailbox_resp_subdev(struct xmgmt_mailbox *xmbx,
 
 	hdr->ver = 1;
 	hdr->size = dtbsz;
-	hdr->rtncode = XOCL_MSG_SUBDEV_RTN_COMPLETE;
+	hdr->rtncode = XRT_MSG_SUBDEV_RTN_COMPLETE;
 	(void) memcpy(hdr->data, dtb, dtbsz);
 
 	mutex_lock(&xmbx->lock);
@@ -493,7 +493,7 @@ static void xmgmt_mailbox_reg_listener(struct xmgmt_mailbox *xmbx)
 	BUG_ON(!mutex_is_locked(&xmbx->lock));
 	if (!xmbx->mailbox)
 		return;
-	(void) xrt_subdev_ioctl(xmbx->mailbox, XOCL_MAILBOX_LISTEN, &listen);
+	(void) xrt_subdev_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
 }
 
 static void xmgmt_mailbox_unreg_listener(struct xmgmt_mailbox *xmbx)
@@ -502,13 +502,13 @@ static void xmgmt_mailbox_unreg_listener(struct xmgmt_mailbox *xmbx)
 
 	BUG_ON(!mutex_is_locked(&xmbx->lock));
 	BUG_ON(!xmbx->mailbox);
-	(void) xrt_subdev_ioctl(xmbx->mailbox, XOCL_MAILBOX_LISTEN, &listen);
+	(void) xrt_subdev_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
 }
 
 static bool xmgmt_mailbox_leaf_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
-	return (id == XOCL_SUBDEV_MAILBOX);
+	return (id == XRT_SUBDEV_MAILBOX);
 }
 
 static int xmgmt_mailbox_event_cb(struct platform_device *pdev,
@@ -518,17 +518,17 @@ static int xmgmt_mailbox_event_cb(struct platform_device *pdev,
 	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
 
 	switch (evt) {
-	case XOCL_EVENT_POST_CREATION:
-		BUG_ON(esd->xevt_subdev_id != XOCL_SUBDEV_MAILBOX);
+	case XRT_EVENT_POST_CREATION:
+		BUG_ON(esd->xevt_subdev_id != XRT_SUBDEV_MAILBOX);
 		BUG_ON(xmbx->mailbox);
 		mutex_lock(&xmbx->lock);
 		xmbx->mailbox = xrt_subdev_get_leaf_by_id(pdev,
-			XOCL_SUBDEV_MAILBOX, PLATFORM_DEVID_NONE);
+			XRT_SUBDEV_MAILBOX, PLATFORM_DEVID_NONE);
 		xmgmt_mailbox_reg_listener(xmbx);
 		mutex_unlock(&xmbx->lock);
 		break;
-	case XOCL_EVENT_PRE_REMOVAL:
-		BUG_ON(esd->xevt_subdev_id != XOCL_SUBDEV_MAILBOX);
+	case XRT_EVENT_PRE_REMOVAL:
+		BUG_ON(esd->xevt_subdev_id != XRT_SUBDEV_MAILBOX);
 		BUG_ON(!xmbx->mailbox);
 		mutex_lock(&xmbx->lock);
 		xmgmt_mailbox_unreg_listener(xmbx);
@@ -540,7 +540,7 @@ static int xmgmt_mailbox_event_cb(struct platform_device *pdev,
 		break;
 	}
 
-	return XOCL_EVENT_CB_CONTINUE;
+	return XRT_EVENT_CB_CONTINUE;
 }
 
 static ssize_t xmgmt_mailbox_user_dtb_show(struct file *filp,
@@ -667,7 +667,7 @@ int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx,
 		 * for debugging purpose.
 		 */
 		rc = xrt_subdev_ioctl(xmbx->mailbox,
-			XOCL_MAILBOX_REQUEST, &leaf_req);
+			XRT_MAILBOX_REQUEST, &leaf_req);
 	} else {
 		rc = -ENODEV;
 		xrt_err(pdev, "mailbox not available");

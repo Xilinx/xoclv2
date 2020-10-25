@@ -37,7 +37,7 @@
 #define	CLOCK_DBG(clock, fmt, arg...)	\
 	xrt_dbg((clock)->pdev, fmt "\n", ##arg)
 
-#define XOCL_CLOCK	"xrt_clock"
+#define XRT_CLOCK	"xrt_clock"
 
 struct clock {
 	struct platform_device  *pdev;
@@ -417,7 +417,7 @@ static int clock_verify_freq(struct clock *clock)
 	clkfreq_leaf = xrt_subdev_get_leaf(clock->pdev,
 		xrt_subdev_match_epname, (void *)counter);
 	if (clkfreq_leaf) {
-		err = xrt_subdev_ioctl(clkfreq_leaf, XOCL_CLKFREQ_READ,
+		err = xrt_subdev_ioctl(clkfreq_leaf, XRT_CLKFREQ_READ,
 				&clock_freq_counter);
 		if (err)
 			goto end;
@@ -501,13 +501,13 @@ xrt_clock_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	clock = platform_get_drvdata(pdev);
 
 	switch (cmd) {
-	case XOCL_CLOCK_SET: {
+	case XRT_CLOCK_SET: {
 		u16	freq = (u16)(uintptr_t)arg;
 
 		ret = clock_set_freq(clock, freq);
 		break;
 	}
-	case XOCL_CLOCK_VERIFY: {
+	case XRT_CLOCK_VERIFY: {
 		ret = clock_verify_freq(clock);
 		break;
 	}
@@ -599,13 +599,13 @@ struct xrt_subdev_drvdata xrt_clock_data = {
 };
 
 static const struct platform_device_id xrt_clock_table[] = {
-	{ XOCL_CLOCK, (kernel_ulong_t)&xrt_clock_data },
+	{ XRT_CLOCK, (kernel_ulong_t)&xrt_clock_data },
 	{ },
 };
 
 struct platform_driver xrt_clock_driver = {
 	.driver = {
-		.name = XOCL_CLOCK,
+		.name = XRT_CLOCK,
 	},
 	.probe = clock_probe,
 	.remove = clock_remove,

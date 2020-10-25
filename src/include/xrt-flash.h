@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XOCL_FLASH_H_
-#define	_XOCL_FLASH_H_
+#ifndef	_XRT_FLASH_H_
+#define	_XRT_FLASH_H_
 
 #include "xrt-subdev.h"
 
@@ -15,8 +15,8 @@
  * Flash controller driver IOCTL calls.
  */
 enum xrt_flash_ioctl_cmd {
-	XOCL_FLASH_GET_SIZE = 0,
-	XOCL_FLASH_READ,
+	XRT_FLASH_GET_SIZE = 0,
+	XRT_FLASH_READ,
 };
 
 struct xrt_flash_ioctl_read {
@@ -25,4 +25,4 @@ struct xrt_flash_ioctl_read {
 	loff_t xfir_offset;
 };
 
-#endif	/* _XOCL_FLASH_H_ */
+#endif	/* _XRT_FLASH_H_ */

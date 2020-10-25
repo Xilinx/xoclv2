@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XOCL_ROOT_H_
-#define	_XOCL_ROOT_H_
+#ifndef	_XRT_ROOT_H_
+#define	_XRT_ROOT_H_
 
 #include <linux/pci.h>
 #include "xrt-subdev.h"
@@ -21,4 +21,4 @@ int xroot_add_simple_node(void *root, char *dtb, const char *endpoint);
 void xroot_hot_reset(struct pci_dev *pdev);
 void xroot_broadcast(void *root, enum xrt_events evt);
 
-#endif	/* _XOCL_ROOT_H_ */
+#endif	/* _XRT_ROOT_H_ */

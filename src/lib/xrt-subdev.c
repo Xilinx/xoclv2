@@ -75,7 +75,7 @@ static ssize_t holders_show(struct device *dev,
 	struct xrt_parent_ioctl_get_holders holders = { pdev, buf, 1024 };
 
 	len = xrt_subdev_parent_ioctl(pdev,
-		XOCL_PARENT_GET_LEAF_HOLDERS, &holders);
+		XRT_PARENT_GET_LEAF_HOLDERS, &holders);
 	if (len >= holders.xpigh_holder_buf_len)
 		return len;
 	buf[len] = '\n';
@@ -228,8 +228,8 @@ static bool xrt_subdev_cdev_auto_creation(struct platform_device *pdev)
 		return false;
 
 	return xrt_devnode_enabled(drvdata) &&
-		(xrt_devnode_mode(drvdata) == XOCL_SUBDEV_FILE_DEFAULT ||
-		(xrt_devnode_mode(drvdata) == XOCL_SUBDEV_FILE_MULTI_INST));
+		(xrt_devnode_mode(drvdata) == XRT_SUBDEV_FILE_DEFAULT ||
+		(xrt_devnode_mode(drvdata) == XRT_SUBDEV_FILE_MULTI_INST));
 }
 
 static struct xrt_subdev *
@@ -270,7 +270,7 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 	pdata->xsp_parent_cb = pcb;
 	pdata->xsp_parent_cb_arg = pcb_arg;
 	(void) memcpy(pdata->xsp_dtb, dtb, dtb_len);
-	if (id == XOCL_SUBDEV_PART) {
+	if (id == XRT_SUBDEV_PART) {
 		/* Partition can only be created by root driver. */
 		BUG_ON(parent->bus != &pci_bus_type);
 		pdata->xsp_root_name = dev_name(parent);
@@ -278,7 +278,7 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 		struct platform_device *part = to_platform_device(parent);
 		/* Leaf can only be created by partition driver. */
 		BUG_ON(parent->bus != &platform_bus_type);
-		BUG_ON(strcmp(xrt_drv_name(XOCL_SUBDEV_PART),
+		BUG_ON(strcmp(xrt_drv_name(XRT_SUBDEV_PART),
 			platform_get_device_id(part)->name));
 		pdata->xsp_root_name = DEV_PDATA(part)->xsp_root_name;
 	}
@@ -291,9 +291,9 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 	}
 
 	/* Create subdev. */
-	if (id == XOCL_SUBDEV_PART) {
+	if (id == XRT_SUBDEV_PART) {
 		pdev = platform_device_register_data(parent,
-			xrt_drv_name(XOCL_SUBDEV_PART), inst, pdata, pdata_sz);
+			xrt_drv_name(XRT_SUBDEV_PART), inst, pdata, pdata_sz);
 	} else {
 		int rc = xrt_subdev_getres(parent, id, dtb, &res, &res_num);
 
@@ -325,7 +325,7 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 	 * Create sysfs sym link under root for leaves
 	 * under random partitions for easy access to them.
 	 */
-	if (id != XOCL_SUBDEV_PART) {
+	if (id != XRT_SUBDEV_PART) {
 		if (sysfs_create_link(&find_root(pdev)->kobj,
 			&DEV(pdev)->kobj, dev_name(DEV(pdev)))) {
 			xrt_err(pdev, "failed to create sysfs link");
@@ -360,7 +360,7 @@ static void xrt_subdev_destroy(struct xrt_subdev *sdev)
 	/* Take down the device node */
 	if (xrt_subdev_cdev_auto_creation(pdev))
 		(void) xrt_devnode_destroy(pdev);
-	if (sdev->xs_id != XOCL_SUBDEV_PART)
+	if (sdev->xs_id != XRT_SUBDEV_PART)
 		(void) sysfs_remove_link(&find_root(pdev)->kobj, dev_name(dev));
 	(void) sysfs_remove_group(&dev->kobj, &xrt_subdev_attrgroup);
 	platform_device_unregister(pdev);
@@ -393,7 +393,7 @@ xrt_subdev_get_leaf(struct platform_device *pdev,
 	struct xrt_parent_ioctl_get_leaf get_leaf = {
 		pdev, match_cb, match_arg, };
 
-	rc = xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_LEAF, &get_leaf);
+	rc = xrt_subdev_parent_ioctl(pdev, XRT_PARENT_GET_LEAF, &get_leaf);
 	if (rc)
 		return NULL;
 	return get_leaf.xpigl_leaf;
@@ -428,21 +428,21 @@ int xrt_subdev_put_leaf(struct platform_device *pdev,
 {
 	struct xrt_parent_ioctl_put_leaf put_leaf = { pdev, leaf };
 
-	return xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_PUT_LEAF, &put_leaf);
+	return xrt_subdev_parent_ioctl(pdev, XRT_PARENT_PUT_LEAF, &put_leaf);
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_put_leaf);
 
 int xrt_subdev_create_partition(struct platform_device *pdev, char *dtb)
 {
 	return xrt_subdev_parent_ioctl(pdev,
-		XOCL_PARENT_CREATE_PARTITION, dtb);
+		XRT_PARENT_CREATE_PARTITION, dtb);
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_create_partition);
 
 int xrt_subdev_destroy_partition(struct platform_device *pdev, int instance)
 {
 	return xrt_subdev_parent_ioctl(pdev,
-		XOCL_PARENT_REMOVE_PARTITION, (void *)(uintptr_t)instance);
+		XRT_PARENT_REMOVE_PARTITION, (void *)(uintptr_t)instance);
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_destroy_partition);
 
@@ -453,7 +453,7 @@ int xrt_subdev_lookup_partition(struct platform_device *pdev,
 	struct xrt_parent_ioctl_lookup_partition lkp = {
 		pdev, match_cb, match_arg, };
 
-	rc = xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_LOOKUP_PARTITION, &lkp);
+	rc = xrt_subdev_parent_ioctl(pdev, XRT_PARENT_LOOKUP_PARTITION, &lkp);
 	if (rc)
 		return rc;
 	return lkp.xpilp_part_inst;
@@ -463,7 +463,7 @@ EXPORT_SYMBOL_GPL(xrt_subdev_lookup_partition);
 int xrt_subdev_wait_for_partition_bringup(struct platform_device *pdev)
 {
 	return xrt_subdev_parent_ioctl(pdev,
-		XOCL_PARENT_WAIT_PARTITION_BRINGUP, NULL);
+		XRT_PARENT_WAIT_PARTITION_BRINGUP, NULL);
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_wait_for_partition_bringup);
 
@@ -472,14 +472,14 @@ void *xrt_subdev_add_event_cb(struct platform_device *pdev,
 {
 	struct xrt_parent_ioctl_evt_cb c = { pdev, match, match_arg, cb };
 
-	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_ADD_EVENT_CB, &c);
+	(void) xrt_subdev_parent_ioctl(pdev, XRT_PARENT_ADD_EVENT_CB, &c);
 	return c.xevt_hdl;
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_add_event_cb);
 
 void xrt_subdev_remove_event_cb(struct platform_device *pdev, void *hdl)
 {
-	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_REMOVE_EVENT_CB, hdl);
+	(void) xrt_subdev_parent_ioctl(pdev, XRT_PARENT_REMOVE_EVENT_CB, hdl);
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_remove_event_cb);
 
@@ -705,7 +705,7 @@ static int xrt_subdev_pool_get_impl(struct xrt_subdev_pool *spool,
 
 	mutex_lock(lk);
 
-	if (match == XOCL_SUBDEV_MATCH_PREV) {
+	if (match == XRT_SUBDEV_MATCH_PREV) {
 		struct platform_device *pdev = (struct platform_device *)arg;
 		struct xrt_subdev *d = NULL;
 
@@ -723,7 +723,7 @@ static int xrt_subdev_pool_get_impl(struct xrt_subdev_pool *spool,
 				break;
 			}
 		}
-	} else if (match == XOCL_SUBDEV_MATCH_NEXT) {
+	} else if (match == XRT_SUBDEV_MATCH_NEXT) {
 		struct platform_device *pdev = (struct platform_device *)arg;
 		struct xrt_subdev *d = NULL;
 
@@ -848,7 +848,7 @@ int xrt_subdev_pool_event(struct xrt_subdev_pool *spool,
 	struct xrt_subdev *sdev = NULL;
 	struct xrt_event_arg_subdev esd;
 
-	while (!rc && xrt_subdev_pool_get_impl(spool, XOCL_SUBDEV_MATCH_NEXT,
+	while (!rc && xrt_subdev_pool_get_impl(spool, XRT_SUBDEV_MATCH_NEXT,
 		tgt, DEV(pdev), &sdev) != -ENOENT) {
 		tgt = sdev->xs_pdev;
 		esd.xevt_subdev_id = sdev->xs_id;
@@ -889,7 +889,7 @@ int xrt_subdev_broadcast_event_async(struct platform_device *pdev,
 	struct xrt_parent_ioctl_async_broadcast_evt e = { pdev, evt, cb, arg };
 
 	return xrt_subdev_parent_ioctl(pdev,
-		XOCL_PARENT_ASYNC_BOARDCAST_EVENT, &e);
+		XRT_PARENT_ASYNC_BOARDCAST_EVENT, &e);
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_broadcast_event_async);
 
@@ -926,7 +926,7 @@ EXPORT_SYMBOL_GPL(xrt_subdev_broadcast_event);
 
 void xrt_subdev_hot_reset(struct platform_device *pdev)
 {
-	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_HOT_RESET, NULL);
+	(void) xrt_subdev_parent_ioctl(pdev, XRT_PARENT_HOT_RESET, NULL);
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_hot_reset);
 
@@ -937,7 +937,7 @@ void xrt_subdev_get_barres(struct platform_device *pdev,
 
 	BUG_ON(bar_idx > PCI_STD_RESOURCE_END);
 
-	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_RESOURCE, &arg);
+	(void) xrt_subdev_parent_ioctl(pdev, XRT_PARENT_GET_RESOURCE, &arg);
 
 	*res = &arg.xpigr_res[bar_idx];
 }
@@ -948,7 +948,7 @@ void xrt_subdev_get_parent_id(struct platform_device *pdev,
 {
 	struct xrt_parent_ioctl_get_id id = { 0 };
 
-	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_GET_ID, (void *)&id);
+	(void) xrt_subdev_parent_ioctl(pdev, XRT_PARENT_GET_ID, (void *)&id);
 	if (vendor)
 		*vendor = id.xpigi_vendor_id;
 	if (device)
@@ -964,7 +964,7 @@ struct device *xrt_subdev_register_hwmon(struct platform_device *pdev,
 {
 	struct xrt_parent_ioctl_hwmon hm = { true, name, drvdata, grps, };
 
-	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_HWMON, (void *)&hm);
+	(void) xrt_subdev_parent_ioctl(pdev, XRT_PARENT_HWMON, (void *)&hm);
 	return hm.xpih_hwmon_dev;
 }
 
@@ -974,5 +974,5 @@ void xrt_subdev_unregister_hwmon(struct platform_device *pdev,
 	struct xrt_parent_ioctl_hwmon hm = { false, };
 
 	hm.xpih_hwmon_dev = hwmon;
-	(void) xrt_subdev_parent_ioctl(pdev, XOCL_PARENT_HWMON, (void *)&hm);
+	(void) xrt_subdev_parent_ioctl(pdev, XRT_PARENT_HWMON, (void *)&hm);
 }

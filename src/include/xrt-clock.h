@@ -6,8 +6,8 @@
  *	Lizhi Hou <Lizhi.Hou@xilinx.com>
  */
 
-#ifndef	_XOCL_CLOCK_H_
-#define	_XOCL_CLOCK_H_
+#ifndef	_XRT_CLOCK_H_
+#define	_XRT_CLOCK_H_
 
 #include "xrt-subdev.h"
 #include "xclbin.h"
@@ -16,8 +16,8 @@
  * CLOCK driver IOCTL calls.
  */
 enum xrt_clock_ioctl_cmd {
-	XOCL_CLOCK_SET = 0,
-	XOCL_CLOCK_VERIFY,
+	XRT_CLOCK_SET = 0,
+	XRT_CLOCK_VERIFY,
 };
 
-#endif	/* _XOCL_CLOCK_H_ */
+#endif	/* _XRT_CLOCK_H_ */

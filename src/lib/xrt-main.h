@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XOCL_MAIN_H_
-#define	_XOCL_MAIN_H_
+#ifndef	_XRT_MAIN_H_
+#define	_XRT_MAIN_H_
 
 extern struct platform_driver xrt_partition_driver;
 extern struct platform_driver xrt_test_driver;
@@ -43,4 +43,4 @@ extern int xrt_drv_get_instance(enum xrt_subdev_id id);
 extern void xrt_drv_put_instance(enum xrt_subdev_id id, int instance);
 extern struct xrt_subdev_endpoints *xrt_drv_get_endpoints(enum xrt_subdev_id id);
 
-#endif	/* _XOCL_MAIN_H_ */
+#endif	/* _XRT_MAIN_H_ */

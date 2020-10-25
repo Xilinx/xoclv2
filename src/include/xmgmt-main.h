@@ -12,10 +12,10 @@
 #include "uapi/xclbin.h"
 
 enum xrt_mgmt_main_ioctl_cmd {
-	XOCL_MGMT_MAIN_GET_XSABIN_SECTION = 0,
-	XOCL_MGMT_MAIN_GET_VBNV, // vbnv needs to be kfree'd by caller
-	XOCL_MGMT_MAIN_GET_ULP_SECTION,
-	XOCL_MGMT_MAIN_PEER_TEST_MSG,
+	XRT_MGMT_MAIN_GET_XSABIN_SECTION = 0,
+	XRT_MGMT_MAIN_GET_VBNV, // vbnv needs to be kfree'd by caller
+	XRT_MGMT_MAIN_GET_ULP_SECTION,
+	XRT_MGMT_MAIN_PEER_TEST_MSG,
 };
 
 struct xrt_mgmt_main_ioctl_get_axlf_section {

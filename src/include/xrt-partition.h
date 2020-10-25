@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XOCL_PARTITION_H_
-#define	_XOCL_PARTITION_H_
+#ifndef	_XRT_PARTITION_H_
+#define	_XRT_PARTITION_H_
 
 #include "xrt-subdev.h"
 
@@ -15,11 +15,11 @@
  * Partition driver IOCTL calls.
  */
 enum xrt_partition_ioctl_cmd {
-	XOCL_PARTITION_GET_LEAF = 0,
-	XOCL_PARTITION_PUT_LEAF,
-	XOCL_PARTITION_INIT_CHILDREN,
-	XOCL_PARTITION_FINI_CHILDREN,
-	XOCL_PARTITION_EVENT,
+	XRT_PARTITION_GET_LEAF = 0,
+	XRT_PARTITION_PUT_LEAF,
+	XRT_PARTITION_INIT_CHILDREN,
+	XRT_PARTITION_FINI_CHILDREN,
+	XRT_PARTITION_EVENT,
 };
 
 struct xrt_partition_ioctl_event {
@@ -30,4 +30,4 @@ struct xrt_partition_ioctl_event {
 extern int xrt_subdev_parent_ioctl(struct platform_device *pdev,
 	u32 cmd, void *arg);
 
-#endif	/* _XOCL_PARTITION_H_ */
+#endif	/* _XRT_PARTITION_H_ */
