@@ -331,7 +331,8 @@ void cmc_sensor_remove(struct platform_device *pdev)
 	struct xrt_cmc_sensor *cmc_sensor =
 		(struct xrt_cmc_sensor *)cmc_pdev2sensor(pdev);
 
-	if (cmc_sensor && cmc_sensor->hwmon_dev)
+	BUG_ON(cmc_sensor == NULL);
+	if (cmc_sensor->hwmon_dev)
 		xrt_subdev_unregister_hwmon(pdev, cmc_sensor->hwmon_dev);
 	kfree(cmc_sensor->name);
 }
