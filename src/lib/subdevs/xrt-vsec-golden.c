@@ -59,8 +59,7 @@ static int xrt_vsec_get_golden_ver(struct xrt_vsec *vsec)
 	struct xrt_gpio_ioctl_rw gpio_arg = { 0 };
 	int err, ver;
 
-	gpio_leaf = xrt_subdev_get_leaf(pdev, xrt_subdev_match_epname,
-		NODE_GOLDEN_VER);
+	gpio_leaf = xrt_subdev_get_leaf_by_epname(pdev, NODE_GOLDEN_VER);
 	if (!gpio_leaf) {
 		xrt_err(pdev, "can not get %s", NODE_GOLDEN_VER);
 		return -EINVAL;

@@ -13,6 +13,7 @@
 #include "xrt-xclbin.h"
 #include "xrt-metadata.h"
 #include "xrt-ddr-srsr.h"
+#include "xrt-calib.h"
 
 #define XRT_CALIB	"xrt_calib"
 
@@ -30,6 +31,7 @@ struct calib {
 	struct list_head	cache_list;
 	uint32_t		cache_num;
 	void			*evt_hdl;
+	enum xrt_calib_results	result;
 };
 
 #define CALIB_DONE(calib)			\
@@ -158,6 +160,7 @@ static int xrt_calib_event_cb(struct platform_device *pdev,
 	struct calib *calib = platform_get_drvdata(pdev);
 	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
 	struct platform_device *leaf;
+	int ret;
 
 	switch (evt) {
 	case XRT_EVENT_POST_CREATION: {
@@ -165,10 +168,15 @@ static int xrt_calib_event_cb(struct platform_device *pdev,
 			leaf = xrt_subdev_get_leaf_by_id(pdev,
 				XRT_SUBDEV_SRSR, esd->xevt_subdev_instance);
 			BUG_ON(!leaf);
-			calib_srsr(calib, leaf);
+			ret = calib_srsr(calib, leaf);
 			xrt_subdev_put_leaf(pdev, leaf);
-		} else if (esd->xevt_subdev_id == XRT_SUBDEV_UCS)
-			calib_calibration(calib);
+		} else if (esd->xevt_subdev_id == XRT_SUBDEV_UCS) {
+			ret = calib_calibration(calib);
+		}
+		if (ret)
+			calib->result = XRT_CALIB_FAILED;
+		else
+			calib->result = XRT_CALIB_SUCCEEDED;
 		break;
 	}
 	default:
@@ -232,6 +240,25 @@ failed:
 	return err;
 }
 
+static int
+xrt_calib_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+{
+	struct calib *calib = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	switch (cmd) {
+	case XRT_CALIB_RESULT: {
+		enum xrt_calib_results *r = (enum xrt_calib_results *)arg;
+		*r = calib->result;
+		break;
+	}
+	default:
+		xrt_err(pdev, "unsupported cmd %d", cmd);
+		ret = -EINVAL;
+	}
+	return ret;
+}
+
 struct xrt_subdev_endpoints xrt_calib_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names[]) {
@@ -243,8 +270,14 @@ struct xrt_subdev_endpoints xrt_calib_endpoints[] = {
 	{ 0 },
 };
 
+struct xrt_subdev_drvdata xrt_calib_data = {
+	.xsd_dev_ops = {
+		.xsd_ioctl = xrt_calib_leaf_ioctl,
+	},
+};
+
 static const struct platform_device_id xrt_calib_table[] = {
-	{ XRT_CALIB, },
+	{ XRT_CALIB, (kernel_ulong_t)&xrt_calib_data },
 	{ },
 };
 

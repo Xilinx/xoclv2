@@ -258,10 +258,13 @@ extern ssize_t xrt_subdev_pool_get_holders(struct xrt_subdev_pool *spool,
 /*
  * For leaf drivers.
  */
+extern bool xrt_subdev_has_epname(struct platform_device *pdev, const char *nm);
 extern struct platform_device *xrt_subdev_get_leaf(
 	struct platform_device *pdev, xrt_subdev_match_t cb, void *arg);
 extern struct platform_device *xrt_subdev_get_leaf_by_id(
 	struct platform_device *pdev, enum xrt_subdev_id id, int instance);
+extern struct platform_device *xrt_subdev_get_leaf_by_epname(
+	struct platform_device *pdev, const char *name);
 extern int xrt_subdev_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf);
 extern int xrt_subdev_create_partition(struct platform_device *pdev,
@@ -308,6 +311,8 @@ extern int xrt_devnode_destroy(struct platform_device *pdev);
 extern struct platform_device *xrt_devnode_open_excl(struct inode *inode);
 extern struct platform_device *xrt_devnode_open(struct inode *inode);
 extern void xrt_devnode_close(struct inode *inode);
+
+/* Helpers. */
 static inline void xrt_memcpy_fromio(void *buf, void __iomem *iomem, u32 size)
 {
 	int i;
@@ -323,22 +328,6 @@ static inline void xrt_memcpy_toio(void __iomem *iomem, void *buf, u32 size)
 	BUG_ON(size & 0x3);
 	for (i = 0; i < size / 4; i++)
 		iowrite32(((u32 *)buf)[i], ((char *)(iomem) + sizeof(u32) * i));
-}
-static inline bool xrt_subdev_match_epname(enum xrt_subdev_id id,
-	struct platform_device *pdev, void *arg)
-{
-	char		*ep_name = arg;
-	struct resource	*res;
-	int		i;
-
-	for (i = 0, res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	    res;
-	    res = platform_get_resource(pdev, IORESOURCE_MEM, ++i)) {
-		if (!strncmp(res->name, ep_name, strlen(res->name) + 1))
-			return true;
-	}
-
-	return false;
 }
 
 #endif	/* _XRT_SUBDEV_H_ */

@@ -16,6 +16,7 @@
  */
 enum xrt_icap_ioctl_cmd {
 	XRT_ICAP_WRITE = 0,
+	XRT_ICAP_IDCODE,
 };
 
 struct xrt_icap_ioctl_wr {

@@ -476,8 +476,7 @@ int xrt_md_get_compatible_epname(struct device *dev, const char *blob,
 	return 0;
 }
 
-static int xrt_md_uuid_strtoid(struct device *dev, const char *uuidstr,
-	uuid_t *p_uuid)
+int xrt_md_uuid_strtoid(struct device *dev, const char *uuidstr, uuid_t *p_uuid)
 {
 	char *p;
 	const char *str;

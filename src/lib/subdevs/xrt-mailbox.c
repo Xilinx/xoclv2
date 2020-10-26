@@ -11,29 +11,28 @@
 /**
  * DOC: Statement of Theory
  *
- * This is the mailbox sub-device driver added into existing xclmgmt / xrt
- * driver so that user pf and mgmt pf can send and receive messages of
- * arbitrary length to / from the peer. The driver is written based on the
- * spec of pg114 document (https://www.xilinx.com/support/documentation/
- * ip_documentation/mailbox/v2_1/pg114-mailbox.pdf). The HW provides one TX
- * channel and one RX channel, which operate completely independent of each
- * other. Data can be pushed into or read from a channel in DWORD unit as a
- * FIFO.
+ * This is the mailbox sub-device driver added to xrt drivers so that user pf
+ * and mgmt pf can send and receive messages of arbitrary length to / from its
+ * peer. The driver is written based on the spec of PG114 document
+ * (https://www.xilinx.com/support/documentation/ip_documentation/mailbox/v2_1/
+ * pg114-mailbox.pdf). The HW provides one TX channel and one RX channel, which
+ * operate completely independent of each other. Data can be pushed into or read
+ * from a channel in DWORD unit as a FIFO.
  *
  *
  * Packet layer
  *
  * The driver implemented two transport layers - packet and message layer (see
  * below). A packet is a fixed size chunk of data that can be sent through TX
- * channel or retrieved from RX channel. The TX and RX interrupt happens at
- * packet boundary, instead of DWORD boundary. The driver will not attempt to
- * send next packet until the previous one is read by peer. Similarly, the
- * driver will not attempt to read the data from HW until a full packet has been
- * written to HW by peer. In normal operational mode, data transfer is entirely
- * interrupt driven. So, the interrupt functionality needs to work and enabled
- * on both mgmt and user pf for mailbox driver to function properly. During hot
- * reset of the device, this driver may work in polling mode for short period of
- * time until the reset is done.
+ * channel or retrieved from RX channel. The driver will not attempt to send
+ * next packet until the previous one is read by peer. Similarly, the driver
+ * will not attempt to read the data from HW until a full packet has been
+ * written to HW by peer.
+ *
+ * Interrupt is not enabled and driver will poll the HW periodically to see if
+ * FIFO is ready for reading or writing. When there is outstanding msg to be
+ * sent or received, driver will poll at high frequency. Otherwise, driver polls
+ * HW at very low frequency so that it will not consume much CPU cycles.
  *
  * A packet is defined as struct mailbox_pkt. There are mainly two types of
  * packets: start-of-msg and msg-body packets. Both can carry end-of-msg flag to
@@ -70,19 +69,14 @@
  * which will be received first on the other side.
  *
  * A TX message is considered as time'd out when it's transmit is not done
- * within 2 seconds (for msg larger than 1MB, it's 2 second per MB). A RX msg
- * is considered as time'd out 20 seconds after the corresponding TX one has
- * been sent out. There is no retry after msg time'd out. The error will be
- * simply propagated back to the upper layer.
+ * within 1 seconds. An RX msg is considered as time'd out 20 seconds after the
+ * corresponding TX one has been sent out. There is no retry after msg time'd
+ * out. The error will be simply propagated back to the upper layer.
  *
  * A msg is defined as struct mailbox_msg. It carrys a flag indicating that if
  * it's a msg of request or response msg. A response msg must have a big enough
  * msg buffer sitting in the receiver's RX queue waiting for it. A request msg
  * does not have a waiting msg buffer.
- *
- * The upper layer can choose to queue a message for TX or RX asynchronously
- * when it provides a callback or wait synchronously when no callback is
- * provided.
  *
  *
  * Communication layer
@@ -96,26 +90,14 @@
  *
  * The OP code of the request determines whether it's a request or notification.
  *
- * If provided, a response msg must match a request msg by msg ID, or it'll be
- * silently dropped. And there is no response to a reponse. A communication
- * session starts with a request and finishes with 0 or 1 reponse, always.
  * A request buffer or response buffer will be wrapped with a single msg. This
  * means that a session contains at most 2 msgs and the msg ID serves as the
  * session ID.
  *
- * The mailbox driver provides a few kernel APIs for mgmt and user pf to talk to
- * each other at this layer (see mailbox_ops for details). A request or
- * notification msg will automatically be assigned a msg ID when it's enqueued
- * into TX channel for transmitting. For a request msg, the buffer provided by
- * caller for receiving response will be enqueued into RX channel as well. The
- * enqueued response msg will have the same msg ID as the corresponding request
- * msg. The response msg, if provided, will always be enqueued before the
- * request msg is enqueued to avoid race condition.
- *
- * When a new request or notification is received from peer, driver will
- * allocate a msg buffer and copy the msg into it then passes it to the callback
- * provided by upper layer (mgmt or user pf driver) through xrt_peer_listen()
- * API for further processing.
+ * A request or notification msg will automatically be assigned a msg ID when
+ * it's enqueued into TX channel for transmitting. A response msg must match a
+ * request msg by msg ID, or it'll be silently dropped. A communication session
+ * starts with a request and finishes with 0 or 1 reponse, always.
  *
  * Currently, the driver implements one kernel thread for RX channel (RX thread)
  * , one for TX channel (TX thread) and one thread for processing incoming
@@ -123,15 +105,12 @@
  *
  * The RX thread is responsible for receiving incoming msgs. If it's a request
  * or notification msg, it'll punt it to REQ thread for processing, which, in
- * turn, will call the callback provided by mgmt pf driver
- * (xclmgmt_mailbox_srv()) or user pf driver (xrt_mailbox_srv()) to further
- * process it. If it's a response, it'll simply wake up the waiting thread (
- * currently, all response msgs are waited synchronously by caller)
+ * turn, will call the callback provided by mgmt pf driver or user pf driver to
+ * further process it. If it's a response, it'll simply wake up the waiting
+ * thread.
  *
  * The TX thread is responsible for sending out msgs. When it's done, the TX
- * thread will simply wake up the waiting thread (if it's a request requiring
- * a response) or call a default callback to free the msg when the msg is a
- * notification or a response msg which does not require any response.
+ * thread will simply wake up the waiting thread.
  *
  *
  * Software communication channel
@@ -154,8 +133,6 @@
  * the previous msg is consumed by the RX thread before it can finish
  * transmiting its own msg and return back to user land.
  *
- * The interface between daemons and mailbox is defined as struct sw_chan. Refer
- * to mailbox_proto.h for details.
  *
  * Communication protocols
  *
@@ -222,9 +199,8 @@
 
 #define	INVALID_MSG_ID		((u64)-1)
 
-#define	MAX_MSG_QUEUE_SZ	(PAGE_SIZE << 16)
 #define	MAX_MSG_QUEUE_LEN	5
-#define	MAX_MSG_SZ		(PAGE_SIZE << 15)
+#define	MAX_REQ_MSG_SZ		(1024 * 1024)
 
 #define MBX_SW_ONLY(mbx) ((mbx)->mbx_regs == NULL)
 /*
@@ -341,7 +317,6 @@ struct mailbox {
 	struct mutex		mbx_lock;
 	struct list_head	mbx_req_list;
 	uint32_t		mbx_req_cnt;
-	size_t			mbx_req_sz;
 	bool			mbx_listen_stop;
 
 	bool			mbx_peer_dead;
@@ -465,8 +440,7 @@ static void msg_done(struct mailbox_msg *msg, int err)
 		if (err) {
 			MBX_WARN(mbx, "Time'd out receiving full req message");
 			free_msg(msg);
-		} else if ((mbx->mbx_req_sz+msg->mbm_len) >= MAX_MSG_QUEUE_SZ ||
-			mbx->mbx_req_cnt >= MAX_MSG_QUEUE_LEN) {
+		} else if (mbx->mbx_req_cnt >= MAX_MSG_QUEUE_LEN) {
 			MBX_WARN(mbx, "Too many pending req messages, dropped");
 			free_msg(msg);
 		} else {
@@ -474,7 +448,6 @@ static void msg_done(struct mailbox_msg *msg, int err)
 			list_add_tail(&msg->mbm_list,
 				&ch->mbc_parent->mbx_req_list);
 			mbx->mbx_req_cnt++;
-			mbx->mbx_req_sz += msg->mbm_len;
 			mutex_unlock(&ch->mbc_parent->mbx_lock);
 			complete(&ch->mbc_parent->mbx_comp);
 		}
@@ -637,7 +610,7 @@ static inline u32 mailbox_chk_err(struct mailbox *mbx)
 
 	/* Error should not be seen, shout when found. */
 	if (val)
-		MBX_ERR(mbx, "mailbox error detected, error=0x%x\n", val);
+		MBX_ERR(mbx, "mailbox error detected, error=0x%x", val);
 	return val;
 }
 
@@ -645,7 +618,7 @@ static int chan_msg_enqueue(struct mailbox_channel *ch, struct mailbox_msg *msg)
 {
 	int rv = 0;
 
-	MBX_DBG(ch->mbc_parent, "%s enqueuing msg, id=0x%llx\n",
+	MBX_DBG(ch->mbc_parent, "%s enqueuing msg, id=0x%llx",
 		ch_name(ch), msg->mbm_req_id);
 
 	BUG_ON(msg->mbm_req_id == INVALID_MSG_ID);
@@ -688,7 +661,7 @@ static struct mailbox_msg *chan_msg_dequeue(struct mailbox_channel *ch,
 	}
 
 	if (msg) {
-		MBX_DBG(ch->mbc_parent, "%s dequeued msg, id=0x%llx\n",
+		MBX_DBG(ch->mbc_parent, "%s dequeued msg, id=0x%llx",
 			ch_name(ch), msg->mbm_req_id);
 		list_del(&msg->mbm_list);
 	}
@@ -885,7 +858,7 @@ static int chan_pkt2msg(struct mailbox_channel *ch)
 	}
 
 	if (cnt > msg->mbm_len - ch->mbc_bytes_done) {
-		MBX_ERR(mbx, "invalid mailbox packet size\n");
+		MBX_ERR(mbx, "invalid mailbox packet size");
 		return -EBADMSG;
 	}
 
@@ -912,25 +885,25 @@ static void dequeue_rx_msg(struct mailbox_channel *ch,
 	if (flags & MSG_FLAG_RESPONSE) {
 		msg = chan_msg_dequeue(ch, id);
 		if (!msg) {
-			MBX_ERR(mbx, "Failed to find msg (id 0x%llx)\n", id);
+			MBX_ERR(mbx, "Failed to find msg (id 0x%llx)", id);
 		} else if (msg->mbm_len < sz) {
-			MBX_ERR(mbx, "Response (id 0x%llx) is too big: %lu\n",
+			MBX_ERR(mbx, "Response (id 0x%llx) is too big: %lu",
 				id, sz);
 			err = -EMSGSIZE;
 		}
 	} else if (flags & MSG_FLAG_REQUEST) {
-		if (sz < MAX_MSG_SZ)
+		if (sz < MAX_REQ_MSG_SZ)
 			msg = alloc_msg(NULL, sz);
 		if (msg) {
 			msg->mbm_req_id = id;
 			msg->mbm_ch = ch;
 			msg->mbm_flags = flags;
 		} else {
-			MBX_ERR(mbx, "Failed to allocate msg len: %lu\n", sz);
+			MBX_ERR(mbx, "req msg len %luB is too big", sz);
 		}
 	} else {
 		/* Not a request or response? */
-		MBX_ERR(mbx, "Invalid incoming msg flags: 0x%x\n", flags);
+		MBX_ERR(mbx, "Invalid incoming msg flags: 0x%x", flags);
 	}
 
 	msg->mbm_start_ts = ktime_get_ns();
@@ -1024,7 +997,7 @@ static bool do_hw_rx(struct mailbox_channel *ch)
 		break;
 	case PKT_MSG_START:
 		if (ch->mbc_cur_msg) {
-			MBX_ERR(mbx, "Received partial msg (id 0x%llx)\n",
+			MBX_ERR(mbx, "Received partial msg (id 0x%llx)",
 				ch->mbc_cur_msg->mbm_req_id);
 			chan_msg_done(ch, -EBADMSG);
 		}
@@ -1033,18 +1006,18 @@ static bool do_hw_rx(struct mailbox_channel *ch)
 			pkt->body.msg_start.msg_req_id,
 			pkt->body.msg_start.msg_size);
 		if (!ch->mbc_cur_msg) {
-			MBX_ERR(mbx, "got unexpected msg start pkt\n");
+			MBX_ERR(mbx, "got unexpected msg start pkt");
 			reset_pkt(pkt);
 		}
 		break;
 	case PKT_MSG_BODY:
 		if (!ch->mbc_cur_msg) {
-			MBX_ERR(mbx, "got unexpected msg body pkt\n");
+			MBX_ERR(mbx, "got unexpected msg body pkt");
 			reset_pkt(pkt);
 		}
 		break;
 	default:
-		MBX_ERR(mbx, "invalid mailbox pkt type\n");
+		MBX_ERR(mbx, "invalid mailbox pkt type");
 		reset_pkt(pkt);
 		break;
 	}
@@ -1244,11 +1217,11 @@ static ssize_t mailbox_ctl_show(struct device *dev,
 			continue;
 		/* Write-only status register. */
 		if (reg == &mbx->mbx_regs->mbr_ctrl) {
-			n += sprintf(buf + n, "%02ld %10s = --\n",
+			n += sprintf(buf + n, "%02ld %10s = --",
 				r * sizeof(u32), reg2name(mbx, reg));
 		/* Read-able status register. */
 		} else {
-			n += sprintf(buf + n, "%02ld %10s = 0x%08x\n",
+			n += sprintf(buf + n, "%02ld %10s = 0x%08x",
 				r * sizeof(u32), reg2name(mbx, reg),
 				mailbox_reg_rd(mbx, reg));
 		}
@@ -1511,7 +1484,6 @@ static void mailbox_recv_request(struct work_struct *work)
 			struct mailbox_msg, mbm_list)) != NULL) {
 			list_del(&msg->mbm_list);
 			mbx->mbx_req_cnt--;
-			mbx->mbx_req_sz -= msg->mbm_len;
 			mutex_unlock(&mbx->mbx_lock);
 
 			/* Process msg without holding mutex. */
@@ -1605,7 +1577,6 @@ static int mailbox_start(struct mailbox *mbx)
 	int ret;
 
 	mbx->mbx_req_cnt = 0;
-	mbx->mbx_req_sz = 0;
 	mbx->mbx_peer_dead = false;
 	mbx->mbx_opened = 0;
 	mbx->mbx_listen_stop = false;

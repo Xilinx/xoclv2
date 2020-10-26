@@ -423,6 +423,35 @@ xrt_subdev_get_leaf_by_id(struct platform_device *pdev,
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_get_leaf_by_id);
 
+bool xrt_subdev_has_epname(struct platform_device *pdev, const char *ep_name)
+{
+	struct resource	*res;
+	int		i;
+
+	for (i = 0, res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	    res;
+	    res = platform_get_resource(pdev, IORESOURCE_MEM, ++i)) {
+		if (!strncmp(res->name, ep_name, strlen(res->name) + 1))
+			return true;
+	}
+
+	return false;
+}
+EXPORT_SYMBOL_GPL(xrt_subdev_has_epname);
+
+static bool xrt_subdev_match_epname(enum xrt_subdev_id id,
+	struct platform_device *pdev, void *arg)
+{
+	return xrt_subdev_has_epname(pdev, arg);
+}
+
+struct platform_device *
+xrt_subdev_get_leaf_by_epname(struct platform_device *pdev, const char *name)
+{
+	return xrt_subdev_get_leaf(pdev, xrt_subdev_match_epname, (void *)name);
+}
+EXPORT_SYMBOL_GPL(xrt_subdev_get_leaf_by_epname);
+
 int xrt_subdev_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf)
 {

@@ -294,7 +294,7 @@ struct xrt_clock_desc {
 	},
 };
 
-static char *clock_type2epname(u32 type)
+const char *clock_type2epname(enum CLOCK_TYPE type)
 {
 	int i;
 
@@ -305,7 +305,7 @@ static char *clock_type2epname(u32 type)
 	return NULL;
 }
 
-static char *clock_type2clkfreq_name(u32 type)
+static const char *clock_type2clkfreq_name(u32 type)
 {
 	int i;
 
@@ -330,8 +330,8 @@ static int xrt_xclbin_add_clock_metadata(struct device *dev,
 
 	for (i = 0; i < clock_topo->m_count; i++) {
 		u8 type = clock_topo->m_clock_freq[i].m_type;
-		char *ep_name = clock_type2epname(type);
-		char *counter_name = clock_type2clkfreq_name(type);
+		const char *ep_name = clock_type2epname(type);
+		const char *counter_name = clock_type2clkfreq_name(type);
 
 		if (!ep_name || !counter_name)
 			continue;

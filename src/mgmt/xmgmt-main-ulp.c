@@ -126,6 +126,10 @@ int xmgmt_ulp_download(struct platform_device  *pdev, void *xclbin)
 		goto failed;
 	}
 
+	/*
+	 * Find ulp partition with interface uuid from incoming xclbin, which
+	 * is verified before with matching plp partition.
+	 */
 	part_inst = xrt_subdev_lookup_partition(pdev, match_ulp, dtb);
 	if (part_inst >= 0) {
 		ret = xrt_subdev_destroy_partition(pdev, part_inst);
@@ -136,8 +140,7 @@ int xmgmt_ulp_download(struct platform_device  *pdev, void *xclbin)
 		}
 	}
 
-	axigate_leaf = xrt_subdev_get_leaf(pdev, xrt_subdev_match_epname,
-		NODE_GATE_ULP);
+	axigate_leaf = xrt_subdev_get_leaf_by_epname(pdev, NODE_GATE_ULP);
 
 	/* gate may not be exist for 0rp */
 	if (axigate_leaf) {
@@ -175,6 +178,11 @@ int xmgmt_ulp_download(struct platform_device  *pdev, void *xclbin)
 	ret = xrt_subdev_wait_for_partition_bringup(pdev);
 	if (ret)
 		xrt_err(pdev, "partiton bringup failed, ret %d", ret);
+
+	/*
+	 * TODO: needs to check individual subdevs to see if there
+	 * is any error, such as clock setting, memory bank calibration.
+	 */
 
 failed:
 	vfree(dtb);

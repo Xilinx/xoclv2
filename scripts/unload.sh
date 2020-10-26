@@ -1,2 +1,2 @@
 rmmod xmgmt
-rmmod xocl-lib
+rmmod xrt-lib

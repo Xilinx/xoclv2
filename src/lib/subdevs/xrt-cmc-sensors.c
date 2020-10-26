@@ -64,6 +64,8 @@
 #define	CMC_VCCAUX_REG                  0x344
 #define	CMC_VCCAUX_PMC_REG              0x350
 #define	CMC_VCCRAM_REG                  0x35C
+#define	XMC_CORE_VERSION_REG		0xC4C
+#define	XMC_OEM_ID_REG                  0xC50
 
 struct xrt_cmc_sensor {
 	struct platform_device *pdev;
@@ -381,3 +383,63 @@ int cmc_sensor_probe(struct platform_device *pdev,
 	*hdl = cmc_sensor;
 	return 0;
 }
+
+void cmc_sensor_read(struct platform_device *pdev, struct xcl_sensor *s)
+{
+#define	READ_INST_SENSOR(off)	READ_SENSOR(cmc_sensor, off, SENSOR_INS)
+	struct xrt_cmc_sensor *cmc_sensor =
+		(struct xrt_cmc_sensor *)cmc_pdev2sensor(pdev);
+
+	s->vol_12v_pex = READ_INST_SENSOR(CMC_12V_PEX_REG);
+	s->vol_12v_aux = READ_INST_SENSOR(CMC_12V_AUX_REG);
+	s->cur_12v_pex = READ_INST_SENSOR(CMC_12V_PEX_I_IN_REG);
+	s->cur_12v_aux = READ_INST_SENSOR(CMC_12V_AUX_I_IN_REG);
+	s->vol_3v3_pex = READ_INST_SENSOR(CMC_3V3_PEX_REG);
+	s->vol_3v3_aux = READ_INST_SENSOR(CMC_3V3_AUX_REG);
+	s->cur_3v3_aux = READ_INST_SENSOR(CMC_3V3_AUX_I_REG);
+	s->ddr_vpp_btm = READ_INST_SENSOR(CMC_DDR4_VPP_BTM_REG);
+	s->sys_5v5 = READ_INST_SENSOR(CMC_SYS_5V5_REG);
+	s->top_1v2 = READ_INST_SENSOR(CMC_VCC1V2_TOP_REG);
+	s->vol_1v8 = READ_INST_SENSOR(CMC_VCC1V8_REG);
+	s->vol_0v85 = READ_INST_SENSOR(CMC_VCC0V85_REG);
+	s->ddr_vpp_top = READ_INST_SENSOR(CMC_DDR4_VPP_TOP_REG);
+	s->mgt0v9avcc = READ_INST_SENSOR(CMC_MGT0V9AVCC_REG);
+	s->vol_12v_sw = READ_INST_SENSOR(CMC_12V_SW_REG);
+	s->mgtavtt = READ_INST_SENSOR(CMC_MGTAVTT_REG);
+	s->vcc1v2_btm = READ_INST_SENSOR(CMC_VCC1V2_BTM_REG);
+	s->fpga_temp = READ_INST_SENSOR(CMC_FPGA_TEMP);
+	s->fan_temp = READ_INST_SENSOR(CMC_FAN_TEMP_REG);
+	s->fan_rpm = READ_INST_SENSOR(CMC_FAN_SPEED_REG);
+	s->dimm_temp0 = READ_INST_SENSOR(CMC_DIMM_TEMP0_REG);
+	s->dimm_temp1 = READ_INST_SENSOR(CMC_DIMM_TEMP1_REG);
+	s->dimm_temp2 = READ_INST_SENSOR(CMC_DIMM_TEMP2_REG);
+	s->dimm_temp3 = READ_INST_SENSOR(CMC_DIMM_TEMP3_REG);
+	s->vccint_vol = READ_INST_SENSOR(CMC_VCCINT_V_REG);
+	s->vccint_curr = READ_INST_SENSOR(CMC_VCCINT_I_REG);
+	s->se98_temp0 = READ_INST_SENSOR(CMC_SE98_TEMP0_REG);
+	s->se98_temp1 = READ_INST_SENSOR(CMC_SE98_TEMP1_REG);
+	s->se98_temp2 = READ_INST_SENSOR(CMC_SE98_TEMP2_REG);
+	s->cage_temp0 = READ_INST_SENSOR(CMC_CAGE_TEMP0_REG);
+	s->cage_temp1 = READ_INST_SENSOR(CMC_CAGE_TEMP1_REG);
+	s->cage_temp2 = READ_INST_SENSOR(CMC_CAGE_TEMP2_REG);
+	s->cage_temp3 = READ_INST_SENSOR(CMC_CAGE_TEMP3_REG);
+	s->hbm_temp0 = READ_INST_SENSOR(CMC_HBM_TEMP_REG);
+	s->cur_3v3_pex = READ_INST_SENSOR(CMC_3V3_PEX_I_REG);
+	s->cur_0v85 = READ_INST_SENSOR(CMC_VCC0V85_I_REG);
+	s->vol_3v3_vcc = READ_INST_SENSOR(CMC_VCC3V3_REG);
+	s->vol_1v2_hbm = READ_INST_SENSOR(CMC_HBM_1V2_REG);
+	s->vol_2v5_vpp = READ_INST_SENSOR(CMC_VPP2V5_REG);
+	s->vccint_bram = READ_INST_SENSOR(CMC_VCCINT_BRAM_REG);
+	s->version = cmc_reg_rd(cmc_sensor, XMC_CORE_VERSION_REG);
+	s->oem_id = cmc_reg_rd(cmc_sensor, XMC_OEM_ID_REG);
+	s->vccint_temp = READ_INST_SENSOR(CMC_VCCINT_TEMP_REG);
+	s->vol_12v_aux1 = READ_INST_SENSOR(CMC_12V_AUX1_REG);
+	s->vol_vcc1v2_i = READ_INST_SENSOR(CMC_VCC1V2_I_REG);
+	s->vol_v12_in_i = READ_INST_SENSOR(CMC_V12_IN_I_REG);
+	s->vol_v12_in_aux0_i = READ_INST_SENSOR(CMC_V12_IN_AUX0_I_REG);
+	s->vol_v12_in_aux1_i = READ_INST_SENSOR(CMC_V12_IN_AUX1_I_REG);
+	s->vol_vccaux = READ_INST_SENSOR(CMC_VCCAUX_REG);
+	s->vol_vccaux_pmc = READ_INST_SENSOR(CMC_VCCAUX_PMC_REG);
+	s->vol_vccram = READ_INST_SENSOR(CMC_VCCRAM_REG);
+}
+

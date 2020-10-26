@@ -11,6 +11,7 @@
 
 #include "linux/delay.h"
 #include "xrt-subdev.h"
+#include "uapi/mailbox_proto.h"
 
 #define	CMC_MAX_RETRY		150 /* Retry is set to 15s */
 #define	CMC_MAX_RETRY_LONG	(CMC_MAX_RETRY * 4) /* mailbox retry is 1min */
@@ -99,6 +100,7 @@ extern int cmc_sensor_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl);
 extern void cmc_sensor_remove(struct platform_device *pdev);
 extern void *cmc_pdev2sensor(struct platform_device *pdev);
+extern void cmc_sensor_read(struct platform_device *pdev, struct xcl_sensor *s);
 
 extern int cmc_mailbox_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl);
@@ -117,6 +119,8 @@ extern int cmc_bdinfo_probe(struct platform_device *pdev,
 extern void cmc_bdinfo_remove(struct platform_device *pdev);
 extern void *cmc_pdev2bdinfo(struct platform_device *pdev);
 extern int cmc_refresh_board_info(struct platform_device *pdev);
+extern int cmc_bdinfo_read(struct platform_device *pdev,
+	struct xcl_board_info *bdinfo);
 
 extern int cmc_sc_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl);
