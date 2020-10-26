@@ -906,9 +906,11 @@ static void dequeue_rx_msg(struct mailbox_channel *ch,
 		MBX_ERR(mbx, "Invalid incoming msg flags: 0x%x", flags);
 	}
 
-	msg->mbm_start_ts = ktime_get_ns();
-	msg->mbm_num_pkts = 0;
-	ch->mbc_cur_msg = msg;
+	if (msg) {
+		msg->mbm_start_ts = ktime_get_ns();
+		msg->mbm_num_pkts = 0;
+		ch->mbc_cur_msg = msg;
+	}
 
 	/* Fail received msg now on error. */
 	if (err)

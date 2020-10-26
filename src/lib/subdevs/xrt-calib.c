@@ -170,13 +170,13 @@ static int xrt_calib_event_cb(struct platform_device *pdev,
 			BUG_ON(!leaf);
 			ret = calib_srsr(calib, leaf);
 			xrt_subdev_put_leaf(pdev, leaf);
+			calib->result =
+				ret ? XRT_CALIB_FAILED : XRT_CALIB_SUCCEEDED;
 		} else if (esd->xevt_subdev_id == XRT_SUBDEV_UCS) {
 			ret = calib_calibration(calib);
+			calib->result =
+				ret ? XRT_CALIB_FAILED : XRT_CALIB_SUCCEEDED;
 		}
-		if (ret)
-			calib->result = XRT_CALIB_FAILED;
-		else
-			calib->result = XRT_CALIB_SUCCEEDED;
 		break;
 	}
 	default:
