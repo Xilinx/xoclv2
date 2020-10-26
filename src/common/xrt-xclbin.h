@@ -16,6 +16,7 @@
 
 #define	ICAP_XCLBIN_V2	"xclbin2"
 #define DMA_HWICAP_BITFILE_BUFFER_SIZE 1024
+#define MAX_XCLBIN_SIZE (1024 * 1024 * 1024) /* Assuming xclbin <= 1G, always */
 
 enum axlf_section_kind;
 struct axlf;
