@@ -610,6 +610,17 @@ static void xmgmt_mailbox_resp_user_probe(struct xmgmt_mailbox *xmbx,
 	vfree(resp);
 }
 
+static void xmgmt_mailbox_resp_load_xclbin_kaddr(struct xmgmt_mailbox *xmbx,
+	struct xcl_mailbox_req *req, size_t len, u64 msgid, bool sw_ch)
+{
+	struct xcl_mailbox_bitstream_kaddr *kaddr =
+		(struct xcl_mailbox_bitstream_kaddr *)req->data;
+	void *xclbin = (void *)(uintptr_t)kaddr->addr;
+	int ret = bitstream_axlf_mailbox(xmbx->pdev, xclbin);
+
+	xmgmt_mailbox_simple_respond(xmbx, msgid, sw_ch, ret);
+}
+
 static void xmgmt_mailbox_listener(void *arg, void *data, size_t len,
 	u64 msgid, int err, bool sw_ch)
 {
@@ -639,6 +650,10 @@ static void xmgmt_mailbox_listener(void *arg, void *data, size_t len,
 		break;
 	case XCL_MAILBOX_REQ_USER_PROBE:
 		xmgmt_mailbox_resp_user_probe(xmbx, req, len, msgid, sw_ch);
+		break;
+	case XCL_MAILBOX_REQ_LOAD_XCLBIN_KADDR:
+		xmgmt_mailbox_resp_load_xclbin_kaddr(xmbx,
+			req, len, msgid, sw_ch);
 		break;
 	default:
 		xrt_err(pdev, "%s(%d) request not handled",

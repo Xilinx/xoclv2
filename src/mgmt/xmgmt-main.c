@@ -681,9 +681,59 @@ static int xmgmt_main_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static int xmgmt_bitstream_axlf_fpga_mgr(struct xmgmt_main *xmm,
+	void *axlf, size_t size)
+{
+	int ret;
+	struct fpga_image_info info = { 0 };
+
+	BUG_ON(!mutex_is_locked(&xmm->busy_mutex));
+
+	/*
+	 * Should any error happens during download, we can't trust
+	 * the cached xclbin any more.
+	 */
+	vfree(xmm->firmware_ulp);
+	xmm->firmware_ulp = NULL;
+
+	info.buf = (char *)axlf;
+	info.count = size;
+	ret = fpga_mgr_load(xmm->fmgr, &info);
+	if (ret == 0)
+		xmm->firmware_ulp = axlf;
+
+	return ret;
+}
+
+int bitstream_axlf_mailbox(struct platform_device *pdev, const void *axlf)
+{
+	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+	void *copy_buffer = NULL;
+	size_t copy_buffer_size = 0;
+	const struct axlf *xclbin_obj = axlf;
+	int ret = 0;
+
+	if (memcmp(xclbin_obj->m_magic, ICAP_XCLBIN_V2, sizeof(ICAP_XCLBIN_V2)))
+		return -EINVAL;
+
+	copy_buffer_size = xclbin_obj->m_header.m_length;
+	if (copy_buffer_size > MAX_XCLBIN_SIZE)
+		return -EINVAL;
+	copy_buffer = vmalloc(copy_buffer_size);
+	if (copy_buffer == NULL)
+		return -ENOMEM;
+	(void) memcpy(copy_buffer, axlf, copy_buffer_size);
+
+	mutex_lock(&xmm->busy_mutex);
+	ret = xmgmt_bitstream_axlf_fpga_mgr(xmm, copy_buffer, copy_buffer_size);
+	mutex_unlock(&xmm->busy_mutex);
+	if (ret)
+		vfree(copy_buffer);
+	return ret;
+}
+
 static int bitstream_axlf_ioctl(struct xmgmt_main *xmm, const void __user *arg)
 {
-	struct fpga_image_info info = { 0 };
 	void *copy_buffer = NULL;
 	size_t copy_buffer_size = 0;
 	struct xclmgmt_ioc_bitstream_axlf ioc_obj = { 0 };
@@ -699,8 +749,7 @@ static int bitstream_axlf_ioctl(struct xmgmt_main *xmm, const void __user *arg)
 		return -EINVAL;
 
 	copy_buffer_size = xclbin_obj.m_header.m_length;
-	/* Assuming xclbin is not over 1G */
-	if (copy_buffer_size > 1024 * 1024 * 1024)
+	if (copy_buffer_size > MAX_XCLBIN_SIZE)
 		return -EINVAL;
 	copy_buffer = vmalloc(copy_buffer_size);
 	if (copy_buffer == NULL)
@@ -711,16 +760,10 @@ static int bitstream_axlf_ioctl(struct xmgmt_main *xmm, const void __user *arg)
 		return -EFAULT;
 	}
 
-	info.buf = (char *)copy_buffer;
-	info.count = copy_buffer_size;
-	ret = fpga_mgr_load(xmm->fmgr, &info);
-	if (ret) {
+	ret = xmgmt_bitstream_axlf_fpga_mgr(xmm, copy_buffer, copy_buffer_size);
+	if (ret)
 		vfree(copy_buffer);
-		return ret;
-	}
 
-	vfree(xmm->firmware_ulp);
-	xmm->firmware_ulp = copy_buffer;
 	return ret;
 }
 

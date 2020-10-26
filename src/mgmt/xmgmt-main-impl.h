@@ -16,7 +16,9 @@
 extern struct platform_driver xmgmt_main_driver;
 extern struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[];
 
-extern int xmgmt_ulp_download(struct platform_device *pdev, void *xclbin);
+extern int xmgmt_ulp_download(struct platform_device *pdev, const void *xclbin);
+extern int bitstream_axlf_mailbox(struct platform_device *pdev,
+	const void *xclbin);
 
 /* Getting dtb for specified partition. Caller should vfree returned dtb .*/
 extern char *xmgmt_get_dtb(struct platform_device *pdev,

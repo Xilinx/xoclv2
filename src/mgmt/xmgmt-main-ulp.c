@@ -21,7 +21,7 @@
 #include "xrt-axigate.h"
 
 static int xmgmt_download_bitstream(struct platform_device  *pdev,
-	void *xclbin)
+	const void *xclbin)
 {
 	struct platform_device *icap_leaf = NULL;
 	struct XHwIcap_Bit_Header bit_header = { 0 };
@@ -107,7 +107,7 @@ static bool match_ulp(enum xrt_subdev_id id,
 	return true;
 }
 
-int xmgmt_ulp_download(struct platform_device  *pdev, void *xclbin)
+int xmgmt_ulp_download(struct platform_device  *pdev, const void *xclbin)
 {
 	struct platform_device *axigate_leaf;
 	char *dtb = NULL;
