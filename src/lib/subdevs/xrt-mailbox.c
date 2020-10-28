@@ -1305,45 +1305,9 @@ static ssize_t mailbox_pkt_store(struct device *dev,
 /* Packet test i/f. */
 static DEVICE_ATTR_RW(mailbox_pkt);
 
-static ssize_t mailbox_test_msg(struct platform_device *pdev,
-	bool is_set, char *buf, size_t len)
-{
-	struct xrt_mgmt_main_peer_test_msg tm = { is_set, buf, len };
-	/*
-	 * TODO: since this code applies to both xmgmt and xuser, we need to
-	 * try both to get the proper pdev for main leaf.
-	 */
-	struct platform_device *main_leaf = xrt_subdev_get_leaf_by_id(pdev,
-		XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
-	int err;
-
-	BUG_ON(main_leaf == NULL);
-	err = xrt_subdev_ioctl(main_leaf, XRT_MGMT_MAIN_PEER_TEST_MSG, &tm);
-	xrt_subdev_put_leaf(pdev, main_leaf);
-	if (err) {
-		xrt_err(pdev, "can not %s peer test msg: %d",
-			is_set ? "set" : "get", err);
-	}
-	return err == 0 ? tm.xmmpgtm_len : err;
-}
-static ssize_t mailbox_msg_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	return mailbox_test_msg(to_platform_device(dev), false, buf, 4096);
-}
-static ssize_t mailbox_msg_store(struct device *dev,
-	struct device_attribute *da, const char *buf, size_t count)
-{
-	return mailbox_test_msg(to_platform_device(dev),
-		true, (char *)buf, count);
-}
-/* Message test i/f. */
-static DEVICE_ATTR_RW(mailbox_msg);
-
 static struct attribute *mailbox_attrs[] = {
 	&dev_attr_mailbox_ctl.attr,
 	&dev_attr_mailbox_pkt.attr,
-	&dev_attr_mailbox_msg.attr,
 	NULL,
 };
 

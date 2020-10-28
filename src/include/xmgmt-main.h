@@ -16,7 +16,6 @@ enum xrt_mgmt_main_ioctl_cmd {
 	XRT_MGMT_MAIN_GET_AXLF_SECTION = 0,
 	// vbnv needs to be kfree'd by caller
 	XRT_MGMT_MAIN_GET_VBNV,
-	XRT_MGMT_MAIN_PEER_TEST_MSG,
 };
 
 enum provider_kind {
@@ -30,12 +29,6 @@ struct xrt_mgmt_main_ioctl_get_axlf_section {
 	enum axlf_section_kind xmmigas_section_kind;
 	void *xmmigas_section;
 	u64 xmmigas_section_size;
-};
-
-struct xrt_mgmt_main_peer_test_msg {
-	bool xmmpgtm_set;
-	char *xmmpgtm_buf;
-	size_t xmmpgtm_len;
 };
 
 #endif	/* _XMGMT_MAIN_H_ */
