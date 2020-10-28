@@ -27,6 +27,7 @@ struct xmgmt_mailbox {
 	struct mutex lock;
 	void *evt_hdl;
 	char *test_msg;
+	bool peer_in_same_domain;
 };
 
 #define	XMGMT_MAILBOX_PRT_REQ(xmbx, send, request, sw_ch)	do {	\
@@ -603,8 +604,10 @@ static void xmgmt_mailbox_resp_user_probe(struct xmgmt_mailbox *xmbx,
 	}
 
 	resp->conn_flags |= XCL_MB_PEER_READY;
-	if (xmgmt_mailbox_is_same_domain(xmbx, conn))
+	if (xmgmt_mailbox_is_same_domain(xmbx, conn)) {
+		xmbx->peer_in_same_domain = true;
 		resp->conn_flags |= XCL_MB_PEER_SAME_DOMAIN;
+	}
 
 	xmgmt_mailbox_respond(xmbx, msgid, sw_ch, resp, sizeof(*resp));
 	vfree(resp);
@@ -670,7 +673,13 @@ static void xmgmt_mailbox_listener(void *arg, void *data, size_t len,
 		xmgmt_mailbox_resp_hot_reset(xmbx, req, len, msgid, sw_ch);
 		break;
 	case XCL_MAILBOX_REQ_LOAD_XCLBIN_KADDR:
-		xmgmt_mailbox_resp_load_xclbin(xmbx, req, len, msgid, sw_ch);
+		if (xmbx->peer_in_same_domain) {
+			xmgmt_mailbox_resp_load_xclbin(xmbx,
+				req, len, msgid, sw_ch);
+		} else {
+			xrt_err(pdev, "%s not handled, not in same domain",
+				mailbox_req2name(req->req));
+		}
 		break;
 	default:
 		xrt_err(pdev, "%s(%d) request not handled",
