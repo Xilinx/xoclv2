@@ -179,17 +179,17 @@ int xrt_devnode_create(struct platform_device *pdev, const char *file_name,
 		file_name = pdev->name;
 	if (!inst_name) {
 		if (devnode_mode(drvdata) == XRT_SUBDEV_FILE_MULTI_INST) {
-			snprintf(fname, sizeof(fname), "%s/%s.%s-%u",
-				XRT_CDEV_DIR, file_name,
-				DEV_PDATA(pdev)->xsp_root_name, pdev->id);
+			snprintf(fname, sizeof(fname), "%s/%s/%s.%u",
+				XRT_CDEV_DIR, DEV_PDATA(pdev)->xsp_root_name,
+				file_name, pdev->id);
 		} else {
-			snprintf(fname, sizeof(fname), "%s/%s.%s",
-				XRT_CDEV_DIR, file_name,
-				DEV_PDATA(pdev)->xsp_root_name);
+			snprintf(fname, sizeof(fname), "%s/%s/%s",
+				XRT_CDEV_DIR, DEV_PDATA(pdev)->xsp_root_name,
+				file_name);
 		}
 	} else {
-		snprintf(fname, sizeof(fname), "%s/%s.%s-%s", XRT_CDEV_DIR,
-			file_name, DEV_PDATA(pdev)->xsp_root_name, inst_name);
+		snprintf(fname, sizeof(fname), "%s/%s/%s.%s", XRT_CDEV_DIR,
+			DEV_PDATA(pdev)->xsp_root_name, file_name, inst_name);
 	}
 	sysdev = device_create(xrt_class, NULL, cdevp->dev, NULL, "%s", fname);
 	if (IS_ERR(sysdev)) {
