@@ -27,6 +27,7 @@ struct xmgmt_mailbox {
 	struct mutex lock;
 	void *evt_hdl;
 	char *test_msg;
+	bool peer_in_same_domain;
 };
 
 #define	XMGMT_MAILBOX_PRT_REQ(xmbx, send, request, sw_ch)	do {	\
@@ -603,14 +604,31 @@ static void xmgmt_mailbox_resp_user_probe(struct xmgmt_mailbox *xmbx,
 	}
 
 	resp->conn_flags |= XCL_MB_PEER_READY;
-	if (xmgmt_mailbox_is_same_domain(xmbx, conn))
+	if (xmgmt_mailbox_is_same_domain(xmbx, conn)) {
+		xmbx->peer_in_same_domain = true;
 		resp->conn_flags |= XCL_MB_PEER_SAME_DOMAIN;
+	}
 
 	xmgmt_mailbox_respond(xmbx, msgid, sw_ch, resp, sizeof(*resp));
 	vfree(resp);
 }
 
-static void xmgmt_mailbox_resp_load_xclbin_kaddr(struct xmgmt_mailbox *xmbx,
+static void xmgmt_mailbox_resp_hot_reset(struct xmgmt_mailbox *xmbx,
+	struct xcl_mailbox_req *req, size_t len, u64 msgid, bool sw_ch)
+{
+	int ret;
+	struct platform_device *pdev = xmbx->pdev;
+
+	xmgmt_mailbox_simple_respond(xmbx, msgid, sw_ch, 0);
+
+	ret = xmgmt_hot_reset(pdev);
+	if (ret)
+		xrt_err(pdev, "failed to hot reset: %d", ret);
+	else
+		xmgmt_peer_notify_state(xmbx, true);
+}
+
+static void xmgmt_mailbox_resp_load_xclbin(struct xmgmt_mailbox *xmbx,
 	struct xcl_mailbox_req *req, size_t len, u64 msgid, bool sw_ch)
 {
 	struct xcl_mailbox_bitstream_kaddr *kaddr =
@@ -651,9 +669,17 @@ static void xmgmt_mailbox_listener(void *arg, void *data, size_t len,
 	case XCL_MAILBOX_REQ_USER_PROBE:
 		xmgmt_mailbox_resp_user_probe(xmbx, req, len, msgid, sw_ch);
 		break;
+	case XCL_MAILBOX_REQ_HOT_RESET:
+		xmgmt_mailbox_resp_hot_reset(xmbx, req, len, msgid, sw_ch);
+		break;
 	case XCL_MAILBOX_REQ_LOAD_XCLBIN_KADDR:
-		xmgmt_mailbox_resp_load_xclbin_kaddr(xmbx,
-			req, len, msgid, sw_ch);
+		if (xmbx->peer_in_same_domain) {
+			xmgmt_mailbox_resp_load_xclbin(xmbx,
+				req, len, msgid, sw_ch);
+		} else {
+			xrt_err(pdev, "%s not handled, not in same domain",
+				mailbox_req2name(req->req));
+		}
 		break;
 	default:
 		xrt_err(pdev, "%s(%d) request not handled",
@@ -768,8 +794,90 @@ static struct bin_attribute  *xmgmt_mailbox_bin_attrs[] = {
 	NULL,
 };
 
+int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
+	char *buf, size_t *len)
+{
+	int rc;
+	struct platform_device *pdev = xmbx->pdev;
+	struct xcl_mailbox_req req = { 0, XCL_MAILBOX_REQ_TEST_READ, };
+	struct xrt_mailbox_ioctl_request leaf_req = {
+		.xmir_sw_ch = sw_ch,
+		.xmir_resp_ttl = 1,
+		.xmir_req = &req,
+		.xmir_req_size = sizeof(req),
+		.xmir_resp = buf,
+		.xmir_resp_size = *len
+	};
+
+	mutex_lock(&xmbx->lock);
+	if (xmbx->mailbox) {
+		XMGMT_MAILBOX_PRT_REQ_SEND(xmbx, &req, leaf_req.xmir_sw_ch);
+		/*
+		 * mgmt should never send request to peer. it should send
+		 * either notification or response. here is the only exception
+		 * for debugging purpose.
+		 */
+		rc = xrt_subdev_ioctl(xmbx->mailbox,
+			XRT_MAILBOX_REQUEST, &leaf_req);
+	} else {
+		rc = -ENODEV;
+		xrt_err(pdev, "mailbox not available");
+	}
+	mutex_unlock(&xmbx->lock);
+
+	if (rc == 0)
+		*len = leaf_req.xmir_resp_size;
+	return rc;
+}
+
+int xmgmt_mailbox_set_test_msg(struct xmgmt_mailbox *xmbx,
+	char *buf, size_t len)
+{
+	mutex_lock(&xmbx->lock);
+
+	if (xmbx->test_msg)
+		vfree(xmbx->test_msg);
+	xmbx->test_msg = vmalloc(len);
+	if (xmbx->test_msg == NULL) {
+		mutex_unlock(&xmbx->lock);
+		return -ENOMEM;
+	}
+	(void) memcpy(xmbx->test_msg, buf, len);
+
+	mutex_unlock(&xmbx->lock);
+	return 0;
+}
+
+static ssize_t peer_msg_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	size_t len = 4096;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct xmgmt_mailbox *xmbx = pdev2mbx(pdev);
+	int ret = xmgmt_mailbox_get_test_msg(xmbx, false, buf, &len);
+
+	return ret == 0 ? len : ret;
+}
+static ssize_t peer_msg_store(struct device *dev,
+	struct device_attribute *da, const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct xmgmt_mailbox *xmbx = pdev2mbx(pdev);
+	int ret = xmgmt_mailbox_set_test_msg(xmbx, (char *)buf, count);
+
+	return ret == 0 ? count : ret;
+}
+/* Message test i/f. */
+static DEVICE_ATTR_RW(peer_msg);
+
+static struct attribute *xmgmt_mailbox_attrs[] = {
+	&dev_attr_peer_msg.attr,
+	NULL,
+};
+
 static const struct attribute_group xmgmt_mailbox_attrgroup = {
 	.bin_attrs = xmgmt_mailbox_bin_attrs,
+	.attrs = xmgmt_mailbox_attrs,
 };
 
 void *xmgmt_mailbox_probe(struct platform_device *pdev)
@@ -800,68 +908,6 @@ void xmgmt_mailbox_remove(void *handle)
 		(void) xrt_subdev_put_leaf(pdev, xmbx->mailbox);
 	if (xmbx->test_msg)
 		vfree(xmbx->test_msg);
-}
-
-int xmgmt_mailbox_set_test_msg(struct xmgmt_mailbox *xmbx,
-	struct xrt_mgmt_main_peer_test_msg *tm)
-{
-	mutex_lock(&xmbx->lock);
-
-	if (xmbx->test_msg)
-		vfree(xmbx->test_msg);
-	xmbx->test_msg = vmalloc(tm->xmmpgtm_len);
-	if (xmbx->test_msg == NULL) {
-		mutex_unlock(&xmbx->lock);
-		return -ENOMEM;
-	}
-	(void) memcpy(xmbx->test_msg, tm->xmmpgtm_buf, tm->xmmpgtm_len);
-
-	mutex_unlock(&xmbx->lock);
-	return 0;
-}
-
-int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx,
-	struct xrt_mgmt_main_peer_test_msg *tm)
-{
-	int rc;
-	struct platform_device *pdev = xmbx->pdev;
-	struct xcl_mailbox_req req = { 0, XCL_MAILBOX_REQ_TEST_READ, };
-	struct xrt_mailbox_ioctl_request leaf_req = {
-		.xmir_sw_ch = false,
-		.xmir_resp_ttl = 1,
-		.xmir_req = &req,
-		.xmir_req_size = sizeof(req),
-		.xmir_resp = tm->xmmpgtm_buf,
-		.xmir_resp_size = tm->xmmpgtm_len
-	};
-
-	mutex_lock(&xmbx->lock);
-	if (xmbx->mailbox) {
-		XMGMT_MAILBOX_PRT_REQ_SEND(xmbx, &req, leaf_req.xmir_sw_ch);
-		/*
-		 * mgmt should never send request to peer. it should send
-		 * either notification or response. here is the only exception
-		 * for debugging purpose.
-		 */
-		rc = xrt_subdev_ioctl(xmbx->mailbox,
-			XRT_MAILBOX_REQUEST, &leaf_req);
-	} else {
-		rc = -ENODEV;
-		xrt_err(pdev, "mailbox not available");
-	}
-	mutex_unlock(&xmbx->lock);
-
-	tm->xmmpgtm_len = leaf_req.xmir_resp_size;
-	return rc;
-}
-
-int xmgmt_peer_test_msg(void *handle, struct xrt_mgmt_main_peer_test_msg *tm)
-{
-	struct xmgmt_mailbox *xmbx = (struct xmgmt_mailbox *)handle;
-
-	if (tm->xmmpgtm_set)
-		return xmgmt_mailbox_set_test_msg(xmbx, tm);
-	return xmgmt_mailbox_get_test_msg(xmbx, tm);
 }
 
 void xmgmt_peer_notify_state(void *handle, bool online)

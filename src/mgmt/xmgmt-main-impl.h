@@ -19,6 +19,7 @@ extern struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[];
 extern int xmgmt_ulp_download(struct platform_device *pdev, const void *xclbin);
 extern int bitstream_axlf_mailbox(struct platform_device *pdev,
 	const void *xclbin);
+extern int xmgmt_hot_reset(struct platform_device *pdev);
 
 /* Getting dtb for specified partition. Caller should vfree returned dtb .*/
 extern char *xmgmt_get_dtb(struct platform_device *pdev,
@@ -30,8 +31,6 @@ extern int xmgmt_get_provider_uuid(struct platform_device *pdev,
 extern void *xmgmt_pdev2mailbox(struct platform_device *pdev);
 extern void *xmgmt_mailbox_probe(struct platform_device *pdev);
 extern void xmgmt_mailbox_remove(void *handle);
-extern int xmgmt_peer_test_msg(void *handle,
-	struct xrt_mgmt_main_peer_test_msg *tm);
 extern void xmgmt_peer_notify_state(void *handle, bool online);
 
 #endif	/* _XMGMT_MAIN_IMPL_H_ */

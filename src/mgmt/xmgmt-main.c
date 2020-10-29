@@ -109,18 +109,26 @@ static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 	return 0;
 }
 
+int xmgmt_hot_reset(struct platform_device *pdev)
+{
+	int ret = xrt_subdev_broadcast_event(pdev, XRT_EVENT_PRE_HOT_RESET);
+
+	if (ret) {
+		xrt_err(pdev, "offline failed, hot reset is canceled");
+		return ret;
+	}
+
+	(void) xrt_subdev_hot_reset(pdev);
+	xrt_subdev_broadcast_event(pdev, XRT_EVENT_POST_HOT_RESET);
+	return 0;
+}
+
 static ssize_t reset_store(struct device *dev,
 	struct device_attribute *da, const char *buf, size_t count)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 
-	if (xrt_subdev_broadcast_event(pdev, XRT_EVENT_PRE_HOT_RESET) == 0) {
-		xrt_subdev_broadcast_event(pdev, XRT_EVENT_PRE_HOT_RESET);
-		(void) xrt_subdev_hot_reset(pdev);
-	} else {
-		xrt_err(pdev, "offline failed, hot reset is canceled");
-	}
-	xrt_subdev_broadcast_event(pdev, XRT_EVENT_POST_HOT_RESET);
+	(void) xmgmt_hot_reset(pdev);
 	return count;
 }
 static DEVICE_ATTR_WO(reset);
@@ -641,13 +649,6 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		char **vbnv_p = (char **)arg;
 
 		*vbnv_p = xmgmt_get_vbnv(pdev);
-		break;
-	}
-	case XRT_MGMT_MAIN_PEER_TEST_MSG: {
-		struct xrt_mgmt_main_peer_test_msg *tm =
-			(struct xrt_mgmt_main_peer_test_msg *)arg;
-
-		ret = xmgmt_peer_test_msg(xmm->mailbox_hdl, tm);
 		break;
 	}
 	default:
