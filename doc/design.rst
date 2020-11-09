@@ -165,8 +165,8 @@ Driver Modules
 xrt-lib.ko
 ----------
 
-Repository of all IP drivers and pure software modules that can potentially be
-shared between xmgmt and xuser. All these drivers are Linux *platform driver*
+Repository of all IP subsystem drivers and pure software modules that can potentially
+be shared between xmgmt and xuser. All these drivers are Linux *platform driver*
 that are instantiated by xmgmt (or xuser in future) based on meta data associated with
 hardware.
 
@@ -183,8 +183,8 @@ driven based on meta data (mostly in device tree format) found through VSEC
 capability and inside firmware files, such as XSABIN or XCLBIN file. The root
 driver manages life cycle of multiple partition drivers, which, in turn, manages
 multiple leaf drivers. This allows a single set of driver code to support all
-kinds of IPs exposed by different shells. The difference among all
-these IPs will be handled in leaf drivers with root and partition drivers being
+kinds of IP subsystems exposed by different shells. The difference among all
+these IP subsystems will be handled in leaf drivers with root and partition drivers being
 part of the infrastructure and provide common services for all leaves found on
 all platforms.
 
@@ -235,13 +235,43 @@ A leaf driver may not have real hardware resources when it merely acts as a driv
 that manages certain in-memory states for xmgmt. These in-memory states could be
 shared by multiple other leaves.
 
-Leaf drivers assigned to specific hardware resources drive specific IPs in the device.
-To manipulate the IP or carry out a task, a leaf driver may ask help from root via
-parent calls and/or from other leaves via inter-leaf calls.
+Leaf drivers assigned to specific hardware resources drive specific IP subsystem in
+the device. To manipulate the IP subsystem or carry out a task, a leaf driver may ask
+help from root via parent calls and/or from other leaves via inter-leaf calls.
 
 A leaf can also broadcast events through infrastructure code for other leaves
 to process. It can also receive event notification from infrastructure about certain
 events, such as post-creation or pre-exit of a particular leaf.
+
+
+Driver Interfaces
+=================
+
+xmgmt Driver Ioctls
+-------------------
+
+Ioctls exposed by xmgmt driver to user space are enumerated in the following table:
+
+==== ====================================== ============================== ==================================
+#    Functionality                          ioctl request code             data format
+==== ====================================== ============================== ==================================
+1    FPGA image download                    XCLMGMT_IOCICAPDOWNLOAD_AXLF   xclmgmt_ioc_bitstream_axlf
+2    CL frequency scaling                   XCLMGMT_IOCFREQSCALE           xclmgmt_ioc_freqscaling
+==== ====================================== ============================== ==================================
+
+xmgmt Driver Sysfs
+------------------
+
+xmgmt driver exposes a rich set of sysfs interfaces. These are enumerated below:
+
+
+hwmon
+-----
+
+xmgmt driver expoes standard hwmon interface to report voltage, current, temperature,
+power, etc. These can easily be viewed using *sensors* command line utility.
+
+
 
 Platform Security Considerations
 ================================

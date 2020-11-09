@@ -737,7 +737,7 @@ static int bitstream_axlf_ioctl(struct xmgmt_main *xmm, const void __user *arg)
 {
 	void *copy_buffer = NULL;
 	size_t copy_buffer_size = 0;
-	struct xclmgmt_ioc_bitstream_axlf ioc_obj = { 0 };
+	struct xmgmt_ioc_bitstream_axlf ioc_obj = { 0 };
 	struct axlf xclbin_obj = { {0} };
 	int ret = 0;
 
@@ -776,14 +776,14 @@ static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd,
 
 	BUG_ON(!xmm);
 
-	if (_IOC_TYPE(cmd) != XCLMGMT_IOC_MAGIC)
+	if (_IOC_TYPE(cmd) != XMGMT_IOC_MAGIC)
 		return -ENOTTY;
 
 	mutex_lock(&xmm->busy_mutex);
 
 	xrt_info(xmm->pdev, "ioctl cmd %d, arg %ld", cmd, arg);
 	switch (cmd) {
-	case XCLMGMT_IOCICAPDOWNLOAD_AXLF:
+	case XMGMT_IOCICAPDOWNLOAD_AXLF:
 		result = bitstream_axlf_ioctl(xmm, (const void __user *)arg);
 		break;
 	default:
