@@ -352,7 +352,6 @@ static const char *cmc_get_vbnv(struct xrt_cmc_sensor *cmc_sensor)
 	(void) xrt_subdev_put_leaf(cmc_sensor->pdev, mgmt_leaf);
 	if (ret)
 		return NULL;
-	xrt_info(cmc_sensor->pdev, "VBNV = %s", vbnv);
 	return vbnv;
 }
 
