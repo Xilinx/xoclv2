@@ -252,17 +252,23 @@ xmgmt Driver Ioctls
 
 Ioctls exposed by xmgmt driver to user space are enumerated in the following table:
 
-==== ====================================== ============================== ==================================
-#    Functionality                          ioctl request code             data format
-==== ====================================== ============================== ==================================
-1    FPGA image download                    XCLMGMT_IOCICAPDOWNLOAD_AXLF   xclmgmt_ioc_bitstream_axlf
-2    CL frequency scaling                   XCLMGMT_IOCFREQSCALE           xclmgmt_ioc_freqscaling
-==== ====================================== ============================== ==================================
+== ===================== ============================= ===========================
+#  Functionality         ioctl request code            data format
+== ===================== ============================= ===========================
+1  FPGA image download   XMGMT_IOCICAPDOWNLOAD_AXLF    xmgmt_ioc_bitstream_axlf
+2  CL frequency scaling  XMGMT_IOCFREQSCALE            xmgmt_ioc_freqscaling
+== ===================== ============================= ===========================
 
 xmgmt Driver Sysfs
 ------------------
 
-xmgmt driver exposes a rich set of sysfs interfaces. These are enumerated below:
+xmgmt driver exposes a rich set of sysfs interfaces. IP subsystem platform drivers
+export sysfs node for every platform instance.
+
+Every partition also exports its UUIDs. See below for examples::
+
+  /sys/bus/pci/devices/0000:06:00.0/xmgmt_main.0/interface_uuids
+  /sys/bus/pci/devices/0000:06:00.0/xmgmt_main.0/logic_uuids
 
 
 hwmon
@@ -270,7 +276,6 @@ hwmon
 
 xmgmt driver expoes standard hwmon interface to report voltage, current, temperature,
 power, etc. These can easily be viewed using *sensors* command line utility.
-
 
 
 Platform Security Considerations
