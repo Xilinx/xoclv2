@@ -11,8 +11,8 @@ from Xilinx.
 XRTV2 drivers support *subsystem* style data driven platforms where driver's configuration
 and behavior is determined by meta data provided by platform (in *device tree* format).
 Primary management physical function (MPF) driver is called **xmgmt**. Primary user physical
-function (UPF) driver is called **xuser** and HW subsystem drivers are packaged into a library module
-called **xrt-lib**, which is shared by **xmgmt** and **xuser**.
+function (UPF) driver is called **xuser** and HW subsystem drivers are packaged into a library
+module called **xrt-lib**, which is shared by **xmgmt** and **xuser**.
 
 Alveo Platform Overview
 =======================
@@ -22,22 +22,22 @@ provides basic infrastructure for the Alveo platform like PCIe connectivity, boa
 Dynamic Function Exchange (DFX), sensors, clocking, reset, and security. User partition contains
 user compiled binary which is loaded by a process called DFX also known as partial reconfiguration.
 
-Physical partitions require strict HW compatibility with each other for DFX to work properly. Every
-physical partition has two interface UUIDs: *parent* UUID and *child* UUID. For simple single stage
-platforms Shell → User forms parent child relationship. For complex two stage platforms Base → Shell
-→ User forms the parent child relationship chain.
+Physical partitions require strict HW compatibility with each other for DFX to work properly.
+Every physical partition has two interface UUIDs: *parent* UUID and *child* UUID. For simple
+single stage platforms Shell → User forms parent child relationship. For complex two stage
+platforms Base → Shell → User forms the parent child relationship chain.
 
 .. note::
-   Partition compatibility matching is key design component of Alveo platforms and XRT. Partitions have
-   child and parent relationship. A loaded partition exposes child partition UUID to advertise its
-   compatibility requirement for child partition. When loading a child partition the xmgmt management
-   driver matches parent UUID of the child partition against child UUID exported by the parent. Parent
-   and child partition UUIDs are stored in the *xclbin* (for user) or *xsabin* (for base and shell).
-   Except for VSEC, UUIDs are stored in xsabin and xclbin. The hardware itself does not know about UUIDs.
+   Partition compatibility matching is key design component of Alveo platforms and XRT. Partitions
+   have child and parent relationship. A loaded partition exposes child partition UUID to advertise
+   its compatibility requirement for child partition. When loading a child partition the xmgmt
+   management driver matches parent UUID of the child partition against child UUID exported by the
+   parent. Parent and child partition UUIDs are stored in the *xclbin* (for user) or *xsabin* (for
+   base and shell). Except for root UUID, VSEC, hardware itself does not know about UUIDs. UUIDs are
+   stored in xsabin and xclbin.
 
 
 The physical partitions and their loading is illustrated below::
-
 
 	   SHELL                               USER
         +-----------+                  +-------------------+
@@ -58,19 +58,21 @@ The physical partitions and their loading is illustrated below::
 Loading Sequence
 ----------------
 
-Shell partition is loaded from flash at system boot time. It establishes the PCIe link and exposes two physical
-functions to the BIOS. After OS boot, xmgmt driver attaches to PCIe physical function 0 exposed by the Shell and
-then looks for VSEC in PCIe extended configuration space. Using VSEC it determines the logic UUID of Shell and uses
-the UUID to load matching *xsabin* file from Linux firmware directory. The xsabin file contains metadata to discover
-peripherals that are part of Shell and firmware(s) for any embedded soft processors in Shell.
+Shell partition is loaded from flash at system boot time. It establishes the PCIe link and exposes
+two physical functions to the BIOS. After OS boot, xmgmt driver attaches to PCIe physical function
+0 exposed by the Shell and then looks for VSEC in PCIe extended configuration space. Using VSEC it
+determines the logic UUID of Shell and uses the UUID to load matching *xsabin* file from Linux
+firmware directory. The xsabin file contains metadata to discover peripherals that are part of Shell
+and firmware(s) for any embedded soft processors in Shell.
 
-Shell exports child interface UUID which is used for compatibility check when loading user compiled xclbin over the
-User partition as part of DFX. When a user requests loading of a specific xclbin the xmgmt management driver reads
-the parent interface UUID specified in the xclbin and matches it with child interface UUID exported by Shell to
-determine if xclbin is compatible with the Shell. If match fails loading of xclbin is denied.
+Shell exports child interface UUID which is used for compatibility check when loading user compiled
+xclbin over the User partition as part of DFX. When a user requests loading of a specific xclbin the
+xmgmt management driver reads the parent interface UUID specified in the xclbin and matches it with
+child interface UUID exported by Shell to determine if xclbin is compatible with the Shell. If match
+fails loading of xclbin is denied.
 
-xclbin loading is requested using ICAP_DOWNLOAD_AXLF ioctl command. When loading xclbin xmgmt driver performs the
-following operations:
+xclbin loading is requested using ICAP_DOWNLOAD_AXLF ioctl command. When loading xclbin xmgmt driver
+performs the following operations:
 
 1. Sanity check the xclbin contents
 2. Isolate the User partition
@@ -84,14 +86,23 @@ provides more detailed information on platform loading.
 xsabin
 ------
 
+Each Alveo platform comes with its own xsabin. The xsabin is trusted component of the
+platform. For format details refer to :ref:`xsabin/xclbin Container Format`. xsabin contains
+basic information like UUIDs, platform name and metadata in the form of device tree. See
+:ref:`Device Tree Usage` for details and example.
 
 xclbin
 ------
 
+xclbin is compiled by end user using Vitis tool set from Xilinx. The xclbin contains sections
+describing user compiled acceleration engines/kernels, memory subsystems, clocking information
+etc. It also contains UUIDs, platform name, etc. xclbin uses the same format as xsabin which
+is described below.
+
 xsabin/xclbin Container Format
 ------------------------------
 
-xclbin/xsabin is ELF-like binary container format. It is tructured as series of sections.
+xclbin/xsabin is ELF-like binary container format. It is structured as series of sections.
 There is a file header followed by several section headers which is followed by sections.
 A section header points to an actual section. There is an optional signature at the end.
 The format is defined by header file ``xclbin.h``. The following figure illustrates a
@@ -125,19 +136,29 @@ typical xclbin::
 	   +---------------------+
 
 
-xclbin/xsabin files can be packaged, unpackaged and inspected using XRT utility called
-``xclbinutil``. xclbinutil is part of XRT opensource software stack. The source code for
+xclbin/xsabin files can be packaged, un-packaged and inspected using XRT utility called
+**xclbinutil**. xclbinutil is part of XRT open source software stack. The source code for
 xclbinutil can be found at https://github.com/Xilinx/XRT/tree/master/src/runtime_src/tools/xclbinutil
+
+For example to enumerate the contents of a xclbin/xsabin use the *--info* switch as shown
+below::
+
+  xclbinutil --info --input /opt/xilinx/firmware/u50/gen3x16-xdma/blp/test/bandwidth.xclbin
+  xclbinutil --info --input /lib/firmware/xilinx/862c7020a250293e32036f19956669e5/partition.xsabin
 
 
 Device Tree Usage
 -----------------
 
-As mentioned previously xsabin stores metadata to advertise subsystems for a partition. Subsystem instantiations
-are captured as children of ``addressable_endpoints`` node. subsystem nodes have standard attributes like ``reg``,
-``interrupts`` etc. and also PCIe specific attributes like ``pcie_physical_function`` and ``pcie_bar_mapping``.
-XRT management driver uses this information to bind platform drivers to the subsystem instantations. Below is an
-example of device tree for Alveo U50 platform::
+As mentioned previously xsabin stores metadata which advertise HW subsystems present in a partition.
+The metadata is stored in device tree format with well defined schema. Subsystem instantiations are
+captured as children of ``addressable_endpoints`` node. Subsystem nodes have standard attributes like
+``reg``, ``interrupts`` etc. Additionally the nodes also have PCIe specific attributes:
+``pcie_physical_function`` and ``pcie_bar_mapping``. These identify which PCIe physical function and
+which BAR space in that physical function the subsystem resides. XRT management driver uses this
+information to bind *platform drivers* to the subsystem instantiations. The platform drivers are
+found in **xrt-lib.ko** kernel module defined later. Below is an example of device tree for Alveo U50
+platform::
 
   /dts-v1/;
 
@@ -430,9 +451,10 @@ stack is illustrated below::
 Virtualized
 -----------
 
-In virtualized deployments privileged MPF is assigned to host but unprivileged UPF is assigned to
-guest VM via PCIe pass-through. xmgmt driver in host binds to MPF. xmgmt driver operations are
-privileged and only accesible by hosting service provider. The full stack is illustrated below::
+In virtualized deployments privileged MPF is assigned to host but unprivileged UPF
+is assigned to guest VM via PCIe pass-through. xmgmt driver in host binds to MPF.
+xmgmt driver operations are privileged and only accesible by hosting service provider.
+The full stack is illustrated below::
 
 
                                  .............
@@ -470,16 +492,17 @@ xrt-lib.ko
 ----------
 
 Repository of all subsystem drivers and pure software modules that can potentially
-be shared between xmgmt and xuser. All these drivers are Linux *platform driver*
-that are instantiated by xmgmt (or xuser in future) based on meta data associated with
-hardware.
+be shared between xmgmt and xuser. All these drivers are structured as Linux
+*platform driver* and are instantiated by xmgmt (or xuser in future) based on meta
+data associated with hardware. The metadata is in the form of device tree as
+explained before.
 
 xmgmt.ko
 --------
 
 The xmgmt driver is a PCIe device driver driving MPF found on Xilinx's Alveo
-PCIE device. It consists of one *root* driver, one or more *partition* drivers and
-one or more *leaf* drivers. The root and MPF specific leaf drivers are in
+PCIE device. It consists of one *root* driver, one or more *partition* drivers
+and one or more *leaf* drivers. The root and MPF specific leaf drivers are in
 xmgmt.ko. The partition driver and other leaf drivers are in xrt-lib.ko.
 
 The instantiation of specific partition driver or leaf driver is completely data
@@ -488,9 +511,9 @@ capability and inside firmware files, such as xsabin or xclbin file. The root
 driver manages life cycle of multiple partition drivers, which, in turn, manages
 multiple leaf drivers. This allows a single set of driver code to support all
 kinds of subsystems exposed by different shells. The difference among all
-these subsystems will be handled in leaf drivers with root and partition drivers being
-part of the infrastructure and provide common services for all leaves found on
-all platforms.
+these subsystems will be handled in leaf drivers with root and partition drivers
+being part of the infrastructure and provide common services for all leaves found
+on all platforms.
 
 
 xmgmt-root
@@ -503,13 +526,14 @@ infrastructure of the MPF driver and resides in xmgmt.ko. This driver
 * provides access to functionalities that requires pci_dev, such as PCIE config
   space access, to other leaf drivers through parent calls
 * together with partition driver, facilities event callbacks for other leaf drivers
-* together with partition driver, facilities inter-leaf driver calls for other leaf drivers
+* together with partition driver, facilities inter-leaf driver calls for other leaf
+  drivers
 
 When root driver starts, it will explicitly create an initial partition instance,
 which contains leaf drivers that will trigger the creation of other partition
 instances. The root driver will wait for all partitions and leaves to be created
-before it returns from it's probe routine and claim success of the initialization of the
-entire xmgmt driver.
+before it returns from it's probe routine and claim success of the initialization
+of the entire xmgmt driver.
 
 partition
 ^^^^^^^^^
