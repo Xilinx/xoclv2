@@ -6,9 +6,7 @@ XRTV2 Linux Kernel Driver Overview
 
 XRTV2 drivers are second generation `XRT <https://github.com/Xilinx/XRT>`_ drivers which
 support `Alveo <https://www.xilinx.com/products/boards-and-kits/alveo.html>`_ PCIe platforms
-from Xilinx. Note the first generation drivers called xclmgmt and xocl are not upstream
-but can be found as part of XRT source tree
-https://github.com/Xilinx/XRT/tree/master/src/runtime_src/core/pcie/driver/linux
+from Xilinx.
 
 XRTV2 drivers support *subsystem* style data driven platforms where driver's configuration
 and behavior is determined by meta data provided by platform (in *device tree* format).
@@ -300,48 +298,6 @@ platform::
 			pcie_physical_function = <0x01>;
 			compatible = "xilinx.com,reg_abs-ert_sched-1.0\0ert_sched";
 			interrupts = <0x09 0x0c>;
-		};
-
-		ep_firewall_blp_ctrl_mgmt_00 {
-			reg = <0x00 0x1f02000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_firewall-1.0\0axi_firewall";
-			interrupts = <0x01 0x01>;
-		};
-
-		ep_firewall_blp_ctrl_user_00 {
-			reg = <0x00 0x1f03000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_firewall-1.0\0axi_firewall";
-			interrupts = <0x01 0x01>;
-		};
-
-		ep_firewall_ctrl_debug_00 {
-			reg = <0x00 0x4000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_firewall-1.0\0axi_firewall";
-			interrupts = <0x06 0x06>;
-		};
-
-		ep_firewall_ctrl_mgmt_00 {
-			reg = <0x00 0x2000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_firewall-1.0\0axi_firewall";
-			interrupts = <0x06 0x06>;
-		};
-
-		ep_firewall_ctrl_user_00 {
-			reg = <0x00 0x3000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_firewall-1.0\0axi_firewall";
-			interrupts = <0x06 0x06>;
-		};
-
-		ep_firewall_data_h2c_00 {
-			reg = <0x00 0x5000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_firewall-1.0\0axi_firewall";
-			interrupts = <0x06 0x06>;
 		};
 
 		ep_fpga_configuration_00 {
