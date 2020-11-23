@@ -6,7 +6,9 @@ XRTV2 Linux Kernel Driver Overview
 
 XRTV2 drivers are second generation `XRT <https://github.com/Xilinx/XRT>`_ drivers which
 support `Alveo <https://www.xilinx.com/products/boards-and-kits/alveo.html>`_ PCIe platforms
-from Xilinx.
+from Xilinx. Note the first generation drivers called xclmgmt and xocl are not upstream
+but can be found as part of XRT source tree
+https://github.com/Xilinx/XRT/tree/master/src/runtime_src/core/pcie/driver/linux
 
 XRTV2 drivers support *subsystem* style data driven platforms where driver's configuration
 and behavior is determined by meta data provided by platform (in *device tree* format).
@@ -77,7 +79,7 @@ performs the following operations:
 1. Sanity check the xclbin contents
 2. Isolate the User partition
 3. Download the bitstream using the FPGA config engine
-4. Program the clocks driving the User region
+4. Program the clocks driving the User partition
 5. De-isolate the User partition
 
 `Platform Loading Overview <https://xilinx.github.io/XRT/master/html/platforms_partitions.html>`_
