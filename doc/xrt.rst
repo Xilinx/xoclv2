@@ -12,7 +12,7 @@ XRTV2 drivers support *subsystem* style data driven platforms where driver's con
 and behavior is determined by meta data provided by platform (in *device tree* format).
 Primary management physical function (MPF) driver is called **xmgmt**. Primary user physical
 function (UPF) driver is called **xuser** and HW subsystem drivers are packaged into a library
-module called **xrt-lib**, which is shared by **xmgmt** and **xuser**.
+module called **xrt-lib**, which is shared by **xmgmt** and **xuser** (WIP).
 
 Alveo Platform Overview
 =======================
@@ -86,7 +86,7 @@ provides more detailed information on platform loading.
 xsabin
 ------
 
-Each Alveo platform comes with its own xsabin. The xsabin is trusted component of the
+Each Alveo platform comes packaged with its own xsabin. The xsabin is trusted component of the
 platform. For format details refer to :ref:`xsabin/xclbin Container Format`. xsabin contains
 basic information like UUIDs, platform name and metadata in the form of device tree. See
 :ref:`Device Tree Usage` for details and example.
@@ -94,10 +94,12 @@ basic information like UUIDs, platform name and metadata in the form of device t
 xclbin
 ------
 
-xclbin is compiled by end user using Vitis tool set from Xilinx. The xclbin contains sections
-describing user compiled acceleration engines/kernels, memory subsystems, clocking information
-etc. It also contains UUIDs, platform name, etc. xclbin uses the same format as xsabin which
-is described below.
+xclbin is compiled by end user using
+`Vitis <https://www.xilinx.com/products/design-tools/vitis/vitis-platform.html>`_ tool set from
+Xilinx. The xclbin contains sections describing user compiled acceleration engines/kernels, memory
+subsystems, clocking information etc. It also contains bitstream for the user partition, UUIDs,
+platform name, etc. xclbin uses the same container format as xsabin which is described below.
+
 
 xsabin/xclbin Container Format
 ------------------------------
