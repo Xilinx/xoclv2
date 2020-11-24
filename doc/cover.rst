@@ -1,6 +1,7 @@
 Hello,
 
-This patch series adds management driver for Xilinx Alveo PCIe accelerator cards.
+This patch series adds management physical function driver for Xilinx Alveo PCIe
+accelerator cards.
 https://www.xilinx.com/products/boards-and-kits/alveo.html
 The driver is part of Xilinx Runtime (XRT) open source stack.
 
@@ -36,6 +37,7 @@ primarily handle the following functionality:
 3.  Clock scaling of image running on user partition
 4.  In-band sensors: temp, voltage, power, etc.
 5.  Device reset and rescan
+6.  Flashing static *shell* partition
 
 More details on driver architecture can be found in the included xrt.rst
 documentation.
