@@ -33,6 +33,7 @@ xrt-lib-y := 			\
 	subdev.o		\
 	cdev.o			\
 	group.o			\
+	ring-drv.o		\
 	xleaf/vsec.o		\
 	xleaf/vsec-golden.o	\
 	xleaf/axigate.o	\

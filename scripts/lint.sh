@@ -31,6 +31,10 @@ do
 #	$ROOT/scripts/checkpatch.pl --no-tree --emacs --color=never --ignore NEW_TYPEDEFS -f $ROOT/$item
 #	continue
 #    fi
+    regex="^.+ring-user\.h$"
+    if [[ $item =~ $regex ]]; then
+	continue
+    fi
     regex="^.+[c|h]$"
     if [[ $item =~ $regex ]]; then
 	echo "$ROOT/scripts/checkpatch.pl --no-tree --emacs --color=never -f $ROOT/$item"
