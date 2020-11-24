@@ -566,6 +566,18 @@ xmgmt driver exposes standard hwmon interface to report voltage, current, temper
 power, etc. These can easily be viewed using *sensors* command line utility.
 
 
+mailbox
+-------
+
+xmgmt communicates with user physical function driver via mailbox. It handles requests
+from UPF driver and sends response back to it. The requests it handles include:
+
+1.  Detecting if xmgmt is up and running (also in the same OS domain).
+2.  Querying information including sensor readings, loaded xclbin UUID, clock frequency, shell information.
+3.  Request hot reset.
+3.  Request xclbin download.
+
+
 Platform Security Considerations
 ================================
 
