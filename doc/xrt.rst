@@ -77,8 +77,9 @@ performs the following operations:
 1. Sanity check the xclbin contents
 2. Isolate the User partition
 3. Download the bitstream using the FPGA config engine
-4. Program the clocks driving the User partition
-5. De-isolate the User partition
+4. De-isolate the User partition
+5. Program the clocks driving the User partition
+6. Complete MIG calibration
 
 `Platform Loading Overview <https://xilinx.github.io/XRT/master/html/platforms_partitions.html>`_
 provides more detailed information on platform loading.
