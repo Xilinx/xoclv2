@@ -75,8 +75,8 @@ performs the following operations:
 1. Sanity check the xclbin contents
 2. Isolate the User partition
 3. Download the bitstream using the FPGA config engine (ICAP)
-4. Program the clocks driving the User partition
-5. De-isolate the User partition
+4. De-isolate the User partition
+5. Program the clocks (ClockWiz) driving the User partition
 6. Wait for memory controller (MIG) calibration
 
 `Platform Loading Overview <https://xilinx.github.io/XRT/master/html/platforms_partitions.html>`_
