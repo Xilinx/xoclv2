@@ -56,7 +56,6 @@ static void calib_cache_clean_nolock(struct calib *calib)
 		vfree(cache);
 	}
 	calib->cache_num = 0;
-	mutex_unlock(&calib->lock);
 }
 
 static void calib_cache_clean(struct calib *calib)
