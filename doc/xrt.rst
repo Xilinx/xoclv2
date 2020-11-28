@@ -37,7 +37,7 @@ platforms Base → Shell → User forms the parent child relationship chain.
 
 The physical partitions and their loading is illustrated below::
 
-	   SHELL                               USER
+           SHELL                               USER
         +-----------+                  +-------------------+
         |           |                  |                   |
         | VSEC UUID | CHILD     PARENT |    LOGIC UUID     |
@@ -45,12 +45,12 @@ The physical partitions and their loading is illustrated below::
         |           | UUID       UUID  |                   |
         +-----+-----+                  +--------+----------+
               |                                 |
-	      .                                 .
-              |				        |
-          +---+---+			 +------+--------+
-          |  POR  |			 | USER COMPILED |
-          | FLASH |			 |    XCLBIN     |
-          +-------+			 +---------------+
+              .                                 .
+              |                                 |
+          +---+---+                      +------+--------+
+          |  POR  |                      | USER COMPILED |
+          | FLASH |                      |    XCLBIN     |
+          +-------+                      +---------------+
 
 
 Loading Sequence
@@ -110,31 +110,31 @@ The format is defined by header file ``xclbin.h``. The following figure illustra
 typical xclbin::
 
 
-	   +---------------------+
-	   |			 |
-	   |	   HEADER	 |
-	   +---------------------+
-	   |   SECTION	HEADER	 |
-	   |			 |
-	   +---------------------+
-	   |	     ...	 |
-	   |			 |
-	   +---------------------+
-	   |   SECTION	HEADER	 |
-	   |			 |
-	   +---------------------+
-	   |	   SECTION	 |
-	   |			 |
-	   +---------------------+
-	   |	     ...	 |
-	   |			 |
-	   +---------------------+
-	   |	   SECTION	 |
-	   |			 |
-	   +---------------------+
-	   |	  SIGNATURE	 |
-	   |	  (OPTIONAL)	 |
-	   +---------------------+
+           +---------------------+
+           |                     |
+           |       HEADER        |
+           +---------------------+
+           |   SECTION  HEADER   |
+           |                     |
+           +---------------------+
+           |         ...         |
+           |                     |
+           +---------------------+
+           |   SECTION  HEADER   |
+           |                     |
+           +---------------------+
+           |       SECTION       |
+           |                     |
+           +---------------------+
+           |         ...         |
+           |                     |
+           +---------------------+
+           |       SECTION       |
+           |                     |
+           +---------------------+
+           |      SIGNATURE      |
+           |      (OPTIONAL)     |
+           +---------------------+
 
 
 xclbin/xsabin files can be packaged, un-packaged and inspected using XRT utility called
@@ -164,206 +164,206 @@ platform::
   /dts-v1/;
 
   /{
-	logic_uuid = "f465b0a3ae8c64f619bc150384ace69b";
+        logic_uuid = "f465b0a3ae8c64f619bc150384ace69b";
 
-	schema_version {
-		major = <0x01>;
-		minor = <0x00>;
-	};
+        schema_version {
+                major = <0x01>;
+                minor = <0x00>;
+        };
 
-	interfaces {
+        interfaces {
 
-		@0 {
-			interface_uuid = "862c7020a250293e32036f19956669e5";
-		};
-	};
+                @0 {
+                        interface_uuid = "862c7020a250293e32036f19956669e5";
+                };
+        };
 
-	addressable_endpoints {
+        addressable_endpoints {
 
-		ep_blp_rom_00 {
-			reg = <0x00 0x1f04000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_bram_ctrl-1.0\0axi_bram_ctrl";
-		};
+                ep_blp_rom_00 {
+                        reg = <0x00 0x1f04000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_bram_ctrl-1.0\0axi_bram_ctrl";
+                };
 
-		ep_card_flash_program_00 {
-			reg = <0x00 0x1f06000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_quad_spi-1.0\0axi_quad_spi";
-			interrupts = <0x03 0x03>;
-		};
+                ep_card_flash_program_00 {
+                        reg = <0x00 0x1f06000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_quad_spi-1.0\0axi_quad_spi";
+                        interrupts = <0x03 0x03>;
+                };
 
-		ep_cmc_firmware_mem_00 {
-			reg = <0x00 0x1e20000 0x00 0x20000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_bram_ctrl-1.0\0axi_bram_ctrl";
+                ep_cmc_firmware_mem_00 {
+                        reg = <0x00 0x1e20000 0x00 0x20000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_bram_ctrl-1.0\0axi_bram_ctrl";
 
-			firmware {
-				firmware_product_name = "cmc";
-				firmware_branch_name = "u50";
-				firmware_version_major = <0x01>;
-				firmware_version_minor = <0x00>;
-			};
-		};
+                        firmware {
+                                firmware_product_name = "cmc";
+                                firmware_branch_name = "u50";
+                                firmware_version_major = <0x01>;
+                                firmware_version_minor = <0x00>;
+                        };
+                };
 
-		ep_cmc_intc_00 {
-			reg = <0x00 0x1e03000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_intc-1.0\0axi_intc";
-			interrupts = <0x04 0x04>;
-		};
+                ep_cmc_intc_00 {
+                        reg = <0x00 0x1e03000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_intc-1.0\0axi_intc";
+                        interrupts = <0x04 0x04>;
+                };
 
-		ep_cmc_mutex_00 {
-			reg = <0x00 0x1e02000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
-		};
+                ep_cmc_mutex_00 {
+                        reg = <0x00 0x1e02000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
+                };
 
-		ep_cmc_regmap_00 {
-			reg = <0x00 0x1e08000 0x00 0x2000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_bram_ctrl-1.0\0axi_bram_ctrl";
+                ep_cmc_regmap_00 {
+                        reg = <0x00 0x1e08000 0x00 0x2000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_bram_ctrl-1.0\0axi_bram_ctrl";
 
-			firmware {
-				firmware_product_name = "sc-fw";
-				firmware_branch_name = "u50";
-				firmware_version_major = <0x05>;
-			};
-		};
+                        firmware {
+                                firmware_product_name = "sc-fw";
+                                firmware_branch_name = "u50";
+                                firmware_version_major = <0x05>;
+                        };
+                };
 
-		ep_cmc_reset_00 {
-			reg = <0x00 0x1e01000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
-		};
+                ep_cmc_reset_00 {
+                        reg = <0x00 0x1e01000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
+                };
 
-		ep_ddr_mem_calib_00 {
-			reg = <0x00 0x63000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
-		};
+                ep_ddr_mem_calib_00 {
+                        reg = <0x00 0x63000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
+                };
 
-		ep_debug_bscan_mgmt_00 {
-			reg = <0x00 0x1e90000 0x00 0x10000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-debug_bridge-1.0\0debug_bridge";
-		};
+                ep_debug_bscan_mgmt_00 {
+                        reg = <0x00 0x1e90000 0x00 0x10000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-debug_bridge-1.0\0debug_bridge";
+                };
 
-		ep_ert_base_address_00 {
-			reg = <0x00 0x21000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
-		};
+                ep_ert_base_address_00 {
+                        reg = <0x00 0x21000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
+                };
 
-		ep_ert_command_queue_mgmt_00 {
-			reg = <0x00 0x40000 0x00 0x10000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-ert_command_queue-1.0\0ert_command_queue";
-		};
+                ep_ert_command_queue_mgmt_00 {
+                        reg = <0x00 0x40000 0x00 0x10000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-ert_command_queue-1.0\0ert_command_queue";
+                };
 
-		ep_ert_command_queue_user_00 {
-			reg = <0x00 0x40000 0x00 0x10000>;
-			pcie_physical_function = <0x01>;
-			compatible = "xilinx.com,reg_abs-ert_command_queue-1.0\0ert_command_queue";
-		};
+                ep_ert_command_queue_user_00 {
+                        reg = <0x00 0x40000 0x00 0x10000>;
+                        pcie_physical_function = <0x01>;
+                        compatible = "xilinx.com,reg_abs-ert_command_queue-1.0\0ert_command_queue";
+                };
 
-		ep_ert_firmware_mem_00 {
-			reg = <0x00 0x30000 0x00 0x8000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_bram_ctrl-1.0\0axi_bram_ctrl";
+                ep_ert_firmware_mem_00 {
+                        reg = <0x00 0x30000 0x00 0x8000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_bram_ctrl-1.0\0axi_bram_ctrl";
 
-			firmware {
-				firmware_product_name = "ert";
-				firmware_branch_name = "v20";
-				firmware_version_major = <0x01>;
-			};
-		};
+                        firmware {
+                                firmware_product_name = "ert";
+                                firmware_branch_name = "v20";
+                                firmware_version_major = <0x01>;
+                        };
+                };
 
-		ep_ert_intc_00 {
-			reg = <0x00 0x23000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_intc-1.0\0axi_intc";
-			interrupts = <0x05 0x05>;
-		};
+                ep_ert_intc_00 {
+                        reg = <0x00 0x23000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_intc-1.0\0axi_intc";
+                        interrupts = <0x05 0x05>;
+                };
 
-		ep_ert_reset_00 {
-			reg = <0x00 0x22000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
-		};
+                ep_ert_reset_00 {
+                        reg = <0x00 0x22000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
+                };
 
-		ep_ert_sched_00 {
-			reg = <0x00 0x50000 0x00 0x1000>;
-			pcie_physical_function = <0x01>;
-			compatible = "xilinx.com,reg_abs-ert_sched-1.0\0ert_sched";
-			interrupts = <0x09 0x0c>;
-		};
+                ep_ert_sched_00 {
+                        reg = <0x00 0x50000 0x00 0x1000>;
+                        pcie_physical_function = <0x01>;
+                        compatible = "xilinx.com,reg_abs-ert_sched-1.0\0ert_sched";
+                        interrupts = <0x09 0x0c>;
+                };
 
-		ep_fpga_configuration_00 {
-			reg = <0x00 0x1e88000 0x00 0x8000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_hwicap-1.0\0axi_hwicap";
-			interrupts = <0x02 0x02>;
-		};
+                ep_fpga_configuration_00 {
+                        reg = <0x00 0x1e88000 0x00 0x8000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_hwicap-1.0\0axi_hwicap";
+                        interrupts = <0x02 0x02>;
+                };
 
-		ep_icap_reset_00 {
-			reg = <0x00 0x1f07000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
-		};
+                ep_icap_reset_00 {
+                        reg = <0x00 0x1f07000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
+                };
 
-		ep_mailbox_mgmt_00 {
-			reg = <0x00 0x1f10000 0x00 0x10000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-mailbox-1.0\0mailbox";
-			interrupts = <0x00 0x00>;
-		};
+                ep_mailbox_mgmt_00 {
+                        reg = <0x00 0x1f10000 0x00 0x10000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-mailbox-1.0\0mailbox";
+                        interrupts = <0x00 0x00>;
+                };
 
-		ep_mailbox_user_00 {
-			reg = <0x00 0x1f00000 0x00 0x10000>;
-			pcie_physical_function = <0x01>;
-			compatible = "xilinx.com,reg_abs-mailbox-1.0\0mailbox";
-			interrupts = <0x08 0x08>;
-		};
+                ep_mailbox_user_00 {
+                        reg = <0x00 0x1f00000 0x00 0x10000>;
+                        pcie_physical_function = <0x01>;
+                        compatible = "xilinx.com,reg_abs-mailbox-1.0\0mailbox";
+                        interrupts = <0x08 0x08>;
+                };
 
-		ep_msix_00 {
-			reg = <0x00 0x00 0x00 0x20000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-msix-1.0\0msix";
-			pcie_bar_mapping = <0x02>;
-		};
+                ep_msix_00 {
+                        reg = <0x00 0x00 0x00 0x20000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-msix-1.0\0msix";
+                        pcie_bar_mapping = <0x02>;
+                };
 
-		ep_pcie_link_mon_00 {
-			reg = <0x00 0x1f05000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
-		};
+                ep_pcie_link_mon_00 {
+                        reg = <0x00 0x1f05000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
+                };
 
-		ep_pr_isolate_plp_00 {
-			reg = <0x00 0x1f01000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
-		};
+                ep_pr_isolate_plp_00 {
+                        reg = <0x00 0x1f01000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
+                };
 
-		ep_pr_isolate_ulp_00 {
-			reg = <0x00 0x1000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
-		};
+                ep_pr_isolate_ulp_00 {
+                        reg = <0x00 0x1000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
+                };
 
-		ep_uuid_rom_00 {
-			reg = <0x00 0x64000 0x00 0x1000>;
-			pcie_physical_function = <0x00>;
-			compatible = "xilinx.com,reg_abs-axi_bram_ctrl-1.0\0axi_bram_ctrl";
-		};
+                ep_uuid_rom_00 {
+                        reg = <0x00 0x64000 0x00 0x1000>;
+                        pcie_physical_function = <0x00>;
+                        compatible = "xilinx.com,reg_abs-axi_bram_ctrl-1.0\0axi_bram_ctrl";
+                };
 
-		ep_xdma_00 {
-			reg = <0x00 0x00 0x00 0x10000>;
-			pcie_physical_function = <0x01>;
-			compatible = "xilinx.com,reg_abs-xdma-1.0\0xdma";
-			pcie_bar_mapping = <0x02>;
-		};
-	};
+                ep_xdma_00 {
+                        reg = <0x00 0x00 0x00 0x10000>;
+                        pcie_physical_function = <0x01>;
+                        compatible = "xilinx.com,reg_abs-xdma-1.0\0xdma";
+                        pcie_bar_mapping = <0x02>;
+                };
+        };
 
   }
 
@@ -387,12 +387,12 @@ stack is illustrated below::
                     |                  |
                  +-----+            +-----+
                  | MPF |            | UPF |
-		 |     |            |     |
+                 |     |            |     |
                  | PF0 |            | PF1 |
-		 +--+--+            +--+--+
+                 +--+--+            +--+--+
           ......... ^................. ^..........
-		    |                  |
-		    |   PCIe DEVICE    |
+                    |                  |
+                    |   PCIe DEVICE    |
                     |                  |
                  +--+------------------+--+
                  |         SHELL          |
@@ -424,12 +424,12 @@ The full stack is illustrated below::
                     |            .     |     .
                  +-----+         .  +-----+  .
                  | MPF |         .  | UPF |  .
-		 |     |         .  |     |  .
+                 |     |         .  |     |  .
                  | PF0 |         .  | PF1 |  .
-		 +--+--+         .  +--+--+  .
+                 +--+--+         .  +--+--+  .
           ......... ^................. ^..........
-		    |                  |
-		    |   PCIe DEVICE    |
+                    |                  |
+                    |   PCIe DEVICE    |
                     |                  |
                  +--+------------------+--+
                  |         SHELL          |
