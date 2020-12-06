@@ -9,7 +9,7 @@
 #ifndef	_XMGMT_MAIN_H_
 #define	_XMGMT_MAIN_H_
 
-#include "uapi/xclbin.h"
+#include <linux/xrt/xclbin.h>
 
 enum xrt_mgmt_main_ioctl_cmd {
 	// section needs to be vfree'd by caller

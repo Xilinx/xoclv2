@@ -12,7 +12,7 @@
 #include "xrt-subdev.h"
 #include "xrt-cmc-impl.h"
 #include "xrt-cmc.h"
-#include "uapi/mailbox_proto.h"
+#include <linux/xrt/mailbox_proto.h>
 
 #define	XRT_CMC "xrt_cmc"
 

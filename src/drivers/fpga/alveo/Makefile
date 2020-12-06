@@ -11,11 +11,11 @@ all:
 	$(MAKE) lint
 
 tags:
-	../scripts/tags.sh
+	../../../../scripts/tags.sh
 
 clean:
 	$(MAKE) -C lib clean
 	$(MAKE) -C mgmt clean
 
 lint:
-	../scripts/lint.sh
+	../../../../scripts/lint.sh

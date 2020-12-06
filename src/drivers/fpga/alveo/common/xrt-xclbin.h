@@ -12,7 +12,7 @@
 
 #include <linux/types.h>
 #include <linux/device.h>
-#include "xclbin.h"
+#include <linux/xrt/xclbin.h>
 
 #define	ICAP_XCLBIN_V2	"xclbin2"
 #define DMA_HWICAP_BITFILE_BUFFER_SIZE 1024

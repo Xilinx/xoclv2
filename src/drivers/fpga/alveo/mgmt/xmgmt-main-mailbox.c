@@ -11,7 +11,7 @@
  */
 
 #include <linux/crc32c.h>
-#include "uapi/mailbox_proto.h"
+#include <linux/xrt/mailbox_proto.h>
 #include "xmgmt-main-impl.h"
 #include "xrt-mailbox.h"
 #include "xrt-cmc.h"

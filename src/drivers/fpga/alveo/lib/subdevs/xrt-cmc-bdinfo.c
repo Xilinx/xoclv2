@@ -9,7 +9,7 @@
 #include "xrt-subdev.h"
 #include "xrt-cmc-impl.h"
 #include "xmgmt-main.h"
-#include "uapi/mailbox_proto.h"
+#include <linux/xrt/mailbox_proto.h>
 
 enum board_info_key {
 	BDINFO_SN = 0x21,

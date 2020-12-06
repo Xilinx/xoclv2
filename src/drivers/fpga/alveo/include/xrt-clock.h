@@ -10,7 +10,7 @@
 #define	_XRT_CLOCK_H_
 
 #include "xrt-subdev.h"
-#include "xclbin.h"
+#include <linux/xrt/xclbin.h>
 
 /*
  * CLOCK driver IOCTL calls.

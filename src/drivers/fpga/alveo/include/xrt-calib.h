@@ -10,7 +10,7 @@
 #define	_XRT_CALIB_H_
 
 #include "xrt-subdev.h"
-#include "xclbin.h"
+#include <linux/xrt/xclbin.h>
 
 /*
  * Memory calibration driver IOCTL calls.
