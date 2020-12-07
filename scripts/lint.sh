@@ -21,6 +21,10 @@ do
     if [[ $item =~ $regex ]]; then
 	continue
     fi
+    regex="^.+lib\/fdt.*$"
+    if [[ $item =~ $regex ]]; then
+	continue
+    fi
     regex="^.+xclbin\.h$"
     if [[ $item =~ $regex ]]; then
 	continue
