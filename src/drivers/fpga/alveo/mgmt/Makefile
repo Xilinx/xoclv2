@@ -8,7 +8,7 @@
 obj-m	+= xmgmt.o
 
 commondir := ../common
-fdtdir := $(commondir)/libfdt
+fdtdir := ../../../../lib
 xmgmt-y := xmgmt-root.o				\
 	   xmgmt-main.o				\
 	   xmgmt-fmgr-drv.o      		\
@@ -20,7 +20,6 @@ xmgmt-y := xmgmt-root.o				\
 	   $(fdtdir)/fdt.o			\
 	   $(fdtdir)/fdt_addresses.o		\
 	   $(fdtdir)/fdt_empty_tree.o		\
-	   $(fdtdir)/fdt_overlay.o		\
 	   $(fdtdir)/fdt_ro.o			\
 	   $(fdtdir)/fdt_rw.o			\
 	   $(fdtdir)/fdt_strerror.o		\
@@ -32,8 +31,8 @@ CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 
 PWD	:= $(shell pwd)
-ROOT	:= $(dir $(M))
-XILINXINCLUDE := -I$(ROOT)/include -I$(ROOT)/include/uapi -I$(ROOT)/common/libfdt -I$(ROOT)/common
+ROOT	:= $(dir $(M))/../../../
+XILINXINCLUDE := -I$(ROOT)/drivers/fpga/alveo/include -I$(ROOT)/include/uapi -I$(ROOT)/scripts/dtc/libfdt -I$(ROOT)/drivers/fpga/alveo/common
 
 ccflags-y += $(XILINXINCLUDE)
 ifeq ($(DEBUG),1)

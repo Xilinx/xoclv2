@@ -11,7 +11,7 @@
 
 #include "linux/delay.h"
 #include "xrt-subdev.h"
-#include "uapi/mailbox_proto.h"
+#include <linux/xrt/mailbox_proto.h>
 
 #define	CMC_MAX_RETRY		150 /* Retry is set to 15s */
 #define	CMC_MAX_RETRY_LONG	(CMC_MAX_RETRY * 4) /* mailbox retry is 1min */

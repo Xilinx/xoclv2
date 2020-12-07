@@ -14,8 +14,8 @@
 #include "xrt-metadata.h"
 #include "xrt-flash.h"
 #include "xrt-subdev.h"
-#include "uapi/flash_xrt_data.h"
-#include "uapi/xmgmt-ioctl.h"
+#include <linux/xrt/flash_xrt_data.h>
+#include <linux/xrt/xmgmt-ioctl.h>
 #include "xrt-gpio.h"
 #include "xmgmt-main.h"
 #include "xmgmt-fmgr.h"

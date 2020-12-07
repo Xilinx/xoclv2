@@ -10,7 +10,7 @@
 #define	_XRT_CMC_H_
 
 #include "xrt-subdev.h"
-#include "xclbin.h"
+#include <linux/xrt/xclbin.h>
 
 /*
  * CMC driver IOCTL calls.

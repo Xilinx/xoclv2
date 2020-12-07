@@ -173,7 +173,7 @@
 #include <linux/ioctl.h>
 #include <linux/delay.h>
 #include <linux/crc32c.h>
-#include "uapi/mailbox_transport.h"
+#include <linux/xrt/mailbox_transport.h>
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
 #include "xrt-mailbox.h"

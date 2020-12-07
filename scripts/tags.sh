@@ -10,7 +10,7 @@ set -e
 
 ROOT=`git rev-parse --show-toplevel`
 ROOTSRC="$ROOT/src"
-out=TAGS
+out="$ROOT/TAGS"
 
 echo "Generating Emacs TAGS file $out from $ROOTSRC ..."
 ALL_FILES=$(git ls-files --exclude-standard --full-name $ROOTSRC)

@@ -14,7 +14,7 @@
 #include <linux/fpga/fpga-mgr.h>
 #include <linux/mutex.h>
 
-#include "xclbin.h"
+#include <linux/xrt/xclbin.h>
 
 enum xfpga_sec_level {
 	XFPGA_SEC_NONE = 0,
