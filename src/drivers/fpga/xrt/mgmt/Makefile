@@ -32,7 +32,7 @@ KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 
 PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))/../../../
-XILINXINCLUDE := -I$(ROOT)/drivers/fpga/alveo/include -I$(ROOT)/include/uapi -I$(ROOT)/scripts/dtc/libfdt -I$(ROOT)/drivers/fpga/alveo/common
+XILINXINCLUDE := -I$(ROOT)/drivers/fpga/xrt/include -I$(ROOT)/include/uapi -I$(ROOT)/scripts/dtc/libfdt -I$(ROOT)/drivers/fpga/xrt/common
 
 ccflags-y += $(XILINXINCLUDE)
 ifeq ($(DEBUG),1)
@@ -45,4 +45,4 @@ all:
 clean:
 	rm -rf *.o *.o.d *~ core .depend .*.cmd *.ko *.ko.unsigned *.mod.c \
 	.tmp_versions *.symvers modules.order *.mod .cache.mk \
-	$(fdtdir)/*.o $(commondir)/*.o
+	$(fdtdir)/*.o $(commondir)/*.o $(commondir)/*.o.cmd

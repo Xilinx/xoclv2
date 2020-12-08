@@ -10,12 +10,12 @@ XRTV2 drivers support *subsystem* style data driven platforms where driver's con
 and behavior is determined by meta data provided by platform (in *device tree* format).
 Primary management physical function (MPF) driver is called **xmgmt**. Primary user physical
 function (UPF) driver is called **xuser** and HW subsystem drivers are packaged into a library
-module called **xrt-lib**, which is shared by **xmgmt** and **xuser** (WIP).
+module called **xrt-lib**, which is shared by **xmgmt** and **xuser** (under development).
 
 Alveo Platform Overview
 =======================
 
-Alveo platforms are architected as two physical FPGA partitions: *Shell* and *User*. Shell
+Alveo platforms are architected as two physical FPGA partitions: *Shell* and *User*. The Shell
 provides basic infrastructure for the Alveo platform like PCIe connectivity, board management,
 Dynamic Function Exchange (DFX), sensors, clocking, reset, and security. User partition contains
 user compiled binary which is loaded by a process called DFX also known as partial reconfiguration.
@@ -56,14 +56,14 @@ The physical partitions and their loading is illustrated below::
 Loading Sequence
 ----------------
 
-Shell partition is loaded from flash at system boot time. It establishes the PCIe link and exposes
+The Shell partition is loaded from flash at system boot time. It establishes the PCIe link and exposes
 two physical functions to the BIOS. After OS boot, xmgmt driver attaches to PCIe physical function
 0 exposed by the Shell and then looks for VSEC in PCIe extended configuration space. Using VSEC it
 determines the logic UUID of Shell and uses the UUID to load matching *xsabin* file from Linux
 firmware directory. The xsabin file contains metadata to discover peripherals that are part of Shell
 and firmware(s) for any embedded soft processors in Shell.
 
-Shell exports child interface UUID which is used for compatibility check when loading user compiled
+The Shell exports child interface UUID which is used for compatibility check when loading user compiled
 xclbin over the User partition as part of DFX. When a user requests loading of a specific xclbin the
 xmgmt management driver reads the parent interface UUID specified in the xclbin and matches it with
 child interface UUID exported by Shell to determine if xclbin is compatible with the Shell. If match
@@ -478,7 +478,7 @@ on all platforms.
 xmgmt-root
 ^^^^^^^^^^
 
-The xmgmt-root driver is a PCIe device driver attaches to MPF. It's part of the
+The xmgmt-root driver is a PCIe device driver attached to MPF. It's part of the
 infrastructure of the MPF driver and resides in xmgmt.ko. This driver
 
 * manages one or more partition drivers
