@@ -51,7 +51,7 @@ KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 
 PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))/../../../
-XILINXINCLUDE := -I$(ROOT)/drivers/fpga/alveo/include -I$(ROOT)/include/uapi -I$(ROOT)/scripts/dtc/libfdt -I$(ROOT)/drivers/fpga/alveo/common
+XILINXINCLUDE := -I$(ROOT)/drivers/fpga/xrt/include -I$(ROOT)/include/uapi -I$(ROOT)/scripts/dtc/libfdt -I$(ROOT)/drivers/fpga/xrt/common
 
 ccflags-y += $(XILINXINCLUDE)
 ifeq ($(DEBUG),1)
