@@ -18,7 +18,7 @@ extern struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[];
 
 extern int xmgmt_download_bitstream(struct platform_device *pdev,
 	const void *xclbin);
-extern int xmgmt_xclbin_process(struct platform_device *pdev,
+extern int xmgmt_process_xclbin(struct platform_device *pdev,
 	void *fmgr, const void *xclbin, enum provider_kind kind);
 extern void xmgmt_region_cleanup_all(struct platform_device *pdev);
 

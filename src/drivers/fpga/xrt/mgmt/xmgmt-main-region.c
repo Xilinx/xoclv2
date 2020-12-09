@@ -321,7 +321,7 @@ static int xmgmt_get_bridges(struct fpga_region *re)
 /*
  * Program/Create FPGA regions based on input xclbin file.
  */
-int xmgmt_xclbin_process(struct platform_device *pdev,
+int xmgmt_process_xclbin(struct platform_device *pdev,
 	void *fmgr, const void *xclbin, enum provider_kind kind)
 {
 	struct fpga_region *re, *compat_re = NULL;

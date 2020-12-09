@@ -234,7 +234,7 @@ static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
 	len = xclbin->m_header.m_length;
 	if (off + count >= len && off < len) {
 		memcpy(xmm->firmware_ulp + off, buffer, len - off);
-		xmgmt_xclbin_process(xmm->pdev, xmm->fmgr, xmm->firmware_ulp,
+		xmgmt_process_xclbin(xmm->pdev, xmm->fmgr, xmm->firmware_ulp,
 			XMGMT_ULP);
 	} else if (off + count < len) {
 		memcpy(xmm->firmware_ulp + off, buffer, count);
@@ -500,7 +500,7 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 
 	dtb = xmgmt_get_dtb(pdev, XMGMT_BLP);
 	if (dtb) {
-		rc = xmgmt_xclbin_process(xmm->pdev, xmm->fmgr,
+		rc = xmgmt_process_xclbin(xmm->pdev, xmm->fmgr,
 			provider, XMGMT_BLP);
 		if (rc) {
 			xrt_err(pdev, "failed to process BLP: %d", rc);
@@ -707,7 +707,7 @@ static int xmgmt_bitstream_axlf_fpga_mgr(struct xmgmt_main *xmm,
 	vfree(xmm->firmware_ulp);
 	xmm->firmware_ulp = NULL;
 
-	ret = xmgmt_xclbin_process(xmm->pdev, xmm->fmgr, axlf, XMGMT_ULP);
+	ret = xmgmt_process_xclbin(xmm->pdev, xmm->fmgr, axlf, XMGMT_ULP);
 	if (ret == 0)
 		xmm->firmware_ulp = axlf;
 
