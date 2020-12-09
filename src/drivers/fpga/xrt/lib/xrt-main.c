@@ -7,7 +7,7 @@
  */
 
 #include <linux/module.h>
-#include "xrt-subdev.h"
+#include "subdev.h"
 #include "xrt-main.h"
 
 #define	XRT_IPLIB_MODULE_NAME		"xrt-lib"

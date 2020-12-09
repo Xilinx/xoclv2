@@ -8,10 +8,10 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#include "xrt-metadata.h"
-#include "xrt-subdev.h"
+#include "metadata.h"
+#include "subdev.h"
 #include "xrt-cmc-impl.h"
-#include "xrt-cmc.h"
+#include "subdev/cmc.h"
 #include <linux/xrt/mailbox_proto.h>
 
 #define	XRT_CMC "xrt_cmc"

@@ -10,7 +10,7 @@
 #define	_XRT_ROOT_H_
 
 #include <linux/pci.h>
-#include "xrt-subdev.h"
+#include "subdev.h"
 
 int xroot_probe(struct pci_dev *pdev, void **root);
 void xroot_remove(void *root);

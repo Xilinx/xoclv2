@@ -9,8 +9,8 @@
  */
 
 #include <linux/platform_device.h>
-#include "xrt-metadata.h"
-#include "xrt-subdev.h"
+#include "metadata.h"
+#include "subdev.h"
 
 #define XRT_VSEC "xrt_vsec"
 

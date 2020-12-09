@@ -13,10 +13,10 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include "xrt-metadata.h"
-#include "xrt-subdev.h"
-#include "xrt-parent.h"
-#include "xrt-axigate.h"
+#include "metadata.h"
+#include "subdev.h"
+#include "parent.h"
+#include "subdev/axigate.h"
 
 #define XRT_AXIGATE "xrt_axigate"
 

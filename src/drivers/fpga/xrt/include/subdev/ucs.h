@@ -9,7 +9,7 @@
 #ifndef	_XRT_UCS_H_
 #define	_XRT_UCS_H_
 
-#include "xrt-subdev.h"
+#include "subdev.h"
 
 /*
  * UCS driver IOCTL calls.

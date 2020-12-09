@@ -10,7 +10,7 @@
 #ifndef	_XMGMT_MAIN_IMPL_H_
 #define	_XMGMT_MAIN_IMPL_H_
 
-#include "xrt-subdev.h"
+#include "subdev.h"
 #include "xmgmt-main.h"
 
 extern struct platform_driver xmgmt_main_driver;

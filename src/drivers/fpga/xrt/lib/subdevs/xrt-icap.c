@@ -13,10 +13,10 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include "xrt-metadata.h"
-#include "xrt-subdev.h"
-#include "xrt-parent.h"
-#include "xrt-icap.h"
+#include "metadata.h"
+#include "subdev.h"
+#include "parent.h"
+#include "subdev/icap.h"
 #include "xrt-xclbin.h"
 
 #define XRT_ICAP "xrt_icap"

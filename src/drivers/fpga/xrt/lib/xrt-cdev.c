@@ -8,7 +8,7 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#include "xrt-subdev.h"
+#include "subdev.h"
 
 extern struct class *xrt_class;
 

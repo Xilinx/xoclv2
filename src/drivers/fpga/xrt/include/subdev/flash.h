@@ -9,7 +9,7 @@
 #ifndef	_XRT_FLASH_H_
 #define	_XRT_FLASH_H_
 
-#include "xrt-subdev.h"
+#include "subdev.h"
 
 /*
  * Flash controller driver IOCTL calls.

@@ -10,8 +10,8 @@
 #define	_XRT_AXIGATE_H_
 
 
-#include "xrt-subdev.h"
-#include "xrt-metadata.h"
+#include "subdev.h"
+#include "metadata.h"
 
 /*
  * AXIGATE driver IOCTL calls.

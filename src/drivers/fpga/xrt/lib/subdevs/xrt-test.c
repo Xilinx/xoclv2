@@ -9,8 +9,8 @@
  */
 
 #include <linux/delay.h>
-#include "xrt-metadata.h"
-#include "xrt-subdev.h"
+#include "metadata.h"
+#include "subdev.h"
 
 #define	XRT_TEST "xrt_test"
 

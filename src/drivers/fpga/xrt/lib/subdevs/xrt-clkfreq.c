@@ -13,10 +13,10 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include "xrt-metadata.h"
-#include "xrt-subdev.h"
-#include "xrt-parent.h"
-#include "xrt-clkfreq.h"
+#include "metadata.h"
+#include "subdev.h"
+#include "parent.h"
+#include "subdev/clkfreq.h"
 
 #define CLKFREQ_ERR(clkfreq, fmt, arg...)   \
 	xrt_err((clkfreq)->pdev, fmt "\n", ##arg)

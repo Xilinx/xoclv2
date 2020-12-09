@@ -13,10 +13,10 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include "xrt-metadata.h"
-#include "xrt-subdev.h"
-#include "xrt-parent.h"
-#include "xrt-ddr-srsr.h"
+#include "metadata.h"
+#include "subdev.h"
+#include "parent.h"
+#include "subdev/ddr-srsr.h"
 
 #define XRT_DDR_SRSR "xrt_ddr_srsr"
 

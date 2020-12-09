@@ -10,11 +10,11 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/hwmon.h>
-#include "xrt-subdev.h"
-#include "xrt-parent.h"
-#include "xrt-partition.h"
+#include "subdev.h"
+#include "parent.h"
+#include "partition.h"
 #include "xrt-root.h"
-#include "xrt-metadata.h"
+#include "metadata.h"
 #include "xrt-root.h"
 
 #define	XROOT_PDEV(xr)		((xr)->pdev)
