@@ -11,9 +11,9 @@
 #include <linux/firmware.h>
 #include <linux/uaccess.h>
 #include "xrt-xclbin.h"
-#include "xrt-metadata.h"
+#include "metadata.h"
 #include "subdev/flash.h"
-#include "xrt-subdev.h"
+#include "subdev.h"
 #include <linux/xrt/flash_xrt_data.h>
 #include <linux/xrt/xmgmt-ioctl.h>
 #include "subdev/gpio.h"

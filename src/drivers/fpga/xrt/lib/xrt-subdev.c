@@ -9,10 +9,10 @@
 #include <linux/platform_device.h>
 #include <linux/pci.h>
 #include <linux/vmalloc.h>
-#include "xrt-subdev.h"
-#include "xrt-parent.h"
+#include "subdev.h"
+#include "parent.h"
 #include "xrt-main.h"
-#include "xrt-metadata.h"
+#include "metadata.h"
 
 #define DEV_IS_PCI(dev) ((dev)->bus == &pci_bus_type)
 static inline struct device *find_root(struct platform_device *pdev)

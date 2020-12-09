@@ -15,7 +15,7 @@
 #include "xmgmt-main-impl.h"
 #include "subdev/mailbox.h"
 #include "subdev/cmc.h"
-#include "xrt-metadata.h"
+#include "metadata.h"
 #include "xrt-xclbin.h"
 #include "subdev/clock.h"
 #include "subdev/calib.h"

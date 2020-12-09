@@ -11,7 +11,7 @@
 #include <linux/vmalloc.h>
 #include <linux/device.h>
 #include "xrt-xclbin.h"
-#include "xrt-metadata.h"
+#include "metadata.h"
 
 /* Used for parsing bitstream header */
 #define XHI_EVEN_MAGIC_BYTE     0x0f

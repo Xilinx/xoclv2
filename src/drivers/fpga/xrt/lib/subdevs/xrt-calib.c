@@ -11,7 +11,7 @@
  */
 #include <linux/delay.h>
 #include "xrt-xclbin.h"
-#include "xrt-metadata.h"
+#include "metadata.h"
 #include "subdev/ddr-srsr.h"
 #include "subdev/calib.h"
 

@@ -9,7 +9,7 @@
 #ifndef	_XRT_GPIO_H_
 #define	_XRT_GPIO_H_
 
-#include "xrt-subdev.h"
+#include "subdev.h"
 
 /*
  * GPIO driver IOCTL calls.

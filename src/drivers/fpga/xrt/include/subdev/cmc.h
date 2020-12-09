@@ -9,7 +9,7 @@
 #ifndef	_XRT_CMC_H_
 #define	_XRT_CMC_H_
 
-#include "xrt-subdev.h"
+#include "subdev.h"
 #include <linux/xrt/xclbin.h>
 
 /*

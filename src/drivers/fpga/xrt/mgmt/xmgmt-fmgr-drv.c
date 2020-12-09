@@ -15,7 +15,7 @@
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 
-#include "xrt-subdev.h"
+#include "subdev.h"
 #include "xmgmt-fmgr.h"
 #include "subdev/axigate.h"
 #include "xmgmt-main-impl.h"

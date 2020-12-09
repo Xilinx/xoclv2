@@ -174,8 +174,8 @@
 #include <linux/delay.h>
 #include <linux/crc32c.h>
 #include <linux/xrt/mailbox_transport.h>
-#include "xrt-metadata.h"
-#include "xrt-subdev.h"
+#include "metadata.h"
+#include "subdev.h"
 #include "subdev/mailbox.h"
 #include "xmgmt-main.h"
 

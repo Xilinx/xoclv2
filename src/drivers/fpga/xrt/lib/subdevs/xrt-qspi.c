@@ -10,8 +10,8 @@
 
 #include <linux/delay.h>
 #include <linux/uaccess.h>
-#include "xrt-metadata.h"
-#include "xrt-subdev.h"
+#include "metadata.h"
+#include "subdev.h"
 #include "subdev/flash.h"
 
 #define	XRT_QSPI "xrt_qspi"

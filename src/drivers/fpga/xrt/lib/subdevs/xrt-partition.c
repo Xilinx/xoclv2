@@ -10,10 +10,10 @@
 
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
-#include "xrt-subdev.h"
-#include "xrt-parent.h"
-#include "xrt-partition.h"
-#include "xrt-metadata.h"
+#include "subdev.h"
+#include "parent.h"
+#include "partition.h"
+#include "metadata.h"
 #include "../xrt-main.h"
 
 #define	XRT_PART "xrt_partition"

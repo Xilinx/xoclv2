@@ -13,9 +13,9 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include "xrt-metadata.h"
-#include "xrt-subdev.h"
-#include "xrt-parent.h"
+#include "metadata.h"
+#include "subdev.h"
+#include "parent.h"
 #include "subdev/gpio.h"
 
 #define XRT_GPIO "xrt_gpio"

@@ -15,9 +15,9 @@
 #include <linux/delay.h>
 
 #include "xrt-root.h"
-#include "xrt-subdev.h"
+#include "subdev.h"
 #include "xmgmt-main-impl.h"
-#include "xrt-metadata.h"
+#include "metadata.h"
 
 #define	XMGMT_MODULE_NAME	"xmgmt"
 #define	XMGMT_DRIVER_VERSION	"4.0.0"

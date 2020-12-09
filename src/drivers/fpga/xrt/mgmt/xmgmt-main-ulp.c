@@ -13,8 +13,8 @@
 #include <linux/firmware.h>
 #include <linux/uaccess.h>
 #include "xrt-xclbin.h"
-#include "xrt-metadata.h"
-#include "xrt-subdev.h"
+#include "metadata.h"
+#include "subdev.h"
 #include "subdev/gpio.h"
 #include "xmgmt-main.h"
 #include "subdev/icap.h"
