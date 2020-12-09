@@ -16,8 +16,8 @@
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
 #include "xrt-parent.h"
-#include "xrt-ucs.h"
-#include "xrt-clock.h"
+#include "subdev/ucs.h"
+#include "subdev/clock.h"
 
 #define UCS_ERR(ucs, fmt, arg...)   \
 	xrt_err((ucs)->pdev, fmt "\n", ##arg)

@@ -11,7 +11,7 @@
 #include <linux/platform_device.h>
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
-#include "xrt-gpio.h"
+#include "subdev/gpio.h"
 
 #define XRT_VSEC_GOLDEN "xrt_vsec_golden"
 

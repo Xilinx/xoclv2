@@ -12,15 +12,15 @@
 #include <linux/uaccess.h>
 #include "xrt-xclbin.h"
 #include "xrt-metadata.h"
-#include "xrt-flash.h"
+#include "subdev/flash.h"
 #include "xrt-subdev.h"
 #include <linux/xrt/flash_xrt_data.h>
 #include <linux/xrt/xmgmt-ioctl.h>
-#include "xrt-gpio.h"
+#include "subdev/gpio.h"
 #include "xmgmt-main.h"
 #include "xmgmt-fmgr.h"
-#include "xrt-icap.h"
-#include "xrt-axigate.h"
+#include "subdev/icap.h"
+#include "subdev/axigate.h"
 #include "xmgmt-main-impl.h"
 
 #define	XMGMT_MAIN "xmgmt_main"

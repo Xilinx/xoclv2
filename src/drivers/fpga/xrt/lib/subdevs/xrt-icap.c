@@ -16,7 +16,7 @@
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
 #include "xrt-parent.h"
-#include "xrt-icap.h"
+#include "subdev/icap.h"
 #include "xrt-xclbin.h"
 
 #define XRT_ICAP "xrt_icap"

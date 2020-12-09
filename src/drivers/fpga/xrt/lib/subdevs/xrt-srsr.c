@@ -16,7 +16,7 @@
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
 #include "xrt-parent.h"
-#include "xrt-ddr-srsr.h"
+#include "subdev/ddr-srsr.h"
 
 #define XRT_DDR_SRSR "xrt_ddr_srsr"
 

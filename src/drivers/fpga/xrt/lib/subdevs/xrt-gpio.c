@@ -16,7 +16,7 @@
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
 #include "xrt-parent.h"
-#include "xrt-gpio.h"
+#include "subdev/gpio.h"
 
 #define XRT_GPIO "xrt_gpio"
 

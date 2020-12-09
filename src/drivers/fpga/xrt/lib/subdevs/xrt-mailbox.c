@@ -176,7 +176,7 @@
 #include <linux/xrt/mailbox_transport.h>
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
-#include "xrt-mailbox.h"
+#include "subdev/mailbox.h"
 #include "xmgmt-main.h"
 
 #define	FLAG_STI	(1 << 0)

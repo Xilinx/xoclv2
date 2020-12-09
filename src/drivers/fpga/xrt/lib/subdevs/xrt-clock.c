@@ -16,8 +16,8 @@
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
 #include "xrt-parent.h"
-#include "xrt-clock.h"
-#include "xrt-clkfreq.h"
+#include "subdev/clock.h"
+#include "subdev/clkfreq.h"
 
 /* CLOCK_MAX_NUM_CLOCKS should be a concept from XCLBIN_ in the future */
 #define	CLOCK_MAX_NUM_CLOCKS		4

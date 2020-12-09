@@ -17,7 +17,7 @@
 
 #include "xrt-subdev.h"
 #include "xmgmt-fmgr.h"
-#include "xrt-axigate.h"
+#include "subdev/axigate.h"
 #include "xmgmt-main-impl.h"
 
 /*

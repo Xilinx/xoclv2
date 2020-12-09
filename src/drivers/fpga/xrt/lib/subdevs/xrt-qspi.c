@@ -12,7 +12,7 @@
 #include <linux/uaccess.h>
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
-#include "xrt-flash.h"
+#include "subdev/flash.h"
 
 #define	XRT_QSPI "xrt_qspi"
 

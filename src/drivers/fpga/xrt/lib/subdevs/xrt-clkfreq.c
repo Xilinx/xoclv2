@@ -16,7 +16,7 @@
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
 #include "xrt-parent.h"
-#include "xrt-clkfreq.h"
+#include "subdev/clkfreq.h"
 
 #define CLKFREQ_ERR(clkfreq, fmt, arg...)   \
 	xrt_err((clkfreq)->pdev, fmt "\n", ##arg)

@@ -16,7 +16,7 @@
 #include "xrt-metadata.h"
 #include "xrt-subdev.h"
 #include "xrt-parent.h"
-#include "xrt-axigate.h"
+#include "subdev/axigate.h"
 
 #define XRT_AXIGATE "xrt_axigate"
 
