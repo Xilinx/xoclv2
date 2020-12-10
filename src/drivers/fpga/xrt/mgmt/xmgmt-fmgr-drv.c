@@ -15,9 +15,11 @@
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 
+#include "xrt-xclbin.h"
 #include "subdev.h"
 #include "xmgmt-fmgr.h"
 #include "subdev/axigate.h"
+#include "subdev/icap.h"
 #include "xmgmt-main-impl.h"
 
 /*
@@ -41,6 +43,49 @@ struct xfpga_klass {
 };
 
 struct key *xfpga_keys;
+
+int xmgmt_download_bitstream(struct platform_device  *pdev,
+	const void *xclbin)
+{
+	struct platform_device *icap_leaf = NULL;
+	struct XHwIcap_Bit_Header bit_header = { 0 };
+	struct xrt_icap_ioctl_wr arg;
+	char *bitstream = NULL;
+	int ret;
+
+	ret = xrt_xclbin_get_section(xclbin, BITSTREAM, (void **)&bitstream,
+		NULL);
+	if (ret || !bitstream) {
+		xrt_err(pdev, "bitstream not found");
+		return -ENOENT;
+	}
+	ret = xrt_xclbin_parse_header(bitstream,
+		DMA_HWICAP_BITFILE_BUFFER_SIZE, &bit_header);
+	if (ret) {
+		ret = -EINVAL;
+		xrt_err(pdev, "invalid bitstream header");
+		goto done;
+	}
+	icap_leaf = xrt_subdev_get_leaf_by_id(pdev, XRT_SUBDEV_ICAP,
+		PLATFORM_DEVID_NONE);
+	if (!icap_leaf) {
+		ret = -ENODEV;
+		xrt_err(pdev, "icap does not exist");
+		goto done;
+	}
+	arg.xiiw_bit_data = bitstream + bit_header.HeaderLength;
+	arg.xiiw_data_len = bit_header.BitstreamLength;
+	ret = xrt_subdev_ioctl(icap_leaf, XRT_ICAP_WRITE, &arg);
+	if (ret)
+		xrt_err(pdev, "write bitstream failed, ret = %d", ret);
+
+done:
+	if (icap_leaf)
+		xrt_subdev_put_leaf(pdev, icap_leaf);
+	vfree(bitstream);
+
+	return ret;
+}
 
 static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 	struct fpga_image_info *info, const char *buf, size_t count)
@@ -122,7 +167,7 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 		return -EINVAL;
 	}
 
-	result = xmgmt_ulp_download((void *)obj->pdev, obj->blob);
+	result = xmgmt_download_bitstream((void *)obj->pdev, obj->blob);
 
 	obj->state = result ? FPGA_MGR_STATE_WRITE_COMPLETE_ERR :
 		FPGA_MGR_STATE_WRITE_COMPLETE;
