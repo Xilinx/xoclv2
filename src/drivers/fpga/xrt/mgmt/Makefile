@@ -13,7 +13,6 @@ xmgmt-y := xmgmt-root.o				\
 	   xmgmt-main.o				\
 	   xmgmt-fmgr-drv.o      		\
 	   xmgmt-main-region.o			\
-	   xmgmt-main-mailbox.o			\
 	   $(commondir)/xrt-root.o		\
 	   $(commondir)/xrt-metadata.o		\
 	   $(commondir)/xrt-xclbin.o		\
