@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0 */
 /*
  * Xilinx Kernel Driver XCLBIN parser
  *
