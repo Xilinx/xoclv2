@@ -13,7 +13,6 @@
 #include "xrt-xclbin.h"
 #include "metadata.h"
 #include "subdev.h"
-#include <linux/xrt/flash_xrt_data.h>
 #include <linux/xrt/xmgmt-ioctl.h>
 #include "subdev/gpio.h"
 #include "xmgmt-main.h"
