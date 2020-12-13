@@ -203,6 +203,9 @@ static struct attribute *xmgmt_main_attrs[] = {
 	NULL,
 };
 
+/*
+ * sysfs hook to load xclbin
+ */
 static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
 	struct bin_attribute *attr, char *buffer, loff_t off, size_t count)
 {
@@ -226,7 +229,7 @@ static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
 		if (!xmm->firmware_ulp)
 			return -ENOMEM;
 	} else
-		xclbin = (struct axlf *)xmm->firmware_ulp;
+		xclbin = xmm->firmware_ulp;
 
 	len = xclbin->m_header.m_length;
 	if (off + count >= len && off < len) {
@@ -693,6 +696,10 @@ static int xmgmt_main_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
+/*
+ * Called for xclbin download by either: xclbin load ioctl or
+ * peer request from the userpf driver over mailbox.
+ */
 static int xmgmt_bitstream_axlf_fpga_mgr(struct xmgmt_main *xmm,
 	void *axlf, size_t size)
 {

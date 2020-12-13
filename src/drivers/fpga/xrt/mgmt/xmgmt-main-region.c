@@ -173,6 +173,14 @@ static int xmgmt_region_match(struct device *dev, const void *data)
 		return false;
 
 	match_re = to_fpga_region(dev);
+	/*
+	 * The device tree provides both parent and child uuids for an
+	 * xclbin in one array. Here we try both uuids to see if it matches
+	 * with target region's compat_id. Strictly speaking we should
+	 * only match xclbin's parent uuid with target region's compat_id
+	 * but given the uuids by design are unique comparing with both
+	 * does not hurt.
+	 */
 	for (i = 0; i < arg->uuid_num; i++) {
 		if (!memcmp(match_re->compat_id, &arg->uuids[i],
 		    sizeof(*match_re->compat_id)))
@@ -320,14 +328,22 @@ static int xmgmt_get_bridges(struct fpga_region *re)
 
 /*
  * Program/Create FPGA regions based on input xclbin file.
+ * Key function stiching the flow together:
+ * 1. Identify a matching existing region for this xclbin
+ * 2. Program that region with this xclbin
+ * 3. Create the 'partition' object which manages the subdevs instantiated
+ *    in this region
+ * 4. Wait for the 'partition' to initialize all the subdevs
+ * 5. If the xclbin defines a child region -- in the chanin -- then create
+ *    child region for a futre download to that newly created region
  */
 int xmgmt_process_xclbin(struct platform_device *pdev,
-	void *fmgr, const void *xclbin, enum provider_kind kind)
+	struct fpga_manager *fmgr, const struct axlf *xclbin, enum provider_kind kind)
 {
 	struct fpga_region *re, *compat_re = NULL;
+	struct xmgmt_region_match_arg arg;
 	struct xmgmt_region *r_data;
 	char *dtb = NULL;
-	struct xmgmt_region_match_arg arg;
 	int rc, i;
 
 	rc = xrt_xclbin_get_metadata(DEV(pdev), xclbin, &dtb);
@@ -396,7 +412,7 @@ int xmgmt_process_xclbin(struct platform_device *pdev,
 			continue;
 		re = fpga_region_create(DEV(pdev), fmgr, xmgmt_get_bridges);
 		if (!re) {
-			xrt_err(pdev, "failed to creaste fpga region");
+			xrt_err(pdev, "failed to create fpga region");
 			rc = -EFAULT;
 			goto failed;
 		}
