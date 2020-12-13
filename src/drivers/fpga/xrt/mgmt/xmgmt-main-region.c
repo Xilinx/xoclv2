@@ -334,8 +334,8 @@ static int xmgmt_get_bridges(struct fpga_region *re)
  * 3. Create the 'partition' object which manages the subdevs instantiated
  *    in this region
  * 4. Wait for the 'partition' to initialize all the subdevs
- * 5. If the xclbin defines a child region -- in the chanin -- then create
- *    child region for a futre download to that newly created region
+ * 5. If the xclbin defines child region(s) then create child region
+ *    which will be programmed by a future download to that region
  */
 int xmgmt_process_xclbin(struct platform_device *pdev,
 	struct fpga_manager *fmgr, const struct axlf *xclbin, enum provider_kind kind)
@@ -408,7 +408,8 @@ int xmgmt_process_xclbin(struct platform_device *pdev,
 	/* create all the new regions contained in this xclbin */
 	for (i = 0; i < arg.uuid_num; i++) {
 		if (compat_re && !memcmp(compat_re->compat_id, &arg.uuids[i],
-		    sizeof(*compat_re->compat_id)))
+					 sizeof(*compat_re->compat_id)))
+			/* region for this interface already exists */
 			continue;
 		re = fpga_region_create(DEV(pdev), fmgr, xmgmt_get_bridges);
 		if (!re) {

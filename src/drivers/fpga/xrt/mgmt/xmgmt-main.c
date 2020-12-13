@@ -204,7 +204,7 @@ static struct attribute *xmgmt_main_attrs[] = {
 };
 
 /*
- * sysfs hook to load xclbin
+ * sysfs hook to load xclbin primarily used for driver debug
  */
 static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
 	struct bin_attribute *attr, char *buffer, loff_t off, size_t count)
