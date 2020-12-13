@@ -105,7 +105,7 @@ static int xrt_xclbin_section_info(const struct axlf *xclbin,
 }
 
 /* caller should free the allocated memory for **data */
-int xrt_xclbin_get_section(const char *buf,
+int xrt_xclbin_get_section(const struct axlf *buf,
 	enum axlf_section_kind kind, void **data, uint64_t *len)
 {
 	const struct axlf *xclbin = (const struct axlf *)buf;
@@ -317,7 +317,7 @@ static const char *clock_type2clkfreq_name(u32 type)
 }
 
 static int xrt_xclbin_add_clock_metadata(struct device *dev,
-	const char *xclbin, char *dtb)
+	const struct axlf *xclbin, char *dtb)
 {
 	int i;
 	u16 freq;
@@ -353,7 +353,7 @@ static int xrt_xclbin_add_clock_metadata(struct device *dev,
 	return rc;
 }
 
-int xrt_xclbin_get_metadata(struct device *dev, const char *xclbin, char **dtb)
+int xrt_xclbin_get_metadata(struct device *dev, const struct axlf *xclbin, char **dtb)
 {
 	char *md = NULL, *newmd = NULL;
 	u64 len;

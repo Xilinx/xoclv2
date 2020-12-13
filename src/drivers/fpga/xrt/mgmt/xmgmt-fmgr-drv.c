@@ -24,11 +24,8 @@
 
 struct xfpga_klass {
 	const struct platform_device *pdev;
-	char                 name[64];
-	enum xfpga_sec_level sec_level;
+	char                          name[64];
 };
-
-struct key *xfpga_keys;
 
 /*
  * xclbin download plumbing -- find the download subsystem, ICAP and
@@ -44,7 +41,7 @@ static int xmgmt_download_bitstream(struct platform_device *pdev,
 	char *bitstream = NULL;
 	int ret;
 
-	ret = xrt_xclbin_get_section((const char *)xclbin, BITSTREAM, (void **)&bitstream,
+	ret = xrt_xclbin_get_section(xclbin, BITSTREAM, (void **)&bitstream,
 		NULL);
 	if (ret || !bitstream) {
 		xrt_err(pdev, "bitstream not found");
@@ -78,6 +75,10 @@ done:
 	return ret;
 }
 
+/*
+ * There is no HW prep work we do here since we need the full
+ * xclbin for its sanity check.
+ */
 static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 	struct fpga_image_info *info, const char *buf, size_t count)
 {
@@ -146,7 +147,8 @@ static const struct fpga_manager_ops xmgmt_pr_ops = {
 
 struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev)
 {
-	struct xfpga_klass *obj = vzalloc(sizeof(struct xfpga_klass));
+	struct xfpga_klass *obj = devm_kzalloc(DEV(pdev), sizeof(struct xfpga_klass),
+					       GFP_KERNEL);
 	struct fpga_manager *fmgr = NULL;
 	int ret = 0;
 
@@ -162,11 +164,9 @@ struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev)
 	if (!fmgr)
 		return ERR_PTR(-ENOMEM);
 
-	obj->sec_level = XFPGA_SEC_NONE;
 	ret = fpga_mgr_register(fmgr);
 	if (ret) {
 		fpga_mgr_free(fmgr);
-		kfree(obj);
 		return ERR_PTR(ret);
 	}
 	return fmgr;
@@ -174,9 +174,6 @@ struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev)
 
 int xmgmt_fmgr_remove(struct fpga_manager *fmgr)
 {
-	struct xfpga_klass *obj = fmgr->priv;
-
 	fpga_mgr_unregister(fmgr);
-	vfree(obj);
 	return 0;
 }

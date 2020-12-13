@@ -546,7 +546,8 @@ Ioctls exposed by xmgmt driver to user space are enumerated in the following tab
 2  CL frequency scaling  XMGMT_IOCFREQSCALE            xmgmt_ioc_freqscaling
 == ===================== ============================= ===========================
 
-Vitis compiled xclbin can be loaded by using the following command::
+A xclbin can be downloaded by using xbmgmt tool from XRT open source suite. See
+example usage below ::
 
   xbmgmt partition --program --path /lib/firmware/xilinx/862c7020a250293e32036f19956669e5/test/verify.xclbin --force
 
