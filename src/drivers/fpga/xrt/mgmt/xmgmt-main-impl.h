@@ -13,13 +13,12 @@
 #include "subdev.h"
 #include "xmgmt-main.h"
 
+struct fpga_manager;
 extern struct platform_driver xmgmt_main_driver;
 extern struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[];
 
-extern int xmgmt_download_bitstream(struct platform_device *pdev,
-	const void *xclbin);
 extern int xmgmt_process_xclbin(struct platform_device *pdev,
-	void *fmgr, const void *xclbin, enum provider_kind kind);
+	struct fpga_manager *fmgr, const struct axlf *xclbin, enum provider_kind kind);
 extern void xmgmt_region_cleanup_all(struct platform_device *pdev);
 
 extern int bitstream_axlf_mailbox(struct platform_device *pdev,

@@ -22,7 +22,9 @@ enum axlf_section_kind;
 struct axlf;
 
 /**
- * Bitstream header information.
+ * Bitstream header information as defined by Xilinx tools.
+ * Please note that this struct definition is not owned by the driver and
+ * hence it does not use Linux coding style.
  */
 struct XHwIcap_Bit_Header {
 	unsigned int HeaderLength;     /* Length of header in 32 bit words */
@@ -35,9 +37,9 @@ struct XHwIcap_Bit_Header {
 };
 
 const char *xrt_xclbin_kind_to_string(enum axlf_section_kind kind);
-int xrt_xclbin_get_section(const char *xclbin,
+int xrt_xclbin_get_section(const struct axlf *xclbin,
 	enum axlf_section_kind kind, void **data, uint64_t *len);
-int xrt_xclbin_get_metadata(struct device *dev, const char *xclbin, char **dtb);
+int xrt_xclbin_get_metadata(struct device *dev, const struct axlf *xclbin, char **dtb);
 int xrt_xclbin_parse_header(const unsigned char *data,
 	unsigned int size, struct XHwIcap_Bit_Header *header);
 void xrt_xclbin_free_header(struct XHwIcap_Bit_Header *header);

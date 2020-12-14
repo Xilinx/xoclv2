@@ -22,33 +22,21 @@
 #include "subdev/icap.h"
 #include "xmgmt-main-impl.h"
 
-/*
- * Container to capture and cache full xclbin as it is passed in blocks by FPGA
- * Manager. Driver needs access to full xclbin to walk through xclbin sections.
- * FPGA Manager's .write() backend sends incremental blocks without any
- * knowledge of xclbin format forcing us to collect the blocks and stitch them
- * together here.
- */
-
 struct xfpga_klass {
 	const struct platform_device *pdev;
-	struct axlf         *blob;
-	char                 name[64];
-	size_t               count;
-	size_t               total_count;
-	struct mutex         axlf_lock;
-	int                  reader_ref;
-	enum fpga_mgr_states state;
-	enum xfpga_sec_level sec_level;
+	char                          name[64];
 };
 
-struct key *xfpga_keys;
+/*
+ * xclbin download plumbing -- find the download subsystem, ICAP and
+ * pass the xclbin for heavy lifting
+ */
+static int xmgmt_download_bitstream(struct platform_device *pdev,
+	const struct axlf *xclbin)
 
-int xmgmt_download_bitstream(struct platform_device  *pdev,
-	const void *xclbin)
 {
-	struct platform_device *icap_leaf = NULL;
 	struct XHwIcap_Bit_Header bit_header = { 0 };
+	struct platform_device *icap_leaf = NULL;
 	struct xrt_icap_ioctl_wr arg;
 	char *bitstream = NULL;
 	int ret;
@@ -87,103 +75,65 @@ done:
 	return ret;
 }
 
+/*
+ * There is no HW prep work we do here since we need the full
+ * xclbin for its sanity check.
+ */
 static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 	struct fpga_image_info *info, const char *buf, size_t count)
 {
-	struct xfpga_klass *obj = mgr->priv;
 	const struct axlf *bin = (const struct axlf *)buf;
+	struct xfpga_klass *obj = mgr->priv;
 
-	if (count < sizeof(struct axlf)) {
-		obj->state = FPGA_MGR_STATE_WRITE_INIT_ERR;
+	if (!(info->flags & FPGA_MGR_PARTIAL_RECONFIG)) {
+		xrt_info(obj->pdev, "%s only supports partial reconfiguration\n", obj->name);
 		return -EINVAL;
 	}
 
-	if (count > bin->m_header.m_length) {
-		obj->state = FPGA_MGR_STATE_WRITE_INIT_ERR;
+	if (count < sizeof(struct axlf))
 		return -EINVAL;
-	}
 
-	/* Free up the previous blob */
-	vfree(obj->blob);
-	obj->blob = vmalloc(bin->m_header.m_length);
-	if (!obj->blob) {
-		obj->state = FPGA_MGR_STATE_WRITE_INIT_ERR;
-		return -ENOMEM;
-	}
+	if (count > bin->m_header.m_length)
+		return -EINVAL;
 
-	xrt_info(obj->pdev, "Begin download of xclbin %pUb of length %lld B",
+	xrt_info(obj->pdev, "Prepare download of xclbin %pUb of length %lld B",
 		&bin->m_header.uuid, bin->m_header.m_length);
 
-	obj->count = 0;
-	obj->total_count = bin->m_header.m_length;
-	obj->state = FPGA_MGR_STATE_WRITE_INIT;
 	return 0;
 }
 
+/*
+ * The implementation requries full xclbin image before we can start
+ * programming the hardware via ICAP subsystem. Full image is required
+ * for checking the validity of xclbin and walking the sections to
+ * discover the bitstream.
+ */
 static int xmgmt_pr_write(struct fpga_manager *mgr,
 	const char *buf, size_t count)
 {
+	const struct axlf *bin = (const struct axlf *)buf;
 	struct xfpga_klass *obj = mgr->priv;
-	char *curr = (char *)obj->blob;
 
-	if ((obj->state != FPGA_MGR_STATE_WRITE_INIT) &&
-		(obj->state != FPGA_MGR_STATE_WRITE)) {
-		obj->state = FPGA_MGR_STATE_WRITE_ERR;
+	if (bin->m_header.m_length != count)
 		return -EINVAL;
-	}
 
-	curr += obj->count;
-	obj->count += count;
-
-	/*
-	 * The xclbin buffer should not be longer than advertised in the header
-	 */
-	if (obj->total_count < obj->count) {
-		obj->state = FPGA_MGR_STATE_WRITE_ERR;
-		return -EINVAL;
-	}
-
-	xrt_info(obj->pdev, "Copying block of %zu B of xclbin", count);
-	memcpy(curr, buf, count);
-	obj->state = FPGA_MGR_STATE_WRITE;
-	return 0;
+	return xmgmt_download_bitstream((void *)obj->pdev, bin);
 }
 
-
 static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
-				   struct fpga_image_info *info)
+	struct fpga_image_info *info)
 {
-	int result = 0;
+	const struct axlf *bin = (const struct axlf *)info->buf;
 	struct xfpga_klass *obj = mgr->priv;
 
-	if (obj->state != FPGA_MGR_STATE_WRITE) {
-		obj->state = FPGA_MGR_STATE_WRITE_COMPLETE_ERR;
-		return -EINVAL;
-	}
-
-	/* Check if we got the complete xclbin */
-	if (obj->blob->m_header.m_length != obj->count) {
-		obj->state = FPGA_MGR_STATE_WRITE_COMPLETE_ERR;
-		return -EINVAL;
-	}
-
-	result = xmgmt_download_bitstream((void *)obj->pdev, obj->blob);
-
-	obj->state = result ? FPGA_MGR_STATE_WRITE_COMPLETE_ERR :
-		FPGA_MGR_STATE_WRITE_COMPLETE;
-	xrt_info(obj->pdev, "Finish downloading of xclbin %pUb: %d",
-		&obj->blob->m_header.uuid, result);
-	vfree(obj->blob);
-	obj->blob = NULL;
-	obj->count = 0;
-	return result;
+	xrt_info(obj->pdev, "Finished download of xclbin %pUb",
+		 &bin->m_header.uuid);
+	return 0;
 }
 
 static enum fpga_mgr_states xmgmt_pr_state(struct fpga_manager *mgr)
 {
-	struct xfpga_klass *obj = mgr->priv;
-
-	return obj->state;
+	return FPGA_MGR_STATE_UNKNOWN;
 }
 
 static const struct fpga_manager_ops xmgmt_pr_ops = {
@@ -197,16 +147,15 @@ static const struct fpga_manager_ops xmgmt_pr_ops = {
 
 struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev)
 {
-	struct fpga_manager *fmgr;
+	struct xfpga_klass *obj = devm_kzalloc(DEV(pdev), sizeof(struct xfpga_klass),
+					       GFP_KERNEL);
+	struct fpga_manager *fmgr = NULL;
 	int ret = 0;
-	struct xfpga_klass *obj = vzalloc(sizeof(struct xfpga_klass));
 
-	xrt_info(pdev, "probing...");
 	if (!obj)
 		return ERR_PTR(-ENOMEM);
 
 	snprintf(obj->name, sizeof(obj->name), "Xilinx Alveo FPGA Manager");
-	obj->state = FPGA_MGR_STATE_UNKNOWN;
 	obj->pdev = pdev;
 	fmgr = fpga_mgr_create(&pdev->dev,
 			       obj->name,
@@ -215,25 +164,16 @@ struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev)
 	if (!fmgr)
 		return ERR_PTR(-ENOMEM);
 
-	obj->sec_level = XFPGA_SEC_NONE;
 	ret = fpga_mgr_register(fmgr);
 	if (ret) {
 		fpga_mgr_free(fmgr);
-		kfree(obj);
 		return ERR_PTR(ret);
 	}
-	mutex_init(&obj->axlf_lock);
 	return fmgr;
 }
 
 int xmgmt_fmgr_remove(struct fpga_manager *fmgr)
 {
-	struct xfpga_klass *obj = fmgr->priv;
-
-	mutex_destroy(&obj->axlf_lock);
-	obj->state = FPGA_MGR_STATE_UNKNOWN;
 	fpga_mgr_unregister(fmgr);
-	vfree(obj->blob);
-	vfree(obj);
 	return 0;
 }
