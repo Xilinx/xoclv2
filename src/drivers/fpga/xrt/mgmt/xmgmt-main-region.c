@@ -166,7 +166,7 @@ static void xmgmt_destroy_region(struct fpga_region *re)
 static int xmgmt_region_match(struct device *dev, const void *data)
 {
 	const struct xmgmt_region_match_arg *arg = data;
-	struct fpga_region *match_re;
+	const struct fpga_region *match_re;
 	int i;
 
 	if (dev->parent != &arg->pdev->dev)
@@ -193,8 +193,8 @@ static int xmgmt_region_match(struct device *dev, const void *data)
 static int xmgmt_region_match_base(struct device *dev, const void *data)
 {
 	const struct xmgmt_region_match_arg *arg = data;
-	struct fpga_region *match_re;
-	struct xmgmt_region *r_data;
+	const struct fpga_region *match_re;
+	const struct xmgmt_region *r_data;
 
 	if (dev->parent != &arg->pdev->dev)
 		return false;
@@ -210,8 +210,8 @@ static int xmgmt_region_match_base(struct device *dev, const void *data)
 static int xmgmt_region_match_by_depuuid(struct device *dev, const void *data)
 {
 	const struct xmgmt_region_match_arg *arg = data;
-	struct fpga_region *match_re;
-	struct xmgmt_region *r_data;
+	const struct fpga_region *match_re;
+	const struct xmgmt_region *r_data;
 
 	if (dev->parent != &arg->pdev->dev)
 		return false;
@@ -291,7 +291,11 @@ void xmgmt_region_cleanup_all(struct platform_device *pdev)
 	}
 }
 
-static int xmgmt_region_program(struct fpga_region *re, const void *xclbin)
+/*
+ * Program a given region with given xclbin image. Bring up the subdevs and the
+ * partition object to contain the subdevs.
+ */
+static int xmgmt_region_program(struct fpga_region *re, const void *xclbin, char *dtb)
 {
 	struct xmgmt_region *r_data = re->priv;
 	struct platform_device *pdev = r_data->pdev;
@@ -315,10 +319,25 @@ static int xmgmt_region_program(struct fpga_region *re, const void *xclbin)
 	if (re->get_bridges)
 		fpga_bridges_put(&re->bridge_list);
 
+	/*
+	 * Next bringup the subdevs for this region which will be managed by
+	 * its own partition object.
+	 */
+	r_data->part_inst = xrt_subdev_create_partition(pdev, dtb);
+	if (r_data->part_inst < 0) {
+		xrt_err(pdev, "failed to create partition, rc %d",
+			r_data->part_inst);
+		rc = r_data->part_inst;
+		return rc;
+	}
+
+	rc = xrt_subdev_wait_for_partition_bringup(pdev);
+	if (rc)
+		xrt_err(pdev, "partition bringup failed, rc %d", rc);
 	return rc;
 }
 
-static int xmgmt_get_bridges(struct fpga_region *re)
+static int xmgmt_get_bridges(const struct fpga_region *re)
 {
 	struct xmgmt_region *r_data = re->priv;
 	struct device *dev = &r_data->pdev->dev;
@@ -327,15 +346,13 @@ static int xmgmt_get_bridges(struct fpga_region *re)
 }
 
 /*
- * Program/Create FPGA regions based on input xclbin file.
- * Key function stiching the flow together:
+ * Program/create FPGA regions based on input xclbin file. This is key function
+ * stitching the flow together:
  * 1. Identify a matching existing region for this xclbin
- * 2. Program that region with this xclbin
- * 3. Create the 'partition' object which manages the subdevs instantiated
- *    in this region
- * 4. Wait for the 'partition' to initialize all the subdevs
- * 5. If the xclbin defines child region(s) then create child region
- *    which will be programmed by a future download to that region
+ * 2. Tear down any previous objects for the found region
+ * 3. Program this region with input xclbin
+ * 4. Iterate over this region's interface uuids to determine if it defines any
+ *    child region. Create fpga_region for the child region.
  */
 int xmgmt_process_xclbin(struct platform_device *pdev,
 	struct fpga_manager *fmgr, const struct axlf *xclbin, enum provider_kind kind)
@@ -379,30 +396,12 @@ int xmgmt_process_xclbin(struct platform_device *pdev,
 
 		xmgmt_region_cleanup(compat_re);
 
-		rc = xmgmt_region_program(compat_re, xclbin);
+		rc = xmgmt_region_program(compat_re, xclbin, dtb);
 		if (rc) {
 			xrt_err(pdev, "failed to program region");
 			goto failed;
 		}
 
-		r_data = compat_re->priv;
-
-		r_data->part_inst = xrt_subdev_create_partition(pdev, dtb);
-		if (r_data->part_inst < 0) {
-			xrt_err(pdev, "failed to create partition, rc %d",
-				r_data->part_inst);
-			goto failed;
-		}
-
-		rc = xrt_subdev_wait_for_partition_bringup(pdev);
-		if (rc) {
-			xrt_err(pdev, "partition bringup failed, rc %d", rc);
-			goto failed;
-		}
-		/*
-		 * TODO: needs to check individual subdevs to see if there
-		 * is any error, such as clock setting, memory bank calibration.
-		 */
 	}
 
 	/* create all the new regions contained in this xclbin */
