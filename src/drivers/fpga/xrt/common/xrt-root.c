@@ -165,9 +165,8 @@ xroot_event_partition(struct xroot *xr, int instance, enum xrt_events evt)
 	(void) xroot_put_partition(xr, pdev);
 }
 
-int xroot_create_partition(void *root, char *dtb)
+int xroot_create_partition(struct xroot *xr, char *dtb)
 {
-	struct xroot *xr = (struct xroot *)root;
 	int ret;
 
 	atomic_inc(&xr->parts.bringup_pending);
@@ -605,9 +604,8 @@ static void xroot_parts_fini(struct xroot *xr)
 	(void) xrt_subdev_pool_fini(&xr->parts.pool);
 }
 
-int xroot_add_vsec_node(void *root, char *dtb)
+int xroot_add_vsec_node(struct xroot *xr, char *dtb)
 {
-	struct xroot *xr = (struct xroot *)root;
 	struct device *dev = DEV(xr->pdev);
 	struct xrt_md_endpoint ep = { 0 };
 	int cap = 0, ret = 0;
@@ -658,9 +656,8 @@ failed:
 	return ret;
 }
 
-int xroot_add_simple_node(void *root, char *dtb, const char *endpoint)
+int xroot_add_simple_node(struct xroot *xr, char *dtb, const char *endpoint)
 {
-	struct xroot *xr = (struct xroot *)root;
 	struct device *dev = DEV(xr->pdev);
 	struct xrt_md_endpoint ep = { 0 };
 	int ret = 0;
@@ -673,15 +670,13 @@ int xroot_add_simple_node(void *root, char *dtb, const char *endpoint)
 	return ret;
 }
 
-bool xroot_wait_for_bringup(void *root)
+bool xroot_wait_for_bringup(struct xroot *xr)
 {
-	struct xroot *xr = (struct xroot *)root;
-
 	wait_for_completion(&xr->parts.bringup_comp);
 	return atomic_xchg(&xr->parts.bringup_failed, 0) == 0;
 }
 
-int xroot_probe(struct pci_dev *pdev, void **root)
+int xroot_probe(struct pci_dev *pdev, struct xroot **root)
 {
 	struct device *dev = DEV(pdev);
 	struct xroot *xr = NULL;
@@ -700,9 +695,8 @@ int xroot_probe(struct pci_dev *pdev, void **root)
 	return 0;
 }
 
-void xroot_remove(void *root)
+void xroot_remove(struct xroot *xr)
 {
-	struct xroot *xr = (struct xroot *)root;
 	struct platform_device *part = NULL;
 
 	xroot_info(xr, "leaving...");
@@ -726,14 +720,13 @@ static void xroot_broadcast_event_cb(struct platform_device *pdev,
 	complete(comp);
 }
 
-void xroot_broadcast(void *root, enum xrt_events evt)
+void xroot_broadcast(struct xroot *xr, enum xrt_events evt)
 {
-	int rc;
 	struct completion comp;
-	struct xroot *xr = (struct xroot *)root;
 	struct xrt_parent_ioctl_async_broadcast_evt e = {
 		NULL, evt, xroot_broadcast_event_cb, &comp
 	};
+	int rc;
 
 	init_completion(&comp);
 	rc = xroot_async_evt_add(xr, &e);

@@ -12,13 +12,15 @@
 #include <linux/pci.h>
 #include "subdev.h"
 
-int xroot_probe(struct pci_dev *pdev, void **root);
-void xroot_remove(void *root);
-bool xroot_wait_for_bringup(void *root);
-int xroot_add_vsec_node(void *root, char *dtb);
-int xroot_create_partition(void *root, char *dtb);
-int xroot_add_simple_node(void *root, char *dtb, const char *endpoint);
+struct xroot;
+
+int xroot_probe(struct pci_dev *pdev, struct xroot **root);
+void xroot_remove(struct xroot *root);
+bool xroot_wait_for_bringup(struct xroot *root);
+int xroot_add_vsec_node(struct xroot *root, char *dtb);
+int xroot_create_partition(struct xroot *xr, char *dtb);
+int xroot_add_simple_node(struct xroot *root, char *dtb, const char *endpoint);
 void xroot_hot_reset(struct pci_dev *pdev);
-void xroot_broadcast(void *root, enum xrt_events evt);
+void xroot_broadcast(struct xroot *root, enum xrt_events evt);
 
 #endif	/* _XRT_ROOT_H_ */

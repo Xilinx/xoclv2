@@ -312,8 +312,10 @@ static int xmgmt_region_program(struct fpga_region *re, const void *xclbin, char
 	info->flags |= FPGA_MGR_PARTIAL_RECONFIG;
 	re->info = info;
 	rc = fpga_region_program_fpga(re);
-	if (rc)
+	if (rc) {
 		xrt_err(pdev, "programming xclbin failed, rc %d", rc);
+		return rc;
+	}
 
 	/* free bridges to allow reprogram */
 	if (re->get_bridges)
@@ -337,7 +339,7 @@ static int xmgmt_region_program(struct fpga_region *re, const void *xclbin, char
 	return rc;
 }
 
-static int xmgmt_get_bridges(const struct fpga_region *re)
+static int xmgmt_get_bridges(struct fpga_region *re)
 {
 	struct xmgmt_region *r_data = re->priv;
 	struct device *dev = &r_data->pdev->dev;

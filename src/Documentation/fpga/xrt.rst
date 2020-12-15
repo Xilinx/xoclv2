@@ -324,20 +324,6 @@ of device tree for Alveo U50 platform::
                         compatible = "xilinx.com,reg_abs-axi_gpio-1.0\0axi_gpio";
                 };
 
-                ep_mailbox_mgmt_00 {
-                        reg = <0x00 0x1f10000 0x00 0x10000>;
-                        pcie_physical_function = <0x00>;
-                        compatible = "xilinx.com,reg_abs-mailbox-1.0\0mailbox";
-                        interrupts = <0x00 0x00>;
-                };
-
-                ep_mailbox_user_00 {
-                        reg = <0x00 0x1f00000 0x00 0x10000>;
-                        pcie_physical_function = <0x01>;
-                        compatible = "xilinx.com,reg_abs-mailbox-1.0\0mailbox";
-                        interrupts = <0x08 0x08>;
-                };
-
                 ep_msix_00 {
                         reg = <0x00 0x00 0x00 0x20000>;
                         pcie_physical_function = <0x00>;
@@ -611,23 +597,6 @@ hwmon
 xmgmt driver exposes standard hwmon interface to report voltage, current,
 temperature, power, etc. These can easily be viewed using *sensors* command
 line utility.
-
-
-mailbox
--------
-
-xmgmt communicates with user physical function driver via HW mailbox. Mailbox
-opcodes are defined in ``mailbox_proto.h``.
-`Mailbox Inter-domain Communication Protocol <https://xilinx.github.io/XRT/master/html/mailbox.proto.html>`_
-defines the full specification. xmgmt implements subset of the specification.
-It provides the following services to the UPF driver:
-
-1.  Responding to *are you there* request including determining if the two drivers
-    are running in the same OS domain
-2.  Provide sensor readings, loaded xclbin UUID, clock frequency, shell information,
-    etc.
-3.  Perform PCIe hot reset
-4.  Download user compiled xclbin
 
 
 Platform Security Considerations
