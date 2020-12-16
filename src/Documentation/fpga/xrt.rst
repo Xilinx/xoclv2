@@ -471,6 +471,27 @@ these subsystems will be handled in leaf drivers with root and partition drivers
 being part of the infrastructure and provide common services for all leaves found
 on all platforms.
 
+The driver object model looks like the following::
+
+                    +-----------+
+                    |   root    |
+                    +-----+-----+
+                          |
+              +-----------+-----------+
+              |                       |
+              v                       v
+        +-----------+          +-----------+
+        | partition |    ...   | partition |
+        +-----+-----+          +------+----+
+              |                       |
+              |                       |
+        +-----+----+            +-----+----+
+        |          |            |          |
+        v          v            v          v
+    +------+   +------+     +------+   +------+
+    | leaf |...| leaf |     | leaf |...| leaf |
+    +------+   +------+     +------+   +------+
+
 
 xmgmt-root
 ^^^^^^^^^^
@@ -543,8 +564,8 @@ fpga_manager
 ------------
 
 An instance of fpga_manager is created by xmgmt_main and is used for xclbin
-image download. fpga_manager requires the full xclbin image before it start
-programming the FPGA configuration engine via ICAP subdev driver.
+image download. fpga_manager requires the full xclbin image before it can
+start programming the FPGA configuration engine via ICAP subdev driver.
 
 fpga_region
 -----------
@@ -552,12 +573,19 @@ fpga_region
 A new instance of fpga_region is created like a *child* region for every
 interface exposed by currently loaded xclbin or xsabin in the *parent*
 fpga_region. The device tree of the *parent* fpga_region defines the
-resources for a new instance fpga_bridge which isolates the parent from
+resources for a new instance of fpga_bridge which isolates the parent from
 child fpga_region. This new instance of fpga_bridge will be used when a
-new xclbin image is loaded on the child fpga_region. The chain of
-fpga_region and fpga_bridge repeats itself if new xclbin defines its own
-child interfaces.
+xclbin image is loaded on the child fpga_region. After the xclbin image is
+downloaded to the fpga_region, a partition instance is created for the
+fpga_region using the device tree obtained as part of xclbin. This device
+tree defines any child interfaces then it can trigger the creation of
+fpga_bridge and fpga_region for the next region in the chain.
 
+fpga_bridge
+-----------
+
+Like fpga_region, matching fpga_bridge is also created by walking the device
+tree of the parent partition.
 
 Driver Interfaces
 =================
