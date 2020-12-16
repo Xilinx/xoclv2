@@ -45,7 +45,7 @@ static const struct pci_device_id xmgmt_pci_ids[] = {
 
 struct xmgmt {
 	struct pci_dev *pdev;
-	void *root;
+	struct xroot *root;
 
 	/* save config for pci reset */
 	u32 saved_config[8][16];
@@ -234,7 +234,7 @@ static int xmgmt_create_root_metadata(struct xmgmt *xm, char **root_dtb)
 		 * Try vsec-golden which will bring up all hard-coded leaves
 		 * at hard-coded offsets.
 		 */
-		ret = xroot_add_simple_node(xm, dtb, NODE_VSEC_GOLDEN);
+		ret = xroot_add_simple_node(xm->root, dtb, NODE_VSEC_GOLDEN);
 	} else if (ret == 0) {
 		ret = xroot_add_simple_node(xm->root, dtb, NODE_MGMT_MAIN);
 	}
