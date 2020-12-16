@@ -512,7 +512,9 @@ instances. The root driver will wait for all partitions and leaves to be created
 before it returns from it's probe routine and claim success of the initialization
 of the entire xmgmt driver.
 
-The root driver also creates an instance of *fpga_manager*.
+.. note::
+   See code in ``common/xrt-root.c`` and ``mgmt/xmgmt-root.c``
+
 
 partition
 ^^^^^^^^^
@@ -536,6 +538,9 @@ created when xclbin image is loaded on the fpga_region. The existing partition
 is destroyed when a new xclbin image is loaded. The fpga_region persists
 across xclbin downloads.
 
+.. note::
+   See code in ``lib/subdevs/xrt-partition.c``
+
 
 leaves
 ^^^^^^
@@ -556,6 +561,10 @@ ask help from root via parent calls and/or from other leaves via inter-leaf call
 A leaf can also broadcast events through infrastructure code for other leaves
 to process. It can also receive event notification from infrastructure about
 certain events, such as post-creation or pre-exit of a particular leaf.
+
+.. note::
+   See code in ``lib/subdevs/*.c``
+
 
 FPGA Manager Interaction
 ========================
