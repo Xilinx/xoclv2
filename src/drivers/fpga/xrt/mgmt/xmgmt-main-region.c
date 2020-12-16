@@ -76,12 +76,14 @@ static void xmgmt_destroy_bridge(struct fpga_bridge *br)
 {
 	struct xmgmt_bridge *br_data = br->priv;
 
+	if (!br_data)
+		return;
+
 	xrt_info(br_data->pdev, "destroy fpga bridge %s",
 		br_data->axigate_name);
 	fpga_bridge_unregister(br);
 
-	if (br_data)
-		devm_kfree(DEV(br_data->pdev), br_data);
+	devm_kfree(DEV(br_data->pdev), br_data);
 
 	fpga_bridge_free(br);
 }
@@ -90,7 +92,7 @@ static struct fpga_bridge *xmgmt_create_bridge(struct platform_device *pdev,
 	char *dtb)
 {
 	struct xmgmt_bridge *br_data;
-	struct fpga_bridge *br;
+	struct fpga_bridge *br = NULL;
 	const char *gate;
 	int rc;
 
