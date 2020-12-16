@@ -175,10 +175,6 @@ struct axlf {
 	struct axlf_section_header m_sections[1];   /* One or more section headers follow */
 };
 
-typedef struct axlf xclBin;
-
-/**** BEGIN : Xilinx internal section *****/
-
 /* bitstream information */
 struct xlnx_bitstream {
 	uint8_t m_freq[8];
@@ -382,8 +378,6 @@ enum CHECKSUM_TYPE {
 	CST_SDBM = 1,
 	CST_LAST
 };
-
-/**** END : Xilinx internal section *****/
 
 #ifdef __cplusplus
 }
