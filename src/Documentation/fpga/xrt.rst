@@ -513,7 +513,7 @@ before it returns from it's probe routine and claim success of the initializatio
 of the entire xmgmt driver.
 
 .. note::
-   See code in common/xrt-root.c and mgmt/xmgmt-root.c
+   See code in ``common/xrt-root.c`` and ``mgmt/xmgmt-root.c``
 
 
 partition
@@ -539,7 +539,7 @@ is destroyed when a new xclbin image is loaded. The fpga_region persists
 across xclbin downloads.
 
 .. note::
-   See code in lib/subdevs/xrt-partition.c
+   See code in ``lib/subdevs/xrt-partition.c``
 
 
 leaves
@@ -563,7 +563,7 @@ to process. It can also receive event notification from infrastructure about
 certain events, such as post-creation or pre-exit of a particular leaf.
 
 .. note::
-   See code in lib/subdevs/*.c
+   See code in ``lib/subdevs/*.c``
 
 
 FPGA Manager Interaction
