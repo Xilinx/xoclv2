@@ -14,21 +14,10 @@ xrt-lib-y := 				\
 	xrt-cdev.o			\
 	../common/xrt-metadata.o	\
 	subdevs/xrt-partition.o	\
-	subdevs/xrt-test.o		\
 	subdevs/xrt-vsec.o		\
-	subdevs/xrt-vsec-golden.o	\
 	subdevs/xrt-axigate.o		\
-	subdevs/xrt-qspi.o		\
 	subdevs/xrt-gpio.o		\
-	subdevs/xrt-mailbox.o		\
 	subdevs/xrt-icap.o		\
-	subdevs/xrt-cmc.o		\
-	subdevs/xrt-cmc-ctrl.o		\
-	subdevs/xrt-cmc-sensors.o	\
-	subdevs/xrt-cmc-mailbox.o	\
-	subdevs/xrt-cmc-bdinfo.o	\
-	subdevs/xrt-cmc-sc.o		\
-	subdevs/xrt-srsr.o		\
 	subdevs/xrt-clock.o		\
 	subdevs/xrt-clkfreq.o		\
 	subdevs/xrt-ucs.o		\

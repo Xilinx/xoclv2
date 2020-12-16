@@ -12,7 +12,6 @@
 #include <linux/delay.h>
 #include "xrt-xclbin.h"
 #include "metadata.h"
-#include "subdev/ddr-srsr.h"
 #include "subdev/calib.h"
 
 #define XRT_CALIB	"xrt_calib"
@@ -67,70 +66,7 @@ static void calib_cache_clean(struct calib *calib)
 
 static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 {
-	const char		*ep_name;
-	int			ret;
-	struct calib_cache	*cache = NULL, *temp;
-	struct xrt_srsr_ioctl_calib req = { 0 };
-
-	ret = xrt_subdev_ioctl(srsr_leaf, XRT_SRSR_EP_NAME,
-		(void *)&ep_name);
-	if (ret) {
-		xrt_err(calib->pdev, "failed to get SRSR name %d", ret);
-		goto done;
-	}
-	xrt_info(calib->pdev, "Calibrate SRSR %s", ep_name);
-
-	mutex_lock(&calib->lock);
-	list_for_each_entry_safe(cache, temp, &calib->cache_list, link) {
-		if (!strncmp(ep_name, cache->ep_name, strlen(ep_name) + 1)) {
-			req.xsic_buf = cache->data;
-			req.xsic_size = cache->data_size;
-			ret = xrt_subdev_ioctl(srsr_leaf,
-				XRT_SRSR_FAST_CALIB, &req);
-			if (ret) {
-				xrt_err(calib->pdev, "Fast calib failed %d",
-					ret);
-				break;
-			}
-			goto done;
-		}
-	}
-
-	if (ret) {
-		/* fall back to full calibration */
-		xrt_info(calib->pdev, "fall back to full calibration");
-		vfree(cache->data);
-		memset(cache, 0, sizeof(*cache));
-	} else {
-		/* First full calibration */
-		cache = vzalloc(sizeof(*cache));
-		if (!cache) {
-			ret = -ENOMEM;
-			goto done;
-		}
-		list_add(&cache->link, &calib->cache_list);
-		calib->cache_num++;
-	}
-
-	req.xsic_buf = &cache->data;
-	ret = xrt_subdev_ioctl(srsr_leaf, XRT_SRSR_CALIB, &req);
-	if (ret) {
-		xrt_err(calib->pdev, "Full calib failed %d", ret);
-		list_del(&cache->link);
-		calib->cache_num--;
-		goto done;
-	}
-	cache->data_size = req.xsic_size;
-
-
-done:
-	mutex_unlock(&calib->lock);
-
-	if (ret && cache) {
-		vfree(cache->data);
-		vfree(cache);
-	}
-	return ret;
+	return -ENOTSUPP;
 }
 
 static int calib_calibration(struct calib *calib)

@@ -12,9 +12,7 @@
 #include <linux/uaccess.h>
 #include "xrt-xclbin.h"
 #include "metadata.h"
-#include "subdev/flash.h"
 #include "subdev.h"
-#include <linux/xrt/flash_xrt_data.h>
 #include <linux/xrt/xmgmt-ioctl.h>
 #include "subdev/gpio.h"
 #include "xmgmt-main.h"
@@ -34,7 +32,6 @@ struct xmgmt_main {
 	bool flash_ready;
 	bool gpio_ready;
 	struct fpga_manager *fmgr;
-	void *mailbox_hdl;
 	struct mutex busy_mutex;
 
 	uuid_t *blp_intf_uuids;
@@ -265,85 +262,7 @@ static const struct attribute_group xmgmt_main_attrgroup = {
 static int load_firmware_from_flash(struct platform_device *pdev,
 	struct axlf **fw_buf, size_t *len)
 {
-	struct platform_device *flash_leaf = NULL;
-	struct flash_data_header header = { 0 };
-	const size_t magiclen = sizeof(header.fdh_id_begin.fdi_magic);
-	size_t flash_size = 0;
-	int ret = 0;
-	char *buf = NULL;
-	struct flash_data_ident id = { 0 };
-	struct xrt_flash_ioctl_read frd = { 0 };
-
-	xrt_info(pdev, "try loading fw from flash");
-
-	flash_leaf = xrt_subdev_get_leaf_by_id(pdev, XRT_SUBDEV_QSPI,
-		PLATFORM_DEVID_NONE);
-	if (flash_leaf == NULL) {
-		xrt_err(pdev, "failed to hold flash leaf");
-		return -ENODEV;
-	}
-
-	(void) xrt_subdev_ioctl(flash_leaf, XRT_FLASH_GET_SIZE, &flash_size);
-	if (flash_size == 0) {
-		xrt_err(pdev, "failed to get flash size");
-		ret = -EINVAL;
-		goto done;
-	}
-
-	frd.xfir_buf = (char *)&header;
-	frd.xfir_size = sizeof(header);
-	frd.xfir_offset = flash_size - sizeof(header);
-	ret = xrt_subdev_ioctl(flash_leaf, XRT_FLASH_READ, &frd);
-	if (ret) {
-		xrt_err(pdev, "failed to read header from flash: %d", ret);
-		goto done;
-	}
-
-	/* Pick the end ident since header is aligned in the end of flash. */
-	id = header.fdh_id_end;
-	if (strncmp(id.fdi_magic, XRT_DATA_MAGIC, magiclen)) {
-		char tmp[sizeof(id.fdi_magic) + 1] = { 0 };
-
-		memcpy(tmp, id.fdi_magic, magiclen);
-		xrt_info(pdev, "ignore meta data, bad magic: %s", tmp);
-		ret = -ENOENT;
-		goto done;
-	}
-	if (id.fdi_version != 0) {
-		xrt_info(pdev, "flash meta data version is not supported: %d",
-			id.fdi_version);
-		ret = -EOPNOTSUPP;
-		goto done;
-	}
-
-	buf = vmalloc(header.fdh_data_len);
-	if (buf == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
-
-	frd.xfir_buf = buf;
-	frd.xfir_size = header.fdh_data_len;
-	frd.xfir_offset = header.fdh_data_offset;
-	ret = xrt_subdev_ioctl(flash_leaf, XRT_FLASH_READ, &frd);
-	if (ret) {
-		xrt_err(pdev, "failed to read meta data from flash: %d", ret);
-		goto done;
-	} else if (flash_xrt_data_get_parity32(buf, header.fdh_data_len) ^
-		header.fdh_data_parity) {
-		xrt_err(pdev, "meta data is corrupted");
-		ret = -EINVAL;
-		goto done;
-	}
-
-	xrt_info(pdev, "found meta data of %d bytes @0x%x",
-		header.fdh_data_len, header.fdh_data_offset);
-	*fw_buf = (struct axlf *)buf;
-	*len = header.fdh_data_len;
-
-done:
-	(void) xrt_subdev_put_leaf(pdev, flash_leaf);
-	return ret;
+	return -ENOTSUPP;
 }
 
 static int load_firmware_from_disk(struct platform_device *pdev, struct axlf **fw_buf,
@@ -572,10 +491,7 @@ static int xmgmt_main_event_cb(struct platform_device *pdev,
 		break;
 	}
 	case XRT_EVENT_POST_ATTACH:
-		xmgmt_peer_notify_state(xmm->mailbox_hdl, true);
-		break;
 	case XRT_EVENT_PRE_DETACH:
-		xmgmt_peer_notify_state(xmm->mailbox_hdl, false);
 		break;
 	default:
 		xrt_info(pdev, "ignored event %d", evt);
@@ -601,7 +517,6 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 		return PTR_ERR(xmm->fmgr);
 
 	platform_set_drvdata(pdev, xmm);
-	xmm->mailbox_hdl = xmgmt_mailbox_probe(pdev);
 	mutex_init(&xmm->busy_mutex);
 
 	xmm->evt_hdl = xrt_subdev_add_event_cb(pdev,
@@ -629,7 +544,6 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 	vfree(xmm->firmware_ulp);
 	xmgmt_region_cleanup_all(pdev);
 	(void) xmgmt_fmgr_remove(xmm->fmgr);
-	xmgmt_mailbox_remove(xmm->mailbox_hdl);
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup);
 	return 0;
 }
@@ -721,33 +635,6 @@ static int xmgmt_bitstream_axlf_fpga_mgr(struct xmgmt_main *xmm,
 	return ret;
 }
 
-int bitstream_axlf_mailbox(struct platform_device *pdev, const void *axlf)
-{
-	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
-	void *copy_buffer = NULL;
-	size_t copy_buffer_size = 0;
-	const struct axlf *xclbin_obj = axlf;
-	int ret = 0;
-
-	if (memcmp(xclbin_obj->m_magic, ICAP_XCLBIN_V2, sizeof(ICAP_XCLBIN_V2)))
-		return -EINVAL;
-
-	copy_buffer_size = xclbin_obj->m_header.m_length;
-	if (copy_buffer_size > MAX_XCLBIN_SIZE)
-		return -EINVAL;
-	copy_buffer = vmalloc(copy_buffer_size);
-	if (copy_buffer == NULL)
-		return -ENOMEM;
-	(void) memcpy(copy_buffer, axlf, copy_buffer_size);
-
-	mutex_lock(&xmm->busy_mutex);
-	ret = xmgmt_bitstream_axlf_fpga_mgr(xmm, copy_buffer, copy_buffer_size);
-	mutex_unlock(&xmm->busy_mutex);
-	if (ret)
-		vfree(copy_buffer);
-	return ret;
-}
-
 static int bitstream_axlf_ioctl(struct xmgmt_main *xmm, const void __user *arg)
 {
 	void *copy_buffer = NULL;
@@ -808,13 +695,6 @@ static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd,
 
 	mutex_unlock(&xmm->busy_mutex);
 	return result;
-}
-
-void *xmgmt_pdev2mailbox(struct platform_device *pdev)
-{
-	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
-
-	return xmm->mailbox_hdl;
 }
 
 struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {

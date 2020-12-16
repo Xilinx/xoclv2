@@ -32,9 +32,4 @@ extern char *xmgmt_get_vbnv(struct platform_device *pdev);
 extern int xmgmt_get_provider_uuid(struct platform_device *pdev,
 	enum provider_kind kind, uuid_t *uuid);
 
-extern void *xmgmt_pdev2mailbox(struct platform_device *pdev);
-extern void *xmgmt_mailbox_probe(struct platform_device *pdev);
-extern void xmgmt_mailbox_remove(void *handle);
-extern void xmgmt_peer_notify_state(void *handle, bool online);
-
 #endif	/* _XMGMT_MAIN_IMPL_H_ */
