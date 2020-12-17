@@ -62,7 +62,8 @@ https://xilinx.github.io/XRT/master/html/platforms_partitions.html
 Changes since v1:
 - Updated the driver to use fpga_region and fpga_bridge for FPGA
   programming
-- Dropped non essential subdev drivers to focus on XRT core framework
+- Dropped subdev drivers not related to PR programming to focus on XRT
+  core framework
 - Updated Documentation/fpga/xrt.rst with information on XRT core framework
 - Addressed checkpatch issues in a few files
 
