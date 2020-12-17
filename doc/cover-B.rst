@@ -20,7 +20,7 @@ till the next cold reboot. The shell exposes two PCIe physical functions:
 2. user physical function
 
 The patch series includes Documentation/xrt.rst which describes Alveo
-platform, XRT driver architecture and deployment model in more more detail.
+platform, XRT driver architecture and deployment model in more detail.
 
 Users compile their high level design in C/C++/OpenCL or RTL into FPGA image
 using Vitis https://www.xilinx.com/products/design-tools/vitis/vitis-platform.html
