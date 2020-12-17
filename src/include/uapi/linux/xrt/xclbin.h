@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0 */
+/* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0 WITH Linux-syscall-note */
 /*
  *  Xilinx FPGA compiled binary container format
  *
