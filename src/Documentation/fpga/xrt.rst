@@ -2,6 +2,12 @@
 XRTV2 Linux Kernel Driver Overview
 ==================================
 
+Authors:
+
+* Sonal Santan <sonal.santan@xilinx.com>
+* Max Zhen <max.zhen@xilinx.com>
+* Lizhi Hou <lizhi.hou@xilinx.com>
+
 XRTV2 drivers are second generation `XRT <https://github.com/Xilinx/XRT>`_
 drivers which support `Alveo <https://www.xilinx.com/products/boards-and-kits/alveo.html>`_
 PCIe platforms from Xilinx.
