@@ -13,7 +13,7 @@ xrt-lib-y := 				\
 	xrt-subdev.o			\
 	xrt-cdev.o			\
 	../common/xrt-metadata.o	\
-	subdevs/xrt-partition.o	\
+	xrt-partition.o			\
 	subdevs/xrt-test.o		\
 	subdevs/xrt-vsec.o		\
 	subdevs/xrt-vsec-golden.o	\
