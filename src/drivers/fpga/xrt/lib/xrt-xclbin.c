@@ -130,6 +130,7 @@ int xrt_xclbin_get_section(const struct axlf *buf,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xrt_xclbin_get_section);
 
 /* parse bitstream header */
 int xrt_xclbin_parse_header(const unsigned char *data,
@@ -263,6 +264,7 @@ int xrt_xclbin_parse_header(const unsigned char *data,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xrt_xclbin_parse_header);
 
 void xrt_xclbin_free_header(struct XHwIcap_Bit_Header *header)
 {
@@ -294,7 +296,7 @@ struct xrt_clock_desc {
 	},
 };
 
-const char *clock_type2epname(enum CLOCK_TYPE type)
+const char *xrt_clock_type2epname(enum CLOCK_TYPE type)
 {
 	int i;
 
@@ -304,6 +306,7 @@ const char *clock_type2epname(enum CLOCK_TYPE type)
 	}
 	return NULL;
 }
+EXPORT_SYMBOL_GPL(xrt_clock_type2epname);
 
 static const char *clock_type2clkfreq_name(u32 type)
 {
@@ -330,7 +333,7 @@ static int xrt_xclbin_add_clock_metadata(struct device *dev,
 
 	for (i = 0; i < clock_topo->m_count; i++) {
 		u8 type = clock_topo->m_clock_freq[i].m_type;
-		const char *ep_name = clock_type2epname(type);
+		const char *ep_name = xrt_clock_type2epname(type);
 		const char *counter_name = clock_type2clkfreq_name(type);
 
 		if (!ep_name || !counter_name)
@@ -385,3 +388,4 @@ done:
 	vfree(md);
 	return rc;
 }
+EXPORT_SYMBOL_GPL(xrt_xclbin_get_metadata);

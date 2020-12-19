@@ -10,9 +10,11 @@ obj-m   += xrt-lib.o
 fdtdir := ../../../../lib
 xrt-lib-y := 				\
 	xrt-main.o			\
+	xrt-root.o			\
+	xrt-xclbin.o			\
+	xrt-metadata.o			\
 	xrt-subdev.o			\
 	xrt-cdev.o			\
-	../common/xrt-metadata.o	\
 	xrt-partition.o			\
 	subdevs/xrt-test.o		\
 	subdevs/xrt-vsec.o		\
@@ -51,7 +53,7 @@ KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 
 PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))/../../../
-XILINXINCLUDE := -I$(ROOT)/drivers/fpga/xrt/include -I$(ROOT)/include/uapi -I$(ROOT)/scripts/dtc/libfdt -I$(ROOT)/drivers/fpga/xrt/common
+XILINXINCLUDE := -I$(ROOT)/drivers/fpga/xrt/include -I$(ROOT)/include/uapi -I$(ROOT)/scripts/dtc/libfdt
 
 ccflags-y += $(XILINXINCLUDE)
 ifeq ($(DEBUG),1)

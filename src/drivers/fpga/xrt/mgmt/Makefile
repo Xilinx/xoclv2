@@ -7,16 +7,12 @@
 
 obj-m	+= xmgmt.o
 
-commondir := ../common
 fdtdir := ../../../../lib
 xmgmt-y := xmgmt-root.o				\
 	   xmgmt-main.o				\
 	   xmgmt-fmgr-drv.o      		\
 	   xmgmt-main-region.o			\
 	   xmgmt-main-mailbox.o			\
-	   $(commondir)/xrt-root.o		\
-	   $(commondir)/xrt-metadata.o		\
-	   $(commondir)/xrt-xclbin.o		\
 	   $(fdtdir)/fdt.o			\
 	   $(fdtdir)/fdt_addresses.o		\
 	   $(fdtdir)/fdt_empty_tree.o		\
@@ -32,7 +28,7 @@ KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 
 PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))/../../../
-XILINXINCLUDE := -I$(ROOT)/drivers/fpga/xrt/include -I$(ROOT)/include/uapi -I$(ROOT)/scripts/dtc/libfdt -I$(ROOT)/drivers/fpga/xrt/common
+XILINXINCLUDE := -I$(ROOT)/drivers/fpga/xrt/include -I$(ROOT)/include/uapi -I$(ROOT)/scripts/dtc/libfdt
 
 ccflags-y += $(XILINXINCLUDE)
 ifeq ($(DEBUG),1)
@@ -45,4 +41,4 @@ all:
 clean:
 	rm -rf *.o *.o.d *~ core .depend .*.cmd *.ko *.ko.unsigned *.mod.c \
 	.tmp_versions *.symvers modules.order *.mod .cache.mk \
-	$(fdtdir)/*.o $(commondir)/*.o $(commondir)/*.o.cmd
+	$(fdtdir)/*.o

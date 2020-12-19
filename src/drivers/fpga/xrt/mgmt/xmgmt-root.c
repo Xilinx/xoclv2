@@ -153,7 +153,7 @@ static void xmgmt_pci_restore_config_all(struct xmgmt *xm)
 	bus_for_each_dev(&pci_bus_type, NULL, xm, xmgmt_match_slot_and_restore);
 }
 
-void xroot_hot_reset(struct pci_dev *pdev)
+void xmgmt_root_hot_reset(struct pci_dev *pdev)
 {
 	struct xmgmt *xm = pci_get_drvdata(pdev);
 	struct pci_bus *bus;
@@ -268,6 +268,10 @@ static struct attribute_group xmgmt_root_attr_group = {
 	.attrs = xmgmt_root_attrs,
 };
 
+static struct xroot_pf_cb xmgmt_xroot_pf_cb = {
+	.xpc_hot_reset = xmgmt_root_hot_reset,
+};
+
 static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret;
@@ -284,7 +288,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		goto failed;
 
-	ret = xroot_probe(pdev, &xm->root);
+	ret = xroot_probe(pdev, &xmgmt_xroot_pf_cb, &xm->root);
 	if (ret)
 		goto failed;
 
