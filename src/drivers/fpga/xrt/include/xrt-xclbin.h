@@ -43,6 +43,6 @@ int xrt_xclbin_get_metadata(struct device *dev, const struct axlf *xclbin, char 
 int xrt_xclbin_parse_header(const unsigned char *data,
 	unsigned int size, struct XHwIcap_Bit_Header *header);
 void xrt_xclbin_free_header(struct XHwIcap_Bit_Header *header);
-const char *clock_type2epname(enum CLOCK_TYPE type);
+const char *xrt_clock_type2epname(enum CLOCK_TYPE type);
 
 #endif /* _XRT_XCLBIN_H */

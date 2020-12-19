@@ -14,7 +14,7 @@
 #include "parent.h"
 #include "partition.h"
 #include "metadata.h"
-#include "../xrt-main.h"
+#include "xrt-main.h"
 
 #define	XRT_PART "xrt_partition"
 

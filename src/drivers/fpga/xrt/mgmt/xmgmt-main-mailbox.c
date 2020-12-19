@@ -398,7 +398,8 @@ static int xmgmt_mailbox_get_freq(struct xmgmt_mailbox *xmbx,
 {
 	struct platform_device *pdev = xmbx->pdev;
 	const char *clkname =
-		clock_type2epname(type) ? clock_type2epname(type) : "UNKNOWN";
+		xrt_clock_type2epname(type) ?
+		xrt_clock_type2epname(type) : "UNKNOWN";
 	struct platform_device *clkpdev =
 		xrt_subdev_get_leaf_by_epname(pdev, clkname);
 	int rc;

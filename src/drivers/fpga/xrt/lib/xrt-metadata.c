@@ -36,6 +36,7 @@ long xrt_md_size(struct device *dev, const char *blob)
 
 	return (len > MAX_BLOB_SIZE) ? -EINVAL : len;
 }
+EXPORT_SYMBOL_GPL(xrt_md_size);
 
 int xrt_md_create(struct device *dev, char **blob)
 {
@@ -72,6 +73,7 @@ failed:
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(xrt_md_create);
 
 int xrt_md_add_node(struct device *dev, char *blob, int parent_offset,
 	const char *ep_name)
@@ -227,6 +229,7 @@ int xrt_md_get_epname_pointer(struct device *dev, const char *blob,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(xrt_md_get_epname_pointer);
 
 int xrt_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
 	const char *regmap_name, const char *prop, const void **val, int *size)
@@ -262,6 +265,7 @@ int xrt_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xrt_md_get_prop);
 
 static int xrt_md_setprop(struct device *dev, char *blob, int offset,
 	 const char *prop, const void *val, int size)
@@ -304,6 +308,7 @@ int xrt_md_set_prop(struct device *dev, char *blob,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(xrt_md_set_prop);
 
 int xrt_md_copy_endpoint(struct device *dev, char *blob, const char *src_blob,
 	const char *ep_name, const char *regmap_name, const char *new_ep_name)
@@ -333,6 +338,7 @@ int xrt_md_copy_endpoint(struct device *dev, char *blob, const char *src_blob,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(xrt_md_copy_endpoint);
 
 int xrt_md_copy_all_eps(struct device *dev, char *blob, const char *src_blob)
 {
@@ -459,6 +465,7 @@ int xrt_md_get_next_endpoint(struct device *dev, const char *blob,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xrt_md_get_next_endpoint);
 
 int xrt_md_get_compatible_epname(struct device *dev, const char *blob,
 	const char *regmap_name, const char **ep_name)
@@ -501,6 +508,7 @@ int xrt_md_uuid_strtoid(struct device *dev, const char *uuidstr, uuid_t *p_uuid)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xrt_md_uuid_strtoid);
 
 void xrt_md_pack(struct device *dev, char *blob)
 {
@@ -510,6 +518,7 @@ void xrt_md_pack(struct device *dev, char *blob)
 	if (ret)
 		md_err(dev, "pack failed %d", ret);
 }
+EXPORT_SYMBOL_GPL(xrt_md_pack);
 
 int xrt_md_get_intf_uuids(struct device *dev, const char *blob,
 	u32 *num_uuids, uuid_t *intf_uuids)
@@ -545,6 +554,7 @@ int xrt_md_get_intf_uuids(struct device *dev, const char *blob,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xrt_md_get_intf_uuids);
 
 int xrt_md_check_uuids(struct device *dev, const char *blob, char *subset_blob)
 {

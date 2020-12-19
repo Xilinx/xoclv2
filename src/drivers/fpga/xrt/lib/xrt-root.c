@@ -66,6 +66,7 @@ struct xroot {
 	struct pci_dev *pdev;
 	struct xroot_events events;
 	struct xroot_parts parts;
+	struct xroot_pf_cb pf_cb;
 };
 
 struct xroot_part_match_arg {
@@ -181,6 +182,7 @@ int xroot_create_partition(struct xroot *xr, char *dtb)
 	}
 	return ret;
 }
+EXPORT_SYMBOL_GPL(xroot_create_partition);
 
 static int xroot_destroy_single_partition(struct xroot *xr, int instance)
 {
@@ -538,7 +540,7 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 
 
 	case XRT_PARENT_HOT_RESET: {
-		xroot_hot_reset(xr->pdev);
+		xr->pf_cb.xpc_hot_reset(xr->pdev);
 		break;
 	}
 
@@ -655,6 +657,7 @@ int xroot_add_vsec_node(struct xroot *xr, char *dtb)
 failed:
 	return ret;
 }
+EXPORT_SYMBOL_GPL(xroot_add_vsec_node);
 
 int xroot_add_simple_node(struct xroot *xr, char *dtb, const char *endpoint)
 {
@@ -669,14 +672,17 @@ int xroot_add_simple_node(struct xroot *xr, char *dtb, const char *endpoint)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(xroot_add_simple_node);
 
 bool xroot_wait_for_bringup(struct xroot *xr)
 {
 	wait_for_completion(&xr->parts.bringup_comp);
 	return atomic_xchg(&xr->parts.bringup_failed, 0) == 0;
 }
+EXPORT_SYMBOL_GPL(xroot_wait_for_bringup);
 
-int xroot_probe(struct pci_dev *pdev, struct xroot **root)
+int xroot_probe(struct pci_dev *pdev, struct xroot_pf_cb *cb,
+	struct xroot **root)
 {
 	struct device *dev = DEV(pdev);
 	struct xroot *xr = NULL;
@@ -688,12 +694,14 @@ int xroot_probe(struct pci_dev *pdev, struct xroot **root)
 		return -ENOMEM;
 
 	xr->pdev = pdev;
+	xr->pf_cb = *cb;
 	xroot_parts_init(xr);
 	xroot_evt_init(xr);
 
 	*root = xr;
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xroot_probe);
 
 void xroot_remove(struct xroot *xr)
 {
@@ -711,6 +719,7 @@ void xroot_remove(struct xroot *xr)
 	xroot_evt_fini(xr);
 	xroot_parts_fini(xr);
 }
+EXPORT_SYMBOL_GPL(xroot_remove);
 
 static void xroot_broadcast_event_cb(struct platform_device *pdev,
 	enum xrt_events evt, void *arg, bool success)
@@ -735,3 +744,4 @@ void xroot_broadcast(struct xroot *xr, enum xrt_events evt)
 	else
 		xroot_err(xr, "can't broadcast event (%d): %d", evt, rc);
 }
+EXPORT_SYMBOL_GPL(xroot_broadcast);
