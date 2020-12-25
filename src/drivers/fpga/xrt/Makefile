@@ -19,3 +19,6 @@ clean:
 
 lint:
 	../../../../scripts/lint.sh
+
+test:	all
+	../../../../scripts/load.sh

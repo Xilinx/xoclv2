@@ -258,13 +258,45 @@ extern ssize_t xrt_subdev_pool_get_holders(struct xrt_subdev_pool *spool,
 /*
  * For leaf drivers.
  */
+
+struct subdev_match_arg {
+	enum xrt_subdev_id id;
+	int instance;
+};
+
 extern bool xrt_subdev_has_epname(struct platform_device *pdev, const char *nm);
 extern struct platform_device *xrt_subdev_get_leaf(
 	struct platform_device *pdev, xrt_subdev_match_t cb, void *arg);
-extern struct platform_device *xrt_subdev_get_leaf_by_id(
-	struct platform_device *pdev, enum xrt_subdev_id id, int instance);
-extern struct platform_device *xrt_subdev_get_leaf_by_epname(
-	struct platform_device *pdev, const char *name);
+
+static inline bool subdev_match(enum xrt_subdev_id id,
+	struct platform_device *pdev, void *arg)
+{
+	const struct subdev_match_arg *a = (struct subdev_match_arg *)arg;
+	return id == a->id &&
+		(pdev->id == a->instance || PLATFORM_DEVID_NONE == a->instance);
+}
+
+static inline bool xrt_subdev_match_epname(enum xrt_subdev_id id,
+	struct platform_device *pdev, void *arg)
+{
+	return xrt_subdev_has_epname(pdev, arg);
+}
+
+static inline struct platform_device *
+xrt_subdev_get_leaf_by_id(struct platform_device *pdev,
+	enum xrt_subdev_id id, int instance)
+{
+	struct subdev_match_arg arg = { id, instance };
+
+	return xrt_subdev_get_leaf(pdev, subdev_match, &arg);
+}
+
+static inline struct platform_device *
+xrt_subdev_get_leaf_by_epname(struct platform_device *pdev, const char *name)
+{
+	return xrt_subdev_get_leaf(pdev, xrt_subdev_match_epname, (void *)name);
+}
+
 extern int xrt_subdev_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf);
 extern int xrt_subdev_create_partition(struct platform_device *pdev,
@@ -278,7 +310,7 @@ extern void *xrt_subdev_add_event_cb(struct platform_device *pdev,
 	xrt_subdev_match_t match, void *match_arg, xrt_event_cb_t cb);
 extern void xrt_subdev_remove_event_cb(
 	struct platform_device *pdev, void *hdl);
-extern int xrt_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg);
+
 extern int xrt_subdev_broadcast_event(struct platform_device *pdev,
 	enum xrt_events evt);
 extern int xrt_subdev_broadcast_event_async(struct platform_device *pdev,
@@ -299,15 +331,17 @@ extern int xrt_subdev_register_external_driver(enum xrt_subdev_id id,
 extern void xrt_subdev_unregister_external_driver(enum xrt_subdev_id id);
 
 /*
- * Char dev APIs.
+ * Character device helper APIs for use by subdev drivers
  */
 static inline bool xrt_devnode_enabled(struct xrt_subdev_drvdata *drvdata)
 {
 	return drvdata && drvdata->xsd_file_ops.xsf_ops.open != NULL;
 }
+
 extern int xrt_devnode_create(struct platform_device *pdev,
 	const char *file_name, const char *inst_name);
 extern int xrt_devnode_destroy(struct platform_device *pdev);
+
 extern struct platform_device *xrt_devnode_open_excl(struct inode *inode);
 extern struct platform_device *xrt_devnode_open(struct inode *inode);
 extern void xrt_devnode_close(struct inode *inode);
@@ -328,6 +362,17 @@ static inline void xrt_memcpy_toio(void __iomem *iomem, void *buf, u32 size)
 	BUG_ON(size & 0x3);
 	for (i = 0; i < size / 4; i++)
 		iowrite32(((u32 *)buf)[i], ((char *)(iomem) + sizeof(u32) * i));
+}
+
+/*
+ * Exported thin wrapper inline functions
+ */
+
+static inline int xrt_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
+{
+	struct xrt_subdev_drvdata *drvdata = DEV_DRVDATA(tgt);
+
+	return (*drvdata->xsd_dev_ops.xsd_ioctl)(tgt, cmd, arg);
 }
 
 #endif	/* _XRT_SUBDEV_H_ */
