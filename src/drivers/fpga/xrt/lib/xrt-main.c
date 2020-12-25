@@ -180,7 +180,7 @@ int xrt_subdev_register_external_driver(enum xrt_subdev_id id,
 		xrt_drv_register_driver(id);
 	}
 	mutex_unlock(&xrt_class_lock);
-	return 0;
+	return result;
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_register_external_driver);
 

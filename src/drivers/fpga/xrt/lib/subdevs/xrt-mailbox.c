@@ -500,7 +500,7 @@ static void chan_msg_done(struct mailbox_channel *ch, int err)
 	ch->mbc_bytes_done = 0;
 }
 
-void timeout_msg(struct mailbox_channel *ch)
+static void timeout_msg(struct mailbox_channel *ch)
 {
 	struct mailbox *mbx = ch->mbc_parent;
 	struct mailbox_msg *msg = NULL;

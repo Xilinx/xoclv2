@@ -190,7 +190,7 @@ static ssize_t hwmon_temp_show(struct device *dev,
 	}
 
 /* For power */
-uint64_t cmc_get_power(struct xrt_cmc_sensor *cmc_sensor,
+static uint64_t cmc_get_power(struct xrt_cmc_sensor *cmc_sensor,
 	enum sensor_val_kind kind)
 {
 	u32 v_pex, v_aux, v_3v3, c_pex, c_aux, c_3v3;
@@ -442,4 +442,3 @@ void cmc_sensor_read(struct platform_device *pdev, struct xcl_sensor *s)
 	s->vol_vccaux_pmc = READ_INST_SENSOR(CMC_VCCAUX_PMC_REG);
 	s->vol_vccram = READ_INST_SENSOR(CMC_VCCRAM_REG);
 }
-

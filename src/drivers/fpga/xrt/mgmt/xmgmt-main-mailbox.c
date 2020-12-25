@@ -795,7 +795,7 @@ static struct bin_attribute  *xmgmt_mailbox_bin_attrs[] = {
 	NULL,
 };
 
-int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
+static int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
 	char *buf, size_t *len)
 {
 	int rc;
@@ -831,7 +831,7 @@ int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
 	return rc;
 }
 
-int xmgmt_mailbox_set_test_msg(struct xmgmt_mailbox *xmbx,
+static int xmgmt_mailbox_set_test_msg(struct xmgmt_mailbox *xmbx,
 	char *buf, size_t len)
 {
 	mutex_lock(&xmbx->lock);

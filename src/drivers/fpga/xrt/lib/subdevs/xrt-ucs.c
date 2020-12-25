@@ -73,12 +73,8 @@ static bool xrt_ucs_leaf_match(enum xrt_subdev_id id,
 static int xrt_ucs_event_cb(struct platform_device *pdev,
 	enum xrt_events evt, void *arg)
 {
-
-	struct xrt_ucs		*ucs;
 	struct platform_device	*leaf;
 	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
-
-	ucs = platform_get_drvdata(pdev);
 
 	switch (evt) {
 	case XRT_EVENT_POST_CREATION:

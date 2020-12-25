@@ -62,7 +62,8 @@ PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))/../../../
 XILINXINCLUDE := -I$(ROOT)/drivers/fpga/xrt/include -I$(ROOT)/include/uapi -I$(ROOT)/scripts/dtc/libfdt
 
-ccflags-y += $(XILINXINCLUDE)
+ccflags-y += $(XILINXINCLUDE) -Wall -Werror -Wmissing-prototypes -Wunused-but-set-variable -Wold-style-declaration
+
 ifeq ($(DEBUG),1)
 ccflags-y += -DDEBUG -g -Og
 endif
