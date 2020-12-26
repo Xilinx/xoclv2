@@ -13,9 +13,8 @@
 #include "subdev.h"
 #include "parent.h"
 #include "partition.h"
-#include "xrt-root.h"
+#include "root.h"
 #include "metadata.h"
-#include "xrt-root.h"
 
 #define	XROOT_PDEV(xr)		((xr)->pdev)
 #define	XROOT_DEV(xr)		(&(XROOT_PDEV(xr)->dev))

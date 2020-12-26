@@ -10,7 +10,7 @@
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
  */
 #include <linux/delay.h>
-#include "xrt-xclbin.h"
+#include "xclbin-helper.h"
 #include "metadata.h"
 #include "subdev/ddr-srsr.h"
 #include "subdev/calib.h"

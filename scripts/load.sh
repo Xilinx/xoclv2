@@ -11,5 +11,9 @@ insmod ./mgmt/xmgmt.ko
 
 sleep 1
 
-source ~sonals/git/XRT/build/Debug/opt/xilinx/xrt/setup.sh
+type xbmgmt
+if [ $? -eq 1 ]
+then
+   source /opt/xilinx/xrt/setup.sh
+fi
 xbmgmt partition --program --path /lib/firmware/xilinx/862c7020a250293e32036f19956669e5/test/verify.xclbin --force

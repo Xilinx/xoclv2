@@ -17,7 +17,7 @@
 #include "subdev.h"
 #include "parent.h"
 #include "subdev/icap.h"
-#include "xrt-xclbin.h"
+#include "xclbin-helper.h"
 
 #define XRT_ICAP "xrt_icap"
 

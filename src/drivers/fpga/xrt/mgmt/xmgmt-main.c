@@ -10,7 +10,7 @@
 
 #include <linux/firmware.h>
 #include <linux/uaccess.h>
-#include "xrt-xclbin.h"
+#include "xclbin-helper.h"
 #include "metadata.h"
 #include "subdev/flash.h"
 #include "subdev.h"

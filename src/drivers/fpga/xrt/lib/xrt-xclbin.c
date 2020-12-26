@@ -10,7 +10,7 @@
 #include <asm/errno.h>
 #include <linux/vmalloc.h>
 #include <linux/device.h>
-#include "xrt-xclbin.h"
+#include "xclbin-helper.h"
 #include "metadata.h"
 
 /* Used for parsing bitstream header */
@@ -133,7 +133,7 @@ int xrt_xclbin_get_section(const struct axlf *buf,
 EXPORT_SYMBOL_GPL(xrt_xclbin_get_section);
 
 /* parse bitstream header */
-int xrt_xclbin_parse_header(const unsigned char *data,
+int xrt_xclbin_parse_bitstream_header(const unsigned char *data,
 	unsigned int size, struct XHwIcap_Bit_Header *header)
 {
 	unsigned int i;
@@ -264,7 +264,7 @@ int xrt_xclbin_parse_header(const unsigned char *data,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(xrt_xclbin_parse_header);
+EXPORT_SYMBOL_GPL(xrt_xclbin_parse_bitstream_header);
 
 void xrt_xclbin_free_header(struct XHwIcap_Bit_Header *header)
 {

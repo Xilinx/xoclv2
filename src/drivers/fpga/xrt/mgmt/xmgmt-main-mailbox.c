@@ -16,7 +16,7 @@
 #include "subdev/mailbox.h"
 #include "subdev/cmc.h"
 #include "metadata.h"
-#include "xrt-xclbin.h"
+#include "xclbin-helper.h"
 #include "subdev/clock.h"
 #include "subdev/calib.h"
 #include "subdev/icap.h"
