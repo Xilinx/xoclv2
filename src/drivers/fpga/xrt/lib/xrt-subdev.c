@@ -377,13 +377,6 @@ int xrt_subdev_parent_ioctl(struct platform_device *self, u32 cmd, void *arg)
 		cmd, arg);
 }
 
-int xrt_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
-{
-	struct xrt_subdev_drvdata *drvdata = DEV_DRVDATA(tgt);
-
-	return (*drvdata->xsd_dev_ops.xsd_ioctl)(tgt, cmd, arg);
-}
-EXPORT_SYMBOL_GPL(xrt_subdev_ioctl);
 
 struct platform_device *
 xrt_subdev_get_leaf(struct platform_device *pdev,
@@ -400,28 +393,6 @@ xrt_subdev_get_leaf(struct platform_device *pdev,
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_get_leaf);
 
-struct subdev_match_arg {
-	enum xrt_subdev_id id;
-	int instance;
-};
-
-static bool subdev_match(enum xrt_subdev_id id,
-	struct platform_device *pdev, void *arg)
-{
-	struct subdev_match_arg *a = (struct subdev_match_arg *)arg;
-	return id == a->id &&
-		(pdev->id == a->instance || PLATFORM_DEVID_NONE == a->instance);
-}
-
-struct platform_device *
-xrt_subdev_get_leaf_by_id(struct platform_device *pdev,
-	enum xrt_subdev_id id, int instance)
-{
-	struct subdev_match_arg arg = { id, instance };
-
-	return xrt_subdev_get_leaf(pdev, subdev_match, &arg);
-}
-EXPORT_SYMBOL_GPL(xrt_subdev_get_leaf_by_id);
 
 bool xrt_subdev_has_epname(struct platform_device *pdev, const char *ep_name)
 {
@@ -438,19 +409,6 @@ bool xrt_subdev_has_epname(struct platform_device *pdev, const char *ep_name)
 	return false;
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_has_epname);
-
-static bool xrt_subdev_match_epname(enum xrt_subdev_id id,
-	struct platform_device *pdev, void *arg)
-{
-	return xrt_subdev_has_epname(pdev, arg);
-}
-
-struct platform_device *
-xrt_subdev_get_leaf_by_epname(struct platform_device *pdev, const char *name)
-{
-	return xrt_subdev_get_leaf(pdev, xrt_subdev_match_epname, (void *)name);
-}
-EXPORT_SYMBOL_GPL(xrt_subdev_get_leaf_by_epname);
 
 int xrt_subdev_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf)

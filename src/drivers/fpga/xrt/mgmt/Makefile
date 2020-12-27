@@ -8,19 +8,29 @@
 obj-m	+= xmgmt.o
 
 fdtdir := ../../../../lib
+
+ifndef CONFIG_LIBFDT
+fdtobj := 				\
+	$(fdtdir)/fdt.o			\
+	$(fdtdir)/fdt_addresses.o	\
+	$(fdtdir)/fdt_empty_tree.o	\
+	$(fdtdir)/fdt_ro.o		\
+	$(fdtdir)/fdt.o			\
+	$(fdtdir)/fdt_addresses.o	\
+	$(fdtdir)/fdt_empty_tree.o	\
+	$(fdtdir)/fdt_ro.o		\
+	$(fdtdir)/fdt_rw.o		\
+	$(fdtdir)/fdt_strerror.o	\
+	$(fdtdir)/fdt_sw.o		\
+	$(fdtdir)/fdt_wip.o
+endif
+
 xmgmt-y := xmgmt-root.o				\
 	   xmgmt-main.o				\
 	   xmgmt-fmgr-drv.o      		\
 	   xmgmt-main-region.o			\
 	   xmgmt-main-mailbox.o			\
-	   $(fdtdir)/fdt.o			\
-	   $(fdtdir)/fdt_addresses.o		\
-	   $(fdtdir)/fdt_empty_tree.o		\
-	   $(fdtdir)/fdt_ro.o			\
-	   $(fdtdir)/fdt_rw.o			\
-	   $(fdtdir)/fdt_strerror.o		\
-	   $(fdtdir)/fdt_sw.o			\
-	   $(fdtdir)/fdt_wip.o
+	   $(fdtobj)
 
 
 CONFIG_MODULE_SIG=n
@@ -30,7 +40,8 @@ PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))/../../../
 XILINXINCLUDE := -I$(ROOT)/drivers/fpga/xrt/include -I$(ROOT)/include/uapi -I$(ROOT)/scripts/dtc/libfdt
 
-ccflags-y += $(XILINXINCLUDE)
+ccflags-y += $(XILINXINCLUDE) -Wall -Werror -Wmissing-prototypes -Wunused-but-set-variable -Wold-style-declaration
+
 ifeq ($(DEBUG),1)
 ccflags-y += -DDEBUG -Og -g
 endif

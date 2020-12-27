@@ -14,7 +14,7 @@
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
 
-#include "xrt-root.h"
+#include "root.h"
 #include "subdev.h"
 #include "xmgmt-main-impl.h"
 #include "metadata.h"
@@ -153,7 +153,7 @@ static void xmgmt_pci_restore_config_all(struct xmgmt *xm)
 	bus_for_each_dev(&pci_bus_type, NULL, xm, xmgmt_match_slot_and_restore);
 }
 
-void xmgmt_root_hot_reset(struct pci_dev *pdev)
+static void xmgmt_root_hot_reset(struct pci_dev *pdev)
 {
 	struct xmgmt *xm = pci_get_drvdata(pdev);
 	struct pci_bus *bus;

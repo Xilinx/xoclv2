@@ -75,7 +75,7 @@ failed:
 }
 EXPORT_SYMBOL_GPL(xrt_md_create);
 
-int xrt_md_add_node(struct device *dev, char *blob, int parent_offset,
+static int xrt_md_add_node(struct device *dev, char *blob, int parent_offset,
 	const char *ep_name)
 {
 	int ret;

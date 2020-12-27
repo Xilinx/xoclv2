@@ -16,7 +16,7 @@
 #include "subdev/mailbox.h"
 #include "subdev/cmc.h"
 #include "metadata.h"
-#include "xrt-xclbin.h"
+#include "xclbin-helper.h"
 #include "subdev/clock.h"
 #include "subdev/calib.h"
 #include "subdev/icap.h"
@@ -52,7 +52,7 @@ struct xmgmt_mailbox {
 #define	XMGMT_MAILBOX_PRT_REQ_RECV(xmbx, req, sw_ch)			\
 	XMGMT_MAILBOX_PRT_REQ(xmbx, false, req, sw_ch)
 #define	XMGMT_MAILBOX_PRT_RESP(xmbx, resp)				\
-	xrt_info((xmbx)->pdev, "respond %ld bytes >>>>>%s",		\
+	xrt_info((xmbx)->pdev, "respond %zu bytes >>>>>%s",		\
 	(resp)->xmip_data_size, mailbox_chan2name((resp)->xmip_sw_ch))
 
 static inline struct xmgmt_mailbox *pdev2mbx(struct platform_device *pdev)
@@ -795,7 +795,7 @@ static struct bin_attribute  *xmgmt_mailbox_bin_attrs[] = {
 	NULL,
 };
 
-int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
+static int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
 	char *buf, size_t *len)
 {
 	int rc;
@@ -831,7 +831,7 @@ int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
 	return rc;
 }
 
-int xmgmt_mailbox_set_test_msg(struct xmgmt_mailbox *xmbx,
+static int xmgmt_mailbox_set_test_msg(struct xmgmt_mailbox *xmbx,
 	char *buf, size_t len)
 {
 	mutex_lock(&xmbx->lock);

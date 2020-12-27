@@ -17,7 +17,7 @@
 #include "subdev.h"
 #include "parent.h"
 #include "subdev/icap.h"
-#include "xrt-xclbin.h"
+#include "xclbin-helper.h"
 
 #define XRT_ICAP "xrt_icap"
 
@@ -204,6 +204,7 @@ static void icap_probe_chip(struct icap *icap)
 	w = reg_rd(&icap->icap_regs->ir_rfo);
 	icap->idcode = reg_rd(&icap->icap_regs->ir_rf);
 	w = reg_rd(&icap->icap_regs->ir_cr);
+	(void)w;
 }
 
 static int

@@ -10,7 +10,7 @@
 
 #include <linux/firmware.h>
 #include <linux/uaccess.h>
-#include "xrt-xclbin.h"
+#include "xclbin-helper.h"
 #include "metadata.h"
 #include "subdev/flash.h"
 #include "subdev.h"
@@ -216,7 +216,7 @@ static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
 
 	if (off == 0) {
 		if (count < sizeof(*xclbin)) {
-			xrt_err(xmm->pdev, "count is too small %ld", count);
+			xrt_err(xmm->pdev, "count is too small %zu", count);
 			return -EINVAL;
 		}
 
@@ -448,7 +448,7 @@ static bool is_valid_firmware(struct platform_device *pdev,
 	}
 
 	if (axlflen > fw_len) {
-		xrt_err(pdev, "truncated fw, length: %ld, expect: %ld",
+		xrt_err(pdev, "truncated fw, length: %zu, expect: %zu",
 			fw_len, axlflen);
 		return false;
 	}

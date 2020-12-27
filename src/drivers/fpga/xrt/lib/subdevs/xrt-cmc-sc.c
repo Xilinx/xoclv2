@@ -109,7 +109,7 @@ static int cmc_write_sc_firmware_section(struct xrt_cmc_sc *cmc_sc,
 	struct cmc_pkt_payload_sector_data *data_payload;
 	u8 pkt_op;
 
-	xrt_info(cmc_sc->pdev, "writing %ld bytes @0x%llx", n, start);
+	xrt_info(cmc_sc->pdev, "writing %zu bytes @0x%llx", n, start);
 
 	if (n == 0)
 		return 0;

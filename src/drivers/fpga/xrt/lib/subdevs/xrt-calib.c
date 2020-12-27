@@ -10,7 +10,7 @@
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
  */
 #include <linux/delay.h>
-#include "xrt-xclbin.h"
+#include "xclbin-helper.h"
 #include "metadata.h"
 #include "subdev/ddr-srsr.h"
 #include "subdev/calib.h"
@@ -186,7 +186,7 @@ static int xrt_calib_event_cb(struct platform_device *pdev,
 	return XRT_EVENT_CB_CONTINUE;
 }
 
-int xrt_calib_remove(struct platform_device *pdev)
+static int xrt_calib_remove(struct platform_device *pdev)
 {
 	struct calib *calib = platform_get_drvdata(pdev);
 
@@ -202,7 +202,7 @@ int xrt_calib_remove(struct platform_device *pdev)
 	return 0;
 }
 
-int xrt_calib_probe(struct platform_device *pdev)
+static int xrt_calib_probe(struct platform_device *pdev)
 {
 	struct calib *calib;
 	struct resource *res;

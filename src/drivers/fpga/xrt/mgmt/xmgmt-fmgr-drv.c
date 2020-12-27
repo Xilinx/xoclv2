@@ -15,7 +15,7 @@
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 
-#include "xrt-xclbin.h"
+#include "xclbin-helper.h"
 #include "subdev.h"
 #include "xmgmt-fmgr.h"
 #include "subdev/axigate.h"
@@ -47,7 +47,7 @@ static int xmgmt_download_bitstream(struct platform_device *pdev,
 		xrt_err(pdev, "bitstream not found");
 		return -ENOENT;
 	}
-	ret = xrt_xclbin_parse_header(bitstream,
+	ret = xrt_xclbin_parse_bitstream_header(bitstream,
 		DMA_HWICAP_BITFILE_BUFFER_SIZE, &bit_header);
 	if (ret) {
 		ret = -EINVAL;

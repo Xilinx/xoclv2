@@ -8,6 +8,23 @@
 obj-m   += xrt-lib.o
 
 fdtdir := ../../../../lib
+
+ifndef CONFIG_LIBFDT
+fdtobj := 				\
+	$(fdtdir)/fdt.o			\
+	$(fdtdir)/fdt_addresses.o	\
+	$(fdtdir)/fdt_empty_tree.o	\
+	$(fdtdir)/fdt_ro.o		\
+	$(fdtdir)/fdt.o			\
+	$(fdtdir)/fdt_addresses.o	\
+	$(fdtdir)/fdt_empty_tree.o	\
+	$(fdtdir)/fdt_ro.o		\
+	$(fdtdir)/fdt_rw.o		\
+	$(fdtdir)/fdt_strerror.o	\
+	$(fdtdir)/fdt_sw.o		\
+	$(fdtdir)/fdt_wip.o
+endif
+
 xrt-lib-y := 				\
 	xrt-main.o			\
 	xrt-root.o			\
@@ -35,18 +52,8 @@ xrt-lib-y := 				\
 	subdevs/xrt-clkfreq.o		\
 	subdevs/xrt-ucs.o		\
 	subdevs/xrt-calib.o		\
-	$(fdtdir)/fdt.o			\
-	$(fdtdir)/fdt_addresses.o	\
-	$(fdtdir)/fdt_empty_tree.o	\
-	$(fdtdir)/fdt_ro.o		\
-	$(fdtdir)/fdt.o			\
-	$(fdtdir)/fdt_addresses.o	\
-	$(fdtdir)/fdt_empty_tree.o	\
-	$(fdtdir)/fdt_ro.o		\
-	$(fdtdir)/fdt_rw.o		\
-	$(fdtdir)/fdt_strerror.o	\
-	$(fdtdir)/fdt_sw.o		\
-	$(fdtdir)/fdt_wip.o
+	$(fdtobj)
+
 
 CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
@@ -55,7 +62,8 @@ PWD	:= $(shell pwd)
 ROOT	:= $(dir $(M))/../../../
 XILINXINCLUDE := -I$(ROOT)/drivers/fpga/xrt/include -I$(ROOT)/include/uapi -I$(ROOT)/scripts/dtc/libfdt
 
-ccflags-y += $(XILINXINCLUDE)
+ccflags-y += $(XILINXINCLUDE) -Wall -Werror -Wmissing-prototypes -Wunused-but-set-variable -Wold-style-declaration
+
 ifeq ($(DEBUG),1)
 ccflags-y += -DDEBUG -g -Og
 endif

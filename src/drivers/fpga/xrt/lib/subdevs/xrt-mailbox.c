@@ -422,7 +422,7 @@ static void msg_done(struct mailbox_msg *msg, int err)
 	u64 elapsed = (msg->mbm_end_ts - msg->mbm_start_ts) / 1000; /* in us. */
 
 	MBX_INFO(ch->mbc_parent,
-		"msg(id=0x%llx sz=%ldB crc=0x%x): %s %lldpkts in %lldus: %d",
+		"msg(id=0x%llx sz=%zuB crc=0x%x): %s %lldpkts in %lldus: %d",
 		msg->mbm_req_id, msg->mbm_len,
 		crc32c_le(~0, msg->mbm_data, msg->mbm_len),
 		ch_name(ch), msg->mbm_num_pkts, elapsed, err);
@@ -500,7 +500,7 @@ static void chan_msg_done(struct mailbox_channel *ch, int err)
 	ch->mbc_bytes_done = 0;
 }
 
-void timeout_msg(struct mailbox_channel *ch)
+static void timeout_msg(struct mailbox_channel *ch)
 {
 	struct mailbox *mbx = ch->mbc_parent;
 	struct mailbox_msg *msg = NULL;
@@ -1287,7 +1287,7 @@ static ssize_t mailbox_pkt_store(struct device *dev,
 		return -ENODEV;
 
 	if (count > maxlen) {
-		MBX_ERR(mbx, "max input length is %ld", maxlen);
+		MBX_ERR(mbx, "max input length is %zu", maxlen);
 		return 0;
 	}
 

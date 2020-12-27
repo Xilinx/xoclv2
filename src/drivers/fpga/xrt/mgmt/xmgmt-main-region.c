@@ -14,7 +14,7 @@
 #include "metadata.h"
 #include "subdev.h"
 #include "subdev/axigate.h"
-#include "xrt-xclbin.h"
+#include "xclbin-helper.h"
 #include "xmgmt-main-impl.h"
 
 struct xmgmt_bridge {

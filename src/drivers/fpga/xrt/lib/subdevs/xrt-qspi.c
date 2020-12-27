@@ -649,7 +649,7 @@ static int qspi_fifo_rd(struct xrt_qspi *flash,
 		flash->qspi_fifo_depth - header_len - read_dummy_len);
 	total_len = payload_len + header_len + read_dummy_len;
 
-	QSPI_DBG(flash, "reading %ld bytes @0x%llx", payload_len, off);
+	QSPI_DBG(flash, "reading %zu bytes @0x%llx", payload_len, off);
 
 	/* Now do the read. */
 
@@ -703,7 +703,7 @@ static int qspi_fifo_wr(struct xrt_qspi *flash,
 	payload_len = min(payload_len, write_max_len);
 	total_len = payload_len + header_len;
 
-	QSPI_DBG(flash, "writing %ld bytes @0x%llx", payload_len, off);
+	QSPI_DBG(flash, "writing %zu bytes @0x%llx", payload_len, off);
 
 	/* Copy in payload after header. */
 	memcpy(&flash->io_buf[header_len], buf, payload_len);
@@ -873,7 +873,7 @@ qspi_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
 	char *kbuf = NULL;
 	int ret = 0;
 
-	QSPI_INFO(flash, "reading %ld bytes @0x%llx", n, *off);
+	QSPI_INFO(flash, "reading %zu bytes @0x%llx", n, *off);
 
 	if (n == 0 || !is_valid_offset(flash, *off)) {
 		QSPI_ERR(flash, "Can't read: out of boundary");
@@ -904,7 +904,7 @@ static int qspi_kernel_read(struct platform_device *pdev,
 {
 	struct xrt_qspi *flash = platform_get_drvdata(pdev);
 
-	QSPI_INFO(flash, "kernel reading %ld bytes @0x%llx", n, off);
+	QSPI_INFO(flash, "kernel reading %zu bytes @0x%llx", n, off);
 	return qspi_do_read(flash, buf, n, off);
 }
 
@@ -1000,7 +1000,7 @@ qspi_write(struct file *file, const char __user *buf, size_t n, loff_t *off)
 	int ret = 0;
 	struct qspi_flash_addr faddr;
 
-	QSPI_INFO(flash, "writing %ld bytes @0x%llx", n, *off);
+	QSPI_INFO(flash, "writing %zu bytes @0x%llx", n, *off);
 
 	if (n == 0 || !is_valid_offset(flash, *off)) {
 		QSPI_ERR(flash, "Can't write: out of boundary");
@@ -1112,7 +1112,7 @@ static ssize_t size_show(struct device *dev,
 {
 	struct xrt_qspi *flash = dev_get_drvdata(dev);
 
-	return sprintf(buf, "%ld\n", flash->flash_size);
+	return sprintf(buf, "%zu\n", flash->flash_size);
 }
 static DEVICE_ATTR_RO(size);
 
@@ -1181,7 +1181,7 @@ static int qspi_get_ID(struct xrt_qspi *flash)
 		QSPI_ERR(flash, "Unknown flash memory size code: %d", cmd[3]);
 		return -EINVAL;
 	}
-	QSPI_INFO(flash, "Flash vendor: %s, size: %ldMB",
+	QSPI_INFO(flash, "Flash vendor: %s, size: %zu MB",
 		vendor->vendor_name, flash->flash_size / 1024 / 1024);
 
 	return 0;
@@ -1200,7 +1200,7 @@ static int qspi_controller_probe(struct xrt_qspi *flash)
 	flash->qspi_fifo_depth = qspi_get_fifo_depth(flash);
 	if (flash->qspi_fifo_depth == 0)
 		return -EINVAL;
-	QSPI_DBG(flash, "QSPI FIFO depth is: %ld", flash->qspi_fifo_depth);
+	QSPI_DBG(flash, "QSPI FIFO depth is: %zu", flash->qspi_fifo_depth);
 
 	if (!qspi_wait_until_ready(flash))
 		return -EINVAL;
