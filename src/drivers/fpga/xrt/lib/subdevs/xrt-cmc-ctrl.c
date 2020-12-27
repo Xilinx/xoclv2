@@ -133,7 +133,7 @@ static int cmc_load_image(struct xrt_cmc_ctrl *cmc_ctrl)
 
 	/* Sanity check the size of the firmware. */
 	if (cmc_ctrl->firmware_size > cmc_ctrl->reg_image.crm_size) {
-		xrt_err(pdev, "CMC firmware image is too big: %ld",
+		xrt_err(pdev, "CMC firmware image is too big: %zu",
 			cmc_ctrl->firmware_size);
 		return -EINVAL;
 	}
