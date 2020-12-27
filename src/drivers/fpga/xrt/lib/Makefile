@@ -25,33 +25,33 @@ fdtobj := 				\
 	$(fdtdir)/fdt_wip.o
 endif
 
-xrt-lib-y := 				\
-	xrt-main.o			\
-	xrt-root.o			\
-	xrt-xclbin.o			\
-	xrt-metadata.o			\
-	xrt-subdev.o			\
-	xrt-cdev.o			\
-	xrt-partition.o			\
-	subdevs/xrt-test.o		\
-	subdevs/xrt-vsec.o		\
-	subdevs/xrt-vsec-golden.o	\
-	subdevs/xrt-axigate.o		\
-	subdevs/xrt-qspi.o		\
-	subdevs/xrt-gpio.o		\
-	subdevs/xrt-mailbox.o		\
-	subdevs/xrt-icap.o		\
-	subdevs/xrt-cmc.o		\
-	subdevs/xrt-cmc-ctrl.o		\
-	subdevs/xrt-cmc-sensors.o	\
-	subdevs/xrt-cmc-mailbox.o	\
-	subdevs/xrt-cmc-bdinfo.o	\
-	subdevs/xrt-cmc-sc.o		\
-	subdevs/xrt-srsr.o		\
-	subdevs/xrt-clock.o		\
-	subdevs/xrt-clkfreq.o		\
-	subdevs/xrt-ucs.o		\
-	subdevs/xrt-calib.o		\
+xrt-lib-y := 			\
+	main.o			\
+	root.o			\
+	xclbin.o		\
+	metadata.o		\
+	subdev.o		\
+	cdev.o			\
+	partition.o		\
+	subdevs/test.o		\
+	subdevs/vsec.o		\
+	subdevs/vsec-golden.o	\
+	subdevs/axigate.o	\
+	subdevs/qspi.o		\
+	subdevs/gpio.o		\
+	subdevs/mailbox.o	\
+	subdevs/icap.o		\
+	subdevs/cmc.o		\
+	subdevs/cmc-ctrl.o	\
+	subdevs/cmc-sensors.o	\
+	subdevs/cmc-mailbox.o	\
+	subdevs/cmc-bdinfo.o	\
+	subdevs/cmc-sc.o	\
+	subdevs/srsr.o		\
+	subdevs/clock.o		\
+	subdevs/clkfreq.o	\
+	subdevs/ucs.o		\
+	subdevs/calib.o		\
 	$(fdtobj)
 
 

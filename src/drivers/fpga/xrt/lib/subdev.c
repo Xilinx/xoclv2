@@ -11,7 +11,7 @@
 #include <linux/vmalloc.h>
 #include "subdev.h"
 #include "parent.h"
-#include "xrt-main.h"
+#include "main.h"
 #include "metadata.h"
 
 #define DEV_IS_PCI(dev) ((dev)->bus == &pci_bus_type)
