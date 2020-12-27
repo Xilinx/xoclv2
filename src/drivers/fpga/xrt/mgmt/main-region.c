@@ -15,7 +15,7 @@
 #include "subdev.h"
 #include "subdev/axigate.h"
 #include "xclbin-helper.h"
-#include "xmgmt-main-impl.h"
+#include "main-impl.h"
 
 struct xmgmt_bridge {
 	struct platform_device *pdev;

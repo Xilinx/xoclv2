@@ -18,10 +18,10 @@
 #include <linux/xrt/xmgmt-ioctl.h>
 #include "subdev/gpio.h"
 #include "xmgmt-main.h"
-#include "xmgmt-fmgr.h"
+#include "fmgr.h"
 #include "subdev/icap.h"
 #include "subdev/axigate.h"
-#include "xmgmt-main-impl.h"
+#include "main-impl.h"
 
 #define	XMGMT_MAIN "xmgmt_main"
 

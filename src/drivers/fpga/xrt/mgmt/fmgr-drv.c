@@ -17,10 +17,10 @@
 
 #include "xclbin-helper.h"
 #include "subdev.h"
-#include "xmgmt-fmgr.h"
+#include "fmgr.h"
 #include "subdev/axigate.h"
 #include "subdev/icap.h"
-#include "xmgmt-main-impl.h"
+#include "main-impl.h"
 
 struct xfpga_klass {
 	const struct platform_device *pdev;
