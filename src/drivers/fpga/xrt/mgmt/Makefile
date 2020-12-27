@@ -47,7 +47,7 @@ ccflags-y += -DDEBUG -Og -g
 endif
 
 all:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) KBUILD_EXTRA_SYMBOLS=$(PWD)/../lib/Module.symvers modules
+	$(MAKE) -C $(KERNELDIR) W=1 M=$(PWD) KBUILD_EXTRA_SYMBOLS=$(PWD)/../lib/Module.symvers modules
 
 clean:
 	rm -rf *.o *.o.d *~ core .depend .*.cmd *.ko *.ko.unsigned *.mod.c \

@@ -21,11 +21,4 @@ enum xrt_axigate_ioctl_cmd {
 	XRT_AXIGATE_FREE,
 };
 
-/* the ep names are in the order of hardware layers */
-static const char * const xrt_axigate_epnames[] = {
-	NODE_GATE_PLP,
-	NODE_GATE_ULP,
-	NULL
-};
-
 #endif	/* _XRT_AXIGATE_H_ */
