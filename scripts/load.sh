@@ -1,5 +1,8 @@
 #!/bin/bash -x
 
+set -e
+
+# Reload xmgmt driver
 rmmod xclmgmt || true
 rmmod xmgmt || true
 rmmod xrt-lib || true
@@ -11,8 +14,11 @@ insmod ./mgmt/xmgmt.ko
 
 sleep 1
 
-type xbmgmt
-if [ $? -eq 1 ]
+# Validate 'sensors' can find us
+sensors xilinx_u50_gen3x16_xdma_201920_3-pci-0600
+
+# Validate xclbin loading verify.xclbin
+if [[ ! -x $XILINX_XRT/bin/xbmgmt ]]
 then
    source /opt/xilinx/xrt/setup.sh
 fi

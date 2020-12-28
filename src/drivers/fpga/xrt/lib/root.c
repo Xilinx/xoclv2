@@ -375,17 +375,17 @@ static void xroot_evt_fini(struct xroot *xr)
 static int xroot_evt_cb_add(struct xroot *xr,
 	struct xrt_parent_ioctl_evt_cb *cb)
 {
-	struct xroot_event_cb *new = vzalloc(sizeof(*new));
+	struct xroot_event_cb *enew = vzalloc(sizeof(*enew));
 
-	if (!new)
+	if (!enew)
 		return -ENOMEM;
 
-	cb->xevt_hdl = new;
-	new->cb = *cb;
-	new->initialized = false;
+	cb->xevt_hdl = enew;
+	enew->cb = *cb;
+	enew->initialized = false;
 
 	mutex_lock(&xr->events.cb_lock);
-	list_add(&new->list, &xr->events.cb_list);
+	list_add(&enew->list, &xr->events.cb_list);
 	mutex_unlock(&xr->events.cb_lock);
 
 	schedule_work(&xr->events.cb_init_work);
@@ -395,15 +395,15 @@ static int xroot_evt_cb_add(struct xroot *xr,
 static int xroot_async_evt_add(struct xroot *xr,
 	struct xrt_parent_ioctl_async_broadcast_evt *arg)
 {
-	struct xroot_async_evt *new = vzalloc(sizeof(*new));
+	struct xroot_async_evt *enew = vzalloc(sizeof(*enew));
 
-	if (!new)
+	if (!enew)
 		return -ENOMEM;
 
-	new->evt = *arg;
+	enew->evt = *arg;
 
 	mutex_lock(&xr->events.async_evt_lock);
-	list_add(&new->list, &xr->events.async_evt_list);
+	list_add(&enew->list, &xr->events.async_evt_list);
 	mutex_unlock(&xr->events.async_evt_lock);
 
 	schedule_work(&xr->events.async_evt_work);

@@ -433,19 +433,6 @@ int xrt_subdev_destroy_partition(struct platform_device *pdev, int instance)
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_destroy_partition);
 
-int xrt_subdev_lookup_partition(struct platform_device *pdev,
-	xrt_subdev_match_t match_cb, void *match_arg)
-{
-	int rc;
-	struct xrt_parent_ioctl_lookup_partition lkp = {
-		pdev, match_cb, match_arg, };
-
-	rc = xrt_subdev_parent_ioctl(pdev, XRT_PARENT_LOOKUP_PARTITION, &lkp);
-	if (rc)
-		return rc;
-	return lkp.xpilp_part_inst;
-}
-EXPORT_SYMBOL_GPL(xrt_subdev_lookup_partition);
 
 int xrt_subdev_wait_for_partition_bringup(struct platform_device *pdev)
 {
@@ -494,7 +481,6 @@ void xrt_subdev_pool_init(struct device *dev, struct xrt_subdev_pool *spool)
 	mutex_init(&spool->xpool_lock);
 	spool->xpool_closing = false;
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_pool_init);
 
 static void xrt_subdev_pool_wait_for_holders(struct xrt_subdev_pool *spool,
 	struct xrt_subdev *sdev)
@@ -558,7 +544,6 @@ int xrt_subdev_pool_fini(struct xrt_subdev_pool *spool)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_pool_fini);
 
 static int xrt_subdev_hold(struct xrt_subdev *sdev, struct device *holder_dev)
 {
@@ -650,7 +635,6 @@ int xrt_subdev_pool_add(struct xrt_subdev_pool *spool, enum xrt_subdev_id id,
 
 	return ret ? ret : sdev->xs_pdev->id;
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_pool_add);
 
 int xrt_subdev_pool_del(struct xrt_subdev_pool *spool, enum xrt_subdev_id id,
 	int instance)
@@ -678,7 +662,6 @@ int xrt_subdev_pool_del(struct xrt_subdev_pool *spool, enum xrt_subdev_id id,
 	xrt_subdev_destroy(sdev);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_pool_del);
 
 static int xrt_subdev_pool_get_impl(struct xrt_subdev_pool *spool,
 	xrt_subdev_match_t match, void *arg, struct device *holder_dev,
@@ -749,7 +732,6 @@ static int xrt_subdev_pool_get_impl(struct xrt_subdev_pool *spool,
 		*sdevp = sdev;
 	return ret;
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_pool_get);
 
 int xrt_subdev_pool_get(struct xrt_subdev_pool *spool,
 	xrt_subdev_match_t match, void *arg, struct device *holder_dev,
@@ -824,7 +806,6 @@ int xrt_subdev_pool_put(struct xrt_subdev_pool *spool,
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_pool_put);
 
 int xrt_subdev_pool_event(struct xrt_subdev_pool *spool,
 	struct platform_device *pdev, xrt_subdev_match_t match, void *arg,

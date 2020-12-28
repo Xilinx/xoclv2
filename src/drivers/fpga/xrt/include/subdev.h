@@ -303,8 +303,6 @@ extern int xrt_subdev_create_partition(struct platform_device *pdev,
 	char *dtb);
 extern int xrt_subdev_destroy_partition(struct platform_device *pdev,
 	int instance);
-extern int xrt_subdev_lookup_partition(
-	struct platform_device *pdev, xrt_subdev_match_t cb, void *arg);
 extern int xrt_subdev_wait_for_partition_bringup(struct platform_device *pdev);
 extern void *xrt_subdev_add_event_cb(struct platform_device *pdev,
 	xrt_subdev_match_t match, void *match_arg, xrt_event_cb_t cb);
