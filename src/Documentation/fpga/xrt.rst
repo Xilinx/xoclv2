@@ -16,8 +16,9 @@ XRTV2 drivers support *subsystem* style data driven platforms where driver's
 configuration and behavior is determined by meta data provided by the platform
 (in *device tree* format). Primary management physical function (MPF) driver
 is called **xmgmt**. Primary user physical function (UPF) driver is called
-**xuser** and HW subsystem drivers are packaged into a library module called
-**xrt-lib**, which is shared by **xmgmt** and **xuser** (under development).
+**xuser** and is under development. xrt driver framework and HW subsystem
+drivers are packaged into a library module called **xrt-lib**, which is
+shared by **xmgmt** and **xuser** (under development) .
 
 Alveo Platform Overview
 =======================
@@ -86,12 +87,14 @@ fails loading of xclbin is denied.
 xclbin loading is requested using ICAP_DOWNLOAD_AXLF ioctl command. When loading
 xclbin, xmgmt driver performs the following *logical* operations:
 
-1. Sanity check the xclbin contents
-2. Isolate the User partition
-3. Download the bitstream using the FPGA config engine (ICAP)
-4. De-isolate the User partition
-5. Program the clocks (ClockWiz) driving the User partition
-6. Wait for memory controller (MIG) calibration
+1. Copy xclbin from user to kernel memory
+2. Sanity check the xclbin contents
+3. Isolate the User partition
+4. Download the bitstream using the FPGA config engine (ICAP)
+5. De-isolate the User partition
+6. Program the clocks (ClockWiz) driving the User partition
+7. Wait for memory controller (MIG) calibration
+8. Return the loading status back to the caller
 
 `Platform Loading Overview <https://xilinx.github.io/XRT/master/html/platforms_partitions.html>`_
 provides more detailed information on platform loading.
@@ -171,10 +174,11 @@ Device Tree Usage
 As mentioned previously xsabin stores metadata which advertise HW subsystems present
 in a partition. The metadata is stored in device tree format with well defined schema.
 Subsystem instantiations are captured as children of ``addressable_endpoints`` node.
-Subsystem nodes have standard attributes like ``reg``, ``interrupts`` etc. Additionally
-the nodes also have PCIe specific attributes: ``pcie_physical_function`` and
+Subsystem nodes have standard properties like ``reg``, ``interrupts`` etc. Additionally
+the nodes also have PCIe specific properties: ``pcie_physical_function`` and
 ``pcie_bar_mapping``. These identify which PCIe physical function and which BAR space
-in that physical function the subsystem resides. XRT management driver uses this
+in that physical function the subsystem resides. ``reg`` property defines address range
+in the specified BAR. The address is offset in the BAR. XRT management driver uses this
 information to bind *platform drivers* to the subsystem instantiations. The platform
 drivers are found in **xrt-lib.ko** kernel module defined later. Below is an example
 of device tree for Alveo U50 platform::
@@ -519,7 +523,7 @@ before it returns from it's probe routine and claim success of the initializatio
 of the entire xmgmt driver.
 
 .. note::
-   See code in ``common/xrt-root.c`` and ``mgmt/xmgmt-root.c``
+   See code in ``lib/root.c`` and ``mgmt/root.c``
 
 
 partition
@@ -545,7 +549,7 @@ is destroyed when a new xclbin image is loaded. The fpga_region persists
 across xclbin downloads.
 
 .. note::
-   See code in ``lib/subdevs/xrt-partition.c``
+   See code in ``lib/partition.c``
 
 
 leaves
@@ -585,14 +589,14 @@ start programming the FPGA configuration engine via ICAP subdev driver.
 fpga_region
 -----------
 
-A new instance of fpga_region is created like a *child* region for every
-interface exposed by currently loaded xclbin or xsabin in the *parent*
-fpga_region. The device tree of the *parent* fpga_region defines the
+For every interface exposed by currently loaded xclbin/xsabin in the *parent*
+fpga_region a new instance of fpga_region is created like a *child* region.
+The device tree of the *parent* fpga_region defines the
 resources for a new instance of fpga_bridge which isolates the parent from
 child fpga_region. This new instance of fpga_bridge will be used when a
 xclbin image is loaded on the child fpga_region. After the xclbin image is
 downloaded to the fpga_region, a partition instance is created for the
-fpga_region using the device tree obtained as part of xclbin. This device
+fpga_region using the device tree obtained as part of xclbin. If this device
 tree defines any child interfaces then it can trigger the creation of
 fpga_bridge and fpga_region for the next region in the chain.
 
