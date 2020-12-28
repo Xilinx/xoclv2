@@ -16,7 +16,7 @@
 
 #include "root.h"
 #include "subdev.h"
-#include "xmgmt-main-impl.h"
+#include "main-impl.h"
 #include "metadata.h"
 
 #define	XMGMT_MODULE_NAME	"xmgmt"

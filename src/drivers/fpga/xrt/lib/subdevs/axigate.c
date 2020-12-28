@@ -37,6 +37,13 @@ struct xrt_axigate {
 	bool			gate_freezed;
 };
 
+/* the ep names are in the order of hardware layers */
+static const char * const xrt_axigate_epnames[] = {
+	NODE_GATE_PLP,
+	NODE_GATE_ULP,
+	NULL
+};
+
 #define reg_rd(g, r)						\
 	ioread32(&((struct axigate_regs *)g->base)->r)
 #define reg_wr(g, v, r)						\

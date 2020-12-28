@@ -12,7 +12,7 @@
 
 #include <linux/crc32c.h>
 #include <linux/xrt/mailbox_proto.h>
-#include "xmgmt-main-impl.h"
+#include "main-impl.h"
 #include "subdev/mailbox.h"
 #include "subdev/cmc.h"
 #include "metadata.h"
