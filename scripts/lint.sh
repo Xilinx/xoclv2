@@ -37,3 +37,6 @@ do
 	$ROOT/scripts/checkpatch.pl --no-tree --emacs --color=never -f $ROOT/$item
     fi
 done
+
+echo "Reviewing exported symbols..."
+wc -l $ROOTSRC/drivers/fpga/xrt/lib/Module.symvers
