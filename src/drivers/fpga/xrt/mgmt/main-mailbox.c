@@ -85,7 +85,7 @@ static void xmgmt_mailbox_post(struct xmgmt_mailbox *xmbx,
 		XMGMT_MAILBOX_PRT_RESP(xmbx, &post);
 	}
 
-	rc = xrt_subdev_ioctl(xmbx->mailbox, XRT_MAILBOX_POST, &post);
+	rc = xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_POST, &post);
 	if (rc)
 		xrt_err(xmbx->pdev, "failed to post msg: %d", rc);
 }
@@ -378,13 +378,13 @@ static void xmgmt_mailbox_resp_sensor(struct xmgmt_mailbox *xmbx,
 {
 	struct platform_device *pdev = xmbx->pdev;
 	struct xcl_sensor sensors = { 0 };
-	struct platform_device *cmcpdev = xrt_subdev_get_leaf_by_id(pdev,
+	struct platform_device *cmcpdev = xleaf_get_leaf_by_id(pdev,
 		XRT_SUBDEV_CMC, PLATFORM_DEVID_NONE);
 	int rc;
 
 	if (cmcpdev) {
-		rc = xrt_subdev_ioctl(cmcpdev, XRT_CMC_READ_SENSORS, &sensors);
-		(void) xrt_subdev_put_leaf(pdev, cmcpdev);
+		rc = xleaf_ioctl(cmcpdev, XRT_CMC_READ_SENSORS, &sensors);
+		(void) xleaf_put_leaf(pdev, cmcpdev);
 		if (rc)
 			xrt_err(pdev, "can't read sensors: %d", rc);
 	}
@@ -401,7 +401,7 @@ static int xmgmt_mailbox_get_freq(struct xmgmt_mailbox *xmbx,
 		xrt_clock_type2epname(type) ?
 		xrt_clock_type2epname(type) : "UNKNOWN";
 	struct platform_device *clkpdev =
-		xrt_subdev_get_leaf_by_epname(pdev, clkname);
+		xleaf_get_leaf_by_epname(pdev, clkname);
 	int rc;
 	struct xrt_clock_ioctl_get getfreq = { 0 };
 
@@ -410,8 +410,8 @@ static int xmgmt_mailbox_get_freq(struct xmgmt_mailbox *xmbx,
 		return -ENOENT;
 	}
 
-	rc = xrt_subdev_ioctl(clkpdev, XRT_CLOCK_GET, &getfreq);
-	(void) xrt_subdev_put_leaf(pdev, clkpdev);
+	rc = xleaf_ioctl(clkpdev, XRT_CLOCK_GET, &getfreq);
+	(void) xleaf_put_leaf(pdev, clkpdev);
 	if (rc) {
 		xrt_err(pdev, "can't get %s clock frequency: %d", clkname, rc);
 		return rc;
@@ -427,7 +427,7 @@ static int xmgmt_mailbox_get_freq(struct xmgmt_mailbox *xmbx,
 static int xmgmt_mailbox_get_icap_idcode(struct xmgmt_mailbox *xmbx, u64 *id)
 {
 	struct platform_device *pdev = xmbx->pdev;
-	struct platform_device *icappdev = xrt_subdev_get_leaf_by_id(pdev,
+	struct platform_device *icappdev = xleaf_get_leaf_by_id(pdev,
 		XRT_SUBDEV_ICAP, PLATFORM_DEVID_NONE);
 	int rc;
 
@@ -436,8 +436,8 @@ static int xmgmt_mailbox_get_icap_idcode(struct xmgmt_mailbox *xmbx, u64 *id)
 		return -ENOENT;
 	}
 
-	rc = xrt_subdev_ioctl(icappdev, XRT_ICAP_IDCODE, id);
-	(void) xrt_subdev_put_leaf(pdev, icappdev);
+	rc = xleaf_ioctl(icappdev, XRT_ICAP_IDCODE, id);
+	(void) xleaf_put_leaf(pdev, icappdev);
 	if (rc)
 		xrt_err(pdev, "can't get icap idcode: %d", rc);
 	return rc;
@@ -446,7 +446,7 @@ static int xmgmt_mailbox_get_icap_idcode(struct xmgmt_mailbox *xmbx, u64 *id)
 static int xmgmt_mailbox_get_mig_calib(struct xmgmt_mailbox *xmbx, u64 *calib)
 {
 	struct platform_device *pdev = xmbx->pdev;
-	struct platform_device *calibpdev = xrt_subdev_get_leaf_by_id(pdev,
+	struct platform_device *calibpdev = xleaf_get_leaf_by_id(pdev,
 		XRT_SUBDEV_CALIB, PLATFORM_DEVID_NONE);
 	int rc;
 	enum xrt_calib_results res;
@@ -456,8 +456,8 @@ static int xmgmt_mailbox_get_mig_calib(struct xmgmt_mailbox *xmbx, u64 *calib)
 		return -ENOENT;
 	}
 
-	rc = xrt_subdev_ioctl(calibpdev, XRT_CALIB_RESULT, &res);
-	(void) xrt_subdev_put_leaf(pdev, calibpdev);
+	rc = xleaf_ioctl(calibpdev, XRT_CALIB_RESULT, &res);
+	(void) xleaf_put_leaf(pdev, calibpdev);
 	if (rc) {
 		xrt_err(pdev, "can't get mig calibration result: %d", rc);
 	} else {
@@ -501,11 +501,11 @@ static void xmgmt_mailbox_resp_bdinfo(struct xmgmt_mailbox *xmbx,
 	if (info == NULL)
 		return;
 
-	cmcpdev = xrt_subdev_get_leaf_by_id(pdev,
+	cmcpdev = xleaf_get_leaf_by_id(pdev,
 		XRT_SUBDEV_CMC, PLATFORM_DEVID_NONE);
 	if (cmcpdev) {
-		rc = xrt_subdev_ioctl(cmcpdev, XRT_CMC_READ_BOARD_INFO, info);
-		(void) xrt_subdev_put_leaf(pdev, cmcpdev);
+		rc = xleaf_ioctl(cmcpdev, XRT_CMC_READ_BOARD_INFO, info);
+		(void) xleaf_put_leaf(pdev, cmcpdev);
 		if (rc)
 			xrt_err(pdev, "can't read board info: %d", rc);
 	}
@@ -697,7 +697,7 @@ static void xmgmt_mailbox_reg_listener(struct xmgmt_mailbox *xmbx)
 	BUG_ON(!mutex_is_locked(&xmbx->lock));
 	if (!xmbx->mailbox)
 		return;
-	(void) xrt_subdev_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
+	(void) xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
 }
 
 static void xmgmt_mailbox_unreg_listener(struct xmgmt_mailbox *xmbx)
@@ -706,7 +706,7 @@ static void xmgmt_mailbox_unreg_listener(struct xmgmt_mailbox *xmbx)
 
 	BUG_ON(!mutex_is_locked(&xmbx->lock));
 	BUG_ON(!xmbx->mailbox);
-	(void) xrt_subdev_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
+	(void) xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
 }
 
 static bool xmgmt_mailbox_leaf_match(enum xrt_subdev_id id,
@@ -726,7 +726,7 @@ static int xmgmt_mailbox_event_cb(struct platform_device *pdev,
 		BUG_ON(esd->xevt_subdev_id != XRT_SUBDEV_MAILBOX);
 		BUG_ON(xmbx->mailbox);
 		mutex_lock(&xmbx->lock);
-		xmbx->mailbox = xrt_subdev_get_leaf_by_id(pdev,
+		xmbx->mailbox = xleaf_get_leaf_by_id(pdev,
 			XRT_SUBDEV_MAILBOX, PLATFORM_DEVID_NONE);
 		xmgmt_mailbox_reg_listener(xmbx);
 		mutex_unlock(&xmbx->lock);
@@ -736,7 +736,7 @@ static int xmgmt_mailbox_event_cb(struct platform_device *pdev,
 		BUG_ON(!xmbx->mailbox);
 		mutex_lock(&xmbx->lock);
 		xmgmt_mailbox_unreg_listener(xmbx);
-		(void) xrt_subdev_put_leaf(pdev, xmbx->mailbox);
+		(void) xleaf_put_leaf(pdev, xmbx->mailbox);
 		xmbx->mailbox = NULL;
 		mutex_unlock(&xmbx->lock);
 		break;
@@ -818,7 +818,7 @@ static int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
 		 * either notification or response. here is the only exception
 		 * for debugging purpose.
 		 */
-		rc = xrt_subdev_ioctl(xmbx->mailbox,
+		rc = xleaf_ioctl(xmbx->mailbox,
 			XRT_MAILBOX_REQUEST, &leaf_req);
 	} else {
 		rc = -ENODEV;
@@ -891,7 +891,7 @@ void *xmgmt_mailbox_probe(struct platform_device *pdev)
 	xmbx->pdev = pdev;
 	mutex_init(&xmbx->lock);
 
-	xmbx->evt_hdl = xrt_subdev_add_event_cb(pdev,
+	xmbx->evt_hdl = xleaf_add_event_cb(pdev,
 		xmgmt_mailbox_leaf_match, NULL, xmgmt_mailbox_event_cb);
 	(void) sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_mailbox_attrgroup);
 	return xmbx;
@@ -904,9 +904,9 @@ void xmgmt_mailbox_remove(void *handle)
 
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_mailbox_attrgroup);
 	if (xmbx->evt_hdl)
-		(void) xrt_subdev_remove_event_cb(pdev, xmbx->evt_hdl);
+		(void) xleaf_remove_event_cb(pdev, xmbx->evt_hdl);
 	if (xmbx->mailbox)
-		(void) xrt_subdev_put_leaf(pdev, xmbx->mailbox);
+		(void) xleaf_put_leaf(pdev, xmbx->mailbox);
 	if (xmbx->test_msg)
 		vfree(xmbx->test_msg);
 }

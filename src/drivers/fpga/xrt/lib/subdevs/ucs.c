@@ -14,7 +14,7 @@
 #include <linux/device.h>
 #include <linux/io.h>
 #include "metadata.h"
-#include "subdev.h"
+#include "leaf.h"
 #include "parent.h"
 #include "subdev/ucs.h"
 #include "subdev/clock.h"
@@ -84,11 +84,11 @@ static int xrt_ucs_event_cb(struct platform_device *pdev,
 		return XRT_EVENT_CB_CONTINUE;
 	}
 
-	leaf = xrt_subdev_get_leaf_by_id(pdev,
+	leaf = xleaf_get_leaf_by_id(pdev,
 		XRT_SUBDEV_CLOCK, esd->xevt_subdev_instance);
 	BUG_ON(!leaf);
-	xrt_subdev_ioctl(leaf, XRT_CLOCK_VERIFY, NULL);
-	xrt_subdev_put_leaf(pdev, leaf);
+	xleaf_ioctl(leaf, XRT_CLOCK_VERIFY, NULL);
+	xleaf_put_leaf(pdev, leaf);
 
 	return XRT_EVENT_CB_CONTINUE;
 }
@@ -157,7 +157,7 @@ static int ucs_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	xrt_subdev_remove_event_cb(pdev, ucs->evt_hdl);
+	xleaf_remove_event_cb(pdev, ucs->evt_hdl);
 	if (ucs->ucs_base)
 		iounmap(ucs->ucs_base);
 
@@ -191,7 +191,7 @@ static int ucs_probe(struct platform_device *pdev)
 		goto failed;
 	}
 	ucs_enable(ucs);
-	ucs->evt_hdl = xrt_subdev_add_event_cb(pdev, xrt_ucs_leaf_match,
+	ucs->evt_hdl = xleaf_add_event_cb(pdev, xrt_ucs_leaf_match,
 		NULL, xrt_ucs_event_cb);
 
 	return 0;

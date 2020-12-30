@@ -11,7 +11,7 @@
 #include <linux/delay.h>
 #include <linux/uaccess.h>
 #include "metadata.h"
-#include "subdev.h"
+#include "leaf.h"
 #include "subdev/flash.h"
 
 #define	XRT_QSPI "xrt_qspi"
@@ -1077,7 +1077,7 @@ qspi_llseek(struct file *filp, loff_t off, int whence)
 static int qspi_open(struct inode *inode, struct file *file)
 {
 	struct xrt_qspi *flash;
-	struct platform_device *pdev = xrt_devnode_open_excl(inode);
+	struct platform_device *pdev = xleaf_devnode_open_excl(inode);
 
 	if (!pdev)
 		return -EBUSY;
@@ -1095,7 +1095,7 @@ static int qspi_close(struct inode *inode, struct file *file)
 		return -EINVAL;
 
 	file->private_data = NULL;
-	xrt_devnode_close(inode);
+	xleaf_devnode_close(inode);
 	return 0;
 }
 

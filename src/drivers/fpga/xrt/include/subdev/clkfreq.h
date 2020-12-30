@@ -9,7 +9,7 @@
 #ifndef	_XRT_CLKFREQ_H_
 #define	_XRT_CLKFREQ_H_
 
-#include "subdev.h"
+#include "leaf.h"
 
 /*
  * CLKFREQ driver IOCTL calls.

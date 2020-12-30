@@ -8,7 +8,7 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#include "subdev.h"
+#include "leaf.h"
 
 extern struct class *xrt_class;
 
@@ -20,7 +20,7 @@ extern struct class *xrt_class;
 #define	CDEV_NAME(sysdev)	(strchr((sysdev)->kobj.name, '!') + 1)
 
 /* Allow it to be accessed from cdev. */
-static void xrt_devnode_allowed(struct platform_device *pdev)
+static void xleaf_devnode_allowed(struct platform_device *pdev)
 {
 	struct xrt_subdev_platdata *pdata = DEV_PDATA(pdev);
 
@@ -31,7 +31,7 @@ static void xrt_devnode_allowed(struct platform_device *pdev)
 }
 
 /* Turn off access from cdev and wait for all existing user to go away. */
-static int xrt_devnode_disallowed(struct platform_device *pdev)
+static int xleaf_devnode_disallowed(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct xrt_subdev_platdata *pdata = DEV_PDATA(pdev);
@@ -64,7 +64,7 @@ static int xrt_devnode_disallowed(struct platform_device *pdev)
 }
 
 static struct platform_device *
-__xrt_devnode_open(struct inode *inode, bool excl)
+__xleaf_devnode_open(struct inode *inode, bool excl)
 {
 	struct xrt_subdev_platdata *pdata = INODE2PDATA(inode);
 	struct platform_device *pdev = INODE2PDEV(inode);
@@ -97,19 +97,19 @@ __xrt_devnode_open(struct inode *inode, bool excl)
 }
 
 struct platform_device *
-xrt_devnode_open_excl(struct inode *inode)
+xleaf_devnode_open_excl(struct inode *inode)
 {
-	return __xrt_devnode_open(inode, true);
+	return __xleaf_devnode_open(inode, true);
 }
 
 struct platform_device *
-xrt_devnode_open(struct inode *inode)
+xleaf_devnode_open(struct inode *inode)
 {
-	return __xrt_devnode_open(inode, false);
+	return __xleaf_devnode_open(inode, false);
 }
-EXPORT_SYMBOL_GPL(xrt_devnode_open);
+EXPORT_SYMBOL_GPL(xleaf_devnode_open);
 
-void xrt_devnode_close(struct inode *inode)
+void xleaf_devnode_close(struct inode *inode)
 {
 	struct xrt_subdev_platdata *pdata = INODE2PDATA(inode);
 	struct platform_device *pdev = INODE2PDEV(inode);
@@ -135,7 +135,7 @@ void xrt_devnode_close(struct inode *inode)
 	if (notify)
 		complete(&pdata->xsp_devnode_comp);
 }
-EXPORT_SYMBOL_GPL(xrt_devnode_close);
+EXPORT_SYMBOL_GPL(xleaf_devnode_close);
 
 static inline enum xrt_subdev_file_mode
 devnode_mode(struct xrt_subdev_drvdata *drvdata)
@@ -143,7 +143,7 @@ devnode_mode(struct xrt_subdev_drvdata *drvdata)
 	return drvdata->xsd_file_ops.xsf_mode;
 }
 
-int xrt_devnode_create(struct platform_device *pdev, const char *file_name,
+int xleaf_devnode_create(struct platform_device *pdev, const char *file_name,
 	const char *inst_name)
 {
 	struct xrt_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
@@ -199,7 +199,7 @@ int xrt_devnode_create(struct platform_device *pdev, const char *file_name,
 	}
 	pdata->xsp_sysdev = sysdev;
 
-	xrt_devnode_allowed(pdev);
+	xleaf_devnode_allowed(pdev);
 
 	xrt_info(pdev, "created (%d, %d): /dev/%s",
 		MAJOR(cdevp->dev), pdev->id, fname);
@@ -212,7 +212,7 @@ failed:
 	return ret;
 }
 
-int xrt_devnode_destroy(struct platform_device *pdev)
+int xleaf_devnode_destroy(struct platform_device *pdev)
 {
 	struct xrt_subdev_platdata *pdata = DEV_PDATA(pdev);
 	struct cdev *cdevp = &pdata->xsp_cdev;
@@ -221,7 +221,7 @@ int xrt_devnode_destroy(struct platform_device *pdev)
 
 	BUG_ON(!cdevp->owner);
 
-	rc = xrt_devnode_disallowed(pdev);
+	rc = xleaf_devnode_disallowed(pdev);
 	if (rc)
 		return rc;
 

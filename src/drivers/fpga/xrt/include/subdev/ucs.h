@@ -9,7 +9,7 @@
 #ifndef	_XRT_UCS_H_
 #define	_XRT_UCS_H_
 
-#include "subdev.h"
+#include "leaf.h"
 
 /*
  * UCS driver IOCTL calls.

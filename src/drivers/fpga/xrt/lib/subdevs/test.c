@@ -10,7 +10,7 @@
 
 #include <linux/delay.h>
 #include "metadata.h"
-#include "subdev.h"
+#include "leaf.h"
 
 #define	XRT_TEST "xrt_test"
 
@@ -34,7 +34,7 @@ static ssize_t hold_store(struct device *dev,
 	struct xrt_test *xt = platform_get_drvdata(pdev);
 	struct platform_device *leaf;
 
-	leaf = xrt_subdev_get_leaf(pdev, xrt_test_leaf_match,
+	leaf = xleaf_get_leaf(pdev, xrt_test_leaf_match,
 		(void *)(uintptr_t)pdev->id);
 	if (leaf)
 		xt->leaf = leaf;
@@ -49,7 +49,7 @@ static ssize_t release_store(struct device *dev,
 	struct xrt_test *xt = platform_get_drvdata(pdev);
 
 	if (xt->leaf)
-		(void) xrt_subdev_put_leaf(pdev, xt->leaf);
+		(void) xleaf_put_leaf(pdev, xt->leaf);
 	return count;
 }
 static DEVICE_ATTR_WO(release);
@@ -86,16 +86,16 @@ static int xrt_test_event_cb(struct platform_device *pdev,
 		return XRT_EVENT_CB_CONTINUE;
 	}
 
-	leaf = xrt_subdev_get_leaf_by_id(pdev, esd->xevt_subdev_id,
+	leaf = xleaf_get_leaf_by_id(pdev, esd->xevt_subdev_id,
 		esd->xevt_subdev_instance);
 	if (leaf) {
-		(void) xrt_subdev_ioctl(leaf, 1, NULL);
-		(void) xrt_subdev_put_leaf(pdev, leaf);
+		(void) xleaf_ioctl(leaf, 1, NULL);
+		(void) xleaf_put_leaf(pdev, leaf);
 	}
 
 	/* Broadcast event. */
 	if (pdev->id == 1) {
-		xrt_subdev_broadcast_event_async(pdev, XRT_EVENT_TEST,
+		xleaf_broadcast_event_async(pdev, XRT_EVENT_TEST,
 			xrt_test_async_evt_cb, NULL);
 	}
 
@@ -149,17 +149,17 @@ static int xrt_test_probe(struct platform_device *pdev)
 		xrt_err(pdev, "failed to create sysfs group");
 
 	/* Add event callback to wait for the peer instance. */
-	xt->evt_hdl = xrt_subdev_add_event_cb(pdev, xrt_test_leaf_match,
+	xt->evt_hdl = xleaf_add_event_cb(pdev, xrt_test_leaf_match,
 		(void *)(uintptr_t)pdev->id, xrt_test_event_cb);
 
 	/* Trigger partition creation, only when this is the first instance. */
 	if (pdev->id == 0) {
 		(void) xrt_test_create_metadata(xt, &dtb);
 		if (dtb)
-			(void) xrt_subdev_create_partition(pdev, dtb);
+			(void) xleaf_create_partition(pdev, dtb);
 		vfree(dtb);
 	} else {
-		xrt_subdev_broadcast_event(pdev, XRT_EVENT_TEST);
+		xleaf_broadcast_event(pdev, XRT_EVENT_TEST);
 	}
 
 	/* After we return here, we'll get inter-leaf calls. */
@@ -174,7 +174,7 @@ static int xrt_test_remove(struct platform_device *pdev)
 
 	xrt_info(pdev, "leaving...");
 
-	(void) xrt_subdev_remove_event_cb(pdev, xt->evt_hdl);
+	(void) xleaf_remove_event_cb(pdev, xt->evt_hdl);
 
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xrt_test_attrgroup);
 	/* By now, no more access thru sysfs nodes. */
@@ -192,7 +192,7 @@ xrt_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 
 static int xrt_test_open(struct inode *inode, struct file *file)
 {
-	struct platform_device *pdev = xrt_devnode_open(inode);
+	struct platform_device *pdev = xleaf_devnode_open(inode);
 
 	/* Device may have gone already when we get here. */
 	if (!pdev)
@@ -220,7 +220,7 @@ static int xrt_test_close(struct inode *inode, struct file *file)
 {
 	struct xrt_test *xt = file->private_data;
 
-	xrt_devnode_close(inode);
+	xleaf_devnode_close(inode);
 
 	xrt_info(xt->pdev, "closed");
 	return 0;

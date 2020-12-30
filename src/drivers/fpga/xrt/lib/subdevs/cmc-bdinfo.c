@@ -6,7 +6,7 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#include "subdev.h"
+#include "leaf.h"
 #include "xrt-cmc-impl.h"
 #include "xmgmt-main.h"
 #include <linux/xrt/mailbox_proto.h>
@@ -169,7 +169,7 @@ static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 #define	NONE_BMC_VERSION	"0.0.0"
 	int ret = 0;
 	struct platform_device *pdev = cmc_bdi->pdev;
-	struct platform_device *mgmt_leaf = xrt_subdev_get_leaf_by_id(pdev,
+	struct platform_device *mgmt_leaf = xleaf_get_leaf_by_id(pdev,
 		XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
 	struct xrt_mgmt_main_ioctl_get_axlf_section gs = { XMGMT_BLP, BMC, };
 	struct bmc *bmcsect;
@@ -181,7 +181,7 @@ static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 		return;
 	}
 
-	ret = xrt_subdev_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_AXLF_SECTION, &gs);
+	ret = xleaf_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_AXLF_SECTION, &gs);
 	if (ret == 0) {
 		bmcsect = (struct bmc *)gs.xmmigas_section;
 		memcpy(expbmc, bmcsect->m_version, sizeof(bmcsect->m_version));
@@ -192,7 +192,7 @@ static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 		 */
 		cmc_copy_board_info_by_key(cmc_bdi, BDINFO_BMC_VER, expbmc);
 	}
-	(void) xrt_subdev_put_leaf(pdev, mgmt_leaf);
+	(void) xleaf_put_leaf(pdev, mgmt_leaf);
 }
 
 int cmc_bdinfo_read(struct platform_device *pdev, struct xcl_board_info *bdinfo)

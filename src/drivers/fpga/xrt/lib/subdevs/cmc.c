@@ -9,7 +9,7 @@
  */
 
 #include "metadata.h"
-#include "subdev.h"
+#include "leaf.h"
 #include "xrt-cmc-impl.h"
 #include "subdev/cmc.h"
 #include <linux/xrt/mailbox_proto.h>

@@ -10,13 +10,10 @@
 #ifndef	_XMGMT_MAIN_IMPL_H_
 #define	_XMGMT_MAIN_IMPL_H_
 
-#include "subdev.h"
+#include <linux/platform_device.h>
 #include "xmgmt-main.h"
 
 struct fpga_manager;
-extern struct platform_driver xmgmt_main_driver;
-extern struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[];
-
 extern int xmgmt_process_xclbin(struct platform_device *pdev,
 	struct fpga_manager *fmgr, const struct axlf *xclbin, enum provider_kind kind);
 extern void xmgmt_region_cleanup_all(struct platform_device *pdev);
@@ -36,5 +33,8 @@ extern void *xmgmt_pdev2mailbox(struct platform_device *pdev);
 extern void *xmgmt_mailbox_probe(struct platform_device *pdev);
 extern void xmgmt_mailbox_remove(void *handle);
 extern void xmgmt_peer_notify_state(void *handle, bool online);
+
+extern int xmgmt_main_register_leaf(void);
+extern void xmgmt_main_unregister_leaf(void);
 
 #endif	/* _XMGMT_MAIN_IMPL_H_ */

@@ -9,7 +9,8 @@
 #include <linux/platform_device.h>
 #include <linux/pci.h>
 #include <linux/vmalloc.h>
-#include "subdev.h"
+#include "leaf.h"
+#include "subdev_pool.h"
 #include "parent.h"
 #include "main.h"
 #include "metadata.h"
@@ -180,7 +181,7 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 		xrt_md_get_prop(parent, dtb, ep_name, regmap,
 			PROP_BAR_IDX, (const void **)&bar_idx, NULL);
 		bar = bar_idx ? be32_to_cpu(*bar_idx) : 0;
-		xrt_subdev_get_barres(to_platform_device(parent), &pci_res,
+		xleaf_get_barres(to_platform_device(parent), &pci_res,
 			bar);
 		(*res)[count2].start = pci_res->start +
 			be64_to_cpu(bar_range[0]);
@@ -215,7 +216,7 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 }
 
 static inline enum xrt_subdev_file_mode
-xrt_devnode_mode(struct xrt_subdev_drvdata *drvdata)
+xleaf_devnode_mode(struct xrt_subdev_drvdata *drvdata)
 {
 	return drvdata->xsd_file_ops.xsf_mode;
 }
@@ -227,9 +228,9 @@ static bool xrt_subdev_cdev_auto_creation(struct platform_device *pdev)
 	if (!drvdata)
 		return false;
 
-	return xrt_devnode_enabled(drvdata) &&
-		(xrt_devnode_mode(drvdata) == XRT_SUBDEV_FILE_DEFAULT ||
-		(xrt_devnode_mode(drvdata) == XRT_SUBDEV_FILE_MULTI_INST));
+	return xleaf_devnode_enabled(drvdata) &&
+		(xleaf_devnode_mode(drvdata) == XRT_SUBDEV_FILE_DEFAULT ||
+		(xleaf_devnode_mode(drvdata) == XRT_SUBDEV_FILE_MULTI_INST));
 }
 
 static struct xrt_subdev *
@@ -334,7 +335,7 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 
 	/* All done, ready to handle req thru cdev. */
 	if (xrt_subdev_cdev_auto_creation(pdev)) {
-		(void) xrt_devnode_create(pdev,
+		(void) xleaf_devnode_create(pdev,
 			DEV_DRVDATA(pdev)->xsd_file_ops.xsf_dev_name, NULL);
 	}
 
@@ -359,7 +360,7 @@ static void xrt_subdev_destroy(struct xrt_subdev *sdev)
 
 	/* Take down the device node */
 	if (xrt_subdev_cdev_auto_creation(pdev))
-		(void) xrt_devnode_destroy(pdev);
+		(void) xleaf_devnode_destroy(pdev);
 	if (sdev->xs_id != XRT_SUBDEV_PART)
 		(void) sysfs_remove_link(&find_root(pdev)->kobj, dev_name(dev));
 	(void) sysfs_remove_group(&dev->kobj, &xrt_subdev_attrgroup);
@@ -379,7 +380,7 @@ int xrt_subdev_parent_ioctl(struct platform_device *self, u32 cmd, void *arg)
 
 
 struct platform_device *
-xrt_subdev_get_leaf(struct platform_device *pdev,
+xleaf_get_leaf(struct platform_device *pdev,
 	xrt_subdev_match_t match_cb, void *match_arg)
 {
 	int rc;
@@ -391,10 +392,10 @@ xrt_subdev_get_leaf(struct platform_device *pdev,
 		return NULL;
 	return get_leaf.xpigl_leaf;
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_get_leaf);
+EXPORT_SYMBOL_GPL(xleaf_get_leaf);
 
 
-bool xrt_subdev_has_epname(struct platform_device *pdev, const char *ep_name)
+bool xleaf_has_epname(struct platform_device *pdev, const char *ep_name)
 {
 	struct resource	*res;
 	int		i;
@@ -408,40 +409,40 @@ bool xrt_subdev_has_epname(struct platform_device *pdev, const char *ep_name)
 
 	return false;
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_has_epname);
+EXPORT_SYMBOL_GPL(xleaf_has_epname);
 
-int xrt_subdev_put_leaf(struct platform_device *pdev,
+int xleaf_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf)
 {
 	struct xrt_parent_ioctl_put_leaf put_leaf = { pdev, leaf };
 
 	return xrt_subdev_parent_ioctl(pdev, XRT_PARENT_PUT_LEAF, &put_leaf);
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_put_leaf);
+EXPORT_SYMBOL_GPL(xleaf_put_leaf);
 
-int xrt_subdev_create_partition(struct platform_device *pdev, char *dtb)
+int xleaf_create_partition(struct platform_device *pdev, char *dtb)
 {
 	return xrt_subdev_parent_ioctl(pdev,
 		XRT_PARENT_CREATE_PARTITION, dtb);
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_create_partition);
+EXPORT_SYMBOL_GPL(xleaf_create_partition);
 
-int xrt_subdev_destroy_partition(struct platform_device *pdev, int instance)
+int xleaf_destroy_partition(struct platform_device *pdev, int instance)
 {
 	return xrt_subdev_parent_ioctl(pdev,
 		XRT_PARENT_REMOVE_PARTITION, (void *)(uintptr_t)instance);
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_destroy_partition);
+EXPORT_SYMBOL_GPL(xleaf_destroy_partition);
 
 
-int xrt_subdev_wait_for_partition_bringup(struct platform_device *pdev)
+int xleaf_wait_for_partition_bringup(struct platform_device *pdev)
 {
 	return xrt_subdev_parent_ioctl(pdev,
 		XRT_PARENT_WAIT_PARTITION_BRINGUP, NULL);
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_wait_for_partition_bringup);
+EXPORT_SYMBOL_GPL(xleaf_wait_for_partition_bringup);
 
-void *xrt_subdev_add_event_cb(struct platform_device *pdev,
+void *xleaf_add_event_cb(struct platform_device *pdev,
 	xrt_subdev_match_t match, void *match_arg, xrt_event_cb_t cb)
 {
 	struct xrt_parent_ioctl_evt_cb c = { pdev, match, match_arg, cb };
@@ -449,13 +450,13 @@ void *xrt_subdev_add_event_cb(struct platform_device *pdev,
 	(void) xrt_subdev_parent_ioctl(pdev, XRT_PARENT_ADD_EVENT_CB, &c);
 	return c.xevt_hdl;
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_add_event_cb);
+EXPORT_SYMBOL_GPL(xleaf_add_event_cb);
 
-void xrt_subdev_remove_event_cb(struct platform_device *pdev, void *hdl)
+void xleaf_remove_event_cb(struct platform_device *pdev, void *hdl)
 {
 	(void) xrt_subdev_parent_ioctl(pdev, XRT_PARENT_REMOVE_EVENT_CB, hdl);
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_remove_event_cb);
+EXPORT_SYMBOL_GPL(xleaf_remove_event_cb);
 
 static ssize_t
 xrt_subdev_get_holders(struct xrt_subdev *sdev, char *buf, size_t len)
@@ -851,7 +852,7 @@ ssize_t xrt_subdev_pool_get_holders(struct xrt_subdev_pool *spool,
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_pool_get_holders);
 
-int xrt_subdev_broadcast_event_async(struct platform_device *pdev,
+int xleaf_broadcast_event_async(struct platform_device *pdev,
 	enum xrt_events evt, xrt_async_broadcast_event_cb_t cb, void *arg)
 {
 	struct xrt_parent_ioctl_async_broadcast_evt e = { pdev, evt, cb, arg };
@@ -859,7 +860,7 @@ int xrt_subdev_broadcast_event_async(struct platform_device *pdev,
 	return xrt_subdev_parent_ioctl(pdev,
 		XRT_PARENT_ASYNC_BOARDCAST_EVENT, &e);
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_broadcast_event_async);
+EXPORT_SYMBOL_GPL(xleaf_broadcast_event_async);
 
 struct xrt_broadcast_event_arg {
 	struct completion comp;
@@ -876,7 +877,7 @@ static void xrt_broadcast_event_cb(struct platform_device *pdev,
 	complete(&e->comp);
 }
 
-int xrt_subdev_broadcast_event(struct platform_device *pdev,
+int xleaf_broadcast_event(struct platform_device *pdev,
 	enum xrt_events evt)
 {
 	int ret;
@@ -884,21 +885,21 @@ int xrt_subdev_broadcast_event(struct platform_device *pdev,
 
 	init_completion(&e.comp);
 	e.success = false;
-	ret = xrt_subdev_broadcast_event_async(pdev, evt,
+	ret = xleaf_broadcast_event_async(pdev, evt,
 		xrt_broadcast_event_cb, &e);
 	if (ret == 0)
 		wait_for_completion(&e.comp);
 	return e.success ? 0 : -EINVAL;
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_broadcast_event);
+EXPORT_SYMBOL_GPL(xleaf_broadcast_event);
 
-void xrt_subdev_hot_reset(struct platform_device *pdev)
+void xleaf_hot_reset(struct platform_device *pdev)
 {
 	(void) xrt_subdev_parent_ioctl(pdev, XRT_PARENT_HOT_RESET, NULL);
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_hot_reset);
+EXPORT_SYMBOL_GPL(xleaf_hot_reset);
 
-void xrt_subdev_get_barres(struct platform_device *pdev,
+void xleaf_get_barres(struct platform_device *pdev,
 	struct resource **res, uint bar_idx)
 {
 	struct xrt_parent_ioctl_get_res arg = { 0 };
@@ -910,7 +911,7 @@ void xrt_subdev_get_barres(struct platform_device *pdev,
 	*res = &arg.xpigr_res[bar_idx];
 }
 
-void xrt_subdev_get_parent_id(struct platform_device *pdev,
+void xleaf_get_parent_id(struct platform_device *pdev,
 	unsigned short *vendor, unsigned short *device,
 	unsigned short *subvendor, unsigned short *subdevice)
 {
@@ -927,7 +928,7 @@ void xrt_subdev_get_parent_id(struct platform_device *pdev,
 		*subdevice = id.xpigi_sub_device_id;
 }
 
-struct device *xrt_subdev_register_hwmon(struct platform_device *pdev,
+struct device *xleaf_register_hwmon(struct platform_device *pdev,
 	const char *name, void *drvdata, const struct attribute_group **grps)
 {
 	struct xrt_parent_ioctl_hwmon hm = { true, name, drvdata, grps, };
@@ -936,7 +937,7 @@ struct device *xrt_subdev_register_hwmon(struct platform_device *pdev,
 	return hm.xpih_hwmon_dev;
 }
 
-void xrt_subdev_unregister_hwmon(struct platform_device *pdev,
+void xleaf_unregister_hwmon(struct platform_device *pdev,
 	struct device *hwmon)
 {
 	struct xrt_parent_ioctl_hwmon hm = { false, };

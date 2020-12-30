@@ -333,7 +333,7 @@ void cmc_sensor_remove(struct platform_device *pdev)
 
 	BUG_ON(cmc_sensor == NULL);
 	if (cmc_sensor->hwmon_dev)
-		xrt_subdev_unregister_hwmon(pdev, cmc_sensor->hwmon_dev);
+		xleaf_unregister_hwmon(pdev, cmc_sensor->hwmon_dev);
 	kfree(cmc_sensor->name);
 }
 
@@ -342,14 +342,14 @@ static const char *cmc_get_vbnv(struct xrt_cmc_sensor *cmc_sensor)
 	int ret;
 	const char *vbnv;
 	struct platform_device *mgmt_leaf =
-		xrt_subdev_get_leaf_by_id(cmc_sensor->pdev,
+		xleaf_get_leaf_by_id(cmc_sensor->pdev,
 		XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
 
 	if (mgmt_leaf == NULL)
 		return NULL;
 
-	ret = xrt_subdev_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_VBNV, &vbnv);
-	(void) xrt_subdev_put_leaf(cmc_sensor->pdev, mgmt_leaf);
+	ret = xleaf_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_VBNV, &vbnv);
+	(void) xleaf_put_leaf(cmc_sensor->pdev, mgmt_leaf);
 	if (ret)
 		return NULL;
 	return vbnv;
@@ -375,7 +375,7 @@ int cmc_sensor_probe(struct platform_device *pdev,
 	 * Make a parent call to ask root to register. If we register using
 	 * platform device, we'll be treated as ISA device, not PCI device.
 	 */
-	cmc_sensor->hwmon_dev = xrt_subdev_register_hwmon(pdev,
+	cmc_sensor->hwmon_dev = xleaf_register_hwmon(pdev,
 		vbnv, cmc_sensor, hwmon_cmc_attrgroups);
 	if (cmc_sensor->hwmon_dev == NULL)
 		xrt_err(pdev, "failed to create HWMON device");

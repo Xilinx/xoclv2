@@ -10,7 +10,7 @@
 #define	_XRT_ROOT_H_
 
 #include <linux/pci.h>
-#include "subdev.h"
+#include "events.h"
 
 struct xroot;
 

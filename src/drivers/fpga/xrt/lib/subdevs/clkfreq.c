@@ -14,7 +14,7 @@
 #include <linux/device.h>
 #include <linux/io.h>
 #include "metadata.h"
-#include "subdev.h"
+#include "leaf.h"
 #include "parent.h"
 #include "subdev/clkfreq.h"
 
