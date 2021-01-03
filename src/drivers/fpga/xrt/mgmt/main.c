@@ -13,7 +13,7 @@
 #include "xclbin-helper.h"
 #include "metadata.h"
 #include "subdev/flash.h"
-#include "leaf.h"
+#include "xleaf.h"
 #include <linux/xrt/flash_xrt_data.h>
 #include <linux/xrt/xmgmt-ioctl.h>
 #include "subdev/gpio.h"

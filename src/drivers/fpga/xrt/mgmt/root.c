@@ -14,7 +14,7 @@
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
 
-#include "root.h"
+#include "xroot.h"
 #include "main-impl.h"
 #include "metadata.h"
 

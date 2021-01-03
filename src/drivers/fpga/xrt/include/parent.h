@@ -9,7 +9,7 @@
 #ifndef	_XRT_PARENT_H_
 #define	_XRT_PARENT_H_
 
-#include "leaf.h"
+#include "xleaf.h"
 #include "partition.h"
 
 /*

@@ -10,11 +10,11 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/hwmon.h>
-#include "leaf.h"
+#include "xleaf.h"
 #include "subdev_pool.h"
 #include "parent.h"
 #include "partition.h"
-#include "root.h"
+#include "xroot.h"
 #include "metadata.h"
 
 #define	XROOT_PDEV(xr)		((xr)->pdev)

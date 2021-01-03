@@ -9,7 +9,7 @@
 #ifndef _XRT_DDR_SRSR_H_
 #define _XRT_DDR_SRSR_H_
 
-#include "leaf.h"
+#include "xleaf.h"
 
 /*
  * ddr-srsr driver IOCTL calls.

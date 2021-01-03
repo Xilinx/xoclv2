@@ -175,7 +175,7 @@
 #include <linux/crc32c.h>
 #include <linux/xrt/mailbox_transport.h>
 #include "metadata.h"
-#include "leaf.h"
+#include "xleaf.h"
 #include "subdev/mailbox.h"
 #include "xmgmt-main.h"
 

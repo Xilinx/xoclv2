@@ -10,7 +10,7 @@
 
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
-#include "leaf.h"
+#include "xleaf.h"
 #include "subdev_pool.h"
 #include "parent.h"
 #include "partition.h"

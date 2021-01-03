@@ -27,7 +27,7 @@ endif
 
 xrt-lib-y := 			\
 	main.o			\
-	root.o			\
+	xroot.o			\
 	xclbin.o		\
 	metadata.o		\
 	subdev.o		\

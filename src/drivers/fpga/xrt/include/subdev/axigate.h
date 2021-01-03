@@ -10,7 +10,7 @@
 #define	_XRT_AXIGATE_H_
 
 
-#include "leaf.h"
+#include "xleaf.h"
 #include "metadata.h"
 
 /*

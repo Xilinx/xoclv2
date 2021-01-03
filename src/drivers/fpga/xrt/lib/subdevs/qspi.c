@@ -11,7 +11,7 @@
 #include <linux/delay.h>
 #include <linux/uaccess.h>
 #include "metadata.h"
-#include "leaf.h"
+#include "xleaf.h"
 #include "subdev/flash.h"
 
 #define	XRT_QSPI "xrt_qspi"

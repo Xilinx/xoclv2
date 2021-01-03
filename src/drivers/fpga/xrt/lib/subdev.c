@@ -9,7 +9,7 @@
 #include <linux/platform_device.h>
 #include <linux/pci.h>
 #include <linux/vmalloc.h>
-#include "leaf.h"
+#include "xleaf.h"
 #include "subdev_pool.h"
 #include "parent.h"
 #include "main.h"
