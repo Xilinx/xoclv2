@@ -12,7 +12,7 @@
 #include <linux/fpga/fpga-bridge.h>
 #include <linux/fpga/fpga-region.h>
 #include "metadata.h"
-#include "leaf.h"
+#include "xleaf.h"
 #include "subdev/axigate.h"
 #include "xclbin-helper.h"
 #include "main-impl.h"

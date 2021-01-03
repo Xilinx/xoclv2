@@ -8,7 +8,7 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#include "leaf.h"
+#include "xleaf.h"
 
 extern struct class *xrt_class;
 

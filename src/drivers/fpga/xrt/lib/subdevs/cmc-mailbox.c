@@ -8,7 +8,7 @@
 
 #include <linux/mutex.h>
 #include <linux/delay.h>
-#include "leaf.h"
+#include "xleaf.h"
 #include "xrt-cmc-impl.h"
 
 /* We have a 4k buffer for cmc mailbox */

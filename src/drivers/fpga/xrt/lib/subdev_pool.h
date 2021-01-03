@@ -9,7 +9,7 @@
 #ifndef	_XRT_SUBDEV_POOL_H_
 #define	_XRT_SUBDEV_POOL_H_
 
-#include "leaf.h"
+#include "xleaf.h"
 
 /*
  * It manages a list of xrt_subdevs for root and partition drivers.

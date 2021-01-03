@@ -7,8 +7,8 @@
  */
 
 #include <linux/module.h>
-#include "leaf.h"
-#include "root.h"
+#include "xleaf.h"
+#include "xroot.h"
 #include "main.h"
 
 #define	XRT_IPLIB_MODULE_NAME		"xrt-lib"

@@ -9,7 +9,7 @@
 #ifndef	_XRT_ICAP_H_
 #define	_XRT_ICAP_H_
 
-#include "leaf.h"
+#include "xleaf.h"
 
 /*
  * ICAP driver IOCTL calls.

@@ -6,7 +6,7 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#include "leaf.h"
+#include "xleaf.h"
 #include "xrt-cmc-impl.h"
 #include "xmgmt-main.h"
 #include <linux/xrt/mailbox_proto.h>

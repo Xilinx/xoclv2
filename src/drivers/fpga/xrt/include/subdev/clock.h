@@ -9,7 +9,7 @@
 #ifndef	_XRT_CLOCK_H_
 #define	_XRT_CLOCK_H_
 
-#include "leaf.h"
+#include "xleaf.h"
 #include <linux/xrt/xclbin.h>
 
 /*

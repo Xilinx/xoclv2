@@ -10,7 +10,7 @@
 
 #include <linux/delay.h>
 #include "metadata.h"
-#include "leaf.h"
+#include "xleaf.h"
 
 #define	XRT_TEST "xrt_test"
 

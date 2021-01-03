@@ -10,7 +10,7 @@
 
 #include <linux/platform_device.h>
 #include "metadata.h"
-#include "leaf.h"
+#include "xleaf.h"
 
 #define XRT_VSEC "xrt_vsec"
 

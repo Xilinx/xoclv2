@@ -9,7 +9,7 @@
 #include <linux/delay.h>
 #include <linux/string.h>
 #include <linux/vmalloc.h>
-#include "leaf.h"
+#include "xleaf.h"
 #include "xmgmt-main.h"
 #include "xrt-cmc-impl.h"
 

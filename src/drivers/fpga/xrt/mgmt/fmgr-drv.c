@@ -16,7 +16,7 @@
 #include <linux/vmalloc.h>
 
 #include "xclbin-helper.h"
-#include "leaf.h"
+#include "xleaf.h"
 #include "fmgr.h"
 #include "subdev/axigate.h"
 #include "subdev/icap.h"
