@@ -23,3 +23,6 @@ then
    source /opt/xilinx/xrt/setup.sh
 fi
 xbmgmt partition --program --path /lib/firmware/xilinx/862c7020a250293e32036f19956669e5/test/verify.xclbin --force
+tree -l -L 2 /sys/class/fpga_bridge/
+tree -l -L 2 /sys/class/fpga_manager/
+tree -l -L 2 /sys/class/fpga_region/

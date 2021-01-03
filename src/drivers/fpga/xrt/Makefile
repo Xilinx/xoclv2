@@ -16,6 +16,7 @@ tags:
 clean:
 	$(MAKE) -C lib clean
 	$(MAKE) -C mgmt clean
+	rm -f ../../../lib/.fdt*.o.cmd
 
 lint:
 	../../../../scripts/lint.sh
