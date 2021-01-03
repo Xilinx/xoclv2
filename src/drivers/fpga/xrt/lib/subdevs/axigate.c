@@ -14,7 +14,7 @@
 #include <linux/device.h>
 #include <linux/io.h>
 #include "metadata.h"
-#include "subdev.h"
+#include "leaf.h"
 #include "parent.h"
 #include "subdev/axigate.h"
 
@@ -119,7 +119,7 @@ static void xrt_axigate_freeze(struct platform_device *pdev)
 	mutex_lock(&gate->gate_lock);
 	freeze = reg_rd(gate, iag_rd);
 	if (freeze) {		/* gate is opened */
-		xrt_subdev_broadcast_event(pdev, XRT_EVENT_PRE_GATE_CLOSE);
+		xleaf_broadcast_event(pdev, XRT_EVENT_PRE_GATE_CLOSE);
 		freeze_gate(gate);
 	}
 
@@ -140,7 +140,7 @@ static void xrt_axigate_free(struct platform_device *pdev)
 	freeze = reg_rd(gate, iag_rd);
 	if (!freeze) {		/* gate is closed */
 		free_gate(gate);
-		xrt_subdev_broadcast_event_async(pdev,
+		xleaf_broadcast_event_async(pdev,
 			XRT_EVENT_POST_GATE_OPEN, NULL, NULL);
 		/* xrt_axigate_free() could be called in event cb, thus
 		 * we can not wait for the completes
@@ -177,14 +177,14 @@ xrt_axigate_event_cb(struct platform_device *pdev,
 	 * make sure the gate is openned. This covers 1RP flow which
 	 * has plp gate as well.
 	 */
-	leaf = xrt_subdev_get_leaf_by_id(pdev, id, instance);
+	leaf = xleaf_get_leaf_by_id(pdev, id, instance);
 	if (leaf) {
 		if (xrt_axigate_epname_idx(leaf) >
 		    xrt_axigate_epname_idx(pdev))
 			xrt_axigate_free(pdev);
 		else
-			xrt_subdev_ioctl(leaf, XRT_AXIGATE_FREE, NULL);
-		xrt_subdev_put_leaf(pdev, leaf);
+			xleaf_ioctl(leaf, XRT_AXIGATE_FREE, NULL);
+		xleaf_put_leaf(pdev, leaf);
 	}
 
 	return XRT_EVENT_CB_CONTINUE;
@@ -251,7 +251,7 @@ static int xrt_axigate_probe(struct platform_device *pdev)
 		goto failed;
 	}
 
-	gate->evt_hdl = xrt_subdev_add_event_cb(pdev,
+	gate->evt_hdl = xleaf_add_event_cb(pdev,
 		xrt_axigate_leaf_match, (void *)res->name,
 		xrt_axigate_event_cb);
 

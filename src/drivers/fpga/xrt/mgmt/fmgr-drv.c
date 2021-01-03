@@ -16,7 +16,7 @@
 #include <linux/vmalloc.h>
 
 #include "xclbin-helper.h"
-#include "subdev.h"
+#include "leaf.h"
 #include "fmgr.h"
 #include "subdev/axigate.h"
 #include "subdev/icap.h"
@@ -54,7 +54,7 @@ static int xmgmt_download_bitstream(struct platform_device *pdev,
 		xrt_err(pdev, "invalid bitstream header");
 		goto done;
 	}
-	icap_leaf = xrt_subdev_get_leaf_by_id(pdev, XRT_SUBDEV_ICAP,
+	icap_leaf = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_ICAP,
 		PLATFORM_DEVID_NONE);
 	if (!icap_leaf) {
 		ret = -ENODEV;
@@ -63,13 +63,13 @@ static int xmgmt_download_bitstream(struct platform_device *pdev,
 	}
 	arg.xiiw_bit_data = bitstream + bit_header.HeaderLength;
 	arg.xiiw_data_len = bit_header.BitstreamLength;
-	ret = xrt_subdev_ioctl(icap_leaf, XRT_ICAP_WRITE, &arg);
+	ret = xleaf_ioctl(icap_leaf, XRT_ICAP_WRITE, &arg);
 	if (ret)
 		xrt_err(pdev, "write bitstream failed, ret = %d", ret);
 
 done:
 	if (icap_leaf)
-		xrt_subdev_put_leaf(pdev, icap_leaf);
+		xleaf_put_leaf(pdev, icap_leaf);
 	vfree(bitstream);
 
 	return ret;

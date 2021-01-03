@@ -9,7 +9,7 @@
 #include <linux/delay.h>
 #include <linux/string.h>
 #include <linux/vmalloc.h>
-#include "subdev.h"
+#include "leaf.h"
 #include "xmgmt-main.h"
 #include "xrt-cmc-impl.h"
 
@@ -174,7 +174,7 @@ static int cmc_fetch_firmware(struct xrt_cmc_ctrl *cmc_ctrl)
 {
 	int ret = 0;
 	struct platform_device *pdev = cmc_ctrl->pdev;
-	struct platform_device *mgmt_leaf = xrt_subdev_get_leaf_by_id(pdev,
+	struct platform_device *mgmt_leaf = xleaf_get_leaf_by_id(pdev,
 		XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
 	struct xrt_mgmt_main_ioctl_get_axlf_section gs = {
 		XMGMT_BLP, FIRMWARE,
@@ -183,7 +183,7 @@ static int cmc_fetch_firmware(struct xrt_cmc_ctrl *cmc_ctrl)
 	if (mgmt_leaf == NULL)
 		return -ENOENT;
 
-	ret = xrt_subdev_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_AXLF_SECTION, &gs);
+	ret = xleaf_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_AXLF_SECTION, &gs);
 	if (ret == 0) {
 		cmc_ctrl->firmware = vmalloc(gs.xmmigas_section_size);
 		if (cmc_ctrl->firmware == NULL) {
@@ -196,7 +196,7 @@ static int cmc_fetch_firmware(struct xrt_cmc_ctrl *cmc_ctrl)
 	} else {
 		xrt_err(pdev, "failed to fetch firmware: %d", ret);
 	}
-	(void) xrt_subdev_put_leaf(pdev, mgmt_leaf);
+	(void) xleaf_put_leaf(pdev, mgmt_leaf);
 
 	return ret;
 }
@@ -229,7 +229,7 @@ void cmc_ctrl_remove(struct platform_device *pdev)
 		return;
 
 	if (cmc_ctrl->evt_hdl)
-		(void) xrt_subdev_remove_event_cb(pdev, cmc_ctrl->evt_hdl);
+		(void) xleaf_remove_event_cb(pdev, cmc_ctrl->evt_hdl);
 	(void) sysfs_remove_group(&DEV(cmc_ctrl->pdev)->kobj,
 		&cmc_ctrl_attr_group);
 	(void) cmc_ulp_access(cmc_ctrl, false);
@@ -309,7 +309,7 @@ int cmc_ctrl_probe(struct platform_device *pdev,
 	if (ret)
 		xrt_err(pdev, "failed to create sysfs nodes: %d", ret);
 
-	cmc_ctrl->evt_hdl = xrt_subdev_add_event_cb(pdev,
+	cmc_ctrl->evt_hdl = xleaf_add_event_cb(pdev,
 		cmc_ctrl_leaf_match, NULL, cmc_ctrl_event_cb);
 
 	*hdl = cmc_ctrl;

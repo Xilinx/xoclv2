@@ -10,7 +10,7 @@
 
 #include <linux/platform_device.h>
 #include "metadata.h"
-#include "subdev.h"
+#include "leaf.h"
 #include "subdev/gpio.h"
 
 #define XRT_VSEC_GOLDEN "xrt_vsec_golden"
@@ -59,7 +59,7 @@ static int xrt_vsec_get_golden_ver(struct xrt_vsec *vsec)
 	struct xrt_gpio_ioctl_rw gpio_arg = { 0 };
 	int err, ver;
 
-	gpio_leaf = xrt_subdev_get_leaf_by_epname(pdev, NODE_GOLDEN_VER);
+	gpio_leaf = xleaf_get_leaf_by_epname(pdev, NODE_GOLDEN_VER);
 	if (!gpio_leaf) {
 		xrt_err(pdev, "can not get %s", NODE_GOLDEN_VER);
 		return -EINVAL;
@@ -69,8 +69,8 @@ static int xrt_vsec_get_golden_ver(struct xrt_vsec *vsec)
 	gpio_arg.xgir_buf = &ver;
 	gpio_arg.xgir_len = sizeof(ver);
 	gpio_arg.xgir_offset = 0;
-	err = xrt_subdev_ioctl(gpio_leaf, XRT_GPIO_READ, &gpio_arg);
-	(void) xrt_subdev_put_leaf(pdev, gpio_leaf);
+	err = xleaf_ioctl(gpio_leaf, XRT_GPIO_READ, &gpio_arg);
+	(void) xleaf_put_leaf(pdev, gpio_leaf);
 	if (err) {
 		xrt_err(pdev, "can't get golden image version: %d", err);
 		return err;
@@ -174,7 +174,7 @@ static int xrt_vsec_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	vsec->pdev = pdev;
-	xrt_subdev_get_parent_id(pdev, &vsec->vendor, &vsec->device,
+	xleaf_get_parent_id(pdev, &vsec->vendor, &vsec->device,
 		NULL, NULL);
 	platform_set_drvdata(pdev, vsec);
 
@@ -183,7 +183,7 @@ static int xrt_vsec_probe(struct platform_device *pdev)
 		xrt_err(pdev, "create metadata failed, ret %d", ret);
 		goto failed;
 	}
-	ret = xrt_subdev_create_partition(pdev, vsec->metadata);
+	ret = xleaf_create_partition(pdev, vsec->metadata);
 	if (ret < 0)
 		xrt_err(pdev, "create partition failed, ret %d", ret);
 	else

@@ -14,7 +14,7 @@
 #include <linux/device.h>
 #include <linux/io.h>
 #include "metadata.h"
-#include "subdev.h"
+#include "leaf.h"
 #include "parent.h"
 #include "subdev/clock.h"
 #include "subdev/clkfreq.h"
@@ -384,16 +384,16 @@ static int get_freq_counter(struct clock *clock, u32 *freq)
 		return err;
 	}
 
-	cnter_leaf = xrt_subdev_get_leaf_by_epname(pdev, cnter);
+	cnter_leaf = xleaf_get_leaf_by_epname(pdev, cnter);
 	if (!cnter_leaf) {
 		xrt_err(pdev, "can't find counter");
 		return -ENOENT;
 	}
 
-	err = xrt_subdev_ioctl(cnter_leaf, XRT_CLKFREQ_READ, freq);
+	err = xleaf_ioctl(cnter_leaf, XRT_CLKFREQ_READ, freq);
 	if (err)
 		xrt_err(pdev, "can't read counter");
-	xrt_subdev_put_leaf(clock->pdev, cnter_leaf);
+	xleaf_put_leaf(clock->pdev, cnter_leaf);
 
 	return err;
 }

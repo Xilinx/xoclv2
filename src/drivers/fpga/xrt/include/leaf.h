@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XRT_SUBDEV_H_
-#define	_XRT_SUBDEV_H_
+#ifndef	_XRT_LEAF_H_
+#define	_XRT_LEAF_H_
 
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
@@ -16,34 +16,8 @@
 #include <linux/pci.h>
 #include <linux/libfdt_env.h>
 #include "libfdt.h"
-
-/*
- * Every subdev driver should have an ID for others to refer to it.
- * There can be unlimited number of instances of a subdev driver. A
- * <subdev_id, subdev_instance> tuple should be a unique identification of
- * a specific instance of a subdev driver.
- * NOTE: PLEASE do not change the order of IDs. Sub devices in the same
- * partition are initialized by this order.
- */
-enum xrt_subdev_id {
-	XRT_SUBDEV_PART = 0,
-	XRT_SUBDEV_VSEC,
-	XRT_SUBDEV_VSEC_GOLDEN,
-	XRT_SUBDEV_GPIO,
-	XRT_SUBDEV_AXIGATE,
-	XRT_SUBDEV_ICAP,
-	XRT_SUBDEV_TEST,
-	XRT_SUBDEV_MGMT_MAIN,
-	XRT_SUBDEV_QSPI,
-	XRT_SUBDEV_MAILBOX,
-	XRT_SUBDEV_CMC,
-	XRT_SUBDEV_CALIB,
-	XRT_SUBDEV_CLKFREQ,
-	XRT_SUBDEV_CLOCK,
-	XRT_SUBDEV_SRSR,
-	XRT_SUBDEV_UCS,
-	XRT_SUBDEV_NUM,
-};
+#include "subdev_id.h"
+#include "events.h"
 
 /*
  * If populated by subdev driver, parent will handle the mechanics of
@@ -161,16 +135,6 @@ struct xrt_subdev_endpoints {
 	u32 xse_min_ep;
 };
 
-/*
- * It manages a list of xrt_subdevs for root and partition drivers.
- */
-struct xrt_subdev_pool {
-	struct list_head xpool_dev_list;
-	struct device *xpool_owner;
-	struct mutex xpool_lock;
-	bool xpool_closing;
-};
-
 typedef bool (*xrt_subdev_match_t)(enum xrt_subdev_id,
 	struct platform_device *, void *);
 #define	XRT_SUBDEV_MATCH_PREV	((xrt_subdev_match_t)-1)
@@ -192,70 +156,6 @@ typedef bool (*xrt_subdev_match_t)(enum xrt_subdev_id,
 #define xrt_dbg(pdev, fmt, args...) FMT_PRT(dev_dbg, pdev, fmt, ##args)
 
 /*
- * Event notification.
- */
-enum xrt_events {
-	XRT_EVENT_TEST = 0, // for testing
-	/*
-	 * Events related to specific subdev
-	 * Callback arg: struct xrt_event_arg_subdev
-	 */
-	XRT_EVENT_POST_CREATION,
-	XRT_EVENT_PRE_REMOVAL,
-	/*
-	 * Events related to change of the whole board
-	 * Callback arg: <none>
-	 */
-	XRT_EVENT_PRE_HOT_RESET,
-	XRT_EVENT_POST_HOT_RESET,
-	XRT_EVENT_PRE_GATE_CLOSE,
-	XRT_EVENT_POST_GATE_OPEN,
-	XRT_EVENT_POST_ATTACH,
-	XRT_EVENT_PRE_DETACH,
-};
-
-typedef int (*xrt_event_cb_t)(struct platform_device *pdev,
-	enum xrt_events evt, void *arg);
-typedef void (*xrt_async_broadcast_event_cb_t)(struct platform_device *pdev,
-	enum xrt_events evt, void *arg, bool success);
-
-struct xrt_event_arg_subdev {
-	enum xrt_subdev_id xevt_subdev_id;
-	int xevt_subdev_instance;
-};
-
-/*
- * Flags in return value from event callback.
- */
-/* Done with event handling, continue waiting for the next one */
-#define	XRT_EVENT_CB_CONTINUE	0x0
-/* Done with event handling, stop waiting for the next one */
-#define	XRT_EVENT_CB_STOP	0x1
-/* Error processing event */
-#define	XRT_EVENT_CB_ERR	0x2
-
-/*
- * Subdev pool API for root and partition drivers only.
- */
-extern void xrt_subdev_pool_init(struct device *dev,
-	struct xrt_subdev_pool *spool);
-extern int xrt_subdev_pool_fini(struct xrt_subdev_pool *spool);
-extern int xrt_subdev_pool_get(struct xrt_subdev_pool *spool,
-	xrt_subdev_match_t match, void *arg, struct device *holder_dev,
-	struct platform_device **pdevp);
-extern int xrt_subdev_pool_put(struct xrt_subdev_pool *spool,
-	struct platform_device *pdev, struct device *holder_dev);
-extern int xrt_subdev_pool_add(struct xrt_subdev_pool *spool,
-	enum xrt_subdev_id id, xrt_subdev_parent_cb_t pcb,
-	void *pcb_arg, char *dtb);
-extern int xrt_subdev_pool_del(struct xrt_subdev_pool *spool,
-	enum xrt_subdev_id id, int instance);
-extern int xrt_subdev_pool_event(struct xrt_subdev_pool *spool,
-	struct platform_device *pdev, xrt_subdev_match_t match, void *arg,
-	xrt_event_cb_t xevt_cb, enum xrt_events evt);
-extern ssize_t xrt_subdev_pool_get_holders(struct xrt_subdev_pool *spool,
-	struct platform_device *pdev, char *buf, size_t len);
-/*
  * For leaf drivers.
  */
 
@@ -264,8 +164,8 @@ struct subdev_match_arg {
 	int instance;
 };
 
-extern bool xrt_subdev_has_epname(struct platform_device *pdev, const char *nm);
-extern struct platform_device *xrt_subdev_get_leaf(
+extern bool xleaf_has_epname(struct platform_device *pdev, const char *nm);
+extern struct platform_device *xleaf_get_leaf(
 	struct platform_device *pdev, xrt_subdev_match_t cb, void *arg);
 
 static inline bool subdev_match(enum xrt_subdev_id id,
@@ -279,70 +179,73 @@ static inline bool subdev_match(enum xrt_subdev_id id,
 static inline bool xrt_subdev_match_epname(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
-	return xrt_subdev_has_epname(pdev, arg);
+	return xleaf_has_epname(pdev, arg);
 }
 
 static inline struct platform_device *
-xrt_subdev_get_leaf_by_id(struct platform_device *pdev,
+xleaf_get_leaf_by_id(struct platform_device *pdev,
 	enum xrt_subdev_id id, int instance)
 {
 	struct subdev_match_arg arg = { id, instance };
 
-	return xrt_subdev_get_leaf(pdev, subdev_match, &arg);
+	return xleaf_get_leaf(pdev, subdev_match, &arg);
 }
 
 static inline struct platform_device *
-xrt_subdev_get_leaf_by_epname(struct platform_device *pdev, const char *name)
+xleaf_get_leaf_by_epname(struct platform_device *pdev, const char *name)
 {
-	return xrt_subdev_get_leaf(pdev, xrt_subdev_match_epname, (void *)name);
+	return xleaf_get_leaf(pdev, xrt_subdev_match_epname, (void *)name);
 }
 
-extern int xrt_subdev_put_leaf(struct platform_device *pdev,
+static inline int xleaf_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
+{
+	struct xrt_subdev_drvdata *drvdata = DEV_DRVDATA(tgt);
+
+	return (*drvdata->xsd_dev_ops.xsd_ioctl)(tgt, cmd, arg);
+}
+
+extern int xleaf_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf);
-extern int xrt_subdev_create_partition(struct platform_device *pdev,
+extern int xleaf_create_partition(struct platform_device *pdev,
 	char *dtb);
-extern int xrt_subdev_destroy_partition(struct platform_device *pdev,
+extern int xleaf_destroy_partition(struct platform_device *pdev,
 	int instance);
-extern int xrt_subdev_wait_for_partition_bringup(struct platform_device *pdev);
-extern void *xrt_subdev_add_event_cb(struct platform_device *pdev,
+extern int xleaf_wait_for_partition_bringup(struct platform_device *pdev);
+extern void *xleaf_add_event_cb(struct platform_device *pdev,
 	xrt_subdev_match_t match, void *match_arg, xrt_event_cb_t cb);
-extern void xrt_subdev_remove_event_cb(
+extern void xleaf_remove_event_cb(
 	struct platform_device *pdev, void *hdl);
 
-extern int xrt_subdev_broadcast_event(struct platform_device *pdev,
+extern int xleaf_broadcast_event(struct platform_device *pdev,
 	enum xrt_events evt);
-extern int xrt_subdev_broadcast_event_async(struct platform_device *pdev,
+extern int xleaf_broadcast_event_async(struct platform_device *pdev,
 	enum xrt_events evt, xrt_async_broadcast_event_cb_t cb, void *arg);
-extern void xrt_subdev_hot_reset(struct platform_device *pdev);
-extern void xrt_subdev_get_barres(struct platform_device *pdev,
+extern void xleaf_hot_reset(struct platform_device *pdev);
+extern void xleaf_get_barres(struct platform_device *pdev,
 	struct resource **res, uint bar_idx);
-extern void xrt_subdev_get_parent_id(struct platform_device *pdev,
+extern void xleaf_get_parent_id(struct platform_device *pdev,
 	unsigned short *vendor, unsigned short *device,
 	unsigned short *subvendor, unsigned short *subdevice);
-extern struct device *xrt_subdev_register_hwmon(struct platform_device *pdev,
+extern struct device *xleaf_register_hwmon(struct platform_device *pdev,
 	const char *name, void *drvdata, const struct attribute_group **grps);
-extern void xrt_subdev_unregister_hwmon(struct platform_device *pdev,
+extern void xleaf_unregister_hwmon(struct platform_device *pdev,
 	struct device *hwmon);
 
-extern int xrt_subdev_register_external_driver(enum xrt_subdev_id id,
-	struct platform_driver *drv, struct xrt_subdev_endpoints *eps);
-extern void xrt_subdev_unregister_external_driver(enum xrt_subdev_id id);
-
 /*
- * Character device helper APIs for use by subdev drivers
+ * Character device helper APIs for use by leaf drivers
  */
-static inline bool xrt_devnode_enabled(struct xrt_subdev_drvdata *drvdata)
+static inline bool xleaf_devnode_enabled(struct xrt_subdev_drvdata *drvdata)
 {
 	return drvdata && drvdata->xsd_file_ops.xsf_ops.open != NULL;
 }
 
-extern int xrt_devnode_create(struct platform_device *pdev,
+extern int xleaf_devnode_create(struct platform_device *pdev,
 	const char *file_name, const char *inst_name);
-extern int xrt_devnode_destroy(struct platform_device *pdev);
+extern int xleaf_devnode_destroy(struct platform_device *pdev);
 
-extern struct platform_device *xrt_devnode_open_excl(struct inode *inode);
-extern struct platform_device *xrt_devnode_open(struct inode *inode);
-extern void xrt_devnode_close(struct inode *inode);
+extern struct platform_device *xleaf_devnode_open_excl(struct inode *inode);
+extern struct platform_device *xleaf_devnode_open(struct inode *inode);
+extern void xleaf_devnode_close(struct inode *inode);
 
 /* Helpers. */
 static inline void xrt_memcpy_fromio(void *buf, void __iomem *iomem, u32 size)
@@ -362,15 +265,8 @@ static inline void xrt_memcpy_toio(void __iomem *iomem, void *buf, u32 size)
 		iowrite32(((u32 *)buf)[i], ((char *)(iomem) + sizeof(u32) * i));
 }
 
-/*
- * Exported thin wrapper inline functions
- */
+extern int xleaf_register_external_driver(enum xrt_subdev_id id,
+	struct platform_driver *drv, struct xrt_subdev_endpoints *eps);
+extern void xleaf_unregister_external_driver(enum xrt_subdev_id id);
 
-static inline int xrt_subdev_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
-{
-	struct xrt_subdev_drvdata *drvdata = DEV_DRVDATA(tgt);
-
-	return (*drvdata->xsd_dev_ops.xsd_ioctl)(tgt, cmd, arg);
-}
-
-#endif	/* _XRT_SUBDEV_H_ */
+#endif	/* _XRT_LEAF_H_ */

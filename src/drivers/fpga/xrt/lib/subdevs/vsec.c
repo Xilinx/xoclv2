@@ -10,7 +10,7 @@
 
 #include <linux/platform_device.h>
 #include "metadata.h"
-#include "subdev.h"
+#include "leaf.h"
 
 #define XRT_VSEC "xrt_vsec"
 
@@ -230,7 +230,7 @@ static int xrt_vsec_mapio(struct xrt_vsec *vsec)
 	xrt_info(vsec->pdev, "Map vsec at bar %d, offset 0x%llx",
 		be32_to_cpu(*bar), be64_to_cpu(*bar_off));
 
-	xrt_subdev_get_barres(vsec->pdev, &res, be32_to_cpu(*bar));
+	xleaf_get_barres(vsec->pdev, &res, be32_to_cpu(*bar));
 	if (!res) {
 		xrt_err(vsec->pdev, "failed to get bar addr");
 		return -EINVAL;
@@ -292,7 +292,7 @@ static int xrt_vsec_probe(struct platform_device *pdev)
 		xrt_err(pdev, "create metadata failed, ret %d", ret);
 		goto failed;
 	}
-	ret = xrt_subdev_create_partition(pdev, vsec->metadata);
+	ret = xleaf_create_partition(pdev, vsec->metadata);
 	if (ret < 0)
 		xrt_err(pdev, "create partition failed, ret %d", ret);
 	else

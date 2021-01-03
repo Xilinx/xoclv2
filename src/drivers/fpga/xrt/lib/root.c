@@ -10,7 +10,8 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/hwmon.h>
-#include "subdev.h"
+#include "leaf.h"
+#include "subdev_pool.h"
 #include "parent.h"
 #include "partition.h"
 #include "root.h"
@@ -130,7 +131,7 @@ xroot_partition_trigger_evt(struct xroot *xr, struct xroot_event_cb *cb,
 			return rc;
 	}
 
-	return xrt_subdev_ioctl(part, XRT_PARTITION_EVENT, &e);
+	return xleaf_ioctl(part, XRT_PARTITION_EVENT, &e);
 }
 
 static void
@@ -196,7 +197,7 @@ static int xroot_destroy_single_partition(struct xroot *xr, int instance)
 	xroot_event_partition(xr, instance, XRT_EVENT_PRE_REMOVAL);
 
 	/* Now tear down all children in this partition. */
-	ret = xrt_subdev_ioctl(pdev, XRT_PARTITION_FINI_CHILDREN, NULL);
+	ret = xleaf_ioctl(pdev, XRT_PARTITION_FINI_CHILDREN, NULL);
 	(void) xroot_put_partition(xr, pdev);
 	if (!ret) {
 		ret = xrt_subdev_pool_del(&xr->parts.pool,
@@ -435,7 +436,7 @@ static int xroot_get_leaf(struct xroot *xr,
 
 	while (rc && xroot_get_partition(xr, XROOT_PART_LAST,
 		&part) != -ENOENT) {
-		rc = xrt_subdev_ioctl(part, XRT_PARTITION_GET_LEAF, arg);
+		rc = xleaf_ioctl(part, XRT_PARTITION_GET_LEAF, arg);
 		xroot_put_partition(xr, part);
 	}
 	return rc;
@@ -449,7 +450,7 @@ static int xroot_put_leaf(struct xroot *xr,
 
 	while (rc && xroot_get_partition(xr, XROOT_PART_LAST,
 		&part) != -ENOENT) {
-		rc = xrt_subdev_ioctl(part, XRT_PARTITION_PUT_LEAF, arg);
+		rc = xleaf_ioctl(part, XRT_PARTITION_PUT_LEAF, arg);
 		xroot_put_partition(xr, part);
 	}
 	return rc;
@@ -576,7 +577,7 @@ static void xroot_bringup_partition_work(struct work_struct *work)
 		int r, i;
 
 		i = pdev->id;
-		r = xrt_subdev_ioctl(pdev, XRT_PARTITION_INIT_CHILDREN, NULL);
+		r = xleaf_ioctl(pdev, XRT_PARTITION_INIT_CHILDREN, NULL);
 		(void) xroot_put_partition(xr, pdev);
 		if (r == -EEXIST)
 			continue; /* Already brough up, nothing to do. */

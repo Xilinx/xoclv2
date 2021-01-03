@@ -175,7 +175,7 @@
 #include <linux/crc32c.h>
 #include <linux/xrt/mailbox_transport.h>
 #include "metadata.h"
-#include "subdev.h"
+#include "leaf.h"
 #include "subdev/mailbox.h"
 #include "xmgmt-main.h"
 
@@ -1590,7 +1590,7 @@ static int mailbox_open(struct inode *inode, struct file *file)
 	 * Only allow one open from daemon. Mailbox msg can only be polled
 	 * by one daemon.
 	 */
-	struct platform_device *pdev = xrt_devnode_open_excl(inode);
+	struct platform_device *pdev = xleaf_devnode_open_excl(inode);
 	struct mailbox *mbx = NULL;
 
 	if (!pdev)
@@ -1622,7 +1622,7 @@ static int mailbox_close(struct inode *inode, struct file *file)
 	mutex_lock(&mbx->mbx_lock);
 	mbx->mbx_opened--;
 	mutex_unlock(&mbx->mbx_lock);
-	xrt_devnode_close(inode);
+	xleaf_devnode_close(inode);
 	return 0;
 }
 

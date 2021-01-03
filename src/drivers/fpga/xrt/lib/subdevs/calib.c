@@ -72,7 +72,7 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 	struct calib_cache	*cache = NULL, *temp;
 	struct xrt_srsr_ioctl_calib req = { 0 };
 
-	ret = xrt_subdev_ioctl(srsr_leaf, XRT_SRSR_EP_NAME,
+	ret = xleaf_ioctl(srsr_leaf, XRT_SRSR_EP_NAME,
 		(void *)&ep_name);
 	if (ret) {
 		xrt_err(calib->pdev, "failed to get SRSR name %d", ret);
@@ -85,7 +85,7 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 		if (!strncmp(ep_name, cache->ep_name, strlen(ep_name) + 1)) {
 			req.xsic_buf = cache->data;
 			req.xsic_size = cache->data_size;
-			ret = xrt_subdev_ioctl(srsr_leaf,
+			ret = xleaf_ioctl(srsr_leaf,
 				XRT_SRSR_FAST_CALIB, &req);
 			if (ret) {
 				xrt_err(calib->pdev, "Fast calib failed %d",
@@ -113,7 +113,7 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 	}
 
 	req.xsic_buf = &cache->data;
-	ret = xrt_subdev_ioctl(srsr_leaf, XRT_SRSR_CALIB, &req);
+	ret = xleaf_ioctl(srsr_leaf, XRT_SRSR_CALIB, &req);
 	if (ret) {
 		xrt_err(calib->pdev, "Full calib failed %d", ret);
 		list_del(&cache->link);
@@ -164,11 +164,11 @@ static int xrt_calib_event_cb(struct platform_device *pdev,
 	switch (evt) {
 	case XRT_EVENT_POST_CREATION: {
 		if (esd->xevt_subdev_id == XRT_SUBDEV_SRSR) {
-			leaf = xrt_subdev_get_leaf_by_id(pdev,
+			leaf = xleaf_get_leaf_by_id(pdev,
 				XRT_SUBDEV_SRSR, esd->xevt_subdev_instance);
 			BUG_ON(!leaf);
 			ret = calib_srsr(calib, leaf);
-			xrt_subdev_put_leaf(pdev, leaf);
+			xleaf_put_leaf(pdev, leaf);
 			calib->result =
 				ret ? XRT_CALIB_FAILED : XRT_CALIB_SUCCEEDED;
 		} else if (esd->xevt_subdev_id == XRT_SUBDEV_UCS) {
@@ -190,7 +190,7 @@ static int xrt_calib_remove(struct platform_device *pdev)
 {
 	struct calib *calib = platform_get_drvdata(pdev);
 
-	xrt_subdev_remove_event_cb(pdev, calib->evt_hdl);
+	xleaf_remove_event_cb(pdev, calib->evt_hdl);
 	calib_cache_clean(calib);
 
 	if (calib->calib_base)
@@ -226,7 +226,7 @@ static int xrt_calib_probe(struct platform_device *pdev)
 		goto failed;
 	}
 
-	calib->evt_hdl = xrt_subdev_add_event_cb(pdev, xrt_calib_leaf_match,
+	calib->evt_hdl = xleaf_add_event_cb(pdev, xrt_calib_leaf_match,
 		NULL, xrt_calib_event_cb);
 
 	mutex_init(&calib->lock);

@@ -7,7 +7,7 @@
  */
 
 #include <linux/uaccess.h>
-#include "subdev.h"
+#include "leaf.h"
 #include "xrt-cmc-impl.h"
 
 #define	CMC_CORE_SUPPORT_NOTUPGRADABLE	0x0c010004
@@ -251,7 +251,7 @@ ssize_t cmc_update_sc_firmware(struct file *file,
  */
 int cmc_sc_open(struct inode *inode, struct file *file)
 {
-	struct platform_device *pdev = xrt_devnode_open_excl(inode);
+	struct platform_device *pdev = xleaf_devnode_open_excl(inode);
 
 	file->private_data = cmc_pdev2sc(pdev);
 	return 0;
@@ -265,7 +265,7 @@ int cmc_sc_close(struct inode *inode, struct file *file)
 		return -EINVAL;
 
 	file->private_data = NULL;
-	xrt_devnode_close(inode);
+	xleaf_devnode_close(inode);
 	return 0;
 }
 

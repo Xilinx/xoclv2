@@ -12,7 +12,7 @@
 #include <linux/fpga/fpga-bridge.h>
 #include <linux/fpga/fpga-region.h>
 #include "metadata.h"
-#include "subdev.h"
+#include "leaf.h"
 #include "subdev/axigate.h"
 #include "xclbin-helper.h"
 #include "main-impl.h"
@@ -44,7 +44,7 @@ static int xmgmt_br_enable_set(struct fpga_bridge *bridge, bool enable)
 	struct platform_device *axigate_leaf;
 	int rc;
 
-	axigate_leaf = xrt_subdev_get_leaf_by_epname(br_data->pdev,
+	axigate_leaf = xleaf_get_leaf_by_epname(br_data->pdev,
 		br_data->axigate_name);
 	if (!axigate_leaf) {
 		xrt_err(br_data->pdev, "failed to get leaf %s",
@@ -53,9 +53,9 @@ static int xmgmt_br_enable_set(struct fpga_bridge *bridge, bool enable)
 	}
 
 	if (enable)
-		rc = xrt_subdev_ioctl(axigate_leaf, XRT_AXIGATE_FREE, NULL);
+		rc = xleaf_ioctl(axigate_leaf, XRT_AXIGATE_FREE, NULL);
 	else
-		rc = xrt_subdev_ioctl(axigate_leaf, XRT_AXIGATE_FREEZE, NULL);
+		rc = xleaf_ioctl(axigate_leaf, XRT_AXIGATE_FREEZE, NULL);
 
 	if (rc) {
 		xrt_err(br_data->pdev, "failed to %s gate %s, rc %d",
@@ -63,7 +63,7 @@ static int xmgmt_br_enable_set(struct fpga_bridge *bridge, bool enable)
 			rc);
 	}
 
-	xrt_subdev_put_leaf(br_data->pdev, axigate_leaf);
+	xleaf_put_leaf(br_data->pdev, axigate_leaf);
 
 	return rc;
 }
@@ -150,7 +150,7 @@ static void xmgmt_destroy_region(struct fpga_region *re)
 	fpga_region_unregister(re);
 
 	if (r_data->part_inst > 0)
-		xrt_subdev_destroy_partition(r_data->pdev, r_data->part_inst);
+		xleaf_destroy_partition(r_data->pdev, r_data->part_inst);
 
 	if (r_data->fbridge)
 		xmgmt_destroy_bridge(r_data->fbridge);
@@ -260,7 +260,7 @@ static void xmgmt_region_cleanup(struct fpga_region *re)
 	list_for_each_entry_safe_reverse(r_data, temp, &free_list, list) {
 		if (list_is_first(&r_data->list, &free_list)) {
 			if (r_data->part_inst > 0) {
-				xrt_subdev_destroy_partition(pdev,
+				xleaf_destroy_partition(pdev,
 					r_data->part_inst);
 				r_data->part_inst = -1;
 			}
@@ -327,7 +327,7 @@ static int xmgmt_region_program(struct fpga_region *re, const void *xclbin, char
 	 * Next bringup the subdevs for this region which will be managed by
 	 * its own partition object.
 	 */
-	r_data->part_inst = xrt_subdev_create_partition(pdev, dtb);
+	r_data->part_inst = xleaf_create_partition(pdev, dtb);
 	if (r_data->part_inst < 0) {
 		xrt_err(pdev, "failed to create partition, rc %d",
 			r_data->part_inst);
@@ -335,7 +335,7 @@ static int xmgmt_region_program(struct fpga_region *re, const void *xclbin, char
 		return rc;
 	}
 
-	rc = xrt_subdev_wait_for_partition_bringup(pdev);
+	rc = xleaf_wait_for_partition_bringup(pdev);
 	if (rc)
 		xrt_err(pdev, "partition bringup failed, rc %d", rc);
 	return rc;

@@ -9,7 +9,7 @@
 #ifndef	_XRT_PARTITION_H_
 #define	_XRT_PARTITION_H_
 
-#include "subdev.h"
+#include "leaf.h"
 
 /*
  * Partition driver IOCTL calls.

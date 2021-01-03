@@ -13,7 +13,7 @@
 #include "xclbin-helper.h"
 #include "metadata.h"
 #include "subdev/flash.h"
-#include "subdev.h"
+#include "leaf.h"
 #include <linux/xrt/flash_xrt_data.h>
 #include <linux/xrt/xmgmt-ioctl.h>
 #include "subdev/gpio.h"
@@ -67,7 +67,7 @@ static bool xmgmt_main_leaf_match(enum xrt_subdev_id id,
 	struct platform_device *pdev, void *arg)
 {
 	if (id == XRT_SUBDEV_GPIO)
-		return xrt_subdev_has_epname(pdev, arg);
+		return xleaf_has_epname(pdev, arg);
 	else if (id == XRT_SUBDEV_QSPI)
 		return true;
 
@@ -81,7 +81,7 @@ static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 	struct xrt_gpio_ioctl_rw gpio_arg = { 0 };
 	int err, i, count;
 
-	gpio_leaf = xrt_subdev_get_leaf_by_epname(pdev, NODE_BLP_ROM);
+	gpio_leaf = xleaf_get_leaf_by_epname(pdev, NODE_BLP_ROM);
 	if (!gpio_leaf) {
 		xrt_err(pdev, "can not get %s", NODE_BLP_ROM);
 		return -EINVAL;
@@ -91,8 +91,8 @@ static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 	gpio_arg.xgir_buf = uuid;
 	gpio_arg.xgir_len = sizeof(uuid);
 	gpio_arg.xgir_offset = 0;
-	err = xrt_subdev_ioctl(gpio_leaf, XRT_GPIO_READ, &gpio_arg);
-	xrt_subdev_put_leaf(pdev, gpio_leaf);
+	err = xleaf_ioctl(gpio_leaf, XRT_GPIO_READ, &gpio_arg);
+	xleaf_put_leaf(pdev, gpio_leaf);
 	if (err) {
 		xrt_err(pdev, "can not get uuid: %d", err);
 		return err;
@@ -108,15 +108,15 @@ static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 
 int xmgmt_hot_reset(struct platform_device *pdev)
 {
-	int ret = xrt_subdev_broadcast_event(pdev, XRT_EVENT_PRE_HOT_RESET);
+	int ret = xleaf_broadcast_event(pdev, XRT_EVENT_PRE_HOT_RESET);
 
 	if (ret) {
 		xrt_err(pdev, "offline failed, hot reset is canceled");
 		return ret;
 	}
 
-	(void) xrt_subdev_hot_reset(pdev);
-	xrt_subdev_broadcast_event(pdev, XRT_EVENT_POST_HOT_RESET);
+	(void) xleaf_hot_reset(pdev);
+	xleaf_broadcast_event(pdev, XRT_EVENT_POST_HOT_RESET);
 	return 0;
 }
 
@@ -276,14 +276,14 @@ static int load_firmware_from_flash(struct platform_device *pdev,
 
 	xrt_info(pdev, "try loading fw from flash");
 
-	flash_leaf = xrt_subdev_get_leaf_by_id(pdev, XRT_SUBDEV_QSPI,
+	flash_leaf = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_QSPI,
 		PLATFORM_DEVID_NONE);
 	if (flash_leaf == NULL) {
 		xrt_err(pdev, "failed to hold flash leaf");
 		return -ENODEV;
 	}
 
-	(void) xrt_subdev_ioctl(flash_leaf, XRT_FLASH_GET_SIZE, &flash_size);
+	(void) xleaf_ioctl(flash_leaf, XRT_FLASH_GET_SIZE, &flash_size);
 	if (flash_size == 0) {
 		xrt_err(pdev, "failed to get flash size");
 		ret = -EINVAL;
@@ -293,7 +293,7 @@ static int load_firmware_from_flash(struct platform_device *pdev,
 	frd.xfir_buf = (char *)&header;
 	frd.xfir_size = sizeof(header);
 	frd.xfir_offset = flash_size - sizeof(header);
-	ret = xrt_subdev_ioctl(flash_leaf, XRT_FLASH_READ, &frd);
+	ret = xleaf_ioctl(flash_leaf, XRT_FLASH_READ, &frd);
 	if (ret) {
 		xrt_err(pdev, "failed to read header from flash: %d", ret);
 		goto done;
@@ -325,7 +325,7 @@ static int load_firmware_from_flash(struct platform_device *pdev,
 	frd.xfir_buf = buf;
 	frd.xfir_size = header.fdh_data_len;
 	frd.xfir_offset = header.fdh_data_offset;
-	ret = xrt_subdev_ioctl(flash_leaf, XRT_FLASH_READ, &frd);
+	ret = xleaf_ioctl(flash_leaf, XRT_FLASH_READ, &frd);
 	if (ret) {
 		xrt_err(pdev, "failed to read meta data from flash: %d", ret);
 		goto done;
@@ -342,7 +342,7 @@ static int load_firmware_from_flash(struct platform_device *pdev,
 	*len = header.fdh_data_len;
 
 done:
-	(void) xrt_subdev_put_leaf(pdev, flash_leaf);
+	(void) xleaf_put_leaf(pdev, flash_leaf);
 	return ret;
 }
 
@@ -507,7 +507,7 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 			goto failed;
 		}
 
-		rc = xrt_subdev_create_partition(pdev, dtb);
+		rc = xleaf_create_partition(pdev, dtb);
 		if (rc < 0)
 			xrt_err(pdev, "failed to create BLP part: %d", rc);
 		else
@@ -604,7 +604,7 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 	xmm->mailbox_hdl = xmgmt_mailbox_probe(pdev);
 	mutex_init(&xmm->busy_mutex);
 
-	xmm->evt_hdl = xrt_subdev_add_event_cb(pdev,
+	xmm->evt_hdl = xleaf_add_event_cb(pdev,
 		xmgmt_main_leaf_match, NODE_BLP_ROM, xmgmt_main_event_cb);
 
 	/* Ready to handle req thru sysfs nodes. */
@@ -622,7 +622,7 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 	xrt_info(pdev, "leaving...");
 
 	if (xmm->evt_hdl)
-		(void) xrt_subdev_remove_event_cb(pdev, xmm->evt_hdl);
+		(void) xleaf_remove_event_cb(pdev, xmm->evt_hdl);
 	vfree(xmm->blp_intf_uuids);
 	vfree(xmm->firmware_blp);
 	vfree(xmm->firmware_plp);
@@ -675,7 +675,7 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 
 static int xmgmt_main_open(struct inode *inode, struct file *file)
 {
-	struct platform_device *pdev = xrt_devnode_open(inode);
+	struct platform_device *pdev = xleaf_devnode_open(inode);
 
 	/* Device may have gone already when we get here. */
 	if (!pdev)
@@ -690,7 +690,7 @@ static int xmgmt_main_close(struct inode *inode, struct file *file)
 {
 	struct xmgmt_main *xmm = file->private_data;
 
-	xrt_devnode_close(inode);
+	xleaf_devnode_close(inode);
 
 	xrt_info(xmm->pdev, "closed");
 	return 0;
@@ -856,3 +856,14 @@ struct platform_driver xmgmt_main_driver = {
 	.remove  = xmgmt_main_remove,
 	.id_table = xmgmt_main_id_table,
 };
+
+int xmgmt_main_register_leaf(void)
+{
+	return xleaf_register_external_driver(XRT_SUBDEV_MGMT_MAIN,
+		&xmgmt_main_driver, xrt_mgmt_main_endpoints);
+}
+
+void xmgmt_main_unregister_leaf(void)
+{
+	xleaf_unregister_external_driver(XRT_SUBDEV_MGMT_MAIN);
+}

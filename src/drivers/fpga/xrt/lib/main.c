@@ -7,7 +7,8 @@
  */
 
 #include <linux/module.h>
-#include "subdev.h"
+#include "leaf.h"
+#include "root.h"
 #include "main.h"
 
 #define	XRT_IPLIB_MODULE_NAME		"xrt-lib"
@@ -103,7 +104,7 @@ static int xrt_drv_register_driver(enum xrt_subdev_id id)
 
 	if (drvdata) {
 		/* Initialize dev_t for char dev node. */
-		if (xrt_devnode_enabled(drvdata)) {
+		if (xleaf_devnode_enabled(drvdata)) {
 			rc = alloc_chrdev_region(
 				&drvdata->xsd_file_ops.xsf_dev_t, 0,
 				XRT_MAX_DEVICE_NODES, drvname);
@@ -156,7 +157,7 @@ static void xrt_drv_unregister_driver(enum xrt_subdev_id id)
 	pr_info("unregistered %s subdev driver\n", drvname);
 }
 
-int xrt_subdev_register_external_driver(enum xrt_subdev_id id,
+int xleaf_register_external_driver(enum xrt_subdev_id id,
 	struct platform_driver *drv, struct xrt_subdev_endpoints *eps)
 {
 	int i;
@@ -182,9 +183,9 @@ int xrt_subdev_register_external_driver(enum xrt_subdev_id id,
 	mutex_unlock(&xrt_class_lock);
 	return result;
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_register_external_driver);
+EXPORT_SYMBOL_GPL(xleaf_register_external_driver);
 
-void xrt_subdev_unregister_external_driver(enum xrt_subdev_id id)
+void xleaf_unregister_external_driver(enum xrt_subdev_id id)
 {
 	int i;
 
@@ -201,7 +202,7 @@ void xrt_subdev_unregister_external_driver(enum xrt_subdev_id id)
 	}
 	mutex_unlock(&xrt_class_lock);
 }
-EXPORT_SYMBOL_GPL(xrt_subdev_unregister_external_driver);
+EXPORT_SYMBOL_GPL(xleaf_unregister_external_driver);
 
 static __init int xrt_drv_register_drivers(void)
 {

@@ -15,7 +15,6 @@
 #include <linux/delay.h>
 
 #include "root.h"
-#include "subdev.h"
 #include "main-impl.h"
 #include "metadata.h"
 
@@ -217,7 +216,7 @@ static int xmgmt_create_root_metadata(struct xmgmt *xm, char **root_dtb)
 	char *dtb = NULL;
 	int ret;
 
-	ret = xrt_md_create(DEV(xm->pdev), &dtb);
+	ret = xrt_md_create(XMGMT_DEV(xm), &dtb);
 	if (ret) {
 		xmgmt_err(xm, "create metadata failed, ret %d", ret);
 		goto failed;
@@ -275,7 +274,7 @@ static struct xroot_pf_cb xmgmt_xroot_pf_cb = {
 static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret;
-	struct device *dev = DEV(pdev);
+	struct device *dev = &(pdev->dev);
 	struct xmgmt *xm = devm_kzalloc(dev, sizeof(*xm), GFP_KERNEL);
 	char *dtb = NULL;
 
@@ -309,7 +308,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	ret = sysfs_create_group(&pdev->dev.kobj, &xmgmt_root_attr_group);
 	if (ret) {
 		/* Warning instead of failing the probe. */
-		xrt_warn(pdev, "create xmgmt root attrs failed: %d", ret);
+		xmgmt_warn(xm, "create xmgmt root attrs failed: %d", ret);
 	}
 
 	xroot_broadcast(xm->root, XRT_EVENT_POST_ATTACH);
@@ -343,9 +342,9 @@ static struct pci_driver xmgmt_driver = {
 
 static int __init xmgmt_init(void)
 {
-	int res = xrt_subdev_register_external_driver(XRT_SUBDEV_MGMT_MAIN,
-		&xmgmt_main_driver, xrt_mgmt_main_endpoints);
+	int res = 0;
 
+	res = xmgmt_main_register_leaf();
 	if (res)
 		return res;
 
@@ -366,7 +365,7 @@ static __exit void xmgmt_exit(void)
 {
 	pci_unregister_driver(&xmgmt_driver);
 	class_destroy(xmgmt_class);
-	xrt_subdev_unregister_external_driver(XRT_SUBDEV_MGMT_MAIN);
+	xmgmt_main_unregister_leaf();
 }
 
 module_init(xmgmt_init);
