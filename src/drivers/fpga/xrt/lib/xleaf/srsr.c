@@ -16,7 +16,7 @@
 #include "metadata.h"
 #include "xleaf.h"
 #include "parent.h"
-#include "subdev/ddr-srsr.h"
+#include "xleaf/ddr-srsr.h"
 
 #define XRT_DDR_SRSR "xrt_ddr_srsr"
 

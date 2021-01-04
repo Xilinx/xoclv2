@@ -16,8 +16,8 @@
 #include "metadata.h"
 #include "xleaf.h"
 #include "parent.h"
-#include "subdev/clock.h"
-#include "subdev/clkfreq.h"
+#include "xleaf/clock.h"
+#include "xleaf/clkfreq.h"
 
 /* CLOCK_MAX_NUM_CLOCKS should be a concept from XCLBIN_ in the future */
 #define	CLOCK_MAX_NUM_CLOCKS		4

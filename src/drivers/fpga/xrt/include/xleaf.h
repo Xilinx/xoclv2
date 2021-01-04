@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XRT_LEAF_H_
-#define	_XRT_LEAF_H_
+#ifndef	_XRT_XLEAF_H_
+#define	_XRT_XLEAF_H_
 
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
@@ -18,6 +18,14 @@
 #include "libfdt.h"
 #include "subdev_id.h"
 #include "events.h"
+
+/*
+ * Common IOCTLs implemented by all leafs.
+ */
+enum xrt_xleaf_ioctl_cmd {
+	XRT_XLEAF_BASE = 0,
+	XRT_XLEAF_CUSTOM_BASE = 64,
+};
 
 /*
  * If populated by subdev driver, parent will handle the mechanics of

@@ -15,7 +15,7 @@
  * GPIO driver IOCTL calls.
  */
 enum xrt_gpio_ioctl_cmd {
-	XRT_GPIO_READ = 0,
+	XRT_GPIO_READ = XRT_XLEAF_CUSTOM_BASE,
 	XRT_GPIO_WRITE,
 };
 

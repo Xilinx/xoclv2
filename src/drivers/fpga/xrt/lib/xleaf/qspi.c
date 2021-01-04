@@ -12,7 +12,7 @@
 #include <linux/uaccess.h>
 #include "metadata.h"
 #include "xleaf.h"
-#include "subdev/flash.h"
+#include "xleaf/flash.h"
 
 #define	XRT_QSPI "xrt_qspi"
 

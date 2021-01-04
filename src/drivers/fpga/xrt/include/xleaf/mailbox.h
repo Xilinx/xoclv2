@@ -9,11 +9,12 @@
 #ifndef	_XRT_MAILBOX_H_
 #define	_XRT_MAILBOX_H_
 
+#include "xleaf.h"
 /*
  * Mailbox IP driver IOCTL calls.
  */
 enum xrt_mailbox_ioctl_cmd {
-	XRT_MAILBOX_POST = 0,
+	XRT_MAILBOX_POST = XRT_XLEAF_CUSTOM_BASE,
 	XRT_MAILBOX_REQUEST,
 	XRT_MAILBOX_LISTEN,
 };

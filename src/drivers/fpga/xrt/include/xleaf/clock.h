@@ -16,7 +16,7 @@
  * CLOCK driver IOCTL calls.
  */
 enum xrt_clock_ioctl_cmd {
-	XRT_CLOCK_SET = 0,
+	XRT_CLOCK_SET = XRT_XLEAF_CUSTOM_BASE,
 	XRT_CLOCK_GET,
 	XRT_CLOCK_VERIFY,
 };

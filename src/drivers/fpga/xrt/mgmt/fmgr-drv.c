@@ -18,8 +18,8 @@
 #include "xclbin-helper.h"
 #include "xleaf.h"
 #include "fmgr.h"
-#include "subdev/axigate.h"
-#include "subdev/icap.h"
+#include "xleaf/axigate.h"
+#include "xleaf/icap.h"
 #include "main-impl.h"
 
 struct xfpga_klass {

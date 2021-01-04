@@ -12,15 +12,15 @@
 #include <linux/uaccess.h>
 #include "xclbin-helper.h"
 #include "metadata.h"
-#include "subdev/flash.h"
+#include "xleaf/flash.h"
 #include "xleaf.h"
 #include <linux/xrt/flash_xrt_data.h>
 #include <linux/xrt/xmgmt-ioctl.h>
-#include "subdev/gpio.h"
+#include "xleaf/gpio.h"
 #include "xmgmt-main.h"
 #include "fmgr.h"
-#include "subdev/icap.h"
-#include "subdev/axigate.h"
+#include "xleaf/icap.h"
+#include "xleaf/axigate.h"
 #include "main-impl.h"
 
 #define	XMGMT_MAIN "xmgmt_main"

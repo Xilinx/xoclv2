@@ -13,7 +13,7 @@
 #include <linux/fpga/fpga-region.h>
 #include "metadata.h"
 #include "xleaf.h"
-#include "subdev/axigate.h"
+#include "xleaf/axigate.h"
 #include "xclbin-helper.h"
 #include "main-impl.h"
 

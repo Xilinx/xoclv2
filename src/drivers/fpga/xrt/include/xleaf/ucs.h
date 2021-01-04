@@ -15,7 +15,7 @@
  * UCS driver IOCTL calls.
  */
 enum xrt_ucs_ioctl_cmd {
-	XRT_UCS_CHECK = 0,
+	XRT_UCS_CHECK = XRT_XLEAF_CUSTOM_BASE,
 	XRT_UCS_ENABLE,
 };
 

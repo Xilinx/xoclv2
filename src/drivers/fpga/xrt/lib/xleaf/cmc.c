@@ -11,7 +11,7 @@
 #include "metadata.h"
 #include "xleaf.h"
 #include "xrt-cmc-impl.h"
-#include "subdev/cmc.h"
+#include "xleaf/cmc.h"
 #include <linux/xrt/mailbox_proto.h>
 
 #define	XRT_CMC "xrt_cmc"

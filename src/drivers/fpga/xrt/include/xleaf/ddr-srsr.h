@@ -15,7 +15,7 @@
  * ddr-srsr driver IOCTL calls.
  */
 enum xrt_ddr_srsr_ioctl_cmd {
-	XRT_SRSR_FAST_CALIB,
+	XRT_SRSR_FAST_CALIB = XRT_XLEAF_CUSTOM_BASE,
 	XRT_SRSR_CALIB,
 	XRT_SRSR_EP_NAME,
 };
