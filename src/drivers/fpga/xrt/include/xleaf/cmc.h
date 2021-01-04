@@ -16,7 +16,7 @@
  * CMC driver IOCTL calls.
  */
 enum xrt_cmc_ioctl_cmd {
-	XRT_CMC_READ_BOARD_INFO = 0,
+	XRT_CMC_READ_BOARD_INFO = XRT_XLEAF_CUSTOM_BASE,
 	XRT_CMC_READ_SENSORS,
 };
 

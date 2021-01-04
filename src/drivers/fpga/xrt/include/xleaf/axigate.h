@@ -17,7 +17,7 @@
  * AXIGATE driver IOCTL calls.
  */
 enum xrt_axigate_ioctl_cmd {
-	XRT_AXIGATE_FREEZE = 0,
+	XRT_AXIGATE_FREEZE = XRT_XLEAF_CUSTOM_BASE,
 	XRT_AXIGATE_FREE,
 };
 

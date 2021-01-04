@@ -16,7 +16,7 @@
 #include "metadata.h"
 #include "xleaf.h"
 #include "parent.h"
-#include "subdev/clkfreq.h"
+#include "xleaf/clkfreq.h"
 
 #define CLKFREQ_ERR(clkfreq, fmt, arg...)   \
 	xrt_err((clkfreq)->pdev, fmt "\n", ##arg)

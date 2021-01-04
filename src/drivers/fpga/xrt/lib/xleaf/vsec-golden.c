@@ -11,7 +11,7 @@
 #include <linux/platform_device.h>
 #include "metadata.h"
 #include "xleaf.h"
-#include "subdev/gpio.h"
+#include "xleaf/gpio.h"
 
 #define XRT_VSEC_GOLDEN "xrt_vsec_golden"
 

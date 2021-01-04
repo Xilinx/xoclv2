@@ -16,7 +16,7 @@
 #include "metadata.h"
 #include "xleaf.h"
 #include "parent.h"
-#include "subdev/icap.h"
+#include "xleaf/icap.h"
 #include "xclbin-helper.h"
 
 #define XRT_ICAP "xrt_icap"

@@ -33,25 +33,25 @@ xrt-lib-y := 			\
 	subdev.o		\
 	cdev.o			\
 	partition.o		\
-	subdevs/test.o		\
-	subdevs/vsec.o		\
-	subdevs/vsec-golden.o	\
-	subdevs/axigate.o	\
-	subdevs/qspi.o		\
-	subdevs/gpio.o		\
-	subdevs/mailbox.o	\
-	subdevs/icap.o		\
-	subdevs/cmc.o		\
-	subdevs/cmc-ctrl.o	\
-	subdevs/cmc-sensors.o	\
-	subdevs/cmc-mailbox.o	\
-	subdevs/cmc-bdinfo.o	\
-	subdevs/cmc-sc.o	\
-	subdevs/srsr.o		\
-	subdevs/clock.o		\
-	subdevs/clkfreq.o	\
-	subdevs/ucs.o		\
-	subdevs/calib.o		\
+	xleaf/test.o		\
+	xleaf/vsec.o		\
+	xleaf/vsec-golden.o	\
+	xleaf/axigate.o	\
+	xleaf/qspi.o		\
+	xleaf/gpio.o		\
+	xleaf/mailbox.o	\
+	xleaf/icap.o		\
+	xleaf/cmc.o		\
+	xleaf/cmc-ctrl.o	\
+	xleaf/cmc-sensors.o	\
+	xleaf/cmc-mailbox.o	\
+	xleaf/cmc-bdinfo.o	\
+	xleaf/cmc-sc.o	\
+	xleaf/srsr.o		\
+	xleaf/clock.o		\
+	xleaf/clkfreq.o	\
+	xleaf/ucs.o		\
+	xleaf/calib.o		\
 	$(fdtobj)
 
 
@@ -73,5 +73,5 @@ all:
 
 clean:
 	rm -rf *.o *.o.d *~ core .depend .*.cmd *.ko *.ko.unsigned *.mod.c \
-	rm -rf subdevs/*.o subdevs/*.o.d subdevs/*~ core subdevs/.depend subdevs/.*.cmd subdevs/*.mod.c \
+	rm -rf xleaf/*.o xleaf/*.o.d xleaf/*~ core xleaf/.depend xleaf/.*.cmd xleaf/*.mod.c \
 	.tmp_versions *.symvers modules.order *.mod .cache.mk

@@ -176,7 +176,7 @@
 #include <linux/xrt/mailbox_transport.h>
 #include "metadata.h"
 #include "xleaf.h"
-#include "subdev/mailbox.h"
+#include "xleaf/mailbox.h"
 #include "xmgmt-main.h"
 
 #define	FLAG_STI	(1 << 0)

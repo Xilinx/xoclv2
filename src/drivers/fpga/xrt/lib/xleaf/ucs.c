@@ -16,8 +16,8 @@
 #include "metadata.h"
 #include "xleaf.h"
 #include "parent.h"
-#include "subdev/ucs.h"
-#include "subdev/clock.h"
+#include "xleaf/ucs.h"
+#include "xleaf/clock.h"
 
 #define UCS_ERR(ucs, fmt, arg...)   \
 	xrt_err((ucs)->pdev, fmt "\n", ##arg)

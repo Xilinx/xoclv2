@@ -13,13 +13,13 @@
 #include <linux/crc32c.h>
 #include <linux/xrt/mailbox_proto.h>
 #include "main-impl.h"
-#include "subdev/mailbox.h"
-#include "subdev/cmc.h"
+#include "xleaf/mailbox.h"
+#include "xleaf/cmc.h"
 #include "metadata.h"
 #include "xclbin-helper.h"
-#include "subdev/clock.h"
-#include "subdev/calib.h"
-#include "subdev/icap.h"
+#include "xleaf/clock.h"
+#include "xleaf/calib.h"
+#include "xleaf/icap.h"
 
 struct xmgmt_mailbox {
 	struct platform_device *pdev;
