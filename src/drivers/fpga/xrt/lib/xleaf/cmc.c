@@ -170,6 +170,9 @@ xrt_cmc_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	int ret = -ENOENT;
 
 	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		cmc_ctrl_event_cb(pdev, arg);
+		break;
 	case XRT_CMC_READ_BOARD_INFO: {
 		struct xcl_board_info *i = (struct xcl_board_info *)arg;
 

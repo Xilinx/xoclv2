@@ -30,21 +30,11 @@ struct calib {
 	struct mutex		lock;
 	struct list_head	cache_list;
 	uint32_t		cache_num;
-	void			*evt_hdl;
 	enum xrt_calib_results	result;
 };
 
 #define CALIB_DONE(calib)			\
 	(ioread32(calib->calib_base) & BIT(0))
-
-static bool xrt_calib_leaf_match(enum xrt_subdev_id id,
-	struct platform_device *pdev, void *arg)
-{
-	if (id == XRT_SUBDEV_UCS || id == XRT_SUBDEV_SRSR)
-		return true;
-
-	return false;
-}
 
 static void calib_cache_clean_nolock(struct calib *calib)
 {
@@ -153,25 +143,27 @@ static int calib_calibration(struct calib *calib)
 	return 0;
 }
 
-static int xrt_calib_event_cb(struct platform_device *pdev,
-	enum xrt_events evt, void *arg)
+static void xrt_calib_event_cb(struct platform_device *pdev, void *arg)
 {
 	struct calib *calib = platform_get_drvdata(pdev);
-	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
+		struct xrt_event *evt = (struct xrt_event *)arg;
+	enum xrt_events e = evt->xe_evt;
+	enum xrt_subdev_id id = evt->xe_subdev.xevt_subdev_id;
+	int instance = evt->xe_subdev.xevt_subdev_instance;
 	struct platform_device *leaf;
 	int ret;
 
-	switch (evt) {
+	switch (e) {
 	case XRT_EVENT_POST_CREATION: {
-		if (esd->xevt_subdev_id == XRT_SUBDEV_SRSR) {
+		if (id == XRT_SUBDEV_SRSR) {
 			leaf = xleaf_get_leaf_by_id(pdev,
-				XRT_SUBDEV_SRSR, esd->xevt_subdev_instance);
+				XRT_SUBDEV_SRSR, instance);
 			BUG_ON(!leaf);
 			ret = calib_srsr(calib, leaf);
 			xleaf_put_leaf(pdev, leaf);
 			calib->result =
 				ret ? XRT_CALIB_FAILED : XRT_CALIB_SUCCEEDED;
-		} else if (esd->xevt_subdev_id == XRT_SUBDEV_UCS) {
+		} else if (id == XRT_SUBDEV_UCS) {
 			ret = calib_calibration(calib);
 			calib->result =
 				ret ? XRT_CALIB_FAILED : XRT_CALIB_SUCCEEDED;
@@ -179,18 +171,14 @@ static int xrt_calib_event_cb(struct platform_device *pdev,
 		break;
 	}
 	default:
-		xrt_info(pdev, "ignored event %d", evt);
 		break;
 	}
-
-	return XRT_EVENT_CB_CONTINUE;
 }
 
 static int xrt_calib_remove(struct platform_device *pdev)
 {
 	struct calib *calib = platform_get_drvdata(pdev);
 
-	xleaf_remove_event_cb(pdev, calib->evt_hdl);
 	calib_cache_clean(calib);
 
 	if (calib->calib_base)
@@ -226,9 +214,6 @@ static int xrt_calib_probe(struct platform_device *pdev)
 		goto failed;
 	}
 
-	calib->evt_hdl = xleaf_add_event_cb(pdev, xrt_calib_leaf_match,
-		NULL, xrt_calib_event_cb);
-
 	mutex_init(&calib->lock);
 	INIT_LIST_HEAD(&calib->cache_list);
 
@@ -246,6 +231,9 @@ xrt_calib_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	int ret = 0;
 
 	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		xrt_calib_event_cb(pdev, arg);
+		break;
 	case XRT_CALIB_RESULT: {
 		enum xrt_calib_results *r = (enum xrt_calib_results *)arg;
 		*r = calib->result;

@@ -27,7 +27,6 @@
 
 struct xmgmt_main {
 	struct platform_device *pdev;
-	void *evt_hdl;
 	struct axlf *firmware_blp;
 	struct axlf *firmware_plp;
 	struct axlf *firmware_ulp;
@@ -61,17 +60,6 @@ char *xmgmt_get_vbnv(struct platform_device *pdev)
 			ret[i] = '_';
 	}
 	return ret;
-}
-
-static bool xmgmt_main_leaf_match(enum xrt_subdev_id id,
-	struct platform_device *pdev, void *arg)
-{
-	if (id == XRT_SUBDEV_GPIO)
-		return xleaf_has_epname(pdev, arg);
-	else if (id == XRT_SUBDEV_QSPI)
-		return true;
-
-	return false;
 }
 
 static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
@@ -108,15 +96,15 @@ static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 
 int xmgmt_hot_reset(struct platform_device *pdev)
 {
-	int ret = xleaf_broadcast_event(pdev, XRT_EVENT_PRE_HOT_RESET);
+	int ret = xleaf_broadcast_event(pdev, XRT_EVENT_PRE_HOT_RESET, false);
 
 	if (ret) {
 		xrt_err(pdev, "offline failed, hot reset is canceled");
 		return ret;
 	}
 
-	(void) xleaf_hot_reset(pdev);
-	xleaf_broadcast_event(pdev, XRT_EVENT_POST_HOT_RESET);
+	xleaf_hot_reset(pdev);
+	xleaf_broadcast_event(pdev, XRT_EVENT_POST_HOT_RESET, false);
 	return 0;
 }
 
@@ -529,60 +517,63 @@ failed:
 	return rc;
 }
 
-static int xmgmt_main_event_cb(struct platform_device *pdev,
-	enum xrt_events evt, void *arg)
+static int xmgmt_load_firmware(struct xmgmt_main *xmm)
 {
-	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
-	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
-	enum xrt_subdev_id id;
-	int instance;
+	struct platform_device *pdev = xmm->pdev;
+	int rc;
 	size_t fwlen;
 
-	switch (evt) {
+	rc = load_firmware_from_disk(pdev, &xmm->firmware_blp, &fwlen);
+	if (rc != 0)
+		rc = load_firmware_from_flash(pdev, &xmm->firmware_blp, &fwlen);
+	if (rc == 0 && is_valid_firmware(pdev, xmm->firmware_blp, fwlen))
+		(void) xmgmt_create_blp(xmm);
+	else
+		xrt_err(pdev, "failed to find firmware, giving up: %d", rc);
+	return rc;
+}
+
+static void xmgmt_main_event_cb(struct platform_device *pdev, void *arg)
+{
+	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+	struct xrt_event *evt = (struct xrt_event *)arg;
+	enum xrt_events e = evt->xe_evt;
+	enum xrt_subdev_id id = evt->xe_subdev.xevt_subdev_id;
+	struct platform_device *leaf;
+
+	switch (e) {
 	case XRT_EVENT_POST_CREATION: {
-		id = esd->xevt_subdev_id;
-		instance = esd->xevt_subdev_instance;
-		xrt_info(pdev, "processing event %d for (%d, %d)",
-			evt, id, instance);
-
-		if (id == XRT_SUBDEV_GPIO)
-			xmm->gpio_ready = true;
-		else if (id == XRT_SUBDEV_QSPI)
-			xmm->flash_ready = true;
-		else
-			BUG_ON(1);
-
-		if (xmm->gpio_ready && xmm->flash_ready) {
-			int rc;
-
-			rc = load_firmware_from_disk(pdev, &xmm->firmware_blp,
-				&fwlen);
-			if (rc != 0) {
-				rc = load_firmware_from_flash(pdev,
-					&xmm->firmware_blp, &fwlen);
-			}
-			if (rc == 0 && is_valid_firmware(pdev,
-			    xmm->firmware_blp, fwlen))
-				(void) xmgmt_create_blp(xmm);
-			else
-				xrt_err(pdev,
-					"failed to find firmware, giving up");
-			xmm->evt_hdl = NULL;
+		/* mgmt driver finishes attaching, notify user pf. */
+		if (id == XRT_ROOT) {
+			xmgmt_peer_notify_state(xmm->mailbox_hdl, true);
+			break;
 		}
+
+		if (id == XRT_SUBDEV_GPIO && !xmm->gpio_ready) {
+			leaf = xleaf_get_leaf_by_epname(pdev, NODE_BLP_ROM);
+			if (leaf) {
+				xmm->gpio_ready = true;
+				xleaf_put_leaf(pdev, leaf);
+			}
+		} else if (id == XRT_SUBDEV_QSPI && !xmm->flash_ready) {
+			xmm->flash_ready = true;
+		} else {
+			break;
+		}
+
+		if (xmm->gpio_ready && xmm->flash_ready)
+			(void) xmgmt_load_firmware(xmm);
 		break;
 	}
-	case XRT_EVENT_POST_ATTACH:
-		xmgmt_peer_notify_state(xmm->mailbox_hdl, true);
-		break;
-	case XRT_EVENT_PRE_DETACH:
-		xmgmt_peer_notify_state(xmm->mailbox_hdl, false);
+	case XRT_EVENT_PRE_REMOVAL:
+		/* mgmt driver is about to detach, notify user pf. */
+		if (id == XRT_ROOT)
+			xmgmt_peer_notify_state(xmm->mailbox_hdl, false);
 		break;
 	default:
-		xrt_info(pdev, "ignored event %d", evt);
+		xrt_dbg(pdev, "ignored event %d", e);
 		break;
 	}
-
-	return XRT_EVENT_CB_CONTINUE;
 }
 
 static int xmgmt_main_probe(struct platform_device *pdev)
@@ -604,9 +595,6 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 	xmm->mailbox_hdl = xmgmt_mailbox_probe(pdev);
 	mutex_init(&xmm->busy_mutex);
 
-	xmm->evt_hdl = xleaf_add_event_cb(pdev,
-		xmgmt_main_leaf_match, NODE_BLP_ROM, xmgmt_main_event_cb);
-
 	/* Ready to handle req thru sysfs nodes. */
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_main_attrgroup))
 		xrt_err(pdev, "failed to create sysfs group");
@@ -621,8 +609,6 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 
 	xrt_info(pdev, "leaving...");
 
-	if (xmm->evt_hdl)
-		(void) xleaf_remove_event_cb(pdev, xmm->evt_hdl);
 	vfree(xmm->blp_intf_uuids);
 	vfree(xmm->firmware_blp);
 	vfree(xmm->firmware_plp);
@@ -640,9 +626,11 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
 	int ret = 0;
 
-	xrt_info(pdev, "handling IOCTL cmd: %d", cmd);
-
 	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		xmgmt_mailbox_event_cb(pdev, arg);
+		xmgmt_main_event_cb(pdev, arg);
+		break;
 	case XRT_MGMT_MAIN_GET_AXLF_SECTION: {
 		struct xrt_mgmt_main_ioctl_get_axlf_section *get =
 			(struct xrt_mgmt_main_ioctl_get_axlf_section *)arg;

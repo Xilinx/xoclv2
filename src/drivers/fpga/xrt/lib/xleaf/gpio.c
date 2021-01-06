@@ -58,6 +58,9 @@ xrt_gpio_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	gpio = platform_get_drvdata(pdev);
 
 	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		/* Does not handle any event. */
+		break;
 	case XRT_GPIO_READ: {
 		struct xrt_gpio_ioctl_rw	*rw_arg = arg;
 		u32				*p_src, *p_dst, i;

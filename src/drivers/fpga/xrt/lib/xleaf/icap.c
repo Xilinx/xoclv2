@@ -217,6 +217,9 @@ xrt_icap_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	icap = platform_get_drvdata(pdev);
 
 	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		/* Does not handle any event. */
+		break;
 	case XRT_ICAP_WRITE:
 		ret = icap_download(icap, wr_arg->xiiw_bit_data,
 				wr_arg->xiiw_data_len);

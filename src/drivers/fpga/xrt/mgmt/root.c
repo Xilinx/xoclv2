@@ -311,7 +311,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		xmgmt_warn(xm, "create xmgmt root attrs failed: %d", ret);
 	}
 
-	xroot_broadcast(xm->root, XRT_EVENT_POST_ATTACH);
+	xroot_broadcast(xm->root, XRT_EVENT_POST_CREATION);
 	xmgmt_info(xm, "%s started successfully", XMGMT_MODULE_NAME);
 	return 0;
 
@@ -326,7 +326,7 @@ static void xmgmt_remove(struct pci_dev *pdev)
 {
 	struct xmgmt *xm = pci_get_drvdata(pdev);
 
-	xroot_broadcast(xm->root, XRT_EVENT_PRE_DETACH);
+	xroot_broadcast(xm->root, XRT_EVENT_PRE_REMOVAL);
 	sysfs_remove_group(&pdev->dev.kobj, &xmgmt_root_attr_group);
 	(void) xroot_remove(xm->root);
 	pci_disable_pcie_error_reporting(xm->pdev);

@@ -200,6 +200,11 @@ static int xrt_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	struct xrt_partition *xp = platform_get_drvdata(pdev);
 
 	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		/* Simply forward to every child. */
+		rc = xrt_subdev_pool_handle_event(&xp->leaves,
+			(struct xrt_event *)arg);
+		break;
 	case XRT_PARTITION_GET_LEAF: {
 		struct xrt_parent_ioctl_get_leaf *get_leaf =
 			(struct xrt_parent_ioctl_get_leaf *)arg;
@@ -223,16 +228,10 @@ static int xrt_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	case XRT_PARTITION_FINI_CHILDREN:
 		rc = xrt_part_remove_leaves(xp);
 		break;
-	case XRT_PARTITION_EVENT: {
-		struct xrt_partition_ioctl_event *evt =
-			(struct xrt_partition_ioctl_event *)arg;
-		struct xrt_parent_ioctl_evt_cb *cb = evt->xpie_cb;
-
-		rc = xrt_subdev_pool_event(&xp->leaves, cb->xevt_pdev,
-			cb->xevt_match_cb, cb->xevt_match_arg, cb->xevt_cb,
-			evt->xpie_evt);
+	case XRT_PARTITION_TRIGGER_EVENT:
+		rc = xrt_subdev_pool_trigger_event(&xp->leaves,
+			(enum xrt_events)(uintptr_t)arg);
 		break;
-	}
 	default:
 		xrt_err(pdev, "unknown IOCTL cmd %d", cmd);
 		rc = -EINVAL;

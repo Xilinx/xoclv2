@@ -123,7 +123,6 @@ static int xrt_drv_register_driver(enum xrt_subdev_id id)
 
 	ida_init(&map->ida);
 
-	pr_info("registered %s subdev driver\n", drvname);
 	return 0;
 }
 
@@ -131,15 +130,12 @@ static void xrt_drv_unregister_driver(enum xrt_subdev_id id)
 {
 	struct xrt_drv_map *map = xrt_drv_find_map_by_id(id);
 	struct xrt_subdev_drvdata *drvdata;
-	const char *drvname;
 
 	BUG_ON(!map);
 	if (!map->drv) {
 		pr_info("skip unregistration of subdev driver for id %d\n", id);
 		return;
 	}
-
-	drvname = XRT_DRVNAME(map->drv);
 
 	ida_destroy(&map->ida);
 
@@ -153,8 +149,6 @@ static void xrt_drv_unregister_driver(enum xrt_subdev_id id)
 		drvdata->xsd_dev_ops.xsd_pre_exit();
 
 	platform_driver_unregister(map->drv);
-
-	pr_info("unregistered %s subdev driver\n", drvname);
 }
 
 int xleaf_register_external_driver(enum xrt_subdev_id id,

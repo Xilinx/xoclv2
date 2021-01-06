@@ -25,7 +25,6 @@ struct xmgmt_mailbox {
 	struct platform_device *pdev;
 	struct platform_device *mailbox;
 	struct mutex lock;
-	void *evt_hdl;
 	char *test_msg;
 	bool peer_in_same_domain;
 };
@@ -709,21 +708,18 @@ static void xmgmt_mailbox_unreg_listener(struct xmgmt_mailbox *xmbx)
 	(void) xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
 }
 
-static bool xmgmt_mailbox_leaf_match(enum xrt_subdev_id id,
-	struct platform_device *pdev, void *arg)
-{
-	return (id == XRT_SUBDEV_MAILBOX);
-}
-
-static int xmgmt_mailbox_event_cb(struct platform_device *pdev,
-	enum xrt_events evt, void *arg)
+void xmgmt_mailbox_event_cb(struct platform_device *pdev, void *arg)
 {
 	struct xmgmt_mailbox *xmbx = pdev2mbx(pdev);
-	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
+	struct xrt_event *evt = (struct xrt_event *)arg;
+	enum xrt_events e = evt->xe_evt;
+	enum xrt_subdev_id id = evt->xe_subdev.xevt_subdev_id;
 
-	switch (evt) {
+	if (id != XRT_SUBDEV_MAILBOX)
+		return;
+
+	switch (e) {
 	case XRT_EVENT_POST_CREATION:
-		BUG_ON(esd->xevt_subdev_id != XRT_SUBDEV_MAILBOX);
 		BUG_ON(xmbx->mailbox);
 		mutex_lock(&xmbx->lock);
 		xmbx->mailbox = xleaf_get_leaf_by_id(pdev,
@@ -732,7 +728,6 @@ static int xmgmt_mailbox_event_cb(struct platform_device *pdev,
 		mutex_unlock(&xmbx->lock);
 		break;
 	case XRT_EVENT_PRE_REMOVAL:
-		BUG_ON(esd->xevt_subdev_id != XRT_SUBDEV_MAILBOX);
 		BUG_ON(!xmbx->mailbox);
 		mutex_lock(&xmbx->lock);
 		xmgmt_mailbox_unreg_listener(xmbx);
@@ -743,8 +738,6 @@ static int xmgmt_mailbox_event_cb(struct platform_device *pdev,
 	default:
 		break;
 	}
-
-	return XRT_EVENT_CB_CONTINUE;
 }
 
 static ssize_t xmgmt_mailbox_user_dtb_show(struct file *filp,
@@ -891,8 +884,6 @@ void *xmgmt_mailbox_probe(struct platform_device *pdev)
 	xmbx->pdev = pdev;
 	mutex_init(&xmbx->lock);
 
-	xmbx->evt_hdl = xleaf_add_event_cb(pdev,
-		xmgmt_mailbox_leaf_match, NULL, xmgmt_mailbox_event_cb);
 	(void) sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_mailbox_attrgroup);
 	return xmbx;
 }
@@ -903,8 +894,6 @@ void xmgmt_mailbox_remove(void *handle)
 	struct platform_device *pdev = xmbx->pdev;
 
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_mailbox_attrgroup);
-	if (xmbx->evt_hdl)
-		(void) xleaf_remove_event_cb(pdev, xmbx->evt_hdl);
 	if (xmbx->mailbox)
 		(void) xleaf_put_leaf(pdev, xmbx->mailbox);
 	if (xmbx->test_msg)

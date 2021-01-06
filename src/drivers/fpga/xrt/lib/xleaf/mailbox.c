@@ -1492,9 +1492,10 @@ static int mailbox_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	struct mailbox *mbx = platform_get_drvdata(pdev);
 	int ret = 0;
 
-	MBX_INFO(mbx, "handling IOCTL cmd: %d", cmd);
-
 	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		/* Does not handle any event. */
+		break;
 	case XRT_MAILBOX_POST: {
 		struct xrt_mailbox_ioctl_post *post =
 			(struct xrt_mailbox_ioctl_post *)arg;

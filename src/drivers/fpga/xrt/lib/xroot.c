@@ -28,30 +28,24 @@
 #define xroot_dbg(xr, fmt, args...)	\
 	dev_dbg(XROOT_DEV(xr), "%s: " fmt, __func__, ##args)
 
-#define XRT_VSEC_ID	0x20
+#define XRT_VSEC_ID		0x20
+
 #define	XROOT_PART_FIRST	(-1)
 #define	XROOT_PART_LAST		(-2)
 
 static int xroot_parent_cb(struct device *, void *, u32, void *);
 
-struct xroot_async_evt {
+struct xroot_evt {
 	struct list_head list;
-	struct xrt_parent_ioctl_async_broadcast_evt evt;
-};
-
-struct xroot_event_cb {
-	struct list_head list;
-	bool initialized;
-	struct xrt_parent_ioctl_evt_cb cb;
+	struct xrt_event evt;
+	struct completion comp;
+	bool async;
 };
 
 struct xroot_events {
-	struct list_head cb_list;
-	struct mutex cb_lock;
-	struct work_struct cb_init_work;
-	struct mutex async_evt_lock;
-	struct list_head async_evt_list;
-	struct work_struct async_evt_work;
+	struct mutex evt_lock;
+	struct list_head evt_list;
+	struct work_struct evt_work;
 };
 
 struct xroot_parts {
@@ -114,54 +108,56 @@ static void xroot_put_partition(struct xroot *xr, struct platform_device *part)
 		xroot_err(xr, "failed to release partition %d: %d", inst, rc);
 }
 
-static int
-xroot_partition_trigger_evt(struct xroot *xr, struct xroot_event_cb *cb,
-	struct platform_device *part, enum xrt_events evt)
+static int xroot_trigger_event(struct xroot *xr,
+	struct xrt_event *e, bool async)
 {
-	xrt_subdev_match_t match = cb->cb.xevt_match_cb;
-	xrt_event_cb_t evtcb = cb->cb.xevt_cb;
-	void *arg = cb->cb.xevt_match_arg;
-	struct xrt_partition_ioctl_event e = { evt, &cb->cb };
-	struct xrt_event_arg_subdev esd = { XRT_SUBDEV_PART, part->id };
-	int rc;
+	struct xroot_evt *enew = vzalloc(sizeof(*enew));
 
-	if (match(XRT_SUBDEV_PART, part, arg)) {
-		rc = evtcb(cb->cb.xevt_pdev, evt, &esd);
-		if (rc)
-			return rc;
-	}
+	if (!enew)
+		return -ENOMEM;
 
-	return xleaf_ioctl(part, XRT_PARTITION_EVENT, &e);
+	enew->evt = *e;
+	enew->async = async;
+	init_completion(&enew->comp);
+
+	mutex_lock(&xr->events.evt_lock);
+	list_add(&enew->list, &xr->events.evt_list);
+	mutex_unlock(&xr->events.evt_lock);
+
+	schedule_work(&xr->events.evt_work);
+
+	if (async)
+		return 0;
+
+	wait_for_completion(&enew->comp);
+	vfree(enew);
+	return 0;
 }
 
 static void
-xroot_event_partition(struct xroot *xr, int instance, enum xrt_events evt)
+xroot_partition_trigger_event(struct xroot *xr, int inst, enum xrt_events e)
 {
 	int ret;
 	struct platform_device *pdev = NULL;
-	const struct list_head *ptr, *next;
-	struct xroot_event_cb *tmp;
+	struct xrt_event evt = { 0 };
 
-	BUG_ON(instance < 0);
-	ret = xroot_get_partition(xr, instance, &pdev);
+	BUG_ON(inst < 0);
+	/* Only triggers subdev specific events. */
+	BUG_ON(e != XRT_EVENT_POST_CREATION && e != XRT_EVENT_PRE_REMOVAL);
+
+	ret = xroot_get_partition(xr, inst, &pdev);
 	if (ret)
 		return;
 
-	mutex_lock(&xr->events.cb_lock);
-	list_for_each_safe(ptr, next, &xr->events.cb_list) {
-		int rc;
+	/* Triggers event for children, first. */
+	(void) xleaf_ioctl(pdev, XRT_PARTITION_TRIGGER_EVENT,
+		(void *)(uintptr_t)e);
 
-		tmp = list_entry(ptr, struct xroot_event_cb, list);
-		if (!tmp->initialized)
-			continue;
-
-		rc = xroot_partition_trigger_evt(xr, tmp, pdev, evt);
-		if (rc) {
-			list_del(&tmp->list);
-			vfree(tmp);
-		}
-	}
-	mutex_unlock(&xr->events.cb_lock);
+	/* Triggers event for itself. */
+	evt.xe_evt = e;
+	evt.xe_subdev.xevt_subdev_id = XRT_SUBDEV_PART;
+	evt.xe_subdev.xevt_subdev_instance = inst;
+	(void) xroot_trigger_event(xr, &evt, false);
 
 	(void) xroot_put_partition(xr, pdev);
 }
@@ -194,7 +190,7 @@ static int xroot_destroy_single_partition(struct xroot *xr, int instance)
 	if (ret)
 		return ret;
 
-	xroot_event_partition(xr, instance, XRT_EVENT_PRE_REMOVAL);
+	xroot_partition_trigger_event(xr, instance, XRT_EVENT_PRE_REMOVAL);
 
 	/* Now tear down all children in this partition. */
 	ret = xleaf_ioctl(pdev, XRT_PARTITION_FINI_CHILDREN, NULL);
@@ -259,173 +255,51 @@ static int xroot_lookup_partition(struct xroot *xr,
 	return rc;
 }
 
-static void xroot_evt_cb_init_work(struct work_struct *work)
+static void xroot_process_event(struct xroot *xr, struct xrt_event *evt)
 {
-	const struct list_head *ptr, *next;
-	struct xroot_event_cb *tmp;
 	struct platform_device *part = NULL;
-	struct xroot *xr =
-		container_of(work, struct xroot, events.cb_init_work);
 
-	mutex_lock(&xr->events.cb_lock);
-
-	list_for_each_safe(ptr, next, &xr->events.cb_list) {
-		tmp = list_entry(ptr, struct xroot_event_cb, list);
-		if (tmp->initialized)
-			continue;
-
-		while (xroot_get_partition(xr, XROOT_PART_LAST,
-			&part) != -ENOENT) {
-			int rc = xroot_partition_trigger_evt(xr, tmp, part,
-				XRT_EVENT_POST_CREATION);
-
-			(void) xroot_put_partition(xr, part);
-			if (rc & XRT_EVENT_CB_STOP) {
-				list_del(&tmp->list);
-				vfree(tmp);
-				tmp = NULL;
-				break;
-			}
-		}
-
-		if (tmp)
-			tmp->initialized = true;
+	while (xroot_get_partition(xr, XROOT_PART_LAST, &part) != -ENOENT) {
+		(void) xleaf_ioctl(part, XRT_XLEAF_EVENT, evt);
+		xroot_put_partition(xr, part);
 	}
-
-	mutex_unlock(&xr->events.cb_lock);
 }
 
-static bool xroot_evt(struct xroot *xr, enum xrt_events evt)
+static void xroot_event_work(struct work_struct *work)
 {
-	const struct list_head *ptr, *next;
-	struct xroot_event_cb *tmp;
-	int rc;
-	bool success = true;
+	struct xroot_evt *tmp;
+	struct xroot *xr = container_of(work, struct xroot, events.evt_work);
 
-	mutex_lock(&xr->events.cb_lock);
-	list_for_each_safe(ptr, next, &xr->events.cb_list) {
-		tmp = list_entry(ptr, struct xroot_event_cb, list);
-		rc = tmp->cb.xevt_cb(tmp->cb.xevt_pdev, evt, NULL);
-		if (rc & XRT_EVENT_CB_ERR)
-			success = false;
-		if (rc & XRT_EVENT_CB_STOP) {
-			list_del(&tmp->list);
+	mutex_lock(&xr->events.evt_lock);
+	while (!list_empty(&xr->events.evt_list)) {
+		tmp = list_first_entry(&xr->events.evt_list,
+			struct xroot_evt, list);
+		list_del(&tmp->list);
+		mutex_unlock(&xr->events.evt_lock);
+
+		xroot_process_event(xr, &tmp->evt);
+
+		if (tmp->async)
 			vfree(tmp);
-		}
+		else
+			complete(&tmp->comp);
+
+		mutex_lock(&xr->events.evt_lock);
 	}
-	mutex_unlock(&xr->events.cb_lock);
-
-	return success;
+	mutex_unlock(&xr->events.evt_lock);
 }
 
-static void xroot_evt_async_evt_work(struct work_struct *work)
+static void xroot_event_init(struct xroot *xr)
 {
-	struct xroot_async_evt *tmp;
-	struct xroot *xr =
-		container_of(work, struct xroot, events.async_evt_work);
-	bool success;
-
-	mutex_lock(&xr->events.async_evt_lock);
-	while (!list_empty(&xr->events.async_evt_list)) {
-		tmp = list_first_entry(&xr->events.async_evt_list,
-			struct xroot_async_evt, list);
-		list_del(&tmp->list);
-		mutex_unlock(&xr->events.async_evt_lock);
-
-		success = xroot_evt(xr, tmp->evt.xaevt_event);
-		if (tmp->evt.xaevt_cb) {
-			tmp->evt.xaevt_cb(tmp->evt.xaevt_pdev,
-				tmp->evt.xaevt_event, tmp->evt.xaevt_arg,
-				success);
-		}
-		vfree(tmp);
-
-		mutex_lock(&xr->events.async_evt_lock);
-	}
-	mutex_unlock(&xr->events.async_evt_lock);
+	INIT_LIST_HEAD(&xr->events.evt_list);
+	mutex_init(&xr->events.evt_lock);
+	INIT_WORK(&xr->events.evt_work, xroot_event_work);
 }
 
-static void xroot_evt_init(struct xroot *xr)
+static void xroot_event_fini(struct xroot *xr)
 {
-	INIT_LIST_HEAD(&xr->events.cb_list);
-	INIT_LIST_HEAD(&xr->events.async_evt_list);
-	mutex_init(&xr->events.async_evt_lock);
-	mutex_init(&xr->events.cb_lock);
-	INIT_WORK(&xr->events.cb_init_work, xroot_evt_cb_init_work);
-	INIT_WORK(&xr->events.async_evt_work, xroot_evt_async_evt_work);
-}
-
-static void xroot_evt_fini(struct xroot *xr)
-{
-	const struct list_head *ptr, *next;
-	struct xroot_event_cb *tmp;
-
 	flush_scheduled_work();
-
-	BUG_ON(!list_empty(&xr->events.async_evt_list));
-
-	mutex_lock(&xr->events.cb_lock);
-	list_for_each_safe(ptr, next, &xr->events.cb_list) {
-		tmp = list_entry(ptr, struct xroot_event_cb, list);
-		list_del(&tmp->list);
-		vfree(tmp);
-	}
-	mutex_unlock(&xr->events.cb_lock);
-}
-
-static int xroot_evt_cb_add(struct xroot *xr,
-	struct xrt_parent_ioctl_evt_cb *cb)
-{
-	struct xroot_event_cb *enew = vzalloc(sizeof(*enew));
-
-	if (!enew)
-		return -ENOMEM;
-
-	cb->xevt_hdl = enew;
-	enew->cb = *cb;
-	enew->initialized = false;
-
-	mutex_lock(&xr->events.cb_lock);
-	list_add(&enew->list, &xr->events.cb_list);
-	mutex_unlock(&xr->events.cb_lock);
-
-	schedule_work(&xr->events.cb_init_work);
-	return 0;
-}
-
-static int xroot_async_evt_add(struct xroot *xr,
-	struct xrt_parent_ioctl_async_broadcast_evt *arg)
-{
-	struct xroot_async_evt *enew = vzalloc(sizeof(*enew));
-
-	if (!enew)
-		return -ENOMEM;
-
-	enew->evt = *arg;
-
-	mutex_lock(&xr->events.async_evt_lock);
-	list_add(&enew->list, &xr->events.async_evt_list);
-	mutex_unlock(&xr->events.async_evt_lock);
-
-	schedule_work(&xr->events.async_evt_work);
-	return 0;
-}
-
-static void xroot_evt_cb_del(struct xroot *xr, void *hdl)
-{
-	struct xroot_event_cb *cb = (struct xroot_event_cb *)hdl;
-	const struct list_head *ptr;
-	struct xroot_event_cb *tmp;
-
-	mutex_lock(&xr->events.cb_lock);
-	list_for_each(ptr, &xr->events.cb_list) {
-		tmp = list_entry(ptr, struct xroot_event_cb, list);
-		if (tmp == cb)
-			break;
-	}
-	list_del(&cb->list);
-	mutex_unlock(&xr->events.cb_lock);
-	vfree(cb);
+	BUG_ON(!list_empty(&xr->events.evt_list));
 }
 
 static int xroot_get_leaf(struct xroot *xr,
@@ -504,20 +378,14 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 
 
 	/* Event actions. */
-	case XRT_PARENT_ADD_EVENT_CB: {
-		struct xrt_parent_ioctl_evt_cb *cb =
-			(struct xrt_parent_ioctl_evt_cb *)arg;
-		rc = xroot_evt_cb_add(xr, cb);
+	case XRT_PARENT_EVENT:
+	case XRT_PARENT_EVENT_ASYNC: {
+		bool async = (cmd == XRT_PARENT_EVENT_ASYNC);
+		struct xrt_event *evt = (struct xrt_event *)arg;
+
+		rc = xroot_trigger_event(xr, evt, async);
 		break;
 	}
-	case XRT_PARENT_REMOVE_EVENT_CB:
-		xroot_evt_cb_del(xr, arg);
-		rc = 0;
-		break;
-	case XRT_PARENT_ASYNC_BOARDCAST_EVENT:
-		rc = xroot_async_evt_add(xr,
-			(struct xrt_parent_ioctl_async_broadcast_evt *)arg);
-		break;
 
 
 	/* Device info. */
@@ -538,12 +406,11 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		break;
 	}
 
-
+	/* MISC generic PCIE driver functions. */
 	case XRT_PARENT_HOT_RESET: {
 		xr->pf_cb.xpc_hot_reset(xr->pdev);
 		break;
 	}
-
 	case XRT_PARENT_HWMON: {
 		struct xrt_parent_ioctl_hwmon *hwmon =
 			(struct xrt_parent_ioctl_hwmon *)arg;
@@ -573,7 +440,7 @@ static void xroot_bringup_partition_work(struct work_struct *work)
 	struct platform_device *pdev = NULL;
 	struct xroot *xr = container_of(work, struct xroot, parts.bringup_work);
 
-	while (xroot_get_partition(xr, XROOT_PART_LAST, &pdev) != -ENOENT) {
+	while (xroot_get_partition(xr, XROOT_PART_FIRST, &pdev) != -ENOENT) {
 		int r, i;
 
 		i = pdev->id;
@@ -584,7 +451,7 @@ static void xroot_bringup_partition_work(struct work_struct *work)
 		if (r)
 			atomic_inc(&xr->parts.bringup_failed);
 
-		xroot_event_partition(xr, i, XRT_EVENT_POST_CREATION);
+		xroot_partition_trigger_event(xr, i, XRT_EVENT_POST_CREATION);
 
 		if (atomic_dec_and_test(&xr->parts.bringup_pending))
 			complete(&xr->parts.bringup_comp);
@@ -696,7 +563,7 @@ int xroot_probe(struct pci_dev *pdev, struct xroot_pf_cb *cb,
 	xr->pdev = pdev;
 	xr->pf_cb = *cb;
 	xroot_parts_init(xr);
-	xroot_evt_init(xr);
+	xroot_event_init(xr);
 
 	*root = xr;
 	return 0;
@@ -716,32 +583,21 @@ void xroot_remove(struct xroot *xr)
 		(void) xroot_destroy_partition(xr, instance);
 	}
 
-	xroot_evt_fini(xr);
+	xroot_event_fini(xr);
 	xroot_parts_fini(xr);
 }
 EXPORT_SYMBOL_GPL(xroot_remove);
 
-static void xroot_broadcast_event_cb(struct platform_device *pdev,
-	enum xrt_events evt, void *arg, bool success)
-{
-	struct completion *comp = (struct completion *)arg;
-
-	complete(comp);
-}
-
 void xroot_broadcast(struct xroot *xr, enum xrt_events evt)
 {
-	struct completion comp;
-	struct xrt_parent_ioctl_async_broadcast_evt e = {
-		NULL, evt, xroot_broadcast_event_cb, &comp
-	};
-	int rc;
+	struct xrt_event e = { 0 };
 
-	init_completion(&comp);
-	rc = xroot_async_evt_add(xr, &e);
-	if (rc == 0)
-		wait_for_completion(&comp);
-	else
-		xroot_err(xr, "can't broadcast event (%d): %d", evt, rc);
+	/* Root pf driver only broadcasts below two events. */
+	BUG_ON(evt != XRT_EVENT_POST_CREATION && evt != XRT_EVENT_PRE_REMOVAL);
+
+	e.xe_evt = evt;
+	e.xe_subdev.xevt_subdev_id = XRT_ROOT;
+	e.xe_subdev.xevt_subdev_instance = 0;
+	(void) xroot_trigger_event(xr, &e, false);
 }
 EXPORT_SYMBOL_GPL(xroot_broadcast);

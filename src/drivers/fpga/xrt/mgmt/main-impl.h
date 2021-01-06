@@ -33,6 +33,7 @@ extern void *xmgmt_pdev2mailbox(struct platform_device *pdev);
 extern void *xmgmt_mailbox_probe(struct platform_device *pdev);
 extern void xmgmt_mailbox_remove(void *handle);
 extern void xmgmt_peer_notify_state(void *handle, bool online);
+extern void xmgmt_mailbox_event_cb(struct platform_device *pdev, void *arg);
 
 extern int xmgmt_main_register_leaf(void);
 extern void xmgmt_main_unregister_leaf(void);

@@ -10,10 +10,11 @@
 #define	_XMGMT_MAIN_H_
 
 #include <linux/xrt/xclbin.h>
+#include "xleaf.h"
 
 enum xrt_mgmt_main_ioctl_cmd {
 	// section needs to be vfree'd by caller
-	XRT_MGMT_MAIN_GET_AXLF_SECTION = 0,
+	XRT_MGMT_MAIN_GET_AXLF_SECTION = XRT_XLEAF_CUSTOM_BASE,
 	// vbnv needs to be kfree'd by caller
 	XRT_MGMT_MAIN_GET_VBNV,
 };

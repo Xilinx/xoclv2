@@ -37,10 +37,12 @@ extern int xrt_subdev_pool_add(struct xrt_subdev_pool *spool,
 	void *pcb_arg, char *dtb);
 extern int xrt_subdev_pool_del(struct xrt_subdev_pool *spool,
 	enum xrt_subdev_id id, int instance);
-extern int xrt_subdev_pool_event(struct xrt_subdev_pool *spool,
-	struct platform_device *pdev, xrt_subdev_match_t match, void *arg,
-	xrt_event_cb_t xevt_cb, enum xrt_events evt);
 extern ssize_t xrt_subdev_pool_get_holders(struct xrt_subdev_pool *spool,
 	struct platform_device *pdev, char *buf, size_t len);
+
+extern int xrt_subdev_pool_trigger_event(struct xrt_subdev_pool *spool,
+	enum xrt_events evt);
+extern int xrt_subdev_pool_handle_event(struct xrt_subdev_pool *spool,
+	struct xrt_event *evt);
 
 #endif	/* _XRT_SUBDEV_POOL_H_ */

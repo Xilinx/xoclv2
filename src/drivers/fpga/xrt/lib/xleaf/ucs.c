@@ -48,7 +48,6 @@ struct xrt_ucs {
 	struct platform_device	*pdev;
 	void __iomem		*ucs_base;
 	struct mutex		ucs_lock;
-	void			*evt_hdl;
 };
 
 static inline u32 reg_rd(struct xrt_ucs *ucs, u32 offset)
@@ -61,36 +60,29 @@ static inline void reg_wr(struct xrt_ucs *ucs, u32 val, u32 offset)
 	iowrite32(val, ucs->ucs_base + offset);
 }
 
-static bool xrt_ucs_leaf_match(enum xrt_subdev_id id,
-	struct platform_device *pdev, void *arg)
-{
-	if (id == XRT_SUBDEV_CLOCK)
-		return true;
-
-	return false;
-}
-
-static int xrt_ucs_event_cb(struct platform_device *pdev,
-	enum xrt_events evt, void *arg)
+static void xrt_ucs_event_cb(struct platform_device *pdev, void *arg)
 {
 	struct platform_device	*leaf;
-	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
+	struct xrt_event *evt = (struct xrt_event *)arg;
+	enum xrt_events e = evt->xe_evt;
+	enum xrt_subdev_id id = evt->xe_subdev.xevt_subdev_id;
+	int instance = evt->xe_subdev.xevt_subdev_instance;
 
-	switch (evt) {
+	switch (e) {
 	case XRT_EVENT_POST_CREATION:
 		break;
 	default:
-		xrt_info(pdev, "ignored event %d", evt);
-		return XRT_EVENT_CB_CONTINUE;
+		xrt_dbg(pdev, "ignored event %d", e);
+		return;
 	}
 
-	leaf = xleaf_get_leaf_by_id(pdev,
-		XRT_SUBDEV_CLOCK, esd->xevt_subdev_instance);
+	if (id != XRT_SUBDEV_CLOCK)
+		return;
+
+	leaf = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_CLOCK, instance);
 	BUG_ON(!leaf);
 	xleaf_ioctl(leaf, XRT_CLOCK_VERIFY, NULL);
 	xleaf_put_leaf(pdev, leaf);
-
-	return XRT_EVENT_CB_CONTINUE;
 }
 
 static void ucs_check(struct xrt_ucs *ucs, bool *latched)
@@ -132,6 +124,9 @@ xrt_ucs_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	ucs = platform_get_drvdata(pdev);
 
 	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		xrt_ucs_event_cb(pdev, arg);
+		break;
 	case XRT_UCS_CHECK: {
 		ucs_check(ucs, (bool *)arg);
 		break;
@@ -157,7 +152,6 @@ static int ucs_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	xleaf_remove_event_cb(pdev, ucs->evt_hdl);
 	if (ucs->ucs_base)
 		iounmap(ucs->ucs_base);
 
@@ -191,8 +185,6 @@ static int ucs_probe(struct platform_device *pdev)
 		goto failed;
 	}
 	ucs_enable(ucs);
-	ucs->evt_hdl = xleaf_add_event_cb(pdev, xrt_ucs_leaf_match,
-		NULL, xrt_ucs_event_cb);
 
 	return 0;
 

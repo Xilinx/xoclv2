@@ -88,27 +88,6 @@ static int xrt_axigate_epname_idx(struct platform_device *pdev)
 	return (xrt_axigate_epnames[i]) ? i : -EINVAL;
 }
 
-static bool xrt_axigate_leaf_match(enum xrt_subdev_id id,
-	struct platform_device *pdev, void *arg)
-{
-	const char		*ep_name = arg;
-	struct resource		*res;
-
-	if (id != XRT_SUBDEV_AXIGATE)
-		return false;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		xrt_err(pdev, "Empty Resource!");
-		return false;
-	}
-
-	if (strncmp(res->name, ep_name, strlen(res->name) + 1))
-		return true;
-
-	return false;
-}
-
 static void xrt_axigate_freeze(struct platform_device *pdev)
 {
 	struct xrt_axigate	*gate;
@@ -119,7 +98,7 @@ static void xrt_axigate_freeze(struct platform_device *pdev)
 	mutex_lock(&gate->gate_lock);
 	freeze = reg_rd(gate, iag_rd);
 	if (freeze) {		/* gate is opened */
-		xleaf_broadcast_event(pdev, XRT_EVENT_PRE_GATE_CLOSE);
+		xleaf_broadcast_event(pdev, XRT_EVENT_PRE_GATE_CLOSE, false);
 		freeze_gate(gate);
 	}
 
@@ -140,8 +119,7 @@ static void xrt_axigate_free(struct platform_device *pdev)
 	freeze = reg_rd(gate, iag_rd);
 	if (!freeze) {		/* gate is closed */
 		free_gate(gate);
-		xleaf_broadcast_event_async(pdev,
-			XRT_EVENT_POST_GATE_OPEN, NULL, NULL);
+		xleaf_broadcast_event(pdev, XRT_EVENT_POST_GATE_OPEN, true);
 		/* xrt_axigate_free() could be called in event cb, thus
 		 * we can not wait for the completes
 		 */
@@ -153,47 +131,56 @@ static void xrt_axigate_free(struct platform_device *pdev)
 	xrt_info(pdev, "free gate %s", gate->ep_name);
 }
 
-static int
-xrt_axigate_event_cb(struct platform_device *pdev,
-	enum xrt_events evt, void *arg)
+static void xrt_axigate_event_cb(struct platform_device *pdev, void *arg)
 {
 	struct platform_device *leaf;
-	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
-	enum xrt_subdev_id id;
-	int instance;
+	struct xrt_event *evt = (struct xrt_event *)arg;
+	enum xrt_events e = evt->xe_evt;
+	enum xrt_subdev_id id = evt->xe_subdev.xevt_subdev_id;
+	int instance = evt->xe_subdev.xevt_subdev_instance;
+	struct xrt_axigate *gate = platform_get_drvdata(pdev);
+	struct resource	*res;
 
-	switch (evt) {
+	switch (e) {
 	case XRT_EVENT_POST_CREATION:
 		break;
 	default:
-		return XRT_EVENT_CB_CONTINUE;
+		return;
 	}
 
-	id = esd->xevt_subdev_id;
-	instance = esd->xevt_subdev_instance;
+	if (id != XRT_SUBDEV_AXIGATE)
+		return;
+
+	leaf = xleaf_get_leaf_by_id(pdev, id, instance);
+	if (!leaf)
+		return;
+
+	res = platform_get_resource(leaf, IORESOURCE_MEM, 0);
+	if (!res || !strncmp(res->name, gate->ep_name, strlen(res->name) + 1)) {
+		(void) xleaf_put_leaf(pdev, leaf);
+		return;
+	}
 
 	/*
 	 * higher level axigate instance created,
 	 * make sure the gate is openned. This covers 1RP flow which
 	 * has plp gate as well.
 	 */
-	leaf = xleaf_get_leaf_by_id(pdev, id, instance);
-	if (leaf) {
-		if (xrt_axigate_epname_idx(leaf) >
-		    xrt_axigate_epname_idx(pdev))
-			xrt_axigate_free(pdev);
-		else
-			xleaf_ioctl(leaf, XRT_AXIGATE_FREE, NULL);
-		xleaf_put_leaf(pdev, leaf);
-	}
+	if (xrt_axigate_epname_idx(leaf) > xrt_axigate_epname_idx(pdev))
+		xrt_axigate_free(pdev);
+	else
+		xleaf_ioctl(leaf, XRT_AXIGATE_FREE, NULL);
 
-	return XRT_EVENT_CB_CONTINUE;
+	(void) xleaf_put_leaf(pdev, leaf);
 }
 
 static int
 xrt_axigate_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		xrt_axigate_event_cb(pdev, arg);
+		break;
 	case XRT_AXIGATE_FREEZE:
 		xrt_axigate_freeze(pdev);
 		break;
@@ -250,10 +237,6 @@ static int xrt_axigate_probe(struct platform_device *pdev)
 		ret = -EFAULT;
 		goto failed;
 	}
-
-	gate->evt_hdl = xleaf_add_event_cb(pdev,
-		xrt_axigate_leaf_match, (void *)res->name,
-		xrt_axigate_event_cb);
 
 	gate->ep_name = res->name;
 
