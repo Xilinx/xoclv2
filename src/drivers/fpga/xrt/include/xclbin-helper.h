@@ -4,7 +4,9 @@
  *
  * Copyright (C) 2020 Xilinx, Inc.
  *
- * Authors: David Zhang <davidzha@xilinx.com>
+ * Authors:
+ *    David Zhang <davidzha@xilinx.com>
+ *    Sonal Santan <sonal.santan@xilinx.com>
  */
 
 #ifndef _XRT_XCLBIN_H

@@ -3,7 +3,8 @@
  * Copyright (C) 2020 Xilinx, Inc.
  *
  * Authors:
- *	Cheng Zhen <maxz@xilinx.com>
+ *    Cheng Zhen <maxz@xilinx.com>
+ *    Sonal Santan <sonal.santan@xilinx.com>
  */
 
 #ifndef	_XRT_XLEAF_H_
