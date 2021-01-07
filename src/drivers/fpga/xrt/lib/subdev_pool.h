@@ -10,7 +10,6 @@
 #define	_XRT_SUBDEV_POOL_H_
 
 #include "xroot.h"
-#include "events.h"
 
 /*
  * It manages a list of xrt_subdevs for root and partition drivers.
