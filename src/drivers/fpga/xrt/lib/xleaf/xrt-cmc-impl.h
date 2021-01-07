@@ -95,6 +95,7 @@ extern int cmc_ctrl_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl);
 extern void cmc_ctrl_remove(struct platform_device *pdev);
 extern void *cmc_pdev2ctrl(struct platform_device *pdev);
+extern void cmc_ctrl_event_cb(struct platform_device *pdev, void *arg);
 
 extern int cmc_sensor_probe(struct platform_device *pdev,
 	struct cmc_reg_map *regmaps, void **hdl);

@@ -65,6 +65,15 @@ static void xrt_subdev_free(struct xrt_subdev *sdev)
 	vfree(sdev);
 }
 
+int xrt_subdev_parent_ioctl(struct platform_device *self, u32 cmd, void *arg)
+{
+	struct device *dev = DEV(self);
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(self);
+
+	return (*pdata->xsp_parent_cb)(dev->parent, pdata->xsp_parent_cb_arg,
+		cmd, arg);
+}
+
 /*
  * Subdev common sysfs nodes.
  */
@@ -369,16 +378,6 @@ static void xrt_subdev_destroy(struct xrt_subdev *sdev)
 	xrt_subdev_free(sdev);
 }
 
-int xrt_subdev_parent_ioctl(struct platform_device *self, u32 cmd, void *arg)
-{
-	struct device *dev = DEV(self);
-	struct xrt_subdev_platdata *pdata = DEV_PDATA(self);
-
-	return (*pdata->xsp_parent_cb)(dev->parent, pdata->xsp_parent_cb_arg,
-		cmd, arg);
-}
-
-
 struct platform_device *
 xleaf_get_leaf(struct platform_device *pdev,
 	xrt_subdev_match_t match_cb, void *match_arg)
@@ -393,7 +392,6 @@ xleaf_get_leaf(struct platform_device *pdev,
 	return get_leaf.xpigl_leaf;
 }
 EXPORT_SYMBOL_GPL(xleaf_get_leaf);
-
 
 bool xleaf_has_epname(struct platform_device *pdev, const char *ep_name)
 {
@@ -441,22 +439,6 @@ int xleaf_wait_for_partition_bringup(struct platform_device *pdev)
 		XRT_PARENT_WAIT_PARTITION_BRINGUP, NULL);
 }
 EXPORT_SYMBOL_GPL(xleaf_wait_for_partition_bringup);
-
-void *xleaf_add_event_cb(struct platform_device *pdev,
-	xrt_subdev_match_t match, void *match_arg, xrt_event_cb_t cb)
-{
-	struct xrt_parent_ioctl_evt_cb c = { pdev, match, match_arg, cb };
-
-	(void) xrt_subdev_parent_ioctl(pdev, XRT_PARENT_ADD_EVENT_CB, &c);
-	return c.xevt_hdl;
-}
-EXPORT_SYMBOL_GPL(xleaf_add_event_cb);
-
-void xleaf_remove_event_cb(struct platform_device *pdev, void *hdl)
-{
-	(void) xrt_subdev_parent_ioctl(pdev, XRT_PARENT_REMOVE_EVENT_CB, hdl);
-}
-EXPORT_SYMBOL_GPL(xleaf_remove_event_cb);
 
 static ssize_t
 xrt_subdev_get_holders(struct xrt_subdev *sdev, char *buf, size_t len)
@@ -754,7 +736,7 @@ int xrt_subdev_pool_get(struct xrt_subdev_pool *spool,
 			dev_name(holder_dev), dev_name(DEV(sdev->xs_pdev)), rc);
 #endif
 	} else {
-		xrt_info(to_platform_device(holder_dev), "%s <<==== %s",
+		xrt_dbg(to_platform_device(holder_dev), "%s <<==== %s",
 			dev_name(holder_dev), dev_name(DEV(sdev->xs_pdev)));
 	}
 
@@ -802,29 +784,47 @@ int xrt_subdev_pool_put(struct xrt_subdev_pool *spool,
 	} else {
 		struct platform_device *d = to_platform_device(holder_dev);
 
-		xrt_info(d, "%s <<==X== %s",
+		xrt_dbg(d, "%s <<==X== %s",
 			dev_name(holder_dev), dev_name(DEV(pdev)));
 	}
 	return 0;
 }
 
-int xrt_subdev_pool_event(struct xrt_subdev_pool *spool,
-	struct platform_device *pdev, xrt_subdev_match_t match, void *arg,
-	xrt_event_cb_t xevt_cb, enum xrt_events evt)
+int xrt_subdev_pool_trigger_event(struct xrt_subdev_pool *spool,
+	enum xrt_events e)
 {
 	int rc = 0;
 	struct platform_device *tgt = NULL;
 	struct xrt_subdev *sdev = NULL;
-	struct xrt_event_arg_subdev esd;
+	struct xrt_event evt;
+
+	/* Only triggers subdev specific events. */
+	BUG_ON(e != XRT_EVENT_POST_CREATION && e != XRT_EVENT_PRE_REMOVAL);
 
 	while (!rc && xrt_subdev_pool_get_impl(spool, XRT_SUBDEV_MATCH_NEXT,
-		tgt, DEV(pdev), &sdev) != -ENOENT) {
+		tgt, spool->xpool_owner, &sdev) != -ENOENT) {
 		tgt = sdev->xs_pdev;
-		esd.xevt_subdev_id = sdev->xs_id;
-		esd.xevt_subdev_instance = tgt->id;
-		if (match(sdev->xs_id, sdev->xs_pdev, arg))
-			rc = xevt_cb(pdev, evt, &esd);
-		(void) xrt_subdev_pool_put_impl(spool, tgt, DEV(pdev));
+		evt.xe_evt = e;
+		evt.xe_subdev.xevt_subdev_id = sdev->xs_id;
+		evt.xe_subdev.xevt_subdev_instance = tgt->id;
+		(void) xrt_subdev_parent_ioctl(tgt, XRT_PARENT_EVENT, &evt);
+		(void) xrt_subdev_pool_put_impl(spool, tgt, spool->xpool_owner);
+	}
+	return rc;
+}
+
+int xrt_subdev_pool_handle_event(struct xrt_subdev_pool *spool,
+	struct xrt_event *evt)
+{
+	int rc = 0;
+	struct platform_device *tgt = NULL;
+	struct xrt_subdev *sdev = NULL;
+
+	while (!rc && xrt_subdev_pool_get_impl(spool, XRT_SUBDEV_MATCH_NEXT,
+		tgt, spool->xpool_owner, &sdev) != -ENOENT) {
+		tgt = sdev->xs_pdev;
+		(void) xleaf_ioctl(tgt, XRT_XLEAF_EVENT, evt);
+		(void) xrt_subdev_pool_put_impl(spool, tgt, spool->xpool_owner);
 	}
 	return rc;
 }
@@ -852,44 +852,14 @@ ssize_t xrt_subdev_pool_get_holders(struct xrt_subdev_pool *spool,
 }
 EXPORT_SYMBOL_GPL(xrt_subdev_pool_get_holders);
 
-int xleaf_broadcast_event_async(struct platform_device *pdev,
-	enum xrt_events evt, xrt_async_broadcast_event_cb_t cb, void *arg)
-{
-	struct xrt_parent_ioctl_async_broadcast_evt e = { pdev, evt, cb, arg };
-
-	return xrt_subdev_parent_ioctl(pdev,
-		XRT_PARENT_ASYNC_BOARDCAST_EVENT, &e);
-}
-EXPORT_SYMBOL_GPL(xleaf_broadcast_event_async);
-
-struct xrt_broadcast_event_arg {
-	struct completion comp;
-	bool success;
-};
-
-static void xrt_broadcast_event_cb(struct platform_device *pdev,
-	enum xrt_events evt, void *arg, bool success)
-{
-	struct xrt_broadcast_event_arg *e =
-		(struct xrt_broadcast_event_arg *)arg;
-
-	e->success = success;
-	complete(&e->comp);
-}
-
 int xleaf_broadcast_event(struct platform_device *pdev,
-	enum xrt_events evt)
+	enum xrt_events evt, bool async)
 {
-	int ret;
-	struct xrt_broadcast_event_arg e;
+	struct xrt_event e = { evt, };
+	u32 cmd = async ? XRT_PARENT_EVENT_ASYNC : XRT_PARENT_EVENT;
 
-	init_completion(&e.comp);
-	e.success = false;
-	ret = xleaf_broadcast_event_async(pdev, evt,
-		xrt_broadcast_event_cb, &e);
-	if (ret == 0)
-		wait_for_completion(&e.comp);
-	return e.success ? 0 : -EINVAL;
+	BUG_ON(evt == XRT_EVENT_POST_CREATION || evt == XRT_EVENT_PRE_REMOVAL);
+	return xrt_subdev_parent_ioctl(pdev, cmd, &e);
 }
 EXPORT_SYMBOL_GPL(xleaf_broadcast_event);
 

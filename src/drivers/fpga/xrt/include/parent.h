@@ -10,7 +10,6 @@
 #define	_XRT_PARENT_H_
 
 #include "xleaf.h"
-#include "partition.h"
 
 /*
  * Parent IOCTL calls.
@@ -28,9 +27,8 @@ enum xrt_parent_ioctl_cmd {
 	XRT_PARENT_WAIT_PARTITION_BRINGUP,
 
 	/* Event actions. */
-	XRT_PARENT_ADD_EVENT_CB,
-	XRT_PARENT_REMOVE_EVENT_CB,
-	XRT_PARENT_ASYNC_BOARDCAST_EVENT,
+	XRT_PARENT_EVENT,
+	XRT_PARENT_EVENT_ASYNC,
 
 	/* Device info. */
 	XRT_PARENT_GET_RESOURCE,
@@ -58,21 +56,6 @@ struct xrt_parent_ioctl_lookup_partition {
 	xrt_subdev_match_t xpilp_match_cb;
 	void *xpilp_match_arg;
 	int xpilp_part_inst;
-};
-
-struct xrt_parent_ioctl_evt_cb {
-	struct platform_device *xevt_pdev; /* caller's pdev */
-	xrt_subdev_match_t xevt_match_cb;
-	void *xevt_match_arg;
-	xrt_event_cb_t xevt_cb;
-	void *xevt_hdl;
-};
-
-struct xrt_parent_ioctl_async_broadcast_evt {
-	struct platform_device *xaevt_pdev; /* caller's pdev */
-	enum xrt_events xaevt_event;
-	xrt_async_broadcast_event_cb_t xaevt_cb;
-	void *xaevt_arg;
 };
 
 struct xrt_parent_ioctl_get_holders {

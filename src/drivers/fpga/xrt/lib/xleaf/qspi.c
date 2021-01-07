@@ -1279,9 +1279,10 @@ qspi_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	struct xrt_qspi *flash = platform_get_drvdata(pdev);
 	int ret = 0;
 
-	QSPI_INFO(flash, "handling IOCTL cmd: %d", cmd);
-
 	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		/* Does not handle any event. */
+		break;
 	case XRT_FLASH_GET_SIZE: {
 		size_t *sz = (size_t *)arg;
 		*sz = qspi_get_size(pdev);

@@ -19,16 +19,34 @@
 #include "subdev_id.h"
 #include "events.h"
 
+/* All subdev drivers should use below common routines to print out msg. */
+#define	DEV(pdev)	(&(pdev)->dev)
+#define	DEV_PDATA(pdev)					\
+	((struct xrt_subdev_platdata *)dev_get_platdata(DEV(pdev)))
+#define	DEV_DRVDATA(pdev)				\
+	((struct xrt_subdev_drvdata *)			\
+	platform_get_device_id(pdev)->driver_data)
+#define	FMT_PRT(prt_fn, pdev, fmt, args...)		\
+	prt_fn(DEV(pdev), "%s %s: "fmt,			\
+	DEV_PDATA(pdev)->xsp_root_name, __func__, ##args)
+#define xrt_err(pdev, fmt, args...) FMT_PRT(dev_err, pdev, fmt, ##args)
+#define xrt_warn(pdev, fmt, args...) FMT_PRT(dev_warn, pdev, fmt, ##args)
+#define xrt_info(pdev, fmt, args...) FMT_PRT(dev_info, pdev, fmt, ##args)
+#define xrt_dbg(pdev, fmt, args...) FMT_PRT(dev_dbg, pdev, fmt, ##args)
+
 /*
  * Common IOCTLs implemented by all leafs.
  */
 enum xrt_xleaf_ioctl_cmd {
 	XRT_XLEAF_BASE = 0,
+	XRT_XLEAF_EVENT = XRT_XLEAF_BASE,
+
+	/* Below cmds are leaf specific ones. */
 	XRT_XLEAF_CUSTOM_BASE = 64,
 };
 
 /*
- * If populated by subdev driver, parent will handle the mechanics of
+ * If populated by subdev driver, infra will handle the mechanics of
  * char device (un)registration.
  */
 enum xrt_subdev_file_mode {
@@ -148,25 +166,6 @@ typedef bool (*xrt_subdev_match_t)(enum xrt_subdev_id,
 #define	XRT_SUBDEV_MATCH_PREV	((xrt_subdev_match_t)-1)
 #define	XRT_SUBDEV_MATCH_NEXT	((xrt_subdev_match_t)-2)
 
-/* All subdev drivers should use below common routines to print out msg. */
-#define	DEV(pdev)	(&(pdev)->dev)
-#define	DEV_PDATA(pdev)					\
-	((struct xrt_subdev_platdata *)dev_get_platdata(DEV(pdev)))
-#define	DEV_DRVDATA(pdev)				\
-	((struct xrt_subdev_drvdata *)			\
-	platform_get_device_id(pdev)->driver_data)
-#define	FMT_PRT(prt_fn, pdev, fmt, args...)		\
-	prt_fn(DEV(pdev), "%s %s: "fmt,			\
-	DEV_PDATA(pdev)->xsp_root_name, __func__, ##args)
-#define xrt_err(pdev, fmt, args...) FMT_PRT(dev_err, pdev, fmt, ##args)
-#define xrt_warn(pdev, fmt, args...) FMT_PRT(dev_warn, pdev, fmt, ##args)
-#define xrt_info(pdev, fmt, args...) FMT_PRT(dev_info, pdev, fmt, ##args)
-#define xrt_dbg(pdev, fmt, args...) FMT_PRT(dev_dbg, pdev, fmt, ##args)
-
-/*
- * For leaf drivers.
- */
-
 struct subdev_match_arg {
 	enum xrt_subdev_id id;
 	int instance;
@@ -212,6 +211,8 @@ static inline int xleaf_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
 	return (*drvdata->xsd_dev_ops.xsd_ioctl)(tgt, cmd, arg);
 }
 
+extern int xrt_subdev_parent_ioctl(struct platform_device *self,
+	u32 cmd, void *arg);
 extern int xleaf_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf);
 extern int xleaf_create_partition(struct platform_device *pdev,
@@ -219,16 +220,9 @@ extern int xleaf_create_partition(struct platform_device *pdev,
 extern int xleaf_destroy_partition(struct platform_device *pdev,
 	int instance);
 extern int xleaf_wait_for_partition_bringup(struct platform_device *pdev);
-extern void *xleaf_add_event_cb(struct platform_device *pdev,
-	xrt_subdev_match_t match, void *match_arg, xrt_event_cb_t cb);
-extern void xleaf_remove_event_cb(
-	struct platform_device *pdev, void *hdl);
-
-extern int xleaf_broadcast_event(struct platform_device *pdev,
-	enum xrt_events evt);
-extern int xleaf_broadcast_event_async(struct platform_device *pdev,
-	enum xrt_events evt, xrt_async_broadcast_event_cb_t cb, void *arg);
 extern void xleaf_hot_reset(struct platform_device *pdev);
+extern int xleaf_broadcast_event(struct platform_device *pdev,
+	enum xrt_events evt, bool async);
 extern void xleaf_get_barres(struct platform_device *pdev,
 	struct resource **res, uint bar_idx);
 extern void xleaf_get_parent_id(struct platform_device *pdev,

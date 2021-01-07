@@ -17,7 +17,6 @@
 struct xrt_test {
 	struct platform_device *pdev;
 	struct platform_device *leaf;
-	void *evt_hdl;
 };
 
 static bool xrt_test_leaf_match(enum xrt_subdev_id id,
@@ -64,44 +63,35 @@ static const struct attribute_group xrt_test_attrgroup = {
 	.attrs = xrt_test_attrs,
 };
 
-static void xrt_test_async_evt_cb(struct platform_device *pdev,
-	enum xrt_events evt, void *arg, bool success)
-{
-	xrt_info(pdev, "async broadcast event (%d) is %s", evt,
-		success ? "successful" : "failed");
-}
-
-static int xrt_test_event_cb(struct platform_device *pdev,
-	enum xrt_events evt, void *arg)
+static void xrt_test_event_cb(struct platform_device *pdev, void *arg)
 {
 	struct platform_device *leaf;
-	struct xrt_event_arg_subdev *esd = (struct xrt_event_arg_subdev *)arg;
+	struct xrt_event *evt = (struct xrt_event *)arg;
+	enum xrt_events e = evt->xe_evt;
+	enum xrt_subdev_id id = evt->xe_subdev.xevt_subdev_id;
+	int instance = evt->xe_subdev.xevt_subdev_instance;
 
-
-	switch (evt) {
+	switch (e) {
 	case XRT_EVENT_POST_CREATION:
+		if (id != XRT_SUBDEV_TEST)
+			return;
 		break;
 	default:
-		xrt_info(pdev, "ignored event %d", evt);
-		return XRT_EVENT_CB_CONTINUE;
+		xrt_dbg(pdev, "ignored event %d", e);
+		return;
 	}
 
-	leaf = xleaf_get_leaf_by_id(pdev, esd->xevt_subdev_id,
-		esd->xevt_subdev_instance);
+	leaf = xleaf_get_leaf_by_id(pdev, id, instance);
 	if (leaf) {
 		(void) xleaf_ioctl(leaf, 1, NULL);
 		(void) xleaf_put_leaf(pdev, leaf);
 	}
 
 	/* Broadcast event. */
-	if (pdev->id == 1) {
-		xleaf_broadcast_event_async(pdev, XRT_EVENT_TEST,
-			xrt_test_async_evt_cb, NULL);
-	}
-
-	xrt_info(pdev, "processed event %d for (%d, %d)",
-		evt, esd->xevt_subdev_id, esd->xevt_subdev_instance);
-	return XRT_EVENT_CB_CONTINUE;
+	if (pdev->id == 1)
+		xleaf_broadcast_event(pdev, XRT_EVENT_TEST, true);
+	xrt_dbg(pdev, "processed XRT_EVENT_POST_CREATION for (%d, %d)",
+		id, instance);
 }
 
 static int xrt_test_create_metadata(struct xrt_test *xt, char **root_dtb)
@@ -148,10 +138,6 @@ static int xrt_test_probe(struct platform_device *pdev)
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xrt_test_attrgroup))
 		xrt_err(pdev, "failed to create sysfs group");
 
-	/* Add event callback to wait for the peer instance. */
-	xt->evt_hdl = xleaf_add_event_cb(pdev, xrt_test_leaf_match,
-		(void *)(uintptr_t)pdev->id, xrt_test_event_cb);
-
 	/* Trigger partition creation, only when this is the first instance. */
 	if (pdev->id == 0) {
 		(void) xrt_test_create_metadata(xt, &dtb);
@@ -159,7 +145,7 @@ static int xrt_test_probe(struct platform_device *pdev)
 			(void) xleaf_create_partition(pdev, dtb);
 		vfree(dtb);
 	} else {
-		xleaf_broadcast_event(pdev, XRT_EVENT_TEST);
+		xleaf_broadcast_event(pdev, XRT_EVENT_TEST, false);
 	}
 
 	/* After we return here, we'll get inter-leaf calls. */
@@ -168,13 +154,8 @@ static int xrt_test_probe(struct platform_device *pdev)
 
 static int xrt_test_remove(struct platform_device *pdev)
 {
-	struct xrt_test *xt = platform_get_drvdata(pdev);
-
 	/* By now, partition driver should prevent any inter-leaf call. */
-
 	xrt_info(pdev, "leaving...");
-
-	(void) xleaf_remove_event_cb(pdev, xt->evt_hdl);
 
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xrt_test_attrgroup);
 	/* By now, no more access thru sysfs nodes. */
@@ -186,7 +167,13 @@ static int xrt_test_remove(struct platform_device *pdev)
 static int
 xrt_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	xrt_info(pdev, "handling IOCTL cmd: %d", cmd);
+	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		xrt_test_event_cb(pdev, arg);
+		break;
+	default:
+		break;
+	}
 	return 0;
 }
 

@@ -21,7 +21,6 @@ struct xrt_cmc_ctrl {
 	struct cmc_reg_map reg_image;
 	char *firmware;
 	size_t firmware_size;
-	void *evt_hdl;
 };
 
 static inline void
@@ -228,8 +227,6 @@ void cmc_ctrl_remove(struct platform_device *pdev)
 	if (!cmc_ctrl)
 		return;
 
-	if (cmc_ctrl->evt_hdl)
-		(void) xleaf_remove_event_cb(pdev, cmc_ctrl->evt_hdl);
 	(void) sysfs_remove_group(&DEV(cmc_ctrl->pdev)->kobj,
 		&cmc_ctrl_attr_group);
 	(void) cmc_ulp_access(cmc_ctrl, false);
@@ -237,20 +234,14 @@ void cmc_ctrl_remove(struct platform_device *pdev)
 	/* We intentionally leave CMC in running state. */
 }
 
-static bool cmc_ctrl_leaf_match(enum xrt_subdev_id id,
-	struct platform_device *pdev, void *arg)
-{
-	/* Only interested in broadcast events. */
-	return false;
-}
-
-static int cmc_ctrl_event_cb(struct platform_device *pdev,
-	enum xrt_events evt, void *arg)
+void cmc_ctrl_event_cb(struct platform_device *pdev, void *arg)
 {
 	struct xrt_cmc_ctrl *cmc_ctrl =
 		(struct xrt_cmc_ctrl *)cmc_pdev2ctrl(pdev);
+	struct xrt_event *evt = (struct xrt_event *)arg;
+	enum xrt_events e = evt->xe_evt;
 
-	switch (evt) {
+	switch (e) {
 	case XRT_EVENT_PRE_GATE_CLOSE:
 		(void) cmc_ulp_access(cmc_ctrl, false);
 		break;
@@ -258,10 +249,9 @@ static int cmc_ctrl_event_cb(struct platform_device *pdev,
 		(void) cmc_ulp_access(cmc_ctrl, true);
 		break;
 	default:
-		xrt_info(pdev, "ignored event %d", evt);
+		xrt_dbg(pdev, "ignored event %d", e);
 		break;
 	}
-	return XRT_EVENT_CB_CONTINUE;
 }
 
 int cmc_ctrl_probe(struct platform_device *pdev,
@@ -308,9 +298,6 @@ int cmc_ctrl_probe(struct platform_device *pdev,
 	ret  = sysfs_create_group(&DEV(pdev)->kobj, &cmc_ctrl_attr_group);
 	if (ret)
 		xrt_err(pdev, "failed to create sysfs nodes: %d", ret);
-
-	cmc_ctrl->evt_hdl = xleaf_add_event_cb(pdev,
-		cmc_ctrl_leaf_match, NULL, cmc_ctrl_event_cb);
 
 	*hdl = cmc_ctrl;
 	return 0;

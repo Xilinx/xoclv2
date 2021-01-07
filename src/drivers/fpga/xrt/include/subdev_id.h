@@ -35,6 +35,7 @@ enum xrt_subdev_id {
 	XRT_SUBDEV_SRSR,
 	XRT_SUBDEV_UCS,
 	XRT_SUBDEV_NUM,
+	XRT_ROOT = -1, // Special ID for root driver
 };
 
 #endif	/* _XRT_SUBDEV_ID_H_ */

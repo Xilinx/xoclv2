@@ -519,6 +519,9 @@ xrt_clock_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	clock = platform_get_drvdata(pdev);
 
 	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		/* Does not handle any event. */
+		break;
 	case XRT_CLOCK_SET: {
 		u16	freq = (u16)(uintptr_t)arg;
 
