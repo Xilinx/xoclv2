@@ -9,7 +9,8 @@
 #ifndef	_XRT_SUBDEV_POOL_H_
 #define	_XRT_SUBDEV_POOL_H_
 
-#include "xleaf.h"
+#include "xroot.h"
+#include "events.h"
 
 /*
  * It manages a list of xrt_subdevs for root and partition drivers.
@@ -33,7 +34,7 @@ extern int xrt_subdev_pool_get(struct xrt_subdev_pool *spool,
 extern int xrt_subdev_pool_put(struct xrt_subdev_pool *spool,
 	struct platform_device *pdev, struct device *holder_dev);
 extern int xrt_subdev_pool_add(struct xrt_subdev_pool *spool,
-	enum xrt_subdev_id id, xrt_subdev_parent_cb_t pcb,
+	enum xrt_subdev_id id, xrt_subdev_root_cb_t pcb,
 	void *pcb_arg, char *dtb);
 extern int xrt_subdev_pool_del(struct xrt_subdev_pool *spool,
 	enum xrt_subdev_id id, int instance);

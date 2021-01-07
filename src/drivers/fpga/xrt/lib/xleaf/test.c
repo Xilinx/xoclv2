@@ -226,7 +226,7 @@ struct xrt_subdev_endpoints xrt_test_endpoints[] = {
 };
 
 /*
- * Callbacks registered with parent driver infrastructure.
+ * Callbacks registered with root.
  */
 struct xrt_subdev_drvdata xrt_test_data = {
 	.xsd_dev_ops = {

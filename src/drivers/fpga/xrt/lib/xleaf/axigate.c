@@ -15,7 +15,6 @@
 #include <linux/io.h>
 #include "metadata.h"
 #include "xleaf.h"
-#include "parent.h"
 #include "xleaf/axigate.h"
 
 #define XRT_AXIGATE "xrt_axigate"

@@ -15,7 +15,6 @@
 #include <linux/io.h>
 #include "metadata.h"
 #include "xleaf.h"
-#include "parent.h"
 #include "xleaf/gpio.h"
 
 #define XRT_GPIO "xrt_gpio"

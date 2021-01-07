@@ -12,7 +12,6 @@
 #include <linux/platform_device.h>
 #include "xleaf.h"
 #include "subdev_pool.h"
-#include "parent.h"
 #include "partition.h"
 #include "metadata.h"
 #include "main.h"
@@ -26,7 +25,7 @@ struct xrt_partition {
 	struct mutex lock;
 };
 
-static int xrt_part_parent_cb(struct device *dev, void *parg,
+static int xrt_part_root_cb(struct device *dev, void *parg,
 	u32 cmd, void *arg)
 {
 	int rc;
@@ -35,9 +34,9 @@ static int xrt_part_parent_cb(struct device *dev, void *parg,
 	struct xrt_partition *xp = (struct xrt_partition *)parg;
 
 	switch (cmd) {
-	case XRT_PARENT_GET_LEAF_HOLDERS: {
-		struct xrt_parent_ioctl_get_holders *holders =
-			(struct xrt_parent_ioctl_get_holders *)arg;
+	case XRT_ROOT_GET_LEAF_HOLDERS: {
+		struct xrt_root_ioctl_get_holders *holders =
+			(struct xrt_root_ioctl_get_holders *)arg;
 		rc = xrt_subdev_pool_get_holders(&xp->leaves,
 			holders->xpigh_pdev, holders->xpigh_holder_buf,
 			holders->xpigh_holder_buf_len);
@@ -45,7 +44,7 @@ static int xrt_part_parent_cb(struct device *dev, void *parg,
 	}
 	default:
 		/* Forward parent call to root. */
-		rc = xrt_subdev_parent_ioctl(pdev, cmd, arg);
+		rc = xrt_subdev_root_ioctl(pdev, cmd, arg);
 		break;
 	}
 
@@ -123,7 +122,7 @@ static int xrt_part_create_leaves(struct xrt_partition *xp)
 		}
 		if (ep_count >= eps->xse_min_ep) {
 			ret = xrt_subdev_pool_add(&xp->leaves, did,
-				xrt_part_parent_cb, xp, dtb);
+				xrt_part_root_cb, xp, dtb);
 			eps = NULL;
 			if (ret < 0) {
 				failed++;
@@ -206,8 +205,8 @@ static int xrt_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 			(struct xrt_event *)arg);
 		break;
 	case XRT_PARTITION_GET_LEAF: {
-		struct xrt_parent_ioctl_get_leaf *get_leaf =
-			(struct xrt_parent_ioctl_get_leaf *)arg;
+		struct xrt_root_ioctl_get_leaf *get_leaf =
+			(struct xrt_root_ioctl_get_leaf *)arg;
 
 		rc = xrt_subdev_pool_get(&xp->leaves, get_leaf->xpigl_match_cb,
 			get_leaf->xpigl_match_arg, DEV(get_leaf->xpigl_pdev),
@@ -215,8 +214,8 @@ static int xrt_part_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	case XRT_PARTITION_PUT_LEAF: {
-		struct xrt_parent_ioctl_put_leaf *put_leaf =
-			(struct xrt_parent_ioctl_put_leaf *)arg;
+		struct xrt_root_ioctl_put_leaf *put_leaf =
+			(struct xrt_root_ioctl_put_leaf *)arg;
 
 		rc = xrt_subdev_pool_put(&xp->leaves, put_leaf->xpipl_leaf,
 			DEV(put_leaf->xpipl_pdev));

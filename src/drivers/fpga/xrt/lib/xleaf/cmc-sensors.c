@@ -372,7 +372,7 @@ int cmc_sensor_probe(struct platform_device *pdev,
 	cmc_sensor->name = cmc_get_vbnv(cmc_sensor);
 	vbnv = cmc_sensor->name ? cmc_sensor->name : "golden-image";
 	/*
-	 * Make a parent call to ask root to register. If we register using
+	 * Make a root call to ask root to register. If we register using
 	 * platform device, we'll be treated as ISA device, not PCI device.
 	 */
 	cmc_sensor->hwmon_dev = xleaf_register_hwmon(pdev,
