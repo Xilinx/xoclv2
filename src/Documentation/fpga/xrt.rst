@@ -262,13 +262,16 @@ Each subsystem node and its properties define a hardware instance.
       ...
   }
 
-Properties and subnode describes the detail of this subsystem node::
-
- ``reg`` property defines address range. The address is offset in the BAR.
- ``pcie_physical_function`` property specifies which PCIe physical function the subsystem node resides.
- ``pcie_bar_mapping`` property specifies which PCIe BAR the subsystem node resides. It is BAR0 if this property is not defined
- ``compatible`` property is a list of strings. The first string in the list specifies the exact subsystem node. The following strings represent other devices that the device is compatible with.
- ``firmware`` subnode defines the firmware required by this subsystem node.
+:reg:
+ Property defines address range. '<0xa 0xb>' is BAR offset and length pair, both are 64-bit integer.
+:pcie_physical_function:
+ Property specifies which PCIe physical function the subsystem node resides.
+:pcie_bar_mapping:
+ Property specifies which PCIe BAR the subsystem node resides. '<0x2>' is BAR index and it is 0 if this property is not defined.
+:compatible:
+ Property is a list of strings. The first string in the list specifies the exact subsystem node. The following strings represent other devices that the device is compatible with.
+:firmware:
+ Subnode defines the firmware required by this subsystem node.
 
 
 Alveo U50 Platform Example
