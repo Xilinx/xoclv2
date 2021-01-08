@@ -15,7 +15,6 @@
 #include <linux/io.h>
 #include "metadata.h"
 #include "xleaf.h"
-#include "parent.h"
 #include "xleaf/clock.h"
 #include "xleaf/clkfreq.h"
 

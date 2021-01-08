@@ -511,7 +511,7 @@ infrastructure of the MPF driver and resides in xmgmt.ko. This driver
 
 * manages one or more partition drivers
 * provides access to functionalities that requires pci_dev, such as PCIE config
-  space access, to other leaf drivers through parent calls
+  space access, to other leaf drivers through root calls
 * together with partition driver, facilities event callbacks for other leaf drivers
 * together with partition driver, facilities inter-leaf driver calls for other leaf
   drivers
@@ -535,7 +535,7 @@ infrastructure of the MPF driver and resides in xrt-lib.ko. This driver
 
 * manages one or more leaf drivers so that multiple leaves can be managed as a
   group
-* provides access to root from leaves, so that parent calls, event notifications
+* provides access to root from leaves, so that root calls, event notifications
   and inter-leaf calls can happen
 
 In xmgmt, an initial partition driver instance will be created by root, which
@@ -566,7 +566,7 @@ could be shared by multiple other leaves.
 
 Leaf drivers assigned to specific hardware resources drive specific subsystem in
 the device. To manipulate the subsystem or carry out a task, a leaf driver may
-ask help from root via parent calls and/or from other leaves via inter-leaf calls.
+ask help from root via root calls and/or from other leaves via inter-leaf calls.
 
 A leaf can also broadcast events through infrastructure code for other leaves
 to process. It can also receive event notification from infrastructure about

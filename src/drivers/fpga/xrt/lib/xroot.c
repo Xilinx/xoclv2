@@ -10,11 +10,9 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/hwmon.h>
-#include "xleaf.h"
-#include "subdev_pool.h"
-#include "parent.h"
-#include "partition.h"
 #include "xroot.h"
+#include "subdev_pool.h"
+#include "partition.h"
 #include "metadata.h"
 
 #define	XROOT_PDEV(xr)		((xr)->pdev)
@@ -33,7 +31,7 @@
 #define	XROOT_PART_FIRST	(-1)
 #define	XROOT_PART_LAST		(-2)
 
-static int xroot_parent_cb(struct device *, void *, u32, void *);
+static int xroot_root_cb(struct device *, void *, u32, void *);
 
 struct xroot_evt {
 	struct list_head list;
@@ -168,7 +166,7 @@ int xroot_create_partition(struct xroot *xr, char *dtb)
 
 	atomic_inc(&xr->parts.bringup_pending);
 	ret = xrt_subdev_pool_add(&xr->parts.pool,
-		XRT_SUBDEV_PART, xroot_parent_cb, xr, dtb);
+		XRT_SUBDEV_PART, xroot_root_cb, xr, dtb);
 	if (ret >= 0) {
 		schedule_work(&xr->parts.bringup_work);
 	} else {
@@ -239,7 +237,7 @@ static int xroot_destroy_partition(struct xroot *xr, int instance)
 }
 
 static int xroot_lookup_partition(struct xroot *xr,
-	struct xrt_parent_ioctl_lookup_partition *arg)
+	struct xrt_root_ioctl_lookup_partition *arg)
 {
 	int rc = -ENOENT;
 	struct platform_device *part = NULL;
@@ -255,16 +253,6 @@ static int xroot_lookup_partition(struct xroot *xr,
 	return rc;
 }
 
-static void xroot_process_event(struct xroot *xr, struct xrt_event *evt)
-{
-	struct platform_device *part = NULL;
-
-	while (xroot_get_partition(xr, XROOT_PART_LAST, &part) != -ENOENT) {
-		(void) xleaf_ioctl(part, XRT_XLEAF_EVENT, evt);
-		xroot_put_partition(xr, part);
-	}
-}
-
 static void xroot_event_work(struct work_struct *work)
 {
 	struct xroot_evt *tmp;
@@ -277,7 +265,7 @@ static void xroot_event_work(struct work_struct *work)
 		list_del(&tmp->list);
 		mutex_unlock(&xr->events.evt_lock);
 
-		xroot_process_event(xr, &tmp->evt);
+		(void) xrt_subdev_pool_handle_event(&xr->parts.pool, &tmp->evt);
 
 		if (tmp->async)
 			vfree(tmp);
@@ -302,8 +290,7 @@ static void xroot_event_fini(struct xroot *xr)
 	BUG_ON(!list_empty(&xr->events.evt_list));
 }
 
-static int xroot_get_leaf(struct xroot *xr,
-	struct xrt_parent_ioctl_get_leaf *arg)
+static int xroot_get_leaf(struct xroot *xr, struct xrt_root_ioctl_get_leaf *arg)
 {
 	int rc = -ENOENT;
 	struct platform_device *part = NULL;
@@ -316,8 +303,7 @@ static int xroot_get_leaf(struct xroot *xr,
 	return rc;
 }
 
-static int xroot_put_leaf(struct xroot *xr,
-	struct xrt_parent_ioctl_put_leaf *arg)
+static int xroot_put_leaf(struct xroot *xr, struct xrt_root_ioctl_put_leaf *arg)
 {
 	int rc = -ENOENT;
 	struct platform_device *part = NULL;
@@ -330,28 +316,28 @@ static int xroot_put_leaf(struct xroot *xr,
 	return rc;
 }
 
-static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
+static int xroot_root_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 {
 	struct xroot *xr = (struct xroot *)parg;
 	int rc = 0;
 
 	switch (cmd) {
 	/* Leaf actions. */
-	case XRT_PARENT_GET_LEAF: {
-		struct xrt_parent_ioctl_get_leaf *getleaf =
-			(struct xrt_parent_ioctl_get_leaf *)arg;
+	case XRT_ROOT_GET_LEAF: {
+		struct xrt_root_ioctl_get_leaf *getleaf =
+			(struct xrt_root_ioctl_get_leaf *)arg;
 		rc = xroot_get_leaf(xr, getleaf);
 		break;
 	}
-	case XRT_PARENT_PUT_LEAF: {
-		struct xrt_parent_ioctl_put_leaf *putleaf =
-			(struct xrt_parent_ioctl_put_leaf *)arg;
+	case XRT_ROOT_PUT_LEAF: {
+		struct xrt_root_ioctl_put_leaf *putleaf =
+			(struct xrt_root_ioctl_put_leaf *)arg;
 		rc = xroot_put_leaf(xr, putleaf);
 		break;
 	}
-	case XRT_PARENT_GET_LEAF_HOLDERS: {
-		struct xrt_parent_ioctl_get_holders *holders =
-			(struct xrt_parent_ioctl_get_holders *)arg;
+	case XRT_ROOT_GET_LEAF_HOLDERS: {
+		struct xrt_root_ioctl_get_holders *holders =
+			(struct xrt_root_ioctl_get_holders *)arg;
 		rc = xrt_subdev_pool_get_holders(&xr->parts.pool,
 			holders->xpigh_pdev, holders->xpigh_holder_buf,
 			holders->xpigh_holder_buf_len);
@@ -360,27 +346,27 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 
 
 	/* Partition actions. */
-	case XRT_PARENT_CREATE_PARTITION:
+	case XRT_ROOT_CREATE_PARTITION:
 		rc = xroot_create_partition(xr, (char *)arg);
 		break;
-	case XRT_PARENT_REMOVE_PARTITION:
+	case XRT_ROOT_REMOVE_PARTITION:
 		rc = xroot_destroy_partition(xr, (int)(uintptr_t)arg);
 		break;
-	case XRT_PARENT_LOOKUP_PARTITION: {
-		struct xrt_parent_ioctl_lookup_partition *getpart =
-			(struct xrt_parent_ioctl_lookup_partition *)arg;
+	case XRT_ROOT_LOOKUP_PARTITION: {
+		struct xrt_root_ioctl_lookup_partition *getpart =
+			(struct xrt_root_ioctl_lookup_partition *)arg;
 		rc = xroot_lookup_partition(xr, getpart);
 		break;
 	}
-	case XRT_PARENT_WAIT_PARTITION_BRINGUP:
+	case XRT_ROOT_WAIT_PARTITION_BRINGUP:
 		rc = xroot_wait_for_bringup(xr) ? 0 : -EINVAL;
 		break;
 
 
 	/* Event actions. */
-	case XRT_PARENT_EVENT:
-	case XRT_PARENT_EVENT_ASYNC: {
-		bool async = (cmd == XRT_PARENT_EVENT_ASYNC);
+	case XRT_ROOT_EVENT:
+	case XRT_ROOT_EVENT_ASYNC: {
+		bool async = (cmd == XRT_ROOT_EVENT_ASYNC);
 		struct xrt_event *evt = (struct xrt_event *)arg;
 
 		rc = xroot_trigger_event(xr, evt, async);
@@ -389,15 +375,15 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 
 
 	/* Device info. */
-	case XRT_PARENT_GET_RESOURCE: {
-		struct xrt_parent_ioctl_get_res *res =
-			(struct xrt_parent_ioctl_get_res *)arg;
+	case XRT_ROOT_GET_RESOURCE: {
+		struct xrt_root_ioctl_get_res *res =
+			(struct xrt_root_ioctl_get_res *)arg;
 		res->xpigr_res = xr->pdev->resource;
 		break;
 	}
-	case XRT_PARENT_GET_ID: {
-		struct xrt_parent_ioctl_get_id *id =
-			(struct xrt_parent_ioctl_get_id *)arg;
+	case XRT_ROOT_GET_ID: {
+		struct xrt_root_ioctl_get_id *id =
+			(struct xrt_root_ioctl_get_id *)arg;
 
 		id->xpigi_vendor_id = xr->pdev->vendor;
 		id->xpigi_device_id = xr->pdev->device;
@@ -407,13 +393,13 @@ static int xroot_parent_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 	}
 
 	/* MISC generic PCIE driver functions. */
-	case XRT_PARENT_HOT_RESET: {
+	case XRT_ROOT_HOT_RESET: {
 		xr->pf_cb.xpc_hot_reset(xr->pdev);
 		break;
 	}
-	case XRT_PARENT_HWMON: {
-		struct xrt_parent_ioctl_hwmon *hwmon =
-			(struct xrt_parent_ioctl_hwmon *)arg;
+	case XRT_ROOT_HWMON: {
+		struct xrt_root_ioctl_hwmon *hwmon =
+			(struct xrt_root_ioctl_hwmon *)arg;
 
 		if (hwmon->xpih_register) {
 			hwmon->xpih_hwmon_dev =

@@ -85,7 +85,7 @@ static void xmgmt_mailbox_post(struct xmgmt_mailbox *xmbx,
 	}
 
 	rc = xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_POST, &post);
-	if (rc)
+	if (rc && rc != -ESHUTDOWN)
 		xrt_err(xmbx->pdev, "failed to post msg: %d", rc);
 }
 

@@ -17,6 +17,7 @@
 #include <linux/libfdt_env.h>
 #include "libfdt.h"
 #include "subdev_id.h"
+#include "xroot.h"
 #include "events.h"
 
 /* All subdev drivers should use below common routines to print out msg. */
@@ -107,14 +108,13 @@ struct xrt_subdev_drvdata {
  * other or parent drivers since it could have been freed before platform
  * data buffer is freed by platform driver framework.
  */
-typedef int (*xrt_subdev_parent_cb_t)(struct device *, void *, u32, void *);
 struct xrt_subdev_platdata {
 	/*
 	 * Per driver instance callback. The pdev points to the instance.
-	 * Should always be defined for subdev driver to call into its parent.
+	 * Should always be defined for subdev driver to get service from root.
 	 */
-	xrt_subdev_parent_cb_t xsp_parent_cb;
-	void *xsp_parent_cb_arg;
+	xrt_subdev_root_cb_t xsp_root_cb;
+	void *xsp_root_cb_arg;
 
 	/* Something to associate w/ root for msg printing. */
 	const char *xsp_root_name;
@@ -161,11 +161,6 @@ struct xrt_subdev_endpoints {
 	u32 xse_min_ep;
 };
 
-typedef bool (*xrt_subdev_match_t)(enum xrt_subdev_id,
-	struct platform_device *, void *);
-#define	XRT_SUBDEV_MATCH_PREV	((xrt_subdev_match_t)-1)
-#define	XRT_SUBDEV_MATCH_NEXT	((xrt_subdev_match_t)-2)
-
 struct subdev_match_arg {
 	enum xrt_subdev_id id;
 	int instance;
@@ -211,8 +206,6 @@ static inline int xleaf_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
 	return (*drvdata->xsd_dev_ops.xsd_ioctl)(tgt, cmd, arg);
 }
 
-extern int xrt_subdev_parent_ioctl(struct platform_device *self,
-	u32 cmd, void *arg);
 extern int xleaf_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf);
 extern int xleaf_create_partition(struct platform_device *pdev,
@@ -225,7 +218,7 @@ extern int xleaf_broadcast_event(struct platform_device *pdev,
 	enum xrt_events evt, bool async);
 extern void xleaf_get_barres(struct platform_device *pdev,
 	struct resource **res, uint bar_idx);
-extern void xleaf_get_parent_id(struct platform_device *pdev,
+extern void xleaf_get_root_id(struct platform_device *pdev,
 	unsigned short *vendor, unsigned short *device,
 	unsigned short *subvendor, unsigned short *subdevice);
 extern struct device *xleaf_register_hwmon(struct platform_device *pdev,

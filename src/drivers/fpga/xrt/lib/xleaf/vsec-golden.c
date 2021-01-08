@@ -174,8 +174,7 @@ static int xrt_vsec_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	vsec->pdev = pdev;
-	xleaf_get_parent_id(pdev, &vsec->vendor, &vsec->device,
-		NULL, NULL);
+	xleaf_get_root_id(pdev, &vsec->vendor, &vsec->device, NULL, NULL);
 	platform_set_drvdata(pdev, vsec);
 
 	ret = xrt_vsec_create_metadata(vsec);
