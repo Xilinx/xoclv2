@@ -273,7 +273,6 @@ Each subsystem node and its properties define a hardware instance.
 :firmware:
  Subnode defines the firmware required by this subsystem node.
 
-
 Alveo U50 Platform Example
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
@@ -556,7 +555,7 @@ Repository of all subsystem drivers and pure software modules that can potential
 be shared between xmgmt and xuser. All these drivers are structured as Linux
 *platform driver* and are instantiated by xmgmt (or xuser in future) based on meta
 data associated with hardware. The metadata is in the form of device tree as
-explained before.
+explained before. Within each platform driver, it statically defines a subsystem node array by using node name or a string in its ``compatible`` property. And this array is eventually translated to IOMEM resources of the platform device.
 
 xmgmt.ko
 --------
