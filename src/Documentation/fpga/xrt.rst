@@ -172,16 +172,110 @@ Device Tree Usage
 -----------------
 
 As mentioned previously xsabin stores metadata which advertise HW subsystems present
-in a partition. The metadata is stored in device tree format with well defined schema.
-Subsystem instantiations are captured as children of ``addressable_endpoints`` node.
-Subsystem nodes have standard properties like ``reg``, ``interrupts`` etc. Additionally
-the nodes also have PCIe specific properties: ``pcie_physical_function`` and
-``pcie_bar_mapping``. These identify which PCIe physical function and which BAR space
-in that physical function the subsystem resides. ``reg`` property defines address range
-in the specified BAR. The address is offset in the BAR. XRT management driver uses this
+in a partition. The metadata is stored in device tree format with well defined schema.XRT management driver uses this
 information to bind *platform drivers* to the subsystem instantiations. The platform
-drivers are found in **xrt-lib.ko** kernel module defined later. Below is an example
-of device tree for Alveo U50 platform::
+drivers are found in **xrt-lib.ko** kernel module defined later.
+
+Logic uuid
+^^^^^^^^^^
+A partition is identified uniquely through ``logic_uuid`` property.
+::
+
+  /dts-v1/;
+  / {
+      logic_uuid = "0123456789abcdef0123456789abcdef";
+      ...
+    }
+
+Schema version
+^^^^^^^^^^^^^^
+Schema version is defined through ``schema_version`` node. And it contains ``major`` and ``minor`` properties as below.
+::
+
+  /dts-v1/;
+  / {
+       schema_version {
+           major = <0x01>;
+           minor = <0x00>;
+       };
+       ...
+    }
+
+Partition UUIDs
+^^^^^^^^^^^^^^^
+As said earlier, each partition may have parent and child UUIDs. These UUIDs are defined by ``interfaces`` node and ``interface_uuid`` property.
+::
+
+  /dts-v1/;
+  / {
+       interfaces {
+           @0 {
+                  interface_uuid = "0123456789abcdef0123456789abcdef";
+           };
+           @1 {
+                  interface_uuid = "fedcba9876543210fedcba9876543210";
+           };
+           ...
+        };
+       ...
+    }
+
+
+Subsystem instantiations
+^^^^^^^^^^^^^^^^^^^^^^^^
+Subsystem instantiations are captured as children of ``addressable_endpoints`` node.
+::
+
+  /dts-v1/;
+  / {
+       addressable_endpoints {
+           abc {
+               ...
+           };
+           def {
+               ...
+           };
+           ...
+       }
+  }
+
+Subnode 'abc' and 'def' are the name of subsystem nodes
+
+Subsystem node
+^^^^^^^^^^^^^^
+Each subsystem node and its properties define a hardware instance.
+::
+
+  addressable_endpoints {
+      abc {
+          reg = <0xa 0xb>
+          pcie_physical_function = <0x0>;
+          pcie_bar_mapping = <0x2>;
+          compatible = "abc def";
+          firmware {
+              firmware_product_name = "abc"
+              firmware_branch_name = "def"
+              firmware_version_major = <1>
+              firmware_version_minor = <2>
+          };
+      }
+      ...
+  }
+
+:reg:
+ Property defines address range. '<0xa 0xb>' is BAR offset and length pair, both are 64-bit integer.
+:pcie_physical_function:
+ Property specifies which PCIe physical function the subsystem node resides.
+:pcie_bar_mapping:
+ Property specifies which PCIe BAR the subsystem node resides. '<0x2>' is BAR index and it is 0 if this property is not defined.
+:compatible:
+ Property is a list of strings. The first string in the list specifies the exact subsystem node. The following strings represent other devices that the device is compatible with.
+:firmware:
+ Subnode defines the firmware required by this subsystem node.
+
+Alveo U50 Platform Example
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+::
 
   /dts-v1/;
 
@@ -461,7 +555,7 @@ Repository of all subsystem drivers and pure software modules that can potential
 be shared between xmgmt and xuser. All these drivers are structured as Linux
 *platform driver* and are instantiated by xmgmt (or xuser in future) based on meta
 data associated with hardware. The metadata is in the form of device tree as
-explained before.
+explained before. Within each platform driver, it statically defines a subsystem node array by using node name or a string in its ``compatible`` property. And this array is eventually translated to IOMEM resources of the platform device.
 
 xmgmt.ko
 --------
