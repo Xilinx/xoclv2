@@ -32,7 +32,7 @@ xrt-lib-y := 			\
 	metadata.o		\
 	subdev.o		\
 	cdev.o			\
-	partition.o		\
+	group.o			\
 	xleaf/test.o		\
 	xleaf/vsec.o		\
 	xleaf/vsec-golden.o	\

@@ -138,11 +138,11 @@ static int xrt_test_probe(struct platform_device *pdev)
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xrt_test_attrgroup))
 		xrt_err(pdev, "failed to create sysfs group");
 
-	/* Trigger partition creation, only when this is the first instance. */
+	/* Trigger group creation, only when this is the first instance. */
 	if (pdev->id == 0) {
 		(void) xrt_test_create_metadata(xt, &dtb);
 		if (dtb)
-			(void) xleaf_create_partition(pdev, dtb);
+			(void) xleaf_create_group(pdev, dtb);
 		vfree(dtb);
 	} else {
 		xleaf_broadcast_event(pdev, XRT_EVENT_TEST, false);
@@ -154,7 +154,7 @@ static int xrt_test_probe(struct platform_device *pdev)
 
 static int xrt_test_remove(struct platform_device *pdev)
 {
-	/* By now, partition driver should prevent any inter-leaf call. */
+	/* By now, group driver should prevent any inter-leaf call. */
 	xrt_info(pdev, "leaving...");
 
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xrt_test_attrgroup);

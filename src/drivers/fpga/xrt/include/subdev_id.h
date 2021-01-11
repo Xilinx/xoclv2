@@ -15,10 +15,10 @@
  * <subdev_id, subdev_instance> tuple should be a unique identification of
  * a specific instance of a subdev driver.
  * NOTE: PLEASE do not change the order of IDs. Sub devices in the same
- * partition are initialized by this order.
+ * group are initialized by this order.
  */
 enum xrt_subdev_id {
-	XRT_SUBDEV_PART = 0,
+	XRT_SUBDEV_GRP = 0,
 	XRT_SUBDEV_VSEC,
 	XRT_SUBDEV_VSEC_GOLDEN,
 	XRT_SUBDEV_GPIO,

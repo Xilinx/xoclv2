@@ -27,7 +27,7 @@ struct xmgmt_region {
 	struct fpga_region *fregion;
 	uuid_t intf_uuid;
 	struct fpga_bridge *fbridge;
-	int part_inst;
+	int grp_inst;
 	uuid_t dep_uuid;
 	struct list_head list;
 };
@@ -149,8 +149,8 @@ static void xmgmt_destroy_region(struct fpga_region *re)
 
 	fpga_region_unregister(re);
 
-	if (r_data->part_inst > 0)
-		xleaf_destroy_partition(r_data->pdev, r_data->part_inst);
+	if (r_data->grp_inst > 0)
+		xleaf_destroy_group(r_data->pdev, r_data->grp_inst);
 
 	if (r_data->fbridge)
 		xmgmt_destroy_bridge(r_data->fbridge);
@@ -259,10 +259,9 @@ static void xmgmt_region_cleanup(struct fpga_region *re)
 
 	list_for_each_entry_safe_reverse(r_data, temp, &free_list, list) {
 		if (list_is_first(&r_data->list, &free_list)) {
-			if (r_data->part_inst > 0) {
-				xleaf_destroy_partition(pdev,
-					r_data->part_inst);
-				r_data->part_inst = -1;
+			if (r_data->grp_inst > 0) {
+				xleaf_destroy_group(pdev, r_data->grp_inst);
+				r_data->grp_inst = -1;
 			}
 			if (r_data->fregion->info) {
 				fpga_image_info_free(r_data->fregion->info);
@@ -295,7 +294,7 @@ void xmgmt_region_cleanup_all(struct platform_device *pdev)
 
 /*
  * Program a given region with given xclbin image. Bring up the subdevs and the
- * partition object to contain the subdevs.
+ * group object to contain the subdevs.
  */
 static int xmgmt_region_program(struct fpga_region *re, const void *xclbin, char *dtb)
 {
@@ -325,19 +324,19 @@ static int xmgmt_region_program(struct fpga_region *re, const void *xclbin, char
 
 	/*
 	 * Next bringup the subdevs for this region which will be managed by
-	 * its own partition object.
+	 * its own group object.
 	 */
-	r_data->part_inst = xleaf_create_partition(pdev, dtb);
-	if (r_data->part_inst < 0) {
-		xrt_err(pdev, "failed to create partition, rc %d",
-			r_data->part_inst);
-		rc = r_data->part_inst;
+	r_data->grp_inst = xleaf_create_group(pdev, dtb);
+	if (r_data->grp_inst < 0) {
+		xrt_err(pdev, "failed to create group, rc %d",
+			r_data->grp_inst);
+		rc = r_data->grp_inst;
 		return rc;
 	}
 
-	rc = xleaf_wait_for_partition_bringup(pdev);
+	rc = xleaf_wait_for_group_bringup(pdev);
 	if (rc)
-		xrt_err(pdev, "partition bringup failed, rc %d", rc);
+		xrt_err(pdev, "group bringup failed, rc %d", rc);
 	return rc;
 }
 
@@ -428,7 +427,7 @@ int xmgmt_process_xclbin(struct platform_device *pdev,
 		}
 		r_data->pdev = pdev;
 		r_data->fregion = re;
-		r_data->part_inst = -1;
+		r_data->grp_inst = -1;
 		memcpy(&r_data->intf_uuid, &arg.uuids[i],
 			sizeof(r_data->intf_uuid));
 		if (compat_re) {

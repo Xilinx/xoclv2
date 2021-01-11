@@ -79,7 +79,7 @@ struct xrt_subdev_drv_ops {
 	/*
 	 * Per driver instance callback. The pdev points to the instance.
 	 * If defined these are called by other leaf drivers.
-	 * Note that root driver may call into xsd_ioctl of a partition driver.
+	 * Note that root driver may call into xsd_ioctl of a group driver.
 	 */
 	int (*xsd_ioctl)(struct platform_device *pdev, u32 cmd, void *arg);
 };
@@ -208,11 +208,9 @@ static inline int xleaf_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
 
 extern int xleaf_put_leaf(struct platform_device *pdev,
 	struct platform_device *leaf);
-extern int xleaf_create_partition(struct platform_device *pdev,
-	char *dtb);
-extern int xleaf_destroy_partition(struct platform_device *pdev,
-	int instance);
-extern int xleaf_wait_for_partition_bringup(struct platform_device *pdev);
+extern int xleaf_create_group(struct platform_device *pdev, char *dtb);
+extern int xleaf_destroy_group(struct platform_device *pdev, int instance);
+extern int xleaf_wait_for_group_bringup(struct platform_device *pdev);
 extern void xleaf_hot_reset(struct platform_device *pdev);
 extern int xleaf_broadcast_event(struct platform_device *pdev,
 	enum xrt_events evt, bool async);

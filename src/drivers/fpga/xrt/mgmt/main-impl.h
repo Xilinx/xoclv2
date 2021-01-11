@@ -22,7 +22,7 @@ extern int bitstream_axlf_mailbox(struct platform_device *pdev,
 	const void *xclbin);
 extern int xmgmt_hot_reset(struct platform_device *pdev);
 
-/* Getting dtb for specified partition. Caller should vfree returned dtb .*/
+/* Getting dtb for specified group. Caller should vfree returned dtb .*/
 extern char *xmgmt_get_dtb(struct platform_device *pdev,
 	enum provider_kind kind);
 extern char *xmgmt_get_vbnv(struct platform_device *pdev);

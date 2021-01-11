@@ -182,9 +182,9 @@ static int xrt_vsec_probe(struct platform_device *pdev)
 		xrt_err(pdev, "create metadata failed, ret %d", ret);
 		goto failed;
 	}
-	ret = xleaf_create_partition(pdev, vsec->metadata);
+	ret = xleaf_create_group(pdev, vsec->metadata);
 	if (ret < 0)
-		xrt_err(pdev, "create partition failed, ret %d", ret);
+		xrt_err(pdev, "create group failed, ret %d", ret);
 	else
 		ret = 0;
 

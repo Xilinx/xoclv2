@@ -31,7 +31,7 @@ static struct xrt_drv_map {
 	struct xrt_subdev_endpoints *eps;
 	struct ida ida; /* manage driver instance and char dev minor */
 } xrt_drv_maps[] = {
-	{ XRT_SUBDEV_PART, &xrt_partition_driver, },
+	{ XRT_SUBDEV_GRP, &xrt_group_driver, },
 	{ XRT_SUBDEV_VSEC, &xrt_vsec_driver, xrt_vsec_endpoints, },
 	{ XRT_SUBDEV_VSEC_GOLDEN, &xrt_vsec_golden_driver, xrt_vsec_golden_endpoints, },
 	{ XRT_SUBDEV_GPIO, &xrt_gpio_driver, xrt_gpio_endpoints,},
