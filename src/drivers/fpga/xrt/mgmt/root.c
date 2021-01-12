@@ -295,13 +295,13 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		goto failed_metadata;
 
-	ret = xroot_create_partition(xm->root, dtb);
+	ret = xroot_create_group(xm->root, dtb);
 	vfree(dtb);
 	if (ret)
-		xmgmt_err(xm, "failed to create root partition: %d", ret);
+		xmgmt_err(xm, "failed to create root group: %d", ret);
 
 	if (!xroot_wait_for_bringup(xm->root))
-		xmgmt_err(xm, "failed to bringup all partitions");
+		xmgmt_err(xm, "failed to bringup all groups");
 	else
 		xm->ready = true;
 

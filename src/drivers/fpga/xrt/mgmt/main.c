@@ -495,9 +495,9 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 			goto failed;
 		}
 
-		rc = xleaf_create_partition(pdev, dtb);
+		rc = xleaf_create_group(pdev, dtb);
 		if (rc < 0)
-			xrt_err(pdev, "failed to create BLP part: %d", rc);
+			xrt_err(pdev, "failed to create BLP group: %d", rc);
 		else
 			rc = 0;
 
@@ -605,7 +605,7 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 {
 	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
 
-	/* By now, partition driver should prevent any inter-leaf call. */
+	/* By now, group driver should prevent any inter-leaf call. */
 
 	xrt_info(pdev, "leaving...");
 

@@ -9,7 +9,7 @@
 #ifndef	_XRT_MAIN_H_
 #define	_XRT_MAIN_H_
 
-extern struct platform_driver xrt_partition_driver;
+extern struct platform_driver xrt_group_driver;
 extern struct platform_driver xrt_test_driver;
 extern struct platform_driver xrt_vsec_driver;
 extern struct platform_driver xrt_vsec_golden_driver;

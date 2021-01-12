@@ -279,17 +279,17 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 	pdata->xsp_root_cb = pcb;
 	pdata->xsp_root_cb_arg = pcb_arg;
 	(void) memcpy(pdata->xsp_dtb, dtb, dtb_len);
-	if (id == XRT_SUBDEV_PART) {
-		/* Partition can only be created by root driver. */
+	if (id == XRT_SUBDEV_GRP) {
+		/* Group can only be created by root driver. */
 		BUG_ON(parent->bus != &pci_bus_type);
 		pdata->xsp_root_name = dev_name(parent);
 	} else {
-		struct platform_device *part = to_platform_device(parent);
-		/* Leaf can only be created by partition driver. */
+		struct platform_device *grp = to_platform_device(parent);
+		/* Leaf can only be created by group driver. */
 		BUG_ON(parent->bus != &platform_bus_type);
-		BUG_ON(strcmp(xrt_drv_name(XRT_SUBDEV_PART),
-			platform_get_device_id(part)->name));
-		pdata->xsp_root_name = DEV_PDATA(part)->xsp_root_name;
+		BUG_ON(strcmp(xrt_drv_name(XRT_SUBDEV_GRP),
+			platform_get_device_id(grp)->name));
+		pdata->xsp_root_name = DEV_PDATA(grp)->xsp_root_name;
 	}
 
 	/* Obtain dev instance number. */
@@ -300,9 +300,9 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 	}
 
 	/* Create subdev. */
-	if (id == XRT_SUBDEV_PART) {
+	if (id == XRT_SUBDEV_GRP) {
 		pdev = platform_device_register_data(parent,
-			xrt_drv_name(XRT_SUBDEV_PART), inst, pdata, pdata_sz);
+			xrt_drv_name(XRT_SUBDEV_GRP), inst, pdata, pdata_sz);
 	} else {
 		int rc = xrt_subdev_getres(parent, id, dtb, &res, &res_num);
 
@@ -332,9 +332,9 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 
 	/*
 	 * Create sysfs sym link under root for leaves
-	 * under random partitions for easy access to them.
+	 * under random groups for easy access to them.
 	 */
-	if (id != XRT_SUBDEV_PART) {
+	if (id != XRT_SUBDEV_GRP) {
 		if (sysfs_create_link(&find_root(pdev)->kobj,
 			&DEV(pdev)->kobj, dev_name(DEV(pdev)))) {
 			xrt_err(pdev, "failed to create sysfs link");
@@ -369,7 +369,7 @@ static void xrt_subdev_destroy(struct xrt_subdev *sdev)
 	/* Take down the device node */
 	if (xrt_subdev_cdev_auto_creation(pdev))
 		(void) xleaf_devnode_destroy(pdev);
-	if (sdev->xs_id != XRT_SUBDEV_PART)
+	if (sdev->xs_id != XRT_SUBDEV_GRP)
 		(void) sysfs_remove_link(&find_root(pdev)->kobj, dev_name(dev));
 	(void) sysfs_remove_group(&dev->kobj, &xrt_subdev_attrgroup);
 	platform_device_unregister(pdev);
@@ -417,27 +417,25 @@ int xleaf_put_leaf(struct platform_device *pdev,
 }
 EXPORT_SYMBOL_GPL(xleaf_put_leaf);
 
-int xleaf_create_partition(struct platform_device *pdev, char *dtb)
+int xleaf_create_group(struct platform_device *pdev, char *dtb)
+{
+	return xrt_subdev_root_ioctl(pdev, XRT_ROOT_CREATE_GROUP, dtb);
+}
+EXPORT_SYMBOL_GPL(xleaf_create_group);
+
+int xleaf_destroy_group(struct platform_device *pdev, int instance)
 {
 	return xrt_subdev_root_ioctl(pdev,
-		XRT_ROOT_CREATE_PARTITION, dtb);
+		XRT_ROOT_REMOVE_GROUP, (void *)(uintptr_t)instance);
 }
-EXPORT_SYMBOL_GPL(xleaf_create_partition);
+EXPORT_SYMBOL_GPL(xleaf_destroy_group);
 
-int xleaf_destroy_partition(struct platform_device *pdev, int instance)
+
+int xleaf_wait_for_group_bringup(struct platform_device *pdev)
 {
-	return xrt_subdev_root_ioctl(pdev,
-		XRT_ROOT_REMOVE_PARTITION, (void *)(uintptr_t)instance);
+	return xrt_subdev_root_ioctl(pdev, XRT_ROOT_WAIT_GROUP_BRINGUP, NULL);
 }
-EXPORT_SYMBOL_GPL(xleaf_destroy_partition);
-
-
-int xleaf_wait_for_partition_bringup(struct platform_device *pdev)
-{
-	return xrt_subdev_root_ioctl(pdev,
-		XRT_ROOT_WAIT_PARTITION_BRINGUP, NULL);
-}
-EXPORT_SYMBOL_GPL(xleaf_wait_for_partition_bringup);
+EXPORT_SYMBOL_GPL(xleaf_wait_for_group_bringup);
 
 static ssize_t
 xrt_subdev_get_holders(struct xrt_subdev *sdev, char *buf, size_t len)

@@ -561,17 +561,17 @@ xmgmt.ko
 --------
 
 The xmgmt driver is a PCIe device driver driving MPF found on Xilinx's Alveo
-PCIE device. It consists of one *root* driver, one or more *partition* drivers
+PCIE device. It consists of one *root* driver, one or more *group* drivers
 and one or more *leaf* drivers. The root and MPF specific leaf drivers are in
-xmgmt.ko. The partition driver and other leaf drivers are in xrt-lib.ko.
+xmgmt.ko. The group driver and other leaf drivers are in xrt-lib.ko.
 
-The instantiation of specific partition driver or leaf driver is completely data
+The instantiation of specific group driver or leaf driver is completely data
 driven based on meta data (mostly in device tree format) found through VSEC
 capability and inside firmware files, such as xsabin or xclbin file. The root
-driver manages life cycle of multiple partition drivers, which, in turn, manages
+driver manages life cycle of multiple group drivers, which, in turn, manages
 multiple leaf drivers. This allows a single set of driver code to support all
 kinds of subsystems exposed by different shells. The difference among all
-these subsystems will be handled in leaf drivers with root and partition drivers
+these subsystems will be handled in leaf drivers with root and group drivers
 being part of the infrastructure and provide common services for all leaves found
 on all platforms.
 
@@ -585,7 +585,7 @@ The driver object model looks like the following::
               |                       |
               v                       v
         +-----------+          +-----------+
-        | partition |    ...   | partition |
+        |   group   |    ...   |   group   |
         +-----+-----+          +------+----+
               |                       |
               |                       |
@@ -603,16 +603,16 @@ xmgmt-root
 The xmgmt-root driver is a PCIe device driver attached to MPF. It's part of the
 infrastructure of the MPF driver and resides in xmgmt.ko. This driver
 
-* manages one or more partition drivers
+* manages one or more group drivers
 * provides access to functionalities that requires pci_dev, such as PCIE config
   space access, to other leaf drivers through root calls
-* together with partition driver, facilities event callbacks for other leaf drivers
-* together with partition driver, facilities inter-leaf driver calls for other leaf
+* together with group driver, facilities event callbacks for other leaf drivers
+* together with group driver, facilities inter-leaf driver calls for other leaf
   drivers
 
-When root driver starts, it will explicitly create an initial partition instance,
-which contains leaf drivers that will trigger the creation of other partition
-instances. The root driver will wait for all partitions and leaves to be created
+When root driver starts, it will explicitly create an initial group instance,
+which contains leaf drivers that will trigger the creation of other group
+instances. The root driver will wait for all group and leaves to be created
 before it returns from it's probe routine and claim success of the initialization
 of the entire xmgmt driver.
 
@@ -620,10 +620,10 @@ of the entire xmgmt driver.
    See code in ``lib/root.c`` and ``mgmt/root.c``
 
 
-partition
-^^^^^^^^^
+group
+^^^^^
 
-The partition driver is a platform device driver whose life cycle is managed by
+The group driver is a platform device driver whose life cycle is managed by
 root and does not have real IO mem or IRQ resources. It's part of the
 infrastructure of the MPF driver and resides in xrt-lib.ko. This driver
 
@@ -632,25 +632,25 @@ infrastructure of the MPF driver and resides in xrt-lib.ko. This driver
 * provides access to root from leaves, so that root calls, event notifications
   and inter-leaf calls can happen
 
-In xmgmt, an initial partition driver instance will be created by root, which
-contains leaves that will trigger partition instances to be created to manage
+In xmgmt, an initial group driver instance will be created by root, which
+contains leaves that will trigger group instances to be created to manage
 groups of leaves found on different partitions on hardware, such as VSEC, Shell,
 and User.
 
-Every *fpga_region* has a partition object associated with it. The partition is
-created when xclbin image is loaded on the fpga_region. The existing partition
+Every *fpga_region* has a group object associated with it. The group is
+created when xclbin image is loaded on the fpga_region. The existing group
 is destroyed when a new xclbin image is loaded. The fpga_region persists
 across xclbin downloads.
 
 .. note::
-   See code in ``lib/partition.c``
+   See code in ``lib/group.c``
 
 
 leaves
 ^^^^^^
 
 The leaf driver is a platform device driver whose life cycle is managed by
-a partition driver and may or may not have real IO mem or IRQ resources. They
+a group driver and may or may not have real IO mem or IRQ resources. They
 are the real meat of xmgmt and contains platform specific code to Shell and
 User found on a MPF.
 
@@ -689,7 +689,7 @@ The device tree of the *parent* fpga_region defines the
 resources for a new instance of fpga_bridge which isolates the parent from
 child fpga_region. This new instance of fpga_bridge will be used when a
 xclbin image is loaded on the child fpga_region. After the xclbin image is
-downloaded to the fpga_region, a partition instance is created for the
+downloaded to the fpga_region, a group instance is created for the
 fpga_region using the device tree obtained as part of xclbin. If this device
 tree defines any child interfaces then it can trigger the creation of
 fpga_bridge and fpga_region for the next region in the chain.
@@ -698,7 +698,7 @@ fpga_bridge
 -----------
 
 Like fpga_region, matching fpga_bridge is also created by walking the device
-tree of the parent partition.
+tree of the parent group.
 
 Driver Interfaces
 =================

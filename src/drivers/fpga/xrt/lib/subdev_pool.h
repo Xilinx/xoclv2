@@ -12,7 +12,7 @@
 #include "xroot.h"
 
 /*
- * It manages a list of xrt_subdevs for root and partition drivers.
+ * It manages a list of xrt_subdevs for root and group drivers.
  */
 struct xrt_subdev_pool {
 	struct list_head xpool_dev_list;
@@ -22,7 +22,7 @@ struct xrt_subdev_pool {
 };
 
 /*
- * Subdev pool API for root and partition drivers only.
+ * Subdev pool API for root and group drivers only.
  */
 extern void xrt_subdev_pool_init(struct device *dev,
 	struct xrt_subdev_pool *spool);
