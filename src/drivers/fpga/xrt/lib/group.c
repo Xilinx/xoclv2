@@ -102,15 +102,16 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 		}
 		for (i = 0; eps->xse_names[i].ep_name ||
 		    eps->xse_names[i].regmap_name; i++) {
-			if (!eps->xse_names[i].ep_name) {
-				ret = xrt_md_get_compatible_epname(
+			ep_name = (char *)eps->xse_names[i].ep_name;
+			if (!ep_name) {
+				(void) xrt_md_get_compatible_epname(
 					DEV(xg->pdev), grp_dtb,
 					eps->xse_names[i].regmap_name,
 					&ep_name);
-				if (ret)
-					continue;
-			} else
-				ep_name = (char *)eps->xse_names[i].ep_name;
+			}
+			if (!ep_name)
+				continue;
+
 			ret = xrt_md_copy_endpoint(DEV(xg->pdev),
 				dtb, grp_dtb, ep_name,
 				(char *)eps->xse_names[i].regmap_name, NULL);
