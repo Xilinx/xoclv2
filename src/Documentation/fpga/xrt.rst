@@ -597,9 +597,7 @@ The driver object model looks like the following::
     +------+   +------+     +------+   +------+
 
 
-One example object model on Alveo U50 looks like the following::
-
-Before any xclbin is downloaded, we have:
+One example on Alveo U50 before xclbin download looks like the following::
 
                                 +-----------+
                                 |   xmgmt   |
@@ -626,7 +624,7 @@ Before any xclbin is downloaded, we have:
                                                  | AXI-GATE1 |
                                                  +-----------+
 
-After an xclbin is download, group3 will be added and we have:
+After an xclbin is download, group3 will be added and we have::
 
                                 +-----------+
                                 |   xmgmt   |
