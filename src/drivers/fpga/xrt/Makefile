@@ -8,6 +8,7 @@
 all:
 	$(MAKE) -C lib all
 	$(MAKE) -C mgmt all
+	$(MAKE) -C selftests all
 	$(MAKE) lint
 
 tags:
@@ -16,6 +17,7 @@ tags:
 clean:
 	$(MAKE) -C lib clean
 	$(MAKE) -C mgmt clean
+	$(MAKE) -C selftests clean
 	rm -f ../../../lib/.fdt*.o.cmd
 
 lint:

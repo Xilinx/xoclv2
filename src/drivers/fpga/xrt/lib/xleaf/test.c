@@ -196,11 +196,24 @@ xrt_test_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
 	int i;
 	struct xrt_test *xt = file->private_data;
 
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < 4; i++) {
 		xrt_info(xt->pdev, "reading...");
 		ssleep(1);
 	}
-	return 0;
+	return n;
+}
+
+static ssize_t
+xrt_test_write(struct file *file, const char __user *ubuf, size_t n, loff_t *off)
+{
+	int i;
+	struct xrt_test *xt = file->private_data;
+
+	for (i = 0; i < 4; i++) {
+		xrt_info(xt->pdev, "writing %d...", i);
+		ssleep(1);
+	}
+	return n;
 }
 
 static int xrt_test_close(struct inode *inode, struct file *file)
@@ -238,6 +251,7 @@ struct xrt_subdev_drvdata xrt_test_data = {
 			.open = xrt_test_open,
 			.release = xrt_test_close,
 			.read = xrt_test_read,
+			.write = xrt_test_write,
 		},
 		.xsf_mode = XRT_SUBDEV_FILE_MULTI_INST,
 	},

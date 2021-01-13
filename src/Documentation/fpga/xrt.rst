@@ -176,7 +176,7 @@ in a partition. The metadata is stored in device tree format with well defined s
 information to bind *platform drivers* to the subsystem instantiations. The platform
 drivers are found in **xrt-lib.ko** kernel module defined later.
 
-Logic uuid
+Logic UUID
 ^^^^^^^^^^
 A partition is identified uniquely through ``logic_uuid`` property.
 ::
@@ -187,7 +187,7 @@ A partition is identified uniquely through ``logic_uuid`` property.
       ...
     }
 
-Schema version
+Schema Version
 ^^^^^^^^^^^^^^
 Schema version is defined through ``schema_version`` node. And it contains ``major`` and ``minor`` properties as below.
 ::
@@ -578,7 +578,7 @@ on all platforms.
 The driver object model looks like the following::
 
                     +-----------+
-                    |   root    |
+                    |   xroot   |
                     +-----+-----+
                           |
               +-----------+-----------+
@@ -592,9 +592,9 @@ The driver object model looks like the following::
         +-----+----+            +-----+----+
         |          |            |          |
         v          v            v          v
-    +------+   +------+     +------+   +------+
-    | leaf |...| leaf |     | leaf |...| leaf |
-    +------+   +------+     +------+   +------+
+    +-------+  +-------+    +-------+  +-------+
+    | xleaf |..| xleaf |    | xleaf |..| xleaf |
+    +-------+  +-------+    +-------+  +-------+
 
 One example on Alveo U50 before xclbin download looks like the following::
 
@@ -685,7 +685,7 @@ before it returns from it's probe routine and claim success of the initializatio
 of the entire xmgmt driver.
 
 .. note::
-   See code in ``lib/root.c`` and ``mgmt/root.c``
+   See code in ``lib/xroot.c`` and ``mgmt/root.c``
 
 
 group
@@ -714,7 +714,7 @@ across xclbin downloads.
    See code in ``lib/group.c``
 
 
-leaves
+xleafs
 ^^^^^^
 
 The leaf driver is a platform device driver whose life cycle is managed by
@@ -735,7 +735,7 @@ to process. It can also receive event notification from infrastructure about
 certain events, such as post-creation or pre-exit of a particular leaf.
 
 .. note::
-   See code in ``lib/subdevs/*.c``
+   See code in ``lib/xleaf/*.c``
 
 
 FPGA Manager Interaction
