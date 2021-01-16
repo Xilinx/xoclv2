@@ -25,8 +25,8 @@ fdtobj := 				\
 	$(fdtdir)/fdt_wip.o
 endif
 
-xrt-test1-y := root.o		\
-	   main.o		\
+xrt-test1-y := test1.o		\
+	   test1-main.o		\
 	   $(fdtobj)
 
 

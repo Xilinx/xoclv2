@@ -11,6 +11,7 @@
 #include <linux/delay.h>
 #include "metadata.h"
 #include "xleaf.h"
+#include "xleaf/test.h"
 
 #define	XRT_TEST "xrt_test"
 
@@ -94,6 +95,27 @@ static void xrt_test_event_cb(struct platform_device *pdev, void *arg)
 		id, instance);
 }
 
+static int xrt_test_ioctl_cb_a(struct platform_device *pdev, void *arg)
+{
+	union xrt_xleaf_test_payload *payload = (union xrt_xleaf_test_payload *)arg;
+	const struct xrt_test *xt = platform_get_drvdata(pdev);
+
+	payload->out.dummy3 = 0xdeadface;
+	xrt_dbg(pdev, "processed ioctl cmd XRT_XLEAF_TEST_A on leaf %p", xt->pdev);
+	return 0;
+}
+
+static int xrt_test_ioctl_cb_b(struct platform_device *pdev, void *arg)
+{
+	union xrt_xleaf_test_payload *payload = (union xrt_xleaf_test_payload *)arg;
+	const struct xrt_test *xt = platform_get_drvdata(pdev);
+
+	payload->out.dummy3 = 0xfaceb00c;
+	xrt_dbg(pdev, "processed ioctl cmd XRT_XLEAF_TEST_B on leaf %p", xt->pdev);
+	return 0;
+}
+
+#if 0
 static int xrt_test_create_metadata(struct xrt_test *xt, char **root_dtb)
 {
 	char *dtb = NULL;
@@ -119,11 +141,11 @@ failed:
 	vfree(dtb);
 	return ret;
 }
-
+#endif
 static int xrt_test_probe(struct platform_device *pdev)
 {
 	struct xrt_test *xt;
-	char *dtb = NULL;
+//	char *dtb = NULL;
 
 	xrt_info(pdev, "probing...");
 
@@ -139,6 +161,7 @@ static int xrt_test_probe(struct platform_device *pdev)
 		xrt_err(pdev, "failed to create sysfs group");
 
 	/* Trigger group creation, only when this is the first instance. */
+#if 0
 	if (pdev->id == 0) {
 		(void) xrt_test_create_metadata(xt, &dtb);
 		if (dtb)
@@ -147,7 +170,7 @@ static int xrt_test_probe(struct platform_device *pdev)
 	} else {
 		xleaf_broadcast_event(pdev, XRT_EVENT_TEST, false);
 	}
-
+#endif
 	/* After we return here, we'll get inter-leaf calls. */
 	return 0;
 }
@@ -167,14 +190,21 @@ static int xrt_test_remove(struct platform_device *pdev)
 static int
 xrt_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
+	int ret = 0;
+
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
 		xrt_test_event_cb(pdev, arg);
 		break;
+	case XRT_XLEAF_TEST_A:
+		ret = xrt_test_ioctl_cb_a(pdev, arg);
+		break;
+	case XRT_XLEAF_TEST_B:
+		ret = xrt_test_ioctl_cb_b(pdev, arg);
 	default:
 		break;
 	}
-	return 0;
+	return ret;
 }
 
 static int xrt_test_open(struct inode *inode, struct file *file)

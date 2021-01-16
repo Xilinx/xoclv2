@@ -137,12 +137,27 @@ static struct xroot_pf_cb xmgmt_xroot_pf_cb = {
 	.xpc_hot_reset = xmgmt_root_hot_reset,
 };
 
+
+static int xmgmt_create_group(struct xmgmt *xm)
+{
+	char *dtb = NULL;
+	int ret = xmgmt_create_root_metadata(xm, &dtb);
+
+	if (ret)
+		return ret;
+
+	ret = xroot_create_group(xm->root, dtb);
+	vfree(dtb);
+	if (ret < 0)
+		xmgmt_err(xm, "failed to create root group: %d", ret);
+	return 0;
+}
+
 static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret;
 	struct device *dev = &(pdev->dev);
 	struct xmgmt *xm = devm_kzalloc(dev, sizeof(*xm), GFP_KERNEL);
-	char *dtb = NULL;
 
 	if (!xm)
 		return -ENOMEM;
@@ -157,17 +172,18 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		goto failed;
 
-	ret = xmgmt_create_root_metadata(xm, &dtb);
+	ret = xmgmt_create_group(xm);
+
 	if (ret)
 		goto failed_metadata;
 
-	ret = xroot_create_partition(xm->root, dtb);
-	vfree(dtb);
+	ret = xmgmt_create_group(xm);
+
 	if (ret)
-		xmgmt_err(xm, "failed to create root partition: %d", ret);
+		goto failed_metadata;
 
 	if (!xroot_wait_for_bringup(xm->root))
-		xmgmt_err(xm, "failed to bringup all partitions");
+		xmgmt_err(xm, "failed to bringup all groups");
 	else
 		xm->ready = true;
 
