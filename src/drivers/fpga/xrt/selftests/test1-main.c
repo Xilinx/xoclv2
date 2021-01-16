@@ -20,16 +20,16 @@
 #include <linux/xrt/flash_xrt_data.h>
 #include <linux/xrt/xmgmt-ioctl.h>
 
-#define	XMGMT_MAIN "xrt-test1-main"
+#define	TEST1_MAIN "xrt-test1-main"
 
-struct xmgmt_main {
+struct test1_main {
 	struct platform_device *pdev;
 	struct mutex busy_mutex;
 };
 
-static void xmgmt_main_event_cb(struct platform_device *pdev, void *arg)
+static void test1_main_event_cb(struct platform_device *pdev, void *arg)
 {
-	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+	struct test1_main *xmm = platform_get_drvdata(pdev);
 	struct xrt_event *evt = (struct xrt_event *)arg;
 	enum xrt_events e = evt->xe_evt;
 	enum xrt_subdev_id id = evt->xe_subdev.xevt_subdev_id;
@@ -48,9 +48,9 @@ static void xmgmt_main_event_cb(struct platform_device *pdev, void *arg)
 	}
 }
 
-static int xmgmt_main_probe(struct platform_device *pdev)
+static int test1_main_probe(struct platform_device *pdev)
 {
-	struct xmgmt_main *xmm;
+	struct test1_main *xmm;
 
 	xrt_info(pdev, "probing...");
 
@@ -65,22 +65,22 @@ static int xmgmt_main_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int xmgmt_main_remove(struct platform_device *pdev)
+static int test1_main_remove(struct platform_device *pdev)
 {
 	xrt_info(pdev, "leaving...");
 	return 0;
 }
 
 static int
-xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+test1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
+	struct test1_main *xmm = platform_get_drvdata(pdev);
 	int ret = 0;
 
 	xrt_info(pdev, "%p.ioctl(%d, %p)", xmm, cmd, arg);
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
-		xmgmt_main_event_cb(pdev, arg);
+		test1_main_event_cb(pdev, arg);
 		break;
 	case XRT_MGMT_MAIN_GET_AXLF_SECTION:
 		break;
@@ -94,7 +94,7 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	return ret;
 }
 
-static int xmgmt_main_open(struct inode *inode, struct file *file)
+static int test1_main_open(struct inode *inode, struct file *file)
 {
 	struct platform_device *pdev = xleaf_devnode_open(inode);
 
@@ -107,9 +107,9 @@ static int xmgmt_main_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int xmgmt_main_close(struct inode *inode, struct file *file)
+static int test1_main_close(struct inode *inode, struct file *file)
 {
-	struct xmgmt_main *xmm = file->private_data;
+	struct test1_main *xmm = file->private_data;
 
 	xleaf_devnode_close(inode);
 
@@ -121,7 +121,7 @@ static int xmgmt_main_close(struct inode *inode, struct file *file)
  * Called for xclbin download by either: xclbin load ioctl or
  * peer request from the userpf driver over mailbox.
  */
-static int xmgmt_bitstream_axlf_fpga_mgr(struct xmgmt_main *xmm,
+static int test1_bitstream_axlf_fpga_mgr(struct test1_main *xmm,
 	void *axlf, size_t size)
 {
 	int ret;
@@ -136,7 +136,7 @@ static int xmgmt_bitstream_axlf_fpga_mgr(struct xmgmt_main *xmm,
 }
 
 
-static int bitstream_axlf_ioctl(struct xmgmt_main *xmm, const void __user *arg)
+static int bitstream_axlf_ioctl(struct test1_main *xmm, const void __user *arg)
 {
 	void *copy_buffer = NULL;
 	size_t copy_buffer_size = 0;
@@ -164,18 +164,18 @@ static int bitstream_axlf_ioctl(struct xmgmt_main *xmm, const void __user *arg)
 		return -EFAULT;
 	}
 
-	ret = xmgmt_bitstream_axlf_fpga_mgr(xmm, copy_buffer, copy_buffer_size);
+	ret = test1_bitstream_axlf_fpga_mgr(xmm, copy_buffer, copy_buffer_size);
 	if (ret)
 		vfree(copy_buffer);
 
 	return ret;
 }
 
-static long xmgmt_main_ioctl(struct file *filp, unsigned int cmd,
+static long test1_main_ioctl(struct file *filp, unsigned int cmd,
 	unsigned long arg)
 {
 	long result = 0;
-	struct xmgmt_main *xmm = filp->private_data;
+	struct test1_main *xmm = filp->private_data;
 
 	BUG_ON(!xmm);
 
@@ -209,42 +209,42 @@ struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata xmgmt_main_data = {
+struct xrt_subdev_drvdata test1_main_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xmgmt_main_leaf_ioctl,
+		.xsd_ioctl = test1_main_leaf_ioctl,
 	},
 	.xsd_file_ops = {
 		.xsf_ops = {
 			.owner = THIS_MODULE,
-			.open = xmgmt_main_open,
-			.release = xmgmt_main_close,
-			.unlocked_ioctl = xmgmt_main_ioctl,
+			.open = test1_main_open,
+			.release = test1_main_close,
+			.unlocked_ioctl = test1_main_ioctl,
 		},
-		.xsf_dev_name = "xmgmt",
+		.xsf_dev_name = "test1",
 	},
 };
 
-static const struct platform_device_id xmgmt_main_id_table[] = {
-	{ XMGMT_MAIN, (kernel_ulong_t)&xmgmt_main_data },
+static const struct platform_device_id test1_main_id_table[] = {
+	{ TEST1_MAIN, (kernel_ulong_t)&test1_main_data },
 	{ },
 };
 
-struct platform_driver xmgmt_main_driver = {
+struct platform_driver test1_main_driver = {
 	.driver	= {
-		.name    = XMGMT_MAIN,
+		.name    = TEST1_MAIN,
 	},
-	.probe   = xmgmt_main_probe,
-	.remove  = xmgmt_main_remove,
-	.id_table = xmgmt_main_id_table,
+	.probe   = test1_main_probe,
+	.remove  = test1_main_remove,
+	.id_table = test1_main_id_table,
 };
 
-int xmgmt_main_register_leaf(void)
+int test1_main_register_leaf(void)
 {
 	return xleaf_register_external_driver(XRT_SUBDEV_MGMT_MAIN,
-		&xmgmt_main_driver, xrt_mgmt_main_endpoints);
+		&test1_main_driver, xrt_mgmt_main_endpoints);
 }
 
-void xmgmt_main_unregister_leaf(void)
+void test1_main_unregister_leaf(void)
 {
 	xleaf_unregister_external_driver(XRT_SUBDEV_MGMT_MAIN);
 }
