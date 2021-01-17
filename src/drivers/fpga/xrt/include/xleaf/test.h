@@ -19,19 +19,9 @@ enum xrt_xleaf_test_ioctl_cmd {
 	XRT_XLEAF_TEST_B,
 };
 
-struct xrt_xleaf_test_payload_in {
+struct xrt_xleaf_test_payload {
 	uuid_t dummy1;
 	char dummy2[16];
-};
-
-struct xrt_xleaf_test_payload_out {
-	int dummy3;
-	char dummy4[16];
-};
-
-union xrt_xleaf_test_payload {
-	struct xrt_xleaf_test_payload_in in;
-	struct xrt_xleaf_test_payload_out out;
 };
 
 #endif	/* _XRT_XLEAF_TEST_H_ */

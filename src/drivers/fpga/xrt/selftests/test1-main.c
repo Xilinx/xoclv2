@@ -10,10 +10,12 @@
 
 #include <linux/firmware.h>
 #include <linux/uaccess.h>
+#include <linux/delay.h>
 #include "xclbin-helper.h"
 #include "metadata.h"
 #include "xleaf/flash.h"
 #include "xleaf/gpio.h"
+#include "xleaf/test.h"
 #include "xmgmt-main.h"
 #include "main-impl.h"
 #include "xleaf.h"
@@ -25,6 +27,12 @@
 struct test1_main {
 	struct platform_device *pdev;
 	struct mutex busy_mutex;
+};
+
+struct test1_main_client_data {
+	struct platform_device *pdev;
+	struct platform_device *leaf0;
+	struct platform_device *leaf1;
 };
 
 static void test1_main_event_cb(struct platform_device *pdev, void *arg)
@@ -71,8 +79,59 @@ static int test1_main_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int
-test1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+static struct test1_main_client_data *test1_validate_ini(struct platform_device *pdev)
+{
+	struct test1_main_client_data *xdd = vzalloc(sizeof(struct test1_main_client_data));
+	xdd->pdev = pdev;
+	xdd->leaf0 = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_TEST, 0);
+	if (!xdd->leaf0) {
+		xrt_err(pdev, "Cannot find xleaf test instance[0]");
+		return xdd;
+	}
+	xdd->leaf1 = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_TEST, 1);
+	if (!xdd->leaf1) {
+		xrt_err(pdev, "Cannot find xleaf test instance[1]");
+		xleaf_put_leaf(xdd->pdev, xdd->leaf0);
+		return xdd;
+	}
+
+	xrt_info(pdev, "xleaf test instance[0] %p", xdd->leaf0);
+	xrt_info(pdev, "xleaf test instance[1] %p", xdd->leaf1);
+	return xdd;
+}
+
+static int test1_validate_fini(struct test1_main_client_data *xdd)
+{
+	int ret;
+	struct xrt_xleaf_test_payload arg_a = {uuid_null, "FPGA"};
+	struct xrt_xleaf_test_payload arg_b = {uuid_null, "FPGA"};
+
+	if (!xdd->leaf1)
+		goto finally;
+
+	generate_random_uuid(arg_a.dummy1.b);
+	generate_random_uuid(arg_b.dummy1.b);
+	ret = xleaf_ioctl(xdd->leaf0, XRT_XLEAF_TEST_A, &arg_a);
+	if (ret || !uuid_is_null(&arg_a.dummy1) || strcmp(arg_a.dummy2, "alveo")) {
+		xrt_err(xdd->pdev, "xleaf test instance[0] %p ioctl %d failed", xdd->leaf1, XRT_XLEAF_TEST_A);
+		ret = -EDOM;
+		goto error;
+	}
+	ret = xleaf_ioctl(xdd->leaf1, XRT_XLEAF_TEST_B, &arg_b);
+	if (ret || !uuid_is_null(&arg_b.dummy1) || strcmp(arg_b.dummy2, "alveo")) {
+		xrt_err(xdd->pdev, "xleaf test instance[1] %p ioctl %d failed", xdd->leaf1, XRT_XLEAF_TEST_B);
+		ret = -EDOM;
+		goto error;
+	}
+error:
+	xleaf_put_leaf(xdd->pdev, xdd->leaf1);
+	xleaf_put_leaf(xdd->pdev, xdd->leaf0);
+finally:
+	vfree(xdd);
+	return ret;
+}
+
+static int test1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct test1_main *xmm = platform_get_drvdata(pdev);
 	int ret = 0;
@@ -94,81 +153,58 @@ test1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	return ret;
 }
 
+static ssize_t
+test1_main_leaf_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
+{
+	int i;
+	struct test1_main_client_data *xdd = file->private_data;
+
+	for (i = 0; i < 4; i++) {
+		xrt_info(xdd->pdev, "reading...");
+		ssleep(1);
+	}
+	return n;
+}
+
+static ssize_t
+test1_main_leaf_write(struct file *file, const char __user *ubuf, size_t n, loff_t *off)
+{
+	int i;
+	struct test1_main_client_data *xdd = file->private_data;
+
+	for (i = 0; i < 4; i++) {
+		xrt_info(xdd->pdev, "writing %d...", i);
+		ssleep(1);
+	}
+	return n;
+}
+
 static int test1_main_open(struct inode *inode, struct file *file)
 {
 	struct platform_device *pdev = xleaf_devnode_open(inode);
+	struct test1_main_client_data *xdd;
 
 	/* Device may have gone already when we get here. */
 	if (!pdev)
 		return -ENODEV;
 
 	xrt_info(pdev, "opened");
-	file->private_data = platform_get_drvdata(pdev);
-	return 0;
+	xdd = test1_validate_ini(pdev);
+	file->private_data = xdd;
+	return xdd->leaf1 ? 0 : -EDOM;
 }
 
 static int test1_main_close(struct inode *inode, struct file *file)
 {
-	struct test1_main *xmm = file->private_data;
+	struct test1_main_client_data *xdd = file->private_data;
+	struct platform_device *pdev = xdd->pdev;
 
+	test1_validate_fini(xdd);
+	file->private_data = NULL;
 	xleaf_devnode_close(inode);
 
-	xrt_info(xmm->pdev, "closed");
+	xrt_info(pdev, "closed");
 	return 0;
-}
-
-/*
- * Called for xclbin download by either: xclbin load ioctl or
- * peer request from the userpf driver over mailbox.
- */
-static int test1_bitstream_axlf_fpga_mgr(struct test1_main *xmm,
-	void *axlf, size_t size)
-{
-	int ret;
-
-	BUG_ON(!mutex_is_locked(&xmm->busy_mutex));
-
-	/*
-	 * Should any error happens during download, we can't trust
-	 * the cached xclbin any more.
-	 */
-	return ret;
-}
-
-
-static int bitstream_axlf_ioctl(struct test1_main *xmm, const void __user *arg)
-{
-	void *copy_buffer = NULL;
-	size_t copy_buffer_size = 0;
-	struct xmgmt_ioc_bitstream_axlf ioc_obj = { 0 };
-	struct axlf xclbin_obj = { {0} };
-	int ret = 0;
-
-	if (copy_from_user((void *)&ioc_obj, arg, sizeof(ioc_obj)))
-		return -EFAULT;
-	if (copy_from_user((void *)&xclbin_obj, ioc_obj.xclbin,
-		sizeof(xclbin_obj)))
-		return -EFAULT;
-	if (memcmp(xclbin_obj.m_magic, ICAP_XCLBIN_V2, sizeof(ICAP_XCLBIN_V2)))
-		return -EINVAL;
-
-	copy_buffer_size = xclbin_obj.m_header.m_length;
-	if (copy_buffer_size > MAX_XCLBIN_SIZE)
-		return -EINVAL;
-	copy_buffer = vmalloc(copy_buffer_size);
-	if (copy_buffer == NULL)
-		return -ENOMEM;
-
-	if (copy_from_user(copy_buffer, ioc_obj.xclbin, copy_buffer_size)) {
-		vfree(copy_buffer);
-		return -EFAULT;
-	}
-
-	ret = test1_bitstream_axlf_fpga_mgr(xmm, copy_buffer, copy_buffer_size);
-	if (ret)
-		vfree(copy_buffer);
-
-	return ret;
 }
 
 static long test1_main_ioctl(struct file *filp, unsigned int cmd,
@@ -187,7 +223,6 @@ static long test1_main_ioctl(struct file *filp, unsigned int cmd,
 	xrt_info(xmm->pdev, "ioctl cmd %d, arg %ld", cmd, arg);
 	switch (cmd) {
 	case XMGMT_IOCICAPDOWNLOAD_AXLF:
-		result = bitstream_axlf_ioctl(xmm, (const void __user *)arg);
 		break;
 	default:
 		result = -ENOTTY;
@@ -219,6 +254,8 @@ struct xrt_subdev_drvdata test1_main_data = {
 			.open = test1_main_open,
 			.release = test1_main_close,
 			.unlocked_ioctl = test1_main_ioctl,
+			.read = test1_main_leaf_read,
+			.write = test1_main_leaf_write,
 		},
 		.xsf_dev_name = "test1",
 	},

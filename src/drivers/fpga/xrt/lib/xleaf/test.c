@@ -9,6 +9,8 @@
  */
 
 #include <linux/delay.h>
+#include <linux/uuid.h>
+#include <linux/string.h>
 #include "metadata.h"
 #include "xleaf.h"
 #include "xleaf/test.h"
@@ -97,20 +99,23 @@ static void xrt_test_event_cb(struct platform_device *pdev, void *arg)
 
 static int xrt_test_ioctl_cb_a(struct platform_device *pdev, void *arg)
 {
-	union xrt_xleaf_test_payload *payload = (union xrt_xleaf_test_payload *)arg;
+	struct xrt_xleaf_test_payload *payload = (struct xrt_xleaf_test_payload *)arg;
 	const struct xrt_test *xt = platform_get_drvdata(pdev);
 
-	payload->out.dummy3 = 0xdeadface;
+	uuid_copy(&payload->dummy1, &uuid_null);
+	strcpy(payload->dummy2, "alveo");
 	xrt_dbg(pdev, "processed ioctl cmd XRT_XLEAF_TEST_A on leaf %p", xt->pdev);
 	return 0;
 }
 
 static int xrt_test_ioctl_cb_b(struct platform_device *pdev, void *arg)
 {
-	union xrt_xleaf_test_payload *payload = (union xrt_xleaf_test_payload *)arg;
 	const struct xrt_test *xt = platform_get_drvdata(pdev);
+	int peer_instance = (pdev->id == 0) ? 1 : 0;
+	struct platform_device *peer = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_TEST, peer_instance);
 
-	payload->out.dummy3 = 0xfaceb00c;
+	xleaf_ioctl(peer, XRT_XLEAF_TEST_A, arg);
+	xleaf_put_leaf(pdev, peer);
 	xrt_dbg(pdev, "processed ioctl cmd XRT_XLEAF_TEST_B on leaf %p", xt->pdev);
 	return 0;
 }

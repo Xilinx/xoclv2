@@ -208,7 +208,7 @@ static inline int xleaf_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
 }
 
 extern int xleaf_put_leaf(struct platform_device *pdev,
-	struct platform_device *leaf);
+			  struct platform_device *leaf);
 extern int xleaf_create_group(struct platform_device *pdev, char *dtb);
 extern int xleaf_destroy_group(struct platform_device *pdev, int instance);
 extern int xleaf_wait_for_group_bringup(struct platform_device *pdev);

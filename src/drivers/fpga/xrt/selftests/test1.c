@@ -51,38 +51,6 @@ struct test1 {
 	bool ready;
 };
 
-static int test1_config_pci(struct test1 *xm)
-{
-	struct pci_dev *pdev = TEST1_PDEV(xm);
-	int rc;
-
-	rc = pcim_enable_device(pdev);
-	if (rc < 0) {
-		test1_err(xm, "failed to enable device: %d", rc);
-		return rc;
-	}
-
-	rc = pci_enable_pcie_error_reporting(pdev);
-	if (rc)
-		test1_warn(xm, "failed to enable AER: %d", rc);
-
-	pci_set_master(pdev);
-
-	rc = pcie_get_readrq(pdev);
-	if (rc < 0) {
-		test1_err(xm, "failed to read mrrs %d", rc);
-		return rc;
-	}
-	if (rc > 512) {
-		rc = pcie_set_readrq(pdev, 512);
-		if (rc) {
-			test1_err(xm, "failed to force mrrs %d", rc);
-			return rc;
-		}
-	}
-
-	return 0;
-}
 
 static void test1_root_hot_reset(struct pci_dev *pdev)
 {
@@ -91,7 +59,7 @@ static void test1_root_hot_reset(struct pci_dev *pdev)
 	test1_info(xm, "hot reset ignored");
 }
 
-static int test1_create_root_metadata(struct test1 *xm, char **root_dtb)
+static int test1_create_root_metadata(struct test1 *xm, char **root_dtb, const char *ep)
 {
 	char *dtb = NULL;
 	int ret;
@@ -102,7 +70,7 @@ static int test1_create_root_metadata(struct test1 *xm, char **root_dtb)
 		goto failed;
 	}
 
-	ret = xroot_add_simple_node(xm->root, dtb, NODE_TEST);
+	ret = xroot_add_simple_node(xm->root, dtb, ep);
 	if (ret)
 		goto failed;
 
@@ -138,10 +106,10 @@ static struct xroot_pf_cb test1_xroot_pf_cb = {
 };
 
 
-static int test1_create_group(struct test1 *xm)
+static int test1_create_group(struct test1 *xm, const char *ep)
 {
 	char *dtb = NULL;
-	int ret = test1_create_root_metadata(xm, &dtb);
+	int ret = test1_create_root_metadata(xm, &dtb, ep);
 
 	if (ret)
 		return ret;
@@ -152,6 +120,7 @@ static int test1_create_group(struct test1 *xm)
 		test1_err(xm, "failed to create root group: %d", ret);
 	return 0;
 }
+
 
 static int test1_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
@@ -164,20 +133,21 @@ static int test1_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	xm->pdev = pdev;
 	pci_set_drvdata(pdev, xm);
 
-	ret = test1_config_pci(xm);
-	if (ret)
-		goto failed;
-
 	ret = xroot_probe(pdev, &test1_xroot_pf_cb, &xm->root);
 	if (ret)
 		goto failed;
 
-	ret = test1_create_group(xm);
+	ret = test1_create_group(xm, NODE_TEST);
 
 	if (ret)
 		goto failed_metadata;
 
-	ret = test1_create_group(xm);
+	ret = test1_create_group(xm, NODE_TEST);
+
+	if (ret)
+		goto failed_metadata;
+
+	ret = test1_create_group(xm, NODE_MGMT_MAIN);
 
 	if (ret)
 		goto failed_metadata;
