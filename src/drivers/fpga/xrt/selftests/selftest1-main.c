@@ -45,11 +45,7 @@ static void selftest1_main_event_cb(struct platform_device *pdev, void *arg)
 	xrt_info(pdev, "%p.event(%d, %p) %d", xmm, e, evt, id);
 	switch (e) {
 	case XRT_EVENT_POST_CREATION:
-		/* mgmt driver finishes attaching, notify user pf. */
-		break;
 	case XRT_EVENT_PRE_REMOVAL:
-		/* mgmt driver is about to detach, notify user pf. */
-		break;
 	default:
 		xrt_dbg(pdev, "ignored event %d", e);
 		break;
@@ -230,9 +226,9 @@ static int selftest1_main_close(struct inode *inode, struct file *file)
 	xleaf_devnode_close(inode);
 
 	if (ret)
-		xrt_err(xdd->pdev, "Failed test %s", SELFTEST1_MAIN);
+		xrt_err(xdd->pdev, "FAILED test %s", SELFTEST1_MAIN);
 	else
-		xrt_info(xdd->pdev, "Passed test %s", SELFTEST1_MAIN);
+		xrt_info(xdd->pdev, "PASSED test %s", SELFTEST1_MAIN);
 
 	xrt_info(pdev, "closed");
 	return 0;

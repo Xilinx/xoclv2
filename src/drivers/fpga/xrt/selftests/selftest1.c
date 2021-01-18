@@ -46,9 +46,6 @@ static const struct pci_device_id selftest1_pci_ids[] = {
 struct selftest1 {
 	struct pci_dev *pdev;
 	struct xroot *root;
-
-	/* save config for pci reset */
-	u32 saved_config[8][16];
 	bool ready;
 };
 
