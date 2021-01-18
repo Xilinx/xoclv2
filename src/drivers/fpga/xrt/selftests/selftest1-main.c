@@ -30,7 +30,7 @@ struct selftest1_main {
 };
 
 struct selftest1_main_client_data {
-	struct platform_device *pdev; /* this subdevice */
+	struct platform_device *pdev;  /* This subdev */
 	struct platform_device *leaf0; /* test[0] handle obtained after lookup */
 	struct platform_device *leaf1; /* test[1] handle obtained after lookup */
 };
@@ -94,18 +94,21 @@ selftest1_validate_ini(struct platform_device *pdev)
 	xdd->leaf0 = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_TEST, 0);
 	if (!xdd->leaf0) {
 		xrt_err(pdev, "Cannot find xleaf test instance[0]");
-		return xdd;
+		goto finally;
 	}
 	xdd->leaf1 = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_TEST, 1);
 	if (!xdd->leaf1) {
 		xrt_err(pdev, "Cannot find xleaf test instance[1]");
 		xleaf_put_leaf(xdd->pdev, xdd->leaf0);
-		return xdd;
+		goto finally;
 	}
 
 	xrt_info(pdev, "xleaf test instance[0] %p", xdd->leaf0);
 	xrt_info(pdev, "xleaf test instance[1] %p", xdd->leaf1);
 	return xdd;
+finally:
+	vfree(xdd);
+	return NULL;
 }
 
 /* Basic test for XRT core which validates inter xleaf ioctl calls. Perform the
@@ -125,8 +128,8 @@ static int selftest1_validate_fini(struct selftest1_main_client_data *xdd)
 	struct xrt_xleaf_test_payload arg_a = {uuid_null, "FPGA"};
 	struct xrt_xleaf_test_payload arg_b = {uuid_null, "FPGA"};
 
-	if (!xdd->leaf1)
-		goto finally;
+	if (!xdd)
+		return ret;
 
 	generate_random_uuid(arg_a.dummy1.b);
 	generate_random_uuid(arg_b.dummy1.b);
@@ -136,20 +139,19 @@ static int selftest1_validate_fini(struct selftest1_main_client_data *xdd)
 		xrt_err(xdd->pdev, "xleaf test instance[0] %p ioctl %d failed",
 			xdd->leaf1, XRT_XLEAF_TEST_A);
 		ret = -EDOM;
-		goto error;
+		goto finally;
 	}
 	ret = xleaf_ioctl(xdd->leaf1, XRT_XLEAF_TEST_B, &arg_b);
 	if (ret || !uuid_is_null(&arg_b.dummy1) || strcmp(arg_b.dummy2, "alveo")) {
 		xrt_err(xdd->pdev, "xleaf test instance[1] %p ioctl %d failed",
 			xdd->leaf1, XRT_XLEAF_TEST_B);
 		ret = -EDOM;
-		goto error;
+		goto finally;
 	}
 
-error:
+finally:
 	xleaf_put_leaf(xdd->pdev, xdd->leaf1);
 	xleaf_put_leaf(xdd->pdev, xdd->leaf0);
-finally:
 	vfree(xdd);
 	return ret;
 }
@@ -212,7 +214,11 @@ static int selftest1_main_open(struct inode *inode, struct file *file)
 	/* Obtain the reference to test xleaf nodes */
 	xdd = selftest1_validate_ini(pdev);
 	file->private_data = xdd;
-	return xdd->leaf1 ? 0 : -EDOM;
+	if (!xdd) {
+		xrt_err(pdev, "FAILED test %s", SELFTEST1_MAIN);
+		return -EDOM;
+	}
+	return 0;
 }
 
 static int selftest1_main_close(struct inode *inode, struct file *file)
@@ -226,9 +232,9 @@ static int selftest1_main_close(struct inode *inode, struct file *file)
 	xleaf_devnode_close(inode);
 
 	if (ret)
-		xrt_err(xdd->pdev, "FAILED test %s", SELFTEST1_MAIN);
+		xrt_err(pdev, "FAILED test %s", SELFTEST1_MAIN);
 	else
-		xrt_info(xdd->pdev, "PASSED test %s", SELFTEST1_MAIN);
+		xrt_info(pdev, "PASSED test %s", SELFTEST1_MAIN);
 
 	xrt_info(pdev, "closed");
 	return 0;
