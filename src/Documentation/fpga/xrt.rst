@@ -714,8 +714,8 @@ across xclbin downloads.
    See code in ``lib/group.c``
 
 
-xleafs
-^^^^^^
+xleaf
+^^^^^
 
 The leaf driver is a platform device driver whose life cycle is managed by
 a group driver and may or may not have real IO mem or IRQ resources. They

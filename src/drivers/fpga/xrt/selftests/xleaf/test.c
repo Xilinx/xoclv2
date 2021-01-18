@@ -13,7 +13,7 @@
 #include <linux/string.h>
 #include "metadata.h"
 #include "xleaf.h"
-#include "xleaf/test.h"
+#include "test.h"
 
 #define	XRT_TEST "xrt_test"
 
@@ -173,7 +173,9 @@ xrt_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	case XRT_XLEAF_TEST_B:
 		ret = xrt_test_ioctl_cb_b(pdev, arg);
+		break;
 	default:
+		ret = -ENOTTY;
 		break;
 	}
 	return ret;
@@ -275,3 +277,14 @@ struct platform_driver xrt_test_driver = {
 	.remove  = xrt_test_remove,
 	.id_table = xrt_test_id_table,
 };
+
+int selftest_test_register_leaf(void)
+{
+	return xleaf_register_external_driver(XRT_SUBDEV_TEST,
+		&xrt_test_driver, xrt_test_endpoints);
+}
+
+void selftest_test_unregister_leaf(void)
+{
+	xleaf_unregister_external_driver(XRT_SUBDEV_TEST);
+}

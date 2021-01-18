@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *	Sonal Santan <sonal.santan@xilinx.com>
@@ -23,5 +23,9 @@ struct xrt_xleaf_test_payload {
 	uuid_t dummy1;
 	char dummy2[16];
 };
+
+
+int selftest_test_register_leaf(void);
+void selftest_test_unregister_leaf(void);
 
 #endif	/* _XRT_XLEAF_TEST_H_ */

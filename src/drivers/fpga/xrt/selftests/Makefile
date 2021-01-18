@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (C) 2019-2020 Xilinx, Inc. All rights reserved.
+# Copyright (C) 2021 Xilinx, Inc. All rights reserved.
 #
-# Authors: Sonal.Santan@xilinx.com
+# Authors:
+#     Sonal.Santan@xilinx.com
 #
 
-obj-m	+= xrt-test1.o
+obj-m	+= xrt-stest1.o
 
 fdtdir := ../../../../lib
 
@@ -25,8 +26,9 @@ fdtobj := 				\
 	$(fdtdir)/fdt_wip.o
 endif
 
-xrt-test1-y := test1.o		\
-	   test1-main.o		\
+xrt-stest1-y := selftest1.o		\
+	   selftest1-main.o		\
+	   xleaf/test.o			\
 	   $(fdtobj)
 
 

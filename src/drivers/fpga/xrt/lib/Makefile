@@ -33,7 +33,6 @@ xrt-lib-y := 			\
 	subdev.o		\
 	cdev.o			\
 	group.o			\
-	xleaf/test.o		\
 	xleaf/vsec.o		\
 	xleaf/vsec-golden.o	\
 	xleaf/axigate.o	\

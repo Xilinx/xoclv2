@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Xilinx Alveo FPGA MGMT PF entry point driver
+ * XRT driver infrastructure selftest 1 main leaf
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *	Sonal Santan <sonals@xilinx.com>
@@ -22,22 +22,22 @@
 #include <linux/xrt/flash_xrt_data.h>
 #include <linux/xrt/xmgmt-ioctl.h>
 
-#define	TEST1_MAIN "xrt-test1-main"
+#define	SELFTEST1_MAIN "xrt-selftest1-main"
 
-struct test1_main {
+struct selftest1_main {
 	struct platform_device *pdev;
 	struct mutex busy_mutex;
 };
 
-struct test1_main_client_data {
+struct selftest1_main_client_data {
 	struct platform_device *pdev; /* this subdevice */
 	struct platform_device *leaf0; /* test[0] handle obtained after lookup */
 	struct platform_device *leaf1; /* test[1] handle obtained after lookup */
 };
 
-static void test1_main_event_cb(struct platform_device *pdev, void *arg)
+static void selftest1_main_event_cb(struct platform_device *pdev, void *arg)
 {
-	struct test1_main *xmm = platform_get_drvdata(pdev);
+	struct selftest1_main *xmm = platform_get_drvdata(pdev);
 	struct xrt_event *evt = (struct xrt_event *)arg;
 	enum xrt_events e = evt->xe_evt;
 	enum xrt_subdev_id id = evt->xe_subdev.xevt_subdev_id;
@@ -56,9 +56,9 @@ static void test1_main_event_cb(struct platform_device *pdev, void *arg)
 	}
 }
 
-static int test1_main_probe(struct platform_device *pdev)
+static int selftest1_main_probe(struct platform_device *pdev)
 {
-	struct test1_main *xmm;
+	struct selftest1_main *xmm;
 
 	xrt_info(pdev, "probing...");
 
@@ -73,7 +73,7 @@ static int test1_main_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int test1_main_remove(struct platform_device *pdev)
+static int selftest1_main_remove(struct platform_device *pdev)
 {
 	xrt_info(pdev, "leaving...");
 	return 0;
@@ -88,9 +88,9 @@ static int test1_main_remove(struct platform_device *pdev)
  * }
  */
 
-static struct test1_main_client_data *test1_validate_ini(struct platform_device *pdev)
+static struct selftest1_main_client_data *selftest1_validate_ini(struct platform_device *pdev)
 {
-	struct test1_main_client_data *xdd = vzalloc(sizeof(struct test1_main_client_data));
+	struct selftest1_main_client_data *xdd = vzalloc(sizeof(struct selftest1_main_client_data));
 
 	xdd->pdev = pdev;
 	xdd->leaf0 = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_TEST, 0);
@@ -121,7 +121,7 @@ static struct test1_main_client_data *test1_validate_ini(struct platform_device 
  *     }
  * }
  */
-static int test1_validate_fini(struct test1_main_client_data *xdd)
+static int selftest1_validate_fini(struct selftest1_main_client_data *xdd)
 {
 	int ret;
 	struct xrt_xleaf_test_payload arg_a = {uuid_null, "FPGA"};
@@ -153,15 +153,15 @@ finally:
 	return ret;
 }
 
-static int test1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+static int selftest1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	struct test1_main *xmm = platform_get_drvdata(pdev);
+	struct selftest1_main *xmm = platform_get_drvdata(pdev);
 	int ret = 0;
 
 	xrt_info(pdev, "%p.ioctl(%d, %p)", xmm, cmd, arg);
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
-		test1_main_event_cb(pdev, arg);
+		selftest1_main_event_cb(pdev, arg);
 		break;
 	default:
 		xrt_err(pdev, "unknown cmd: %d", cmd);
@@ -171,11 +171,11 @@ static int test1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *ar
 	return ret;
 }
 
-static ssize_t test1_main_leaf_read(struct file *file, char __user *ubuf,
+static ssize_t selftest1_main_leaf_read(struct file *file, char __user *ubuf,
 				    size_t n, loff_t *off)
 {
 	int i;
-	struct test1_main_client_data *xdd = file->private_data;
+	struct selftest1_main_client_data *xdd = file->private_data;
 
 	for (i = 0; i < 4; i++) {
 		xrt_info(xdd->pdev, "reading...");
@@ -184,11 +184,11 @@ static ssize_t test1_main_leaf_read(struct file *file, char __user *ubuf,
 	return n;
 }
 
-static ssize_t test1_main_leaf_write(struct file *file, const char __user *ubuf,
+static ssize_t selftest1_main_leaf_write(struct file *file, const char __user *ubuf,
 				     size_t n, loff_t *off)
 {
 	int i;
-	struct test1_main_client_data *xdd = file->private_data;
+	struct selftest1_main_client_data *xdd = file->private_data;
 
 	for (i = 0; i < 4; i++) {
 		xrt_info(xdd->pdev, "writing %d...", i);
@@ -197,10 +197,10 @@ static ssize_t test1_main_leaf_write(struct file *file, const char __user *ubuf,
 	return n;
 }
 
-static int test1_main_open(struct inode *inode, struct file *file)
+static int selftest1_main_open(struct inode *inode, struct file *file)
 {
 	struct platform_device *pdev = xleaf_devnode_open(inode);
-	struct test1_main_client_data *xdd;
+	struct selftest1_main_client_data *xdd;
 
 	/* Device may have gone already when we get here. */
 	if (!pdev)
@@ -208,18 +208,18 @@ static int test1_main_open(struct inode *inode, struct file *file)
 
 	xrt_info(pdev, "opened");
 	/* Obtain the reference to test xleaf nodes */
-	xdd = test1_validate_ini(pdev);
+	xdd = selftest1_validate_ini(pdev);
 	file->private_data = xdd;
 	return xdd->leaf1 ? 0 : -EDOM;
 }
 
-static int test1_main_close(struct inode *inode, struct file *file)
+static int selftest1_main_close(struct inode *inode, struct file *file)
 {
-	struct test1_main_client_data *xdd = file->private_data;
+	struct selftest1_main_client_data *xdd = file->private_data;
 	struct platform_device *pdev = xdd->pdev;
 
 	/* Perform inter xleaf ioctls and then release test node handles */
-	test1_validate_fini(xdd);
+	selftest1_validate_fini(xdd);
 	file->private_data = NULL;
 	xleaf_devnode_close(inode);
 
@@ -239,43 +239,43 @@ struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata test1_main_data = {
+struct xrt_subdev_drvdata selftest1_main_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = test1_main_leaf_ioctl,
+		.xsd_ioctl = selftest1_main_leaf_ioctl,
 	},
 	.xsd_file_ops = {
 		.xsf_ops = {
 			.owner = THIS_MODULE,
-			.open = test1_main_open,
-			.release = test1_main_close,
-			.read = test1_main_leaf_read,
-			.write = test1_main_leaf_write,
+			.open = selftest1_main_open,
+			.release = selftest1_main_close,
+			.read = selftest1_main_leaf_read,
+			.write = selftest1_main_leaf_write,
 		},
-		.xsf_dev_name = "test1",
+		.xsf_dev_name = "selftest1",
 	},
 };
 
-static const struct platform_device_id test1_main_id_table[] = {
-	{ TEST1_MAIN, (kernel_ulong_t)&test1_main_data },
+static const struct platform_device_id selftest1_main_id_table[] = {
+	{ SELFTEST1_MAIN, (kernel_ulong_t)&selftest1_main_data },
 	{ },
 };
 
-struct platform_driver test1_main_driver = {
+struct platform_driver selftest1_main_driver = {
 	.driver	= {
-		.name    = TEST1_MAIN,
+		.name    = SELFTEST1_MAIN,
 	},
-	.probe   = test1_main_probe,
-	.remove  = test1_main_remove,
-	.id_table = test1_main_id_table,
+	.probe   = selftest1_main_probe,
+	.remove  = selftest1_main_remove,
+	.id_table = selftest1_main_id_table,
 };
 
-int test1_main_register_leaf(void)
+int selftest1_main_register_leaf(void)
 {
 	return xleaf_register_external_driver(XRT_SUBDEV_MGMT_MAIN,
-		&test1_main_driver, xrt_mgmt_main_endpoints);
+		&selftest1_main_driver, xrt_mgmt_main_endpoints);
 }
 
-void test1_main_unregister_leaf(void)
+void selftest1_main_unregister_leaf(void)
 {
 	xleaf_unregister_external_driver(XRT_SUBDEV_MGMT_MAIN);
 }

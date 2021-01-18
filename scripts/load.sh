@@ -5,7 +5,7 @@ set -e
 # Reload xmgmt driver
 rmmod xclmgmt || true
 rmmod xmgmt || true
-rmmod xrt-test1 || true
+rmmod xrt-stest1 || true
 rmmod xrt-lib || true
 modprobe fpga_mgr
 modprobe fpga_region
