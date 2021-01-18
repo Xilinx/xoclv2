@@ -30,9 +30,9 @@ struct test1_main {
 };
 
 struct test1_main_client_data {
-	struct platform_device *pdev;
-	struct platform_device *leaf0;
-	struct platform_device *leaf1;
+	struct platform_device *pdev; /* this subdevice */
+	struct platform_device *leaf0; /* test[0] handle obtained after lookup */
+	struct platform_device *leaf1; /* test[1] handle obtained after lookup */
 };
 
 static void test1_main_event_cb(struct platform_device *pdev, void *arg)
@@ -79,9 +79,19 @@ static int test1_main_remove(struct platform_device *pdev)
 	return 0;
 }
 
+/* Basic test for XRT core which validates xleaf lookup with EP name together with
+ * instance number as key. Symbolically we are performing the following operation:
+ *
+ * group2.xmgmt_main() {
+ *     lookup(group0.test)
+ *     lookup(group1.test)
+ * }
+ */
+
 static struct test1_main_client_data *test1_validate_ini(struct platform_device *pdev)
 {
 	struct test1_main_client_data *xdd = vzalloc(sizeof(struct test1_main_client_data));
+
 	xdd->pdev = pdev;
 	xdd->leaf0 = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_TEST, 0);
 	if (!xdd->leaf0) {
@@ -100,6 +110,17 @@ static struct test1_main_client_data *test1_validate_ini(struct platform_device 
 	return xdd;
 }
 
+/* Basic test for XRT core which validates inter xleaf ioctl calls. Symbolically we
+ * are performing the following operation:
+ *
+ * group2.xmgmt_main() {
+ *     ioctl(group0.test, XRT_XLEAF_TEST_A, arg)
+ *     ioctl(group1.test, XRT_XLEAF_TEST_B, arg) {
+ *         lookup(group0.test)
+ *         ioctl(group0.test, XRT_XLEAF_TEST_A, arg)
+ *     }
+ * }
+ */
 static int test1_validate_fini(struct test1_main_client_data *xdd)
 {
 	int ret;
@@ -123,6 +144,7 @@ static int test1_validate_fini(struct test1_main_client_data *xdd)
 		ret = -EDOM;
 		goto error;
 	}
+
 error:
 	xleaf_put_leaf(xdd->pdev, xdd->leaf1);
 	xleaf_put_leaf(xdd->pdev, xdd->leaf0);
@@ -141,10 +163,6 @@ static int test1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *ar
 	case XRT_XLEAF_EVENT:
 		test1_main_event_cb(pdev, arg);
 		break;
-	case XRT_MGMT_MAIN_GET_AXLF_SECTION:
-		break;
-	case XRT_MGMT_MAIN_GET_VBNV:
-		break;
 	default:
 		xrt_err(pdev, "unknown cmd: %d", cmd);
 		ret = -EINVAL;
@@ -153,8 +171,8 @@ static int test1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *ar
 	return ret;
 }
 
-static ssize_t
-test1_main_leaf_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
+static ssize_t test1_main_leaf_read(struct file *file, char __user *ubuf,
+				    size_t n, loff_t *off)
 {
 	int i;
 	struct test1_main_client_data *xdd = file->private_data;
@@ -166,8 +184,8 @@ test1_main_leaf_read(struct file *file, char __user *ubuf, size_t n, loff_t *off
 	return n;
 }
 
-static ssize_t
-test1_main_leaf_write(struct file *file, const char __user *ubuf, size_t n, loff_t *off)
+static ssize_t test1_main_leaf_write(struct file *file, const char __user *ubuf,
+				     size_t n, loff_t *off)
 {
 	int i;
 	struct test1_main_client_data *xdd = file->private_data;
@@ -189,6 +207,7 @@ static int test1_main_open(struct inode *inode, struct file *file)
 		return -ENODEV;
 
 	xrt_info(pdev, "opened");
+	/* Obtain the reference to test xleaf nodes */
 	xdd = test1_validate_ini(pdev);
 	file->private_data = xdd;
 	return xdd->leaf1 ? 0 : -EDOM;
@@ -199,6 +218,7 @@ static int test1_main_close(struct inode *inode, struct file *file)
 	struct test1_main_client_data *xdd = file->private_data;
 	struct platform_device *pdev = xdd->pdev;
 
+	/* Perform inter xleaf ioctls and then release test node handles */
 	test1_validate_fini(xdd);
 	file->private_data = NULL;
 	xleaf_devnode_close(inode);
@@ -207,31 +227,6 @@ static int test1_main_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static long test1_main_ioctl(struct file *filp, unsigned int cmd,
-	unsigned long arg)
-{
-	long result = 0;
-	struct test1_main *xmm = filp->private_data;
-
-	BUG_ON(!xmm);
-
-	if (_IOC_TYPE(cmd) != XMGMT_IOC_MAGIC)
-		return -ENOTTY;
-
-	mutex_lock(&xmm->busy_mutex);
-
-	xrt_info(xmm->pdev, "ioctl cmd %d, arg %ld", cmd, arg);
-	switch (cmd) {
-	case XMGMT_IOCICAPDOWNLOAD_AXLF:
-		break;
-	default:
-		result = -ENOTTY;
-		break;
-	}
-
-	mutex_unlock(&xmm->busy_mutex);
-	return result;
-}
 
 struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 	{
@@ -253,7 +248,6 @@ struct xrt_subdev_drvdata test1_main_data = {
 			.owner = THIS_MODULE,
 			.open = test1_main_open,
 			.release = test1_main_close,
-			.unlocked_ioctl = test1_main_ioctl,
 			.read = test1_main_leaf_read,
 			.write = test1_main_leaf_write,
 		},

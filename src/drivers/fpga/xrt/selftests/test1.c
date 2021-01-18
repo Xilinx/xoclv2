@@ -121,7 +121,26 @@ static int test1_create_group(struct test1 *xm, const char *ep)
 	return 0;
 }
 
-
+/*
+ * As part of the probe the following hierarchy is built from synthetic
+ * device tree fragments:
+ *                          +-----------+
+ *                          |   test1   |
+ *                          +-----+-----+
+ *                                |
+ *           +--------------------+--------------------+
+ *           |                    |                    |
+ *           v                    v                    v
+ *      +--------+           +--------+            +--------+
+ *      | group0 |           | group1 |            | group2 |
+ *      +----+---+           +----+---+            +---+----+
+ *           |                    |                    |
+ *           |                    |                    |
+ *           v                    v                    v
+ *      +---------+          +---------+          +-----------+
+ *      |   test  |          |   test  |          | mgmt_main |
+ *      +---------+          +---------+          +-----------+
+ */
 static int test1_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret;
@@ -181,7 +200,6 @@ static void test1_remove(struct pci_dev *pdev)
 	xroot_broadcast(xm->root, XRT_EVENT_PRE_REMOVAL);
 	sysfs_remove_group(&pdev->dev.kobj, &test1_root_attr_group);
 	(void) xroot_remove(xm->root);
-	pci_disable_pcie_error_reporting(xm->pdev);
 	test1_info(xm, "%s cleaned up successfully", TEST1_MODULE_NAME);
 }
 

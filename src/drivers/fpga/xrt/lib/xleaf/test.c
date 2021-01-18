@@ -108,49 +108,28 @@ static int xrt_test_ioctl_cb_a(struct platform_device *pdev, void *arg)
 	return 0;
 }
 
+/*
+ * Forward the ioctl call to peer after flipping the cmd from _B to _A.
+ */
 static int xrt_test_ioctl_cb_b(struct platform_device *pdev, void *arg)
 {
-	const struct xrt_test *xt = platform_get_drvdata(pdev);
+	int ret;
 	int peer_instance = (pdev->id == 0) ? 1 : 0;
 	struct platform_device *peer = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_TEST, peer_instance);
+	const struct xrt_test *xt = platform_get_drvdata(pdev);
 
-	xleaf_ioctl(peer, XRT_XLEAF_TEST_A, arg);
+	if (!peer)
+		return -ENODEV;
+	ret = xleaf_ioctl(peer, XRT_XLEAF_TEST_A, arg);
 	xleaf_put_leaf(pdev, peer);
 	xrt_dbg(pdev, "processed ioctl cmd XRT_XLEAF_TEST_B on leaf %p", xt->pdev);
-	return 0;
-}
-
-#if 0
-static int xrt_test_create_metadata(struct xrt_test *xt, char **root_dtb)
-{
-	char *dtb = NULL;
-	struct xrt_md_endpoint ep = { .ep_name = NODE_TEST };
-	int ret;
-
-	ret = xrt_md_create(DEV(xt->pdev), &dtb);
-	if (ret) {
-		xrt_err(xt->pdev, "create metadata failed, ret %d", ret);
-		goto failed;
-	}
-
-	ret = xrt_md_add_endpoint(DEV(xt->pdev), dtb, &ep);
-	if (ret) {
-		xrt_err(xt->pdev, "add test node failed, ret %d", ret);
-		goto failed;
-	}
-
-	*root_dtb = dtb;
-	return 0;
-
-failed:
-	vfree(dtb);
 	return ret;
 }
-#endif
+
+
 static int xrt_test_probe(struct platform_device *pdev)
 {
 	struct xrt_test *xt;
-//	char *dtb = NULL;
 
 	xrt_info(pdev, "probing...");
 
@@ -165,18 +144,6 @@ static int xrt_test_probe(struct platform_device *pdev)
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xrt_test_attrgroup))
 		xrt_err(pdev, "failed to create sysfs group");
 
-	/* Trigger group creation, only when this is the first instance. */
-#if 0
-	if (pdev->id == 0) {
-		(void) xrt_test_create_metadata(xt, &dtb);
-		if (dtb)
-			(void) xleaf_create_group(pdev, dtb);
-		vfree(dtb);
-	} else {
-		xleaf_broadcast_event(pdev, XRT_EVENT_TEST, false);
-	}
-#endif
-	/* After we return here, we'll get inter-leaf calls. */
 	return 0;
 }
 
