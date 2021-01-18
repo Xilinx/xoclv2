@@ -80,17 +80,19 @@ static int selftest1_main_remove(struct platform_device *pdev)
 }
 
 /* Basic test for XRT core which validates xleaf lookup with EP name together with
- * instance number as key. Symbolically we are performing the following operation:
+ * instance number as key. Perform the following operation:
  *
  * group2.xmgmt_main() {
- *     lookup(group0.test)
- *     lookup(group1.test)
+ *     lookup(group0.test);
+ *     lookup(group1.test);
  * }
  */
 
-static struct selftest1_main_client_data *selftest1_validate_ini(struct platform_device *pdev)
+static struct selftest1_main_client_data *
+selftest1_validate_ini(struct platform_device *pdev)
 {
-	struct selftest1_main_client_data *xdd = vzalloc(sizeof(struct selftest1_main_client_data));
+	struct selftest1_main_client_data *xdd =
+		vzalloc(sizeof(struct selftest1_main_client_data));
 
 	xdd->pdev = pdev;
 	xdd->leaf0 = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_TEST, 0);
@@ -110,20 +112,20 @@ static struct selftest1_main_client_data *selftest1_validate_ini(struct platform
 	return xdd;
 }
 
-/* Basic test for XRT core which validates inter xleaf ioctl calls. Symbolically we
- * are performing the following operation:
+/* Basic test for XRT core which validates inter xleaf ioctl calls. Perform the
+ * following operations:
  *
  * group2.xmgmt_main() {
- *     ioctl(group0.test, XRT_XLEAF_TEST_A, arg)
+ *     ioctl(group0.test, XRT_XLEAF_TEST_A, arg);
  *     ioctl(group1.test, XRT_XLEAF_TEST_B, arg) {
- *         lookup(group0.test)
- *         ioctl(group0.test, XRT_XLEAF_TEST_A, arg)
+ *         lookup(group0.test);
+ *         ioctl(group0.test, XRT_XLEAF_TEST_A, arg);
  *     }
  * }
  */
 static int selftest1_validate_fini(struct selftest1_main_client_data *xdd)
 {
-	int ret;
+	int ret = -EDOM;
 	struct xrt_xleaf_test_payload arg_a = {uuid_null, "FPGA"};
 	struct xrt_xleaf_test_payload arg_b = {uuid_null, "FPGA"};
 
@@ -132,15 +134,18 @@ static int selftest1_validate_fini(struct selftest1_main_client_data *xdd)
 
 	generate_random_uuid(arg_a.dummy1.b);
 	generate_random_uuid(arg_b.dummy1.b);
+
 	ret = xleaf_ioctl(xdd->leaf0, XRT_XLEAF_TEST_A, &arg_a);
 	if (ret || !uuid_is_null(&arg_a.dummy1) || strcmp(arg_a.dummy2, "alveo")) {
-		xrt_err(xdd->pdev, "xleaf test instance[0] %p ioctl %d failed", xdd->leaf1, XRT_XLEAF_TEST_A);
+		xrt_err(xdd->pdev, "xleaf test instance[0] %p ioctl %d failed",
+			xdd->leaf1, XRT_XLEAF_TEST_A);
 		ret = -EDOM;
 		goto error;
 	}
 	ret = xleaf_ioctl(xdd->leaf1, XRT_XLEAF_TEST_B, &arg_b);
 	if (ret || !uuid_is_null(&arg_b.dummy1) || strcmp(arg_b.dummy2, "alveo")) {
-		xrt_err(xdd->pdev, "xleaf test instance[1] %p ioctl %d failed", xdd->leaf1, XRT_XLEAF_TEST_B);
+		xrt_err(xdd->pdev, "xleaf test instance[1] %p ioctl %d failed",
+			xdd->leaf1, XRT_XLEAF_TEST_B);
 		ret = -EDOM;
 		goto error;
 	}
@@ -153,7 +158,8 @@ finally:
 	return ret;
 }
 
-static int selftest1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+static int selftest1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd,
+				     void *arg)
 {
 	struct selftest1_main *xmm = platform_get_drvdata(pdev);
 	int ret = 0;
@@ -217,11 +223,16 @@ static int selftest1_main_close(struct inode *inode, struct file *file)
 {
 	struct selftest1_main_client_data *xdd = file->private_data;
 	struct platform_device *pdev = xdd->pdev;
-
 	/* Perform inter xleaf ioctls and then release test node handles */
-	selftest1_validate_fini(xdd);
+	int ret = selftest1_validate_fini(xdd);
+
 	file->private_data = NULL;
 	xleaf_devnode_close(inode);
+
+	if (ret)
+		xrt_err(xdd->pdev, "Failed test %s", SELFTEST1_MAIN);
+	else
+		xrt_info(xdd->pdev, "Passed test %s", SELFTEST1_MAIN);
 
 	xrt_info(pdev, "closed");
 	return 0;
