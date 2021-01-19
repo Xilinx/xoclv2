@@ -8,18 +8,38 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
+#include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/uuid.h>
 #include <linux/string.h>
 #include "metadata.h"
 #include "xleaf.h"
 #include "test.h"
+#include "ring-drv.h"
+#include "../xleaf-test.h"
 
-#define	XRT_TEST "xrt_test"
+#define	XRT_TEST		"xrt_test"
+#define	XRT_TEST_MAX_RINGS	64
+
+struct xrt_test;
+
+struct xrt_test_client {
+	struct xrt_test *xt;
+};
+
+struct xrt_test_ring {
+	struct xrt_test_client *client;
+	uint64_t ring;
+};
 
 struct xrt_test {
 	struct platform_device *pdev;
 	struct platform_device *leaf;
+	struct mutex lock;
+	// ring buffer module handle
+	void *ring_hdl;
+	// records individual ring buffer handle
+	struct xrt_test_ring rings[XRT_TEST_MAX_RINGS];
 };
 
 static bool xrt_test_leaf_match(enum xrt_subdev_id id,
@@ -138,19 +158,27 @@ static int xrt_test_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	xt->pdev = pdev;
+	mutex_init(&xt->lock);
 	platform_set_drvdata(pdev, xt);
 
 	/* Ready to handle req thru sysfs nodes. */
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xrt_test_attrgroup))
 		xrt_err(pdev, "failed to create sysfs group");
 
+	xt->ring_hdl = xrt_ring_probe(DEV(pdev), XRT_TEST_MAX_RINGS);
+
 	return 0;
 }
 
 static int xrt_test_remove(struct platform_device *pdev)
 {
+	const struct xrt_test *xt = platform_get_drvdata(pdev);
+
 	/* By now, group driver should prevent any inter-leaf call. */
 	xrt_info(pdev, "leaving...");
+
+	if (xt->ring_hdl)
+		xrt_ring_remove(xt->ring_hdl);
 
 	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xrt_test_attrgroup);
 	/* By now, no more access thru sysfs nodes. */
@@ -181,16 +209,95 @@ xrt_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	return ret;
 }
 
+static void
+xrt_test_ring_req_handler(void *arg, struct xrt_ring_entry *req, size_t reqsz)
+{
+	struct xrt_test_ring *xr = arg;
+	struct xrt_ring_entry *resp = xrt_ring_cq_produce_begin(
+		xr->client->xt->ring_hdl, xr->ring, NULL);
+
+	if (resp) {
+		resp->xre_op_result = 0;
+		resp->xre_id = req->xre_id;
+		xrt_ring_cq_produce_end(xr->client->xt->ring_hdl, xr->ring);
+	} else {
+		xrt_err(xr->client->xt->pdev, "CQ ring overflow!");
+	}
+}
+
+static int xrt_test_add_ring(struct xrt_test_client *xc,
+	struct xrt_ioc_ring_register *reg)
+{
+	int i, ret;
+	struct xrt_test *xt = xc->xt;
+
+	mutex_lock(&xt->lock);
+	for (i = 0; i < XRT_TEST_MAX_RINGS && xt->rings[i].client; i++)
+		;
+	BUG_ON(i == XRT_TEST_MAX_RINGS);
+	xt->rings[i].client = xc;
+	xt->rings[i].ring = INVALID_RING_HANDLE;
+	mutex_unlock(&xt->lock);
+
+	ret = xrt_ring_register(xt->ring_hdl, reg,
+		xrt_test_ring_req_handler, &xt->rings[i]);
+	if (ret) {
+		xt->rings[i].client = NULL;
+		return ret;
+	}
+
+	xt->rings[i].ring = reg->xirr_ring_handle;
+
+	return 0;
+}
+
+static int xrt_test_del_ring(struct xrt_test_client *xc,
+	struct xrt_ioc_ring_unregister *unreg)
+{
+	int i, ret = 0;
+	struct xrt_test_ring *r;
+	struct xrt_test *xt = xc->xt;
+	struct xrt_ioc_ring_unregister ur = { 0 };
+	struct xrt_ioc_ring_unregister *urp = unreg ? unreg : &ur;
+
+	mutex_lock(&xt->lock);
+
+	for (i = 0; i < XRT_TEST_MAX_RINGS; i++) {
+		r = &xt->rings[i];
+		if (r->client != xc)
+			continue;
+		if (unreg && unreg->xiru_ring_handle != r->ring)
+			continue;
+
+		if (!unreg)
+			urp->xiru_ring_handle = r->ring;
+		ret = xrt_ring_unregister(xt->ring_hdl, urp);
+		if (ret)
+			break;
+		r->client = NULL;
+	}
+
+	mutex_unlock(&xt->lock);
+
+	return ret;
+}
+
 static int xrt_test_open(struct inode *inode, struct file *file)
 {
 	struct platform_device *pdev = xleaf_devnode_open(inode);
+	struct xrt_test_client *xc;
 
 	/* Device may have gone already when we get here. */
 	if (!pdev)
 		return -ENODEV;
 
+	xc = vzalloc(sizeof(struct xrt_test_client));
+	if (!xc)
+		return -ENOMEM;
+
+	xc->xt = platform_get_drvdata(pdev);
+	file->private_data = xc;
 	xrt_info(pdev, "opened");
-	file->private_data = platform_get_drvdata(pdev);
 	return 0;
 }
 
@@ -198,7 +305,8 @@ static ssize_t
 xrt_test_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
 {
 	int i;
-	struct xrt_test *xt = file->private_data;
+	struct xrt_test_client *xc = file->private_data;
+	struct xrt_test *xt = xc->xt;
 
 	for (i = 0; i < 4; i++) {
 		xrt_info(xt->pdev, "reading...");
@@ -211,7 +319,8 @@ static ssize_t
 xrt_test_write(struct file *file, const char __user *ubuf, size_t n, loff_t *off)
 {
 	int i;
-	struct xrt_test *xt = file->private_data;
+	struct xrt_test_client *xc = file->private_data;
+	struct xrt_test *xt = xc->xt;
 
 	for (i = 0; i < 4; i++) {
 		xrt_info(xt->pdev, "writing %d...", i);
@@ -220,12 +329,87 @@ xrt_test_write(struct file *file, const char __user *ubuf, size_t n, loff_t *off
 	return n;
 }
 
+static long xrt_test_ioctl(struct file *file, unsigned int cmd,
+	unsigned long uarg)
+{
+	long ret = 0;
+	struct xrt_test_client *xc = file->private_data;
+	struct xrt_test *xt = xc->xt;
+	void __user *arg = (void __user *)uarg;
+
+	switch (cmd) {
+	case XRT_TEST_REGISTER_RING: {
+		struct xrt_ioc_ring_register reg;
+
+		if (copy_from_user((void *)&reg, arg, sizeof(reg))) {
+			ret = -EFAULT;
+			break;
+		}
+
+		ret = xrt_test_add_ring(xc, &reg);
+		if (ret) {
+			xrt_err(xt->pdev, "can't add ring buffer: %ld", ret);
+			break;
+		}
+
+		if (copy_to_user(arg, (void *)&reg, sizeof(reg))) {
+			struct xrt_ioc_ring_unregister unreg = {
+				reg.xirr_ring_handle };
+
+			xrt_test_del_ring(xc, &unreg);
+			ret = -EFAULT;
+			break;
+		}
+		xrt_info(xt->pdev, "successfully added ring buffer");
+		break;
+	}
+	case XRT_TEST_UNREGISTER_RING: {
+		struct xrt_ioc_ring_unregister unreg;
+
+		if (copy_from_user((void *)&unreg, arg, sizeof(unreg))) {
+			ret = -EFAULT;
+			break;
+		}
+
+		ret = xrt_test_del_ring(xc, &unreg);
+		if (ret) {
+			xrt_err(xt->pdev, "can't delete ring buffer: %ld", ret);
+			break;
+		}
+
+		xrt_info(xt->pdev, "successfully deleted ring buffer");
+		break;
+	}
+	case XRT_TEST_SQ_WAKEUP: {
+		struct xrt_ioc_ring_sq_wakeup wakeup;
+
+		if (copy_from_user((void *)&wakeup, arg, sizeof(wakeup))) {
+			ret = -EFAULT;
+			break;
+		}
+
+		ret = xrt_ring_sq_wakeup(xt->ring_hdl, &wakeup);
+		if (ret)
+			xrt_err(xt->pdev, "can't wakeup ring buffer: %ld", ret);
+		break;
+	}
+	default:
+		xrt_err(xt->pdev, "unknown IOCTL cmd: %d", cmd);
+		ret = -ENOTTY;
+		break;
+	}
+
+	return ret;
+}
+
 static int xrt_test_close(struct inode *inode, struct file *file)
 {
-	struct xrt_test *xt = file->private_data;
+	struct xrt_test_client *xc = file->private_data;
+	struct xrt_test *xt = xc->xt;
 
 	xleaf_devnode_close(inode);
-
+	// remove all registered ring for this client.
+	(void) xrt_test_del_ring(xc, NULL);
 	xrt_info(xt->pdev, "closed");
 	return 0;
 }
@@ -256,6 +440,7 @@ struct xrt_subdev_drvdata xrt_test_data = {
 			.release = xrt_test_close,
 			.read = xrt_test_read,
 			.write = xrt_test_write,
+			.unlocked_ioctl = xrt_test_ioctl,
 		},
 		.xsf_mode = XRT_SUBDEV_FILE_MULTI_INST,
 	},
