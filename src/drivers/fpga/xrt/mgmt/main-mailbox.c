@@ -878,13 +878,19 @@ void *xmgmt_mailbox_probe(struct platform_device *pdev)
 {
 	struct xmgmt_mailbox *xmbx =
 		devm_kzalloc(DEV(pdev), sizeof(*xmbx), GFP_KERNEL);
+	int ret;
 
 	if (!xmbx)
 		return NULL;
 	xmbx->pdev = pdev;
 	mutex_init(&xmbx->lock);
 
-	(void) sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_mailbox_attrgroup);
+	ret = sysfs_create_group(&DEV(pdev)->kobj, &xmgmt_mailbox_attrgroup);
+	if (ret) {
+		xrt_err(pdev, "create sysfs group failed, ret %d", ret);
+		return NULL;
+	}
+
 	return xmbx;
 }
 

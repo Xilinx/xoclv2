@@ -158,7 +158,7 @@ static void xmgmt_root_hot_reset(struct pci_dev *pdev)
 	struct pci_bus *bus;
 	u8 pci_bctl;
 	u16 pci_cmd, devctl;
-	int i;
+	int i, ret;
 
 	xmgmt_info(xm, "hot reset start");
 
@@ -195,7 +195,9 @@ static void xmgmt_root_hot_reset(struct pci_dev *pdev)
 	pcie_capability_write_word(bus->self, PCI_EXP_DEVCTL, devctl);
 	pci_write_config_word(bus->self, PCI_COMMAND, pci_cmd);
 
-	pci_enable_device(pdev);
+	ret = pci_enable_device(pdev);
+	if (ret)
+		xmgmt_err(xm, "failed to enable device, ret %d", ret);
 
 	for (i = 0; i < 300; i++) {
 		pci_read_config_word(pdev, PCI_COMMAND, &pci_cmd);
