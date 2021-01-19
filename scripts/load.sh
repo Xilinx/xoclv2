@@ -5,6 +5,7 @@ set -e
 # Reload xmgmt driver
 rmmod xclmgmt || true
 rmmod xmgmt || true
+rmmod xrt-stest1 || true
 rmmod xrt-lib || true
 modprobe fpga_mgr
 modprobe fpga_region
@@ -26,3 +27,7 @@ xbmgmt partition --program --path /lib/firmware/xilinx/862c7020a250293e32036f199
 tree -f -l -L 2 /sys/class/fpga_bridge/
 tree -f -l -L 2 /sys/class/fpga_manager/
 tree -f -l -L 2 /sys/class/fpga_region/
+
+sudo rmmod xmgmt
+sleep 1
+sudo insmod selftests/xrt-stest1.ko

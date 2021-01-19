@@ -133,7 +133,7 @@ static int __xrt_md_add_endpoint(struct device *dev, char *blob,
 
 	ep_offset = xrt_md_add_node(dev, blob, ep_offset, ep->ep_name);
 	if (ep_offset < 0) {
-		md_err(dev, "add endpoint failed, ret = %d", ret);
+		md_err(dev, "add endpoint failed, ret = %d", ep_offset);
 		return -EINVAL;
 	}
 	if (offset)

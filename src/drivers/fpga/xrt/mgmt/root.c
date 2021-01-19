@@ -222,10 +222,6 @@ static int xmgmt_create_root_metadata(struct xmgmt *xm, char **root_dtb)
 		goto failed;
 	}
 
-	ret = xroot_add_simple_node(xm->root, dtb, NODE_TEST);
-	if (ret)
-		goto failed;
-
 	ret = xroot_add_vsec_node(xm->root, dtb);
 	if (ret == -ENOENT) {
 		/*

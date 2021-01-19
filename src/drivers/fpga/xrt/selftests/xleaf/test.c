@@ -2,15 +2,18 @@
 /*
  * Xilinx Alveo FPGA Test Leaf Driver
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
 #include <linux/delay.h>
+#include <linux/uuid.h>
+#include <linux/string.h>
 #include "metadata.h"
 #include "xleaf.h"
+#include "test.h"
 
 #define	XRT_TEST "xrt_test"
 
@@ -94,36 +97,39 @@ static void xrt_test_event_cb(struct platform_device *pdev, void *arg)
 		id, instance);
 }
 
-static int xrt_test_create_metadata(struct xrt_test *xt, char **root_dtb)
+static int xrt_test_ioctl_cb_a(struct platform_device *pdev, void *arg)
 {
-	char *dtb = NULL;
-	struct xrt_md_endpoint ep = { .ep_name = NODE_TEST };
-	int ret;
+	struct xrt_xleaf_test_payload *payload = (struct xrt_xleaf_test_payload *)arg;
+	const struct xrt_test *xt = platform_get_drvdata(pdev);
 
-	ret = xrt_md_create(DEV(xt->pdev), &dtb);
-	if (ret) {
-		xrt_err(xt->pdev, "create metadata failed, ret %d", ret);
-		goto failed;
-	}
-
-	ret = xrt_md_add_endpoint(DEV(xt->pdev), dtb, &ep);
-	if (ret) {
-		xrt_err(xt->pdev, "add test node failed, ret %d", ret);
-		goto failed;
-	}
-
-	*root_dtb = dtb;
+	uuid_copy(&payload->dummy1, &uuid_null);
+	strcpy(payload->dummy2, "alveo");
+	xrt_dbg(pdev, "processed ioctl cmd XRT_XLEAF_TEST_A on leaf %p", xt->pdev);
 	return 0;
+}
 
-failed:
-	vfree(dtb);
+/*
+ * Forward the ioctl call to peer after flipping the cmd from _B to _A.
+ */
+static int xrt_test_ioctl_cb_b(struct platform_device *pdev, void *arg)
+{
+	int ret;
+	int peer_instance = (pdev->id == 0) ? 1 : 0;
+	struct platform_device *peer = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_TEST, peer_instance);
+	const struct xrt_test *xt = platform_get_drvdata(pdev);
+
+	if (!peer)
+		return -ENODEV;
+	ret = xleaf_ioctl(peer, XRT_XLEAF_TEST_A, arg);
+	xleaf_put_leaf(pdev, peer);
+	xrt_dbg(pdev, "processed ioctl cmd XRT_XLEAF_TEST_B on leaf %p", xt->pdev);
 	return ret;
 }
+
 
 static int xrt_test_probe(struct platform_device *pdev)
 {
 	struct xrt_test *xt;
-	char *dtb = NULL;
 
 	xrt_info(pdev, "probing...");
 
@@ -138,17 +144,6 @@ static int xrt_test_probe(struct platform_device *pdev)
 	if (sysfs_create_group(&DEV(pdev)->kobj, &xrt_test_attrgroup))
 		xrt_err(pdev, "failed to create sysfs group");
 
-	/* Trigger group creation, only when this is the first instance. */
-	if (pdev->id == 0) {
-		(void) xrt_test_create_metadata(xt, &dtb);
-		if (dtb)
-			(void) xleaf_create_group(pdev, dtb);
-		vfree(dtb);
-	} else {
-		xleaf_broadcast_event(pdev, XRT_EVENT_TEST, false);
-	}
-
-	/* After we return here, we'll get inter-leaf calls. */
 	return 0;
 }
 
@@ -167,14 +162,23 @@ static int xrt_test_remove(struct platform_device *pdev)
 static int
 xrt_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
+	int ret = 0;
+
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
 		xrt_test_event_cb(pdev, arg);
 		break;
+	case XRT_XLEAF_TEST_A:
+		ret = xrt_test_ioctl_cb_a(pdev, arg);
+		break;
+	case XRT_XLEAF_TEST_B:
+		ret = xrt_test_ioctl_cb_b(pdev, arg);
+		break;
 	default:
+		ret = -ENOTTY;
 		break;
 	}
-	return 0;
+	return ret;
 }
 
 static int xrt_test_open(struct inode *inode, struct file *file)
@@ -196,11 +200,24 @@ xrt_test_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
 	int i;
 	struct xrt_test *xt = file->private_data;
 
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < 4; i++) {
 		xrt_info(xt->pdev, "reading...");
 		ssleep(1);
 	}
-	return 0;
+	return n;
+}
+
+static ssize_t
+xrt_test_write(struct file *file, const char __user *ubuf, size_t n, loff_t *off)
+{
+	int i;
+	struct xrt_test *xt = file->private_data;
+
+	for (i = 0; i < 4; i++) {
+		xrt_info(xt->pdev, "writing %d...", i);
+		ssleep(1);
+	}
+	return n;
 }
 
 static int xrt_test_close(struct inode *inode, struct file *file)
@@ -238,6 +255,7 @@ struct xrt_subdev_drvdata xrt_test_data = {
 			.open = xrt_test_open,
 			.release = xrt_test_close,
 			.read = xrt_test_read,
+			.write = xrt_test_write,
 		},
 		.xsf_mode = XRT_SUBDEV_FILE_MULTI_INST,
 	},
@@ -259,3 +277,14 @@ struct platform_driver xrt_test_driver = {
 	.remove  = xrt_test_remove,
 	.id_table = xrt_test_id_table,
 };
+
+int selftest_test_register_leaf(void)
+{
+	return xleaf_register_external_driver(XRT_SUBDEV_TEST,
+		&xrt_test_driver, xrt_test_endpoints);
+}
+
+void selftest_test_unregister_leaf(void)
+{
+	xleaf_unregister_external_driver(XRT_SUBDEV_TEST);
+}

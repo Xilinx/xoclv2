@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (C) 2020 Xilinx, Inc. All rights reserved.
+# Copyright (C) 2021 Xilinx, Inc. All rights reserved.
 #
-# Authors: Sonal.Santan@xilinx.com
+# Authors:
+#     Sonal.Santan@xilinx.com
 #
 
-obj-m   += xrt-lib.o
+obj-m	+= xrt-stest1.o
 
 fdtdir := ../../../../lib
 
@@ -25,33 +26,10 @@ fdtobj := 				\
 	$(fdtdir)/fdt_wip.o
 endif
 
-xrt-lib-y := 			\
-	main.o			\
-	xroot.o			\
-	xclbin.o		\
-	metadata.o		\
-	subdev.o		\
-	cdev.o			\
-	group.o			\
-	xleaf/vsec.o		\
-	xleaf/vsec-golden.o	\
-	xleaf/axigate.o	\
-	xleaf/qspi.o		\
-	xleaf/gpio.o		\
-	xleaf/mailbox.o	\
-	xleaf/icap.o		\
-	xleaf/cmc.o		\
-	xleaf/cmc-ctrl.o	\
-	xleaf/cmc-sensors.o	\
-	xleaf/cmc-mailbox.o	\
-	xleaf/cmc-bdinfo.o	\
-	xleaf/cmc-sc.o	\
-	xleaf/srsr.o		\
-	xleaf/clock.o		\
-	xleaf/clkfreq.o	\
-	xleaf/ucs.o		\
-	xleaf/calib.o		\
-	$(fdtobj)
+xrt-stest1-y := selftest1.o		\
+	   selftest1-main.o		\
+	   xleaf/test.o			\
+	   $(fdtobj)
 
 
 CONFIG_MODULE_SIG=n
@@ -64,13 +42,14 @@ XILINXINCLUDE := -I$(ROOT)/drivers/fpga/xrt/include -I$(ROOT)/include/uapi -I$(R
 ccflags-y += $(XILINXINCLUDE) -Wall -Werror -Wmissing-prototypes -Wunused-but-set-variable -Wold-style-declaration
 
 ifeq ($(DEBUG),1)
-ccflags-y += -DDEBUG -g -Og
+ccflags-y += -DDEBUG -Og -g
 endif
 
 all:
-	$(MAKE) -C $(KERNELDIR) W=1 M=$(PWD) modules
+	$(MAKE) -C $(KERNELDIR) W=1 M=$(PWD) KBUILD_EXTRA_SYMBOLS=$(PWD)/../lib/Module.symvers modules
 
 clean:
 	rm -rf *.o *.o.d *~ core .depend .*.cmd *.ko *.ko.unsigned *.mod.c \
-	rm -rf xleaf/*.o xleaf/*.o.d xleaf/*~ core xleaf/.depend xleaf/.*.cmd xleaf/*.mod.c \
-	.tmp_versions *.symvers modules.order *.mod .cache.mk
+	.tmp_versions *.symvers modules.order *.mod .cache.mk \
+	xleaf/*.o xleaf/*.o.d xleaf/*~ xleaf/.*.cmd \
+	$(fdtdir)/*.o
