@@ -305,7 +305,8 @@ static ssize_t
 xrt_test_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
 {
 	int i;
-	struct xrt_test *xt = file->private_data;
+	struct xrt_test_client *xc = file->private_data;
+	struct xrt_test *xt = xc->xt;
 
 	for (i = 0; i < 4; i++) {
 		xrt_info(xt->pdev, "reading...");
@@ -318,7 +319,8 @@ static ssize_t
 xrt_test_write(struct file *file, const char __user *ubuf, size_t n, loff_t *off)
 {
 	int i;
-	struct xrt_test *xt = file->private_data;
+	struct xrt_test_client *xc = file->private_data;
+	struct xrt_test *xt = xc->xt;
 
 	for (i = 0; i < 4; i++) {
 		xrt_info(xt->pdev, "writing %d...", i);
