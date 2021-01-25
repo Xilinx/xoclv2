@@ -241,7 +241,7 @@ static int selftest1_main_close(struct inode *inode, struct file *file)
 }
 
 
-struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
 			{ .ep_name = NODE_MGMT_MAIN },
