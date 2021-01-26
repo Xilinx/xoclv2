@@ -816,7 +816,7 @@ static struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata xmgmt_main_data = {
+static struct xrt_subdev_drvdata xmgmt_main_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xmgmt_main_leaf_ioctl,
 	},
