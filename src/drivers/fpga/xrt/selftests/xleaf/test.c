@@ -245,7 +245,7 @@ struct xrt_subdev_endpoints xrt_test_endpoints[] = {
 /*
  * Callbacks registered with root.
  */
-struct xrt_subdev_drvdata xrt_test_data = {
+static struct xrt_subdev_drvdata xrt_test_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xrt_test_leaf_ioctl,
 	},

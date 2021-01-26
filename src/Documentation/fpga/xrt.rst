@@ -104,9 +104,9 @@ xsabin
 ------
 
 Each Alveo platform comes packaged with its own xsabin. The xsabin is trusted
-component of the platform. For format details refer to :ref:`xsabin/xclbin Container Format`.
-xsabin contains basic information like UUIDs, platform name and metadata in the
-form of device tree. See :ref:`Device Tree Usage` for details and example.
+component of the platform. For format details refer to :ref:`xsabin_xclbin_container_format`
+below. xsabin contains basic information like UUIDs, platform name and metadata in the
+form of device tree. See :ref:`device_tree_usage` below for details and example.
 
 xclbin
 ------
@@ -118,6 +118,8 @@ acceleration engines/kernels, memory subsystems, clocking information etc. It al
 contains bitstream for the user partition, UUIDs, platform name, etc. xclbin uses
 the same container format as xsabin which is described below.
 
+
+.. _xsabin_xclbin_container_format:
 
 xsabin/xclbin Container Format
 ------------------------------
@@ -167,6 +169,8 @@ as shown below::
   xclbinutil --info --input /opt/xilinx/firmware/u50/gen3x16-xdma/blp/test/bandwidth.xclbin
   xclbinutil --info --input /lib/firmware/xilinx/862c7020a250293e32036f19956669e5/partition.xsabin
 
+
+.. _device_tree_usage:
 
 Device Tree Usage
 -----------------

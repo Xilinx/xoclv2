@@ -257,7 +257,7 @@ struct xrt_subdev_endpoints xrt_calib_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata xrt_calib_data = {
+static struct xrt_subdev_drvdata xrt_calib_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xrt_calib_leaf_ioctl,
 	},

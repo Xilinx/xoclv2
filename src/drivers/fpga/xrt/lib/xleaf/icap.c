@@ -288,7 +288,7 @@ struct xrt_subdev_endpoints xrt_icap_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata xrt_icap_data = {
+static struct xrt_subdev_drvdata xrt_icap_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xrt_icap_leaf_ioctl,
 	},

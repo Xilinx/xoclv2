@@ -195,7 +195,7 @@ struct xrt_subdev_endpoints xrt_clkfreq_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata xrt_clkfreq_data = {
+static struct xrt_subdev_drvdata xrt_clkfreq_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xrt_clkfreq_leaf_ioctl,
 	},

@@ -241,7 +241,7 @@ static int selftest1_main_close(struct inode *inode, struct file *file)
 }
 
 
-struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
 			{ .ep_name = NODE_MGMT_MAIN },
@@ -252,7 +252,7 @@ struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata selftest1_main_data = {
+static struct xrt_subdev_drvdata selftest1_main_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = selftest1_main_leaf_ioctl,
 	},
@@ -273,7 +273,7 @@ static const struct platform_device_id selftest1_main_id_table[] = {
 	{ },
 };
 
-struct platform_driver selftest1_main_driver = {
+static struct platform_driver selftest1_main_driver = {
 	.driver	= {
 		.name    = SELFTEST1_MAIN,
 	},
