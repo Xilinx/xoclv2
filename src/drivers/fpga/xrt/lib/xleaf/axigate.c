@@ -266,7 +266,7 @@ struct xrt_subdev_endpoints xrt_axigate_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata xrt_axigate_data = {
+static struct xrt_subdev_drvdata xrt_axigate_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xrt_axigate_leaf_ioctl,
 	},

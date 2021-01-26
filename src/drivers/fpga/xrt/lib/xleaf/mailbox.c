@@ -1872,7 +1872,7 @@ struct xrt_subdev_endpoints xrt_mailbox_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata mailbox_drvdata = {
+static struct xrt_subdev_drvdata mailbox_drvdata = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = mailbox_leaf_ioctl,
 	},
@@ -1891,7 +1891,7 @@ struct xrt_subdev_drvdata mailbox_drvdata = {
 
 #define	XRT_MAILBOX	"xrt_mailbox"
 
-struct platform_device_id mailbox_id_table[] = {
+static struct platform_device_id mailbox_id_table[] = {
 	{ XRT_MAILBOX, (kernel_ulong_t)&mailbox_drvdata },
 	{ },
 };

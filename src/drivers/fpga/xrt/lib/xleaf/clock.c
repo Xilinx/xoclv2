@@ -619,7 +619,7 @@ struct xrt_subdev_endpoints xrt_clock_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata xrt_clock_data = {
+static struct xrt_subdev_drvdata xrt_clock_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xrt_clock_leaf_ioctl,
 	},

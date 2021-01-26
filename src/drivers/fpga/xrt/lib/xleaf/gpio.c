@@ -179,7 +179,7 @@ struct xrt_subdev_endpoints xrt_gpio_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata xrt_gpio_data = {
+static struct xrt_subdev_drvdata xrt_gpio_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xrt_gpio_leaf_ioctl,
 	},

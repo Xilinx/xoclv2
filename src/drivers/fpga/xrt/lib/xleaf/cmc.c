@@ -211,7 +211,7 @@ struct xrt_subdev_endpoints xrt_cmc_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata xrt_cmc_data = {
+static struct xrt_subdev_drvdata xrt_cmc_data = {
 	.xsd_file_ops = {
 		.xsf_ops = {
 			.owner = THIS_MODULE,

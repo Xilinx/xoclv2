@@ -316,7 +316,7 @@ struct xrt_subdev_endpoints xrt_vsec_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata xrt_vsec_data = {
+static struct xrt_subdev_drvdata xrt_vsec_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xrt_vsec_ioctl,
 	},

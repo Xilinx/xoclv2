@@ -204,7 +204,7 @@ struct xrt_subdev_endpoints xrt_ucs_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata xrt_ucs_data = {
+static struct xrt_subdev_drvdata xrt_ucs_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xrt_ucs_leaf_ioctl,
 	},

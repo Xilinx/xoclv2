@@ -1316,7 +1316,7 @@ struct xrt_subdev_endpoints xrt_qspi_endpoints[] = {
 	{ 0 },
 };
 
-struct xrt_subdev_drvdata qspi_data = {
+static struct xrt_subdev_drvdata qspi_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = qspi_leaf_ioctl,
 	},
