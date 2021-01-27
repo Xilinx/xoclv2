@@ -241,7 +241,7 @@ static int xrt_grp_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	return rc;
 }
 
-struct xrt_subdev_drvdata xrt_grp_data = {
+static struct xrt_subdev_drvdata xrt_grp_data = {
 	.xsd_dev_ops = {
 		.xsd_ioctl = xrt_grp_ioctl,
 	},
