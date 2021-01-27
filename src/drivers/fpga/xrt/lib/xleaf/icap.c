@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA ICAP Driver
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
@@ -52,7 +52,7 @@ struct icap_reg {
 struct icap {
 	struct platform_device	*pdev;
 	struct icap_reg		*icap_regs;
-	struct mutex		icap_lock;
+	struct mutex		icap_lock; /* icap dev lock */
 
 	unsigned int		idcode;
 };
@@ -78,7 +78,7 @@ static int wait_for_done(struct icap *icap)
 	u32	w;
 	int	i = 0;
 
-	BUG_ON(!mutex_is_locked(&icap->icap_lock));
+	WARN_ON(!mutex_is_locked(&icap->icap_lock));
 	for (i = 0; i < 10; i++) {
 		udelay(5);
 		w = reg_rd(&icap->icap_regs->ir_sr);
@@ -115,14 +115,14 @@ static int icap_write(struct icap *icap, const u32 *word_buf, int size)
 }
 
 static int bitstream_helper(struct icap *icap, const u32 *word_buffer,
-	u32 word_count)
+			    u32 word_count)
 {
 	u32 remain_word;
 	u32 word_written = 0;
 	int wr_fifo_vacancy = 0;
 	int err = 0;
 
-	BUG_ON(!mutex_is_locked(&icap->icap_lock));
+	WARN_ON(!mutex_is_locked(&icap->icap_lock));
 	for (remain_word = word_count; remain_word > 0;
 		remain_word -= word_written, word_buffer += word_written) {
 		wr_fifo_vacancy = reg_rd(&icap->icap_regs->ir_wfv);
@@ -135,7 +135,7 @@ static int bitstream_helper(struct icap *icap, const u32 *word_buffer,
 			wr_fifo_vacancy : remain_word;
 		if (icap_write(icap, word_buffer, word_written) != 0) {
 			ICAP_ERR(icap, "write failed remain %d, written %d",
-					remain_word, word_written);
+				 remain_word, word_written);
 			err = -EIO;
 			break;
 		}
@@ -145,23 +145,22 @@ static int bitstream_helper(struct icap *icap, const u32 *word_buffer,
 }
 
 static int icap_download(struct icap *icap, const char *buffer,
-	unsigned long length)
+			 unsigned long length)
 {
-	u32	numCharsRead = DMA_HWICAP_BITFILE_BUFFER_SIZE;
+	u32	num_chars_read = DMA_HWICAP_BITFILE_BUFFER_SIZE;
 	u32	byte_read;
 	int	err = 0;
 
 	mutex_lock(&icap->icap_lock);
-	for (byte_read = 0; byte_read < length; byte_read += numCharsRead) {
-		numCharsRead = length - byte_read;
-		if (numCharsRead > DMA_HWICAP_BITFILE_BUFFER_SIZE)
-			numCharsRead = DMA_HWICAP_BITFILE_BUFFER_SIZE;
+	for (byte_read = 0; byte_read < length; byte_read += num_chars_read) {
+		num_chars_read = length - byte_read;
+		if (num_chars_read > DMA_HWICAP_BITFILE_BUFFER_SIZE)
+			num_chars_read = DMA_HWICAP_BITFILE_BUFFER_SIZE;
 
-		err = bitstream_helper(icap, (u32 *)buffer,
-			numCharsRead / sizeof(u32));
+		err = bitstream_helper(icap, (u32 *)buffer, num_chars_read / sizeof(u32));
 		if (err)
 			goto failed;
-		buffer += numCharsRead;
+		buffer += num_chars_read;
 	}
 
 	err = wait_for_done(icap);
@@ -221,7 +220,7 @@ xrt_icap_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	case XRT_ICAP_WRITE:
 		ret = icap_download(icap, wr_arg->xiiw_bit_data,
-				wr_arg->xiiw_data_len);
+				    wr_arg->xiiw_data_len);
 		break;
 	case XRT_ICAP_IDCODE:
 		*(u64 *)arg = icap->idcode;
@@ -262,9 +261,8 @@ static int xrt_icap_probe(struct platform_device *pdev)
 
 	xrt_info(pdev, "probing");
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res != NULL) {
-		icap->icap_regs = ioremap(res->start,
-			res->end - res->start + 1);
+	if (res) {
+		icap->icap_regs = ioremap(res->start, res->end - res->start + 1);
 		if (!icap->icap_regs) {
 			xrt_err(pdev, "map base failed %pR", res);
 			ret = -EIO;

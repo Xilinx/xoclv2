@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo Management Function Driver
  *
- * Copyright (C) 2019-2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  * Bulk of the code borrowed from XRT mgmt driver file, fmgr.c
  *
  * Authors: Sonal.Santan@xilinx.com

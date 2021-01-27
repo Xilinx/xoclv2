@@ -24,7 +24,6 @@ struct xrt_xleaf_test_payload {
 	char dummy2[16];
 };
 
-
 int selftest_test_register_leaf(void);
 void selftest_test_unregister_leaf(void);
 

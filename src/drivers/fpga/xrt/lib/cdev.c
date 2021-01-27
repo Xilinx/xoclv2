@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA device node helper functions.
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
@@ -84,8 +84,8 @@ __xleaf_devnode_open(struct inode *inode, bool excl)
 			pdata->xsp_devnode_excl = excl;
 			opened = true;
 			xrt_info(pdev, "opened %s, ref=%d",
-				CDEV_NAME(pdata->xsp_sysdev),
-				pdata->xsp_devnode_ref);
+				 CDEV_NAME(pdata->xsp_sysdev),
+				 pdata->xsp_devnode_ref);
 		}
 	} else {
 		xrt_err(pdev, "%s is offline", CDEV_NAME(pdata->xsp_sysdev));
@@ -124,10 +124,10 @@ void xleaf_devnode_close(struct inode *inode)
 	}
 	if (notify) {
 		xrt_info(pdev, "closed %s, ref=%d",
-			CDEV_NAME(pdata->xsp_sysdev), pdata->xsp_devnode_ref);
+			 CDEV_NAME(pdata->xsp_sysdev), pdata->xsp_devnode_ref);
 	} else {
 		xrt_info(pdev, "closed %s, notifying waiter",
-			CDEV_NAME(pdata->xsp_sysdev));
+			 CDEV_NAME(pdata->xsp_sysdev));
 	}
 
 	mutex_unlock(&pdata->xsp_devnode_lock);
@@ -144,7 +144,7 @@ devnode_mode(struct xrt_subdev_drvdata *drvdata)
 }
 
 int xleaf_devnode_create(struct platform_device *pdev, const char *file_name,
-	const char *inst_name)
+			 const char *inst_name)
 {
 	struct xrt_subdev_drvdata *drvdata = DEV_DRVDATA(pdev);
 	struct xrt_subdev_file_ops *fops = &drvdata->xsd_file_ops;
@@ -153,8 +153,6 @@ int xleaf_devnode_create(struct platform_device *pdev, const char *file_name,
 	struct device *sysdev;
 	int ret = 0;
 	char fname[256];
-
-	BUG_ON(fops->xsf_dev_t == (dev_t)-1);
 
 	mutex_init(&pdata->xsp_devnode_lock);
 	init_completion(&pdata->xsp_devnode_comp);
@@ -180,16 +178,16 @@ int xleaf_devnode_create(struct platform_device *pdev, const char *file_name,
 	if (!inst_name) {
 		if (devnode_mode(drvdata) == XRT_SUBDEV_FILE_MULTI_INST) {
 			snprintf(fname, sizeof(fname), "%s/%s/%s.%u",
-				XRT_CDEV_DIR, DEV_PDATA(pdev)->xsp_root_name,
-				file_name, pdev->id);
+				 XRT_CDEV_DIR, DEV_PDATA(pdev)->xsp_root_name,
+				 file_name, pdev->id);
 		} else {
 			snprintf(fname, sizeof(fname), "%s/%s/%s",
-				XRT_CDEV_DIR, DEV_PDATA(pdev)->xsp_root_name,
-				file_name);
+				 XRT_CDEV_DIR, DEV_PDATA(pdev)->xsp_root_name,
+				 file_name);
 		}
 	} else {
 		snprintf(fname, sizeof(fname), "%s/%s/%s.%s", XRT_CDEV_DIR,
-			DEV_PDATA(pdev)->xsp_root_name, file_name, inst_name);
+			 DEV_PDATA(pdev)->xsp_root_name, file_name, inst_name);
 	}
 	sysdev = device_create(xrt_class, NULL, cdevp->dev, NULL, "%s", fname);
 	if (IS_ERR(sysdev)) {
@@ -202,7 +200,7 @@ int xleaf_devnode_create(struct platform_device *pdev, const char *file_name,
 	xleaf_devnode_allowed(pdev);
 
 	xrt_info(pdev, "created (%d, %d): /dev/%s",
-		MAJOR(cdevp->dev), pdev->id, fname);
+		 MAJOR(cdevp->dev), pdev->id, fname);
 	return 0;
 
 failed:
@@ -219,14 +217,12 @@ int xleaf_devnode_destroy(struct platform_device *pdev)
 	dev_t dev = cdevp->dev;
 	int rc;
 
-	BUG_ON(!cdevp->owner);
-
 	rc = xleaf_devnode_disallowed(pdev);
 	if (rc)
 		return rc;
 
 	xrt_info(pdev, "removed (%d, %d): /dev/%s/%s", MAJOR(dev), MINOR(dev),
-		XRT_CDEV_DIR, CDEV_NAME(pdata->xsp_sysdev));
+		 XRT_CDEV_DIR, CDEV_NAME(pdata->xsp_sysdev));
 	device_destroy(xrt_class, cdevp->dev);
 	pdata->xsp_sysdev = NULL;
 	cdev_del(cdevp);

@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA memory calibration driver
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * memory calibration
  *
@@ -21,20 +21,20 @@ struct calib_cache {
 	struct list_head	link;
 	const char		*ep_name;
 	char			*data;
-	uint32_t		data_size;
+	u32			data_size;
 };
 
 struct calib {
 	struct platform_device	*pdev;
 	void			*calib_base;
-	struct mutex		lock;
+	struct mutex		lock; /* calibration dev lock */
 	struct list_head	cache_list;
-	uint32_t		cache_num;
+	u32			cache_num;
 	enum xrt_calib_results	result;
 };
 
 #define CALIB_DONE(calib)			\
-	(ioread32(calib->calib_base) & BIT(0))
+	(ioread32((calib)->calib_base) & BIT(0))
 
 static void calib_cache_clean_nolock(struct calib *calib)
 {
@@ -157,8 +157,12 @@ static void xrt_calib_event_cb(struct platform_device *pdev, void *arg)
 	case XRT_EVENT_POST_CREATION: {
 		if (id == XRT_SUBDEV_SRSR) {
 			leaf = xleaf_get_leaf_by_id(pdev,
-				XRT_SUBDEV_SRSR, instance);
-			BUG_ON(!leaf);
+						    XRT_SUBDEV_SRSR,
+						    instance);
+			if (!leaf) {
+				xrt_err(pdev, "does not get SRSR subdev");
+				return;
+			}
 			ret = calib_srsr(calib, leaf);
 			xleaf_put_leaf(pdev, leaf);
 			calib->result =

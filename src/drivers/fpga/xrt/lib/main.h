@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
@@ -38,9 +38,9 @@ extern struct xrt_subdev_endpoints xrt_clock_endpoints[];
 extern struct xrt_subdev_endpoints xrt_ucs_endpoints[];
 extern struct xrt_subdev_endpoints xrt_calib_endpoints[];
 
-extern const char *xrt_drv_name(enum xrt_subdev_id id);
-extern int xrt_drv_get_instance(enum xrt_subdev_id id);
-extern void xrt_drv_put_instance(enum xrt_subdev_id id, int instance);
-extern struct xrt_subdev_endpoints *xrt_drv_get_endpoints(enum xrt_subdev_id id);
+const char *xrt_drv_name(enum xrt_subdev_id id);
+int xrt_drv_get_instance(enum xrt_subdev_id id);
+void xrt_drv_put_instance(enum xrt_subdev_id id, int instance);
+struct xrt_subdev_endpoints *xrt_drv_get_endpoints(enum xrt_subdev_id id);
 
 #endif	/* _XRT_MAIN_H_ */

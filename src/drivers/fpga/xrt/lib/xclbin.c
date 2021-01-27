@@ -2,7 +2,7 @@
 /*
  * Xilinx Kernel Driver XCLBIN parser
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors: David Zhang <davidzha@xilinx.com>
  */
@@ -61,7 +61,7 @@ const char *xrt_xclbin_kind_to_string(enum axlf_section_kind kind)
 
 static const struct axlf_section_header *
 xrt_xclbin_get_section_hdr(const struct axlf *xclbin,
-	enum axlf_section_kind kind)
+			   enum axlf_section_kind kind)
 {
 	int i = 0;
 
@@ -75,51 +75,52 @@ xrt_xclbin_get_section_hdr(const struct axlf *xclbin,
 
 static int
 xrt_xclbin_check_section_hdr(const struct axlf_section_header *header,
-	uint64_t xclbin_len)
+			     u64 xclbin_len)
 {
 	return (header->m_sectionOffset + header->m_sectionSize) > xclbin_len ?
 		-EINVAL : 0;
 }
 
 static int xrt_xclbin_section_info(const struct axlf *xclbin,
-	enum axlf_section_kind kind,
-	uint64_t *offset, uint64_t *size)
+				   enum axlf_section_kind kind,
+				   u64 *offset, u64 *size)
 {
-	const struct axlf_section_header *memHeader = NULL;
-	uint64_t xclbin_len;
+	const struct axlf_section_header *mem_header = NULL;
+	u64 xclbin_len;
 	int err = 0;
 
-	memHeader = xrt_xclbin_get_section_hdr(xclbin, kind);
-	if (!memHeader)
+	mem_header = xrt_xclbin_get_section_hdr(xclbin, kind);
+	if (!mem_header)
 		return -EINVAL;
 
 	xclbin_len = xclbin->m_header.m_length;
-	err = xrt_xclbin_check_section_hdr(memHeader, xclbin_len);
+	err = xrt_xclbin_check_section_hdr(mem_header, xclbin_len);
 	if (err)
 		return err;
 
-	*offset = memHeader->m_sectionOffset;
-	*size = memHeader->m_sectionSize;
+	*offset = mem_header->m_sectionOffset;
+	*size = mem_header->m_sectionSize;
 
 	return 0;
 }
 
 /* caller should free the allocated memory for **data */
 int xrt_xclbin_get_section(const struct axlf *buf,
-	enum axlf_section_kind kind, void **data, uint64_t *len)
+			   enum axlf_section_kind kind,
+			   void **data, u64 *len)
 {
 	const struct axlf *xclbin = (const struct axlf *)buf;
 	void *section = NULL;
 	int err = 0;
-	uint64_t offset = 0;
-	uint64_t size = 0;
+	u64 offset = 0;
+	u64 size = 0;
 
 	err = xrt_xclbin_section_info(xclbin, kind, &offset, &size);
 	if (err)
 		return err;
 
 	section = vmalloc(size);
-	if (section == NULL)
+	if (!section)
 		return -ENOMEM;
 
 	memcpy(section, ((const char *)xclbin) + offset, size);
@@ -134,7 +135,8 @@ EXPORT_SYMBOL_GPL(xrt_xclbin_get_section);
 
 /* parse bitstream header */
 int xrt_xclbin_parse_bitstream_header(const unsigned char *data,
-	unsigned int size, struct XHwIcap_Bit_Header *header)
+				      unsigned int size,
+				      struct hw_icap_bit_header *header)
 {
 	unsigned int i;
 	unsigned int len;
@@ -147,14 +149,14 @@ int xrt_xclbin_parse_bitstream_header(const unsigned char *data,
 	/* Initialize HeaderLength.  If header returned early inidicates
 	 * failure.
 	 */
-	header->HeaderLength = XHI_BIT_HEADER_FAILURE;
+	header->header_length = XHI_BIT_HEADER_FAILURE;
 
 	/* Get "Magic" length */
-	header->MagicLength = data[index++];
-	header->MagicLength = (header->MagicLength << 8) | data[index++];
+	header->magic_length = data[index++];
+	header->magic_length = (header->magic_length << 8) | data[index++];
 
 	/* Read in "magic" */
-	for (i = 0; i < header->MagicLength - 1; i++) {
+	for (i = 0; i < header->magic_length - 1; i++) {
 		tmp = data[index++];
 		if (i % 2 == 0 && tmp != XHI_EVEN_MAGIC_BYTE)
 			return -1;	/* INVALID_FILE_HEADER_ERROR */
@@ -184,13 +186,13 @@ int xrt_xclbin_parse_bitstream_header(const unsigned char *data,
 	len = (len << 8) | data[index++];
 
 	/* allocate space for design name and final null character. */
-	header->DesignName = vmalloc(len);
+	header->design_name = vmalloc(len);
 
 	/* Read in Design Name */
 	for (i = 0; i < len; i++)
-		header->DesignName[i] = data[index++];
+		header->design_name[i] = data[index++];
 
-	if (header->DesignName[len-1] != '\0')
+	if (header->design_name[len - 1] != '\0')
 		return -1;
 
 	/* Read 'b' */
@@ -203,13 +205,13 @@ int xrt_xclbin_parse_bitstream_header(const unsigned char *data,
 	len = (len << 8) | data[index++];
 
 	/* allocate space for part name and final null character. */
-	header->PartName = vmalloc(len);
+	header->part_name = vmalloc(len);
 
 	/* Read in part name */
 	for (i = 0; i < len; i++)
-		header->PartName[i] = data[index++];
+		header->part_name[i] = data[index++];
 
-	if (header->PartName[len-1] != '\0')
+	if (header->part_name[len - 1] != '\0')
 		return -1;
 
 	/* Read 'c' */
@@ -222,13 +224,13 @@ int xrt_xclbin_parse_bitstream_header(const unsigned char *data,
 	len = (len << 8) | data[index++];
 
 	/* allocate space for date and final null character. */
-	header->Date = vmalloc(len);
+	header->date = vmalloc(len);
 
 	/* Read in date name */
 	for (i = 0; i < len; i++)
-		header->Date[i] = data[index++];
+		header->date[i] = data[index++];
 
-	if (header->Date[len - 1] != '\0')
+	if (header->date[len - 1] != '\0')
 		return -1;
 
 	/* Read 'd' */
@@ -241,13 +243,13 @@ int xrt_xclbin_parse_bitstream_header(const unsigned char *data,
 	len = (len << 8) | data[index++];
 
 	/* allocate space for time and final null character. */
-	header->Time = vmalloc(len);
+	header->time = vmalloc(len);
 
 	/* Read in time name */
 	for (i = 0; i < len; i++)
-		header->Time[i] = data[index++];
+		header->time[i] = data[index++];
 
-	if (header->Time[len - 1] != '\0')
+	if (header->time[len - 1] != '\0')
 		return -1;
 
 	/* Read 'e' */
@@ -256,22 +258,22 @@ int xrt_xclbin_parse_bitstream_header(const unsigned char *data,
 		return -1;	/* INVALID_FILE_HEADER_ERROR */
 
 	/* Get byte length of bitstream */
-	header->BitstreamLength = data[index++];
-	header->BitstreamLength = (header->BitstreamLength << 8) | data[index++];
-	header->BitstreamLength = (header->BitstreamLength << 8) | data[index++];
-	header->BitstreamLength = (header->BitstreamLength << 8) | data[index++];
-	header->HeaderLength = index;
+	header->bitstream_length = data[index++];
+	header->bitstream_length = (header->bitstream_length << 8) | data[index++];
+	header->bitstream_length = (header->bitstream_length << 8) | data[index++];
+	header->bitstream_length = (header->bitstream_length << 8) | data[index++];
+	header->header_length = index;
 
 	return 0;
 }
 EXPORT_SYMBOL_GPL(xrt_xclbin_parse_bitstream_header);
 
-void xrt_xclbin_free_header(struct XHwIcap_Bit_Header *header)
+void xrt_xclbin_free_header(struct hw_icap_bit_header *header)
 {
-	vfree(header->DesignName);
-	vfree(header->PartName);
-	vfree(header->Date);
-	vfree(header->Time);
+	vfree(header->design_name);
+	vfree(header->part_name);
+	vfree(header->date);
+	vfree(header->time);
 }
 
 struct xrt_clock_desc {
@@ -320,13 +322,14 @@ static const char *clock_type2clkfreq_name(u32 type)
 }
 
 static int xrt_xclbin_add_clock_metadata(struct device *dev,
-	const struct axlf *xclbin, char *dtb)
+					 const struct axlf *xclbin,
+					 char *dtb)
 {
 	int i;
 	u16 freq;
 	struct clock_freq_topology *clock_topo;
-	int rc = xrt_xclbin_get_section(xclbin,
-		CLOCK_FREQ_TOPOLOGY, (void **)&clock_topo, NULL);
+	int rc = xrt_xclbin_get_section(xclbin, CLOCK_FREQ_TOPOLOGY,
+					(void **)&clock_topo, NULL);
 
 	if (rc)
 		return 0;
@@ -340,13 +343,13 @@ static int xrt_xclbin_add_clock_metadata(struct device *dev,
 			continue;
 
 		freq = cpu_to_be16(clock_topo->m_clock_freq[i].m_freq_Mhz);
-		rc = xrt_md_set_prop(dev, dtb, ep_name,
-			NULL, PROP_CLK_FREQ, &freq, sizeof(freq));
+		rc = xrt_md_set_prop(dev, dtb, ep_name, NULL, PROP_CLK_FREQ,
+				     &freq, sizeof(freq));
 		if (rc)
 			break;
 
-		rc = xrt_md_set_prop(dev, dtb, ep_name,
-			NULL, PROP_CLK_CNT, counter_name, strlen(counter_name) + 1);
+		rc = xrt_md_set_prop(dev, dtb, ep_name, NULL, PROP_CLK_CNT,
+				     counter_name, strlen(counter_name) + 1);
 		if (rc)
 			break;
 	}
@@ -361,7 +364,7 @@ int xrt_xclbin_get_metadata(struct device *dev, const struct axlf *xclbin, char 
 	char *md = NULL, *newmd = NULL;
 	u64 len;
 	int rc = xrt_xclbin_get_section(xclbin, PARTITION_METADATA,
-		(void **)&md, &len);
+					(void **)&md, &len);
 
 	if (rc)
 		goto done;

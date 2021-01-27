@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA VSEC Driver
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
@@ -30,11 +30,13 @@ struct xrt_vsec_header {
 } __packed;
 
 #define head_rd(g, r)			\
-	ioread32(&((struct xrt_vsec_header *)g->base)->r)
+	ioread32((void *)(g)->base + offsetof(struct xrt_vsec_header, r))
 
-#define GET_BAR(entry)	((entry->bar_rev >> 4) & 0xf)
-#define GET_BAR_OFF(entry)	(entry->off_lo | ((u64)entry->off_hi << 16))
-#define GET_REV(entry)	(entry->bar_rev & 0xf)
+#define GET_BAR(entry)	(((entry)->bar_rev >> 4) & 0xf)
+#define GET_BAR_OFF(_entry)				\
+	({ typeof(_entry) entry = (_entry);		\
+	 ((entry)->off_lo | ((u64)(entry)->off_hi << 16)); })
+#define GET_REV(entry)	((entry)->bar_rev & 0xf)
 
 struct xrt_vsec_entry {
 	u8		type;
@@ -50,9 +52,9 @@ struct xrt_vsec_entry {
 
 #define read_entry(g, i, e)					\
 	do {							\
-		u32 *p = (u32 *)(g->base +			\
+		u32 *p = (u32 *)((g)->base +			\
 			sizeof(struct xrt_vsec_header) +	\
-			i * sizeof(struct xrt_vsec_entry));	\
+			(i) * sizeof(struct xrt_vsec_entry));	\
 		u32 off;					\
 		for (off = 0;					\
 		    off < sizeof(struct xrt_vsec_entry) / 4;	\
@@ -140,7 +142,7 @@ static char *type2regmap(u32 type)
 }
 
 static int xrt_vsec_add_node(struct xrt_vsec *vsec,
-	void *md_blob, struct xrt_vsec_entry *p_entry)
+			     void *md_blob, struct xrt_vsec_entry *p_entry)
 {
 	struct xrt_md_endpoint ep;
 	char regmap_ver[64];
@@ -156,8 +158,8 @@ static int xrt_vsec_add_node(struct xrt_vsec *vsec,
 	 */
 
 	snprintf(regmap_ver, sizeof(regmap_ver) - 1, "%d-%d.%d.%d",
-		p_entry->ver_type, p_entry->major, p_entry->minor,
-		GET_REV(p_entry));
+		 p_entry->ver_type, p_entry->major, p_entry->minor,
+		 GET_REV(p_entry));
 	ep.ep_name = type2epname(p_entry->type);
 	ep.bar = GET_BAR(p_entry);
 	ep.bar_off = GET_BAR_OFF(p_entry);
@@ -214,21 +216,21 @@ static int xrt_vsec_mapio(struct xrt_vsec *vsec)
 	}
 
 	ret = xrt_md_get_prop(DEV(vsec->pdev), pdata->xsp_dtb, NODE_VSEC,
-		NULL, PROP_BAR_IDX, (const void **)&bar, NULL);
+			      NULL, PROP_BAR_IDX, (const void **)&bar, NULL);
 	if (ret) {
 		xrt_err(vsec->pdev, "failed to get bar idx, ret %d", ret);
 		return -EINVAL;
 	}
 
 	ret = xrt_md_get_prop(DEV(vsec->pdev), pdata->xsp_dtb, NODE_VSEC,
-		NULL, PROP_OFFSET, (const void **)&bar_off, NULL);
+			      NULL, PROP_OFFSET, (const void **)&bar_off, NULL);
 	if (ret) {
 		xrt_err(vsec->pdev, "failed to get bar off, ret %d", ret);
 		return -EINVAL;
 	}
 
 	xrt_info(vsec->pdev, "Map vsec at bar %d, offset 0x%llx",
-		be32_to_cpu(*bar), be64_to_cpu(*bar_off));
+		 be32_to_cpu(*bar), be64_to_cpu(*bar_off));
 
 	xleaf_get_barres(vsec->pdev, &res, be32_to_cpu(*bar));
 	if (!res) {

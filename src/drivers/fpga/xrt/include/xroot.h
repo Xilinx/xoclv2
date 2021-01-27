@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
@@ -104,7 +104,7 @@ struct xroot_pf_cb {
 };
 
 int xroot_probe(struct pci_dev *pdev, struct xroot_pf_cb *cb,
-	struct xroot **root);
+		struct xroot **root);
 void xroot_remove(struct xroot *root);
 bool xroot_wait_for_bringup(struct xroot *root);
 int xroot_add_vsec_node(struct xroot *root, char *dtb);

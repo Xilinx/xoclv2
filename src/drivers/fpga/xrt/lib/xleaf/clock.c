@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA Clock Wizard Driver
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
@@ -41,7 +41,7 @@
 struct clock {
 	struct platform_device  *pdev;
 	void __iomem		*clock_base;
-	struct mutex		clock_lock;
+	struct mutex		clock_lock; /* clock dev lock */
 
 	const char		*clock_ep_name;
 };
@@ -201,7 +201,8 @@ static inline void reg_wr(struct clock *clock, u32 val, u32 offset)
 }
 
 static u32 find_matching_freq_config(unsigned short freq,
-	const struct xmgmt_ocl_clockwiz *table, int size)
+				     const struct xmgmt_ocl_clockwiz *table,
+				     int size)
 {
 	u32 start = 0;
 	u32 end = size - 1;
@@ -229,15 +230,15 @@ static u32 find_matching_freq_config(unsigned short freq,
 }
 
 static u32 find_matching_freq(u32 freq,
-	const struct xmgmt_ocl_clockwiz *freq_table, int freq_table_size)
+			      const struct xmgmt_ocl_clockwiz *freq_table,
+			      int freq_table_size)
 {
 	int idx = find_matching_freq_config(freq, freq_table, freq_table_size);
 
 	return freq_table[idx].ocl;
 }
 
-static inline int clock_wiz_busy(struct clock *clock, int cycle,
-	int interval)
+static inline int clock_wiz_busy(struct clock *clock, int cycle, int interval)
 {
 	u32 val = 0;
 	int count;
@@ -249,7 +250,7 @@ static inline int clock_wiz_busy(struct clock *clock, int cycle,
 	}
 	if (val != 1) {
 		CLOCK_ERR(clock, "clockwiz is (%u) busy after %d ms",
-			val, cycle * interval);
+			  val, cycle * interval);
 		return -ETIMEDOUT;
 	}
 
@@ -266,7 +267,7 @@ static int get_freq(struct clock *clock, u16 *freq)
 	u32 div1;
 	u32 div_frac1 = 0;
 
-	BUG_ON(!mutex_is_locked(&clock->clock_lock));
+	WARN_ON(!mutex_is_locked(&clock->clock_lock));
 
 	val = reg_rd(clock, OCL_CLKWIZ_STATUS_OFFSET);
 	if ((val & 0x1) == 0) {
@@ -326,10 +327,10 @@ static int set_freq(struct clock *clock, u16 freq)
 	u32 idx = 0;
 	u32 val;
 
-	BUG_ON(!mutex_is_locked(&clock->clock_lock));
+	WARN_ON(!mutex_is_locked(&clock->clock_lock));
 
 	idx = find_matching_freq_config(freq, frequency_table,
-		ARRAY_SIZE(frequency_table));
+					ARRAY_SIZE(frequency_table));
 
 	CLOCK_INFO(clock, "New: %d Mhz", freq);
 	err = clock_wiz_busy(clock, 20, 50);
@@ -376,7 +377,7 @@ static int get_freq_counter(struct clock *clock, u32 *freq)
 	int err = xrt_md_get_prop(DEV(pdev), pdata->xsp_dtb,
 		clock->clock_ep_name, NULL, PROP_CLK_CNT, &cnter, NULL);
 
-	BUG_ON(!mutex_is_locked(&clock->clock_lock));
+	WARN_ON(!mutex_is_locked(&clock->clock_lock));
 
 	if (err) {
 		xrt_err(pdev, "no counter specified");
@@ -445,13 +446,13 @@ static int clock_verify_freq(struct clock *clock)
 	}
 
 	lookup_freq = find_matching_freq(freq, frequency_table,
-		ARRAY_SIZE(frequency_table));
+					 ARRAY_SIZE(frequency_table));
 	request_in_khz = lookup_freq * 1000;
 	tolerance = lookup_freq * 50;
-	if (tolerance < abs(clock_freq_counter-request_in_khz)) {
+	if (tolerance < abs(clock_freq_counter - request_in_khz)) {
 		CLOCK_ERR(clock,
-		    "set clock(%s) failed, request %ukhz, actual %dkhz",
-		    clock->clock_ep_name, request_in_khz, clock_freq_counter);
+			  "set clock(%s) failed, request %ukhz, actual %dkhz",
+			  clock->clock_ep_name, request_in_khz, clock_freq_counter);
 		err = -EDOM;
 	} else {
 		CLOCK_INFO(clock, "verified clock (%s)", clock->clock_ep_name);
@@ -469,7 +470,7 @@ static int clock_init(struct clock *clock)
 	const u16 *freq;
 
 	err = xrt_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
-		clock->clock_ep_name, NULL, PROP_CLK_FREQ,
+			      clock->clock_ep_name, NULL, PROP_CLK_FREQ,
 		(const void **)&freq, NULL);
 	if (err) {
 		xrt_info(clock->pdev, "no default freq");
@@ -483,8 +484,7 @@ static int clock_init(struct clock *clock)
 	return err;
 }
 
-static ssize_t freq_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
+static ssize_t freq_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct clock *clock = platform_get_drvdata(to_platform_device(dev));
 	u16 freq = 0;
@@ -562,8 +562,6 @@ static int clock_remove(struct platform_device *pdev)
 	CLOCK_INFO(clock, "successfully removed Clock subdev");
 	return 0;
 }
-
-
 
 static int clock_probe(struct platform_device *pdev)
 {

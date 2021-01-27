@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA Clock Frequency Counter Driver
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
@@ -40,7 +40,7 @@ struct clkfreq {
 	struct platform_device	*pdev;
 	void __iomem		*clkfreq_base;
 	const char		*clkfreq_ep_name;
-	struct mutex		clkfreq_lock;
+	struct mutex		clkfreq_lock; /* clock counter dev lock */
 };
 
 static inline u32 reg_rd(struct clkfreq *clkfreq, u32 offset)
@@ -52,7 +52,6 @@ static inline void reg_wr(struct clkfreq *clkfreq, u32 val, u32 offset)
 {
 	iowrite32(val, clkfreq->clkfreq_base + offset);
 }
-
 
 static u32 clkfreq_read(struct clkfreq *clkfreq)
 {
@@ -79,8 +78,7 @@ static u32 clkfreq_read(struct clkfreq *clkfreq)
 	return freq;
 }
 
-static ssize_t freq_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
+static ssize_t freq_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct clkfreq *clkfreq = platform_get_drvdata(to_platform_device(dev));
 	u32 freq;
@@ -143,8 +141,6 @@ static int clkfreq_remove(struct platform_device *pdev)
 	return 0;
 }
 
-
-
 static int clkfreq_probe(struct platform_device *pdev)
 {
 	struct clkfreq *clkfreq = NULL;
@@ -182,7 +178,6 @@ failed:
 	clkfreq_remove(pdev);
 	return ret;
 }
-
 
 struct xrt_subdev_endpoints xrt_clkfreq_endpoints[] = {
 	{

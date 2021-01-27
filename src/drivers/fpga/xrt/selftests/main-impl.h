@@ -12,8 +12,7 @@
 #include <linux/platform_device.h>
 #include "xmgmt-main.h"
 
-
-extern int selftest1_main_register_leaf(void);
-extern void selftest1_main_unregister_leaf(void);
+int selftest1_main_register_leaf(void);
+void selftest1_main_unregister_leaf(void);
 
 #endif	/* _SELFTEST1_MAIN_IMPL_H_ */
