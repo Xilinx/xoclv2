@@ -32,9 +32,10 @@
 	dev_info(SELFTEST1_DEV(xm), "%s: " fmt, __func__, ##args)
 #define selftest1_dbg(xm, fmt, args...)	\
 	dev_dbg(SELFTEST1_DEV(xm), "%s: " fmt, __func__, ##args)
-#define	SELFTEST1_DEV_ID(pdev)			\
+#define	SELFTEST1_DEV_ID(_pdev)			\
+	({ typeof(_pdev) pdev = (_pdev);	\
 	((pci_domain_nr(pdev->bus) << 16) |	\
-	PCI_DEVID(pdev->bus->number, 0))
+	PCI_DEVID(pdev->bus->number, 0)); })
 
 static struct class *selftest1_class;
 static const struct pci_device_id selftest1_pci_ids[] = {
@@ -48,7 +49,6 @@ struct selftest1 {
 	struct xroot *root;
 	bool ready;
 };
-
 
 static void selftest1_root_hot_reset(struct pci_dev *pdev)
 {
@@ -81,7 +81,7 @@ failed:
 }
 
 static ssize_t ready_show(struct device *dev,
-	struct device_attribute *da, char *buf)
+			  struct device_attribute *da, char *buf)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct selftest1 *xm = pci_get_drvdata(pdev);
@@ -102,7 +102,6 @@ static struct attribute_group selftest1_root_attr_group = {
 static struct xroot_pf_cb selftest1_xroot_pf_cb = {
 	.xpc_hot_reset = selftest1_root_hot_reset,
 };
-
 
 static int selftest1_create_group(struct selftest1 *xm, const char *ep)
 {
@@ -142,7 +141,7 @@ static int selftest1_create_group(struct selftest1 *xm, const char *ep)
 static int selftest1_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret;
-	struct device *dev = &(pdev->dev);
+	struct device *dev = &pdev->dev;
 	struct selftest1 *xm = devm_kzalloc(dev, sizeof(*xm), GFP_KERNEL);
 
 	if (!xm)
@@ -185,7 +184,7 @@ static int selftest1_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	return 0;
 
 failed_metadata:
-	(void) xroot_remove(xm->root);
+	(void)xroot_remove(xm->root);
 failed:
 	pci_set_drvdata(pdev, NULL);
 	return ret;
@@ -197,7 +196,7 @@ static void selftest1_remove(struct pci_dev *pdev)
 
 	xroot_broadcast(xm->root, XRT_EVENT_PRE_REMOVAL);
 	sysfs_remove_group(&pdev->dev.kobj, &selftest1_root_attr_group);
-	(void) xroot_remove(xm->root);
+	(void)xroot_remove(xm->root);
 	selftest1_info(xm, "%s cleaned up successfully", SELFTEST1_MODULE_NAME);
 }
 

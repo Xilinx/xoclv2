@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA Test Leaf Driver
  *
- * Copyright (C) 2020-2021 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
@@ -23,21 +23,23 @@ struct xrt_test {
 };
 
 static bool xrt_test_leaf_match(enum xrt_subdev_id id,
-	struct platform_device *pdev, void *arg)
+				struct platform_device *pdev,
+				void *arg)
 {
 	int myid = (int)(uintptr_t)arg;
 	return id == XRT_SUBDEV_TEST && pdev->id != myid;
 }
 
 static ssize_t hold_store(struct device *dev,
-	struct device_attribute *da, const char *buf, size_t count)
+			  struct device_attribute *da,
+			  const char *buf, size_t count)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct xrt_test *xt = platform_get_drvdata(pdev);
 	struct platform_device *leaf;
 
 	leaf = xleaf_get_leaf(pdev, xrt_test_leaf_match,
-		(void *)(uintptr_t)pdev->id);
+			      (void *)(uintptr_t)pdev->id);
 	if (leaf)
 		xt->leaf = leaf;
 	return count;
@@ -45,13 +47,14 @@ static ssize_t hold_store(struct device *dev,
 static DEVICE_ATTR_WO(hold);
 
 static ssize_t release_store(struct device *dev,
-	struct device_attribute *da, const char *buf, size_t count)
+			     struct device_attribute *da,
+			     const char *buf, size_t count)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct xrt_test *xt = platform_get_drvdata(pdev);
 
 	if (xt->leaf)
-		(void) xleaf_put_leaf(pdev, xt->leaf);
+		(void)xleaf_put_leaf(pdev, xt->leaf);
 	return count;
 }
 static DEVICE_ATTR_WO(release);
@@ -86,8 +89,8 @@ static void xrt_test_event_cb(struct platform_device *pdev, void *arg)
 
 	leaf = xleaf_get_leaf_by_id(pdev, id, instance);
 	if (leaf) {
-		(void) xleaf_ioctl(leaf, 1, NULL);
-		(void) xleaf_put_leaf(pdev, leaf);
+		(void)xleaf_ioctl(leaf, 1, NULL);
+		(void)xleaf_put_leaf(pdev, leaf);
 	}
 
 	/* Broadcast event. */
@@ -126,7 +129,6 @@ static int xrt_test_ioctl_cb_b(struct platform_device *pdev, void *arg)
 	return ret;
 }
 
-
 static int xrt_test_probe(struct platform_device *pdev)
 {
 	struct xrt_test *xt;
@@ -152,7 +154,7 @@ static int xrt_test_remove(struct platform_device *pdev)
 	/* By now, group driver should prevent any inter-leaf call. */
 	xrt_info(pdev, "leaving...");
 
-	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xrt_test_attrgroup);
+	(void)sysfs_remove_group(&DEV(pdev)->kobj, &xrt_test_attrgroup);
 	/* By now, no more access thru sysfs nodes. */
 
 	/* Clean up can safely be done now. */

@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA Group Driver
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
@@ -22,11 +22,11 @@ struct xrt_group {
 	struct platform_device *pdev;
 	struct xrt_subdev_pool leaves;
 	bool leaves_created;
-	struct mutex lock;
+	struct mutex lock; /* lock for group */
 };
 
 static int xrt_grp_root_cb(struct device *dev, void *parg,
-	u32 cmd, void *arg)
+			   u32 cmd, void *arg)
 {
 	int rc;
 	struct platform_device *pdev =
@@ -38,8 +38,9 @@ static int xrt_grp_root_cb(struct device *dev, void *parg,
 		struct xrt_root_ioctl_get_holders *holders =
 			(struct xrt_root_ioctl_get_holders *)arg;
 		rc = xrt_subdev_pool_get_holders(&xg->leaves,
-			holders->xpigh_pdev, holders->xpigh_holder_buf,
-			holders->xpigh_holder_buf_len);
+						 holders->xpigh_pdev,
+						 holders->xpigh_holder_buf,
+						 holders->xpigh_holder_buf_len);
 		break;
 	}
 	default:
@@ -60,7 +61,6 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 	long mlen;
 	char *dtb, *grp_dtb = NULL;
 	const char *ep_name;
-
 
 	mutex_lock(&xg->lock);
 
@@ -101,29 +101,30 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 			continue;
 		}
 		for (i = 0; eps->xse_names[i].ep_name ||
-		    eps->xse_names[i].regmap_name; i++) {
+		     eps->xse_names[i].regmap_name; i++) {
 			ep_name = (char *)eps->xse_names[i].ep_name;
 			if (!ep_name) {
-				(void) xrt_md_get_compatible_epname(
-					DEV(xg->pdev), grp_dtb,
-					eps->xse_names[i].regmap_name,
-					&ep_name);
+				(void)xrt_md_get_compatible_epname(DEV(xg->pdev),
+								    grp_dtb,
+								    eps->xse_names[i].regmap_name,
+								    &ep_name);
 			}
 			if (!ep_name)
 				continue;
 
 			ret = xrt_md_copy_endpoint(DEV(xg->pdev),
-				dtb, grp_dtb, ep_name,
-				(char *)eps->xse_names[i].regmap_name, NULL);
+						   dtb, grp_dtb, ep_name,
+						   (char *)eps->xse_names[i].regmap_name,
+						   NULL);
 			if (ret)
 				continue;
 			xrt_md_del_endpoint(DEV(xg->pdev), grp_dtb, ep_name,
-				(char *)eps->xse_names[i].regmap_name);
+					    (char *)eps->xse_names[i].regmap_name);
 			ep_count++;
 		}
 		if (ep_count >= eps->xse_min_ep) {
 			ret = xrt_subdev_pool_add(&xg->leaves, did,
-				xrt_grp_root_cb, xg, dtb);
+						  xrt_grp_root_cb, xg, dtb);
 			eps = NULL;
 			if (ret < 0) {
 				failed++;
@@ -202,16 +203,17 @@ static int xrt_grp_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
 		/* Simply forward to every child. */
-		rc = xrt_subdev_pool_handle_event(&xg->leaves,
-			(struct xrt_event *)arg);
+		xrt_subdev_pool_handle_event(&xg->leaves,
+					     (struct xrt_event *)arg);
 		break;
 	case XRT_GROUP_GET_LEAF: {
 		struct xrt_root_ioctl_get_leaf *get_leaf =
 			(struct xrt_root_ioctl_get_leaf *)arg;
 
 		rc = xrt_subdev_pool_get(&xg->leaves, get_leaf->xpigl_match_cb,
-			get_leaf->xpigl_match_arg, DEV(get_leaf->xpigl_pdev),
-			&get_leaf->xpigl_leaf);
+					 get_leaf->xpigl_match_arg,
+					 DEV(get_leaf->xpigl_pdev),
+					 &get_leaf->xpigl_leaf);
 		break;
 	}
 	case XRT_GROUP_PUT_LEAF: {
@@ -219,7 +221,7 @@ static int xrt_grp_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 			(struct xrt_root_ioctl_put_leaf *)arg;
 
 		rc = xrt_subdev_pool_put(&xg->leaves, put_leaf->xpipl_leaf,
-			DEV(put_leaf->xpipl_pdev));
+					 DEV(put_leaf->xpipl_pdev));
 		break;
 	}
 	case XRT_GROUP_INIT_CHILDREN:
@@ -229,8 +231,7 @@ static int xrt_grp_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		rc = xrt_grp_remove_leaves(xg);
 		break;
 	case XRT_GROUP_TRIGGER_EVENT:
-		rc = xrt_subdev_pool_trigger_event(&xg->leaves,
-			(enum xrt_events)(uintptr_t)arg);
+		xrt_subdev_pool_trigger_event(&xg->leaves, (enum xrt_events)(uintptr_t)arg);
 		break;
 	default:
 		xrt_err(pdev, "unknown IOCTL cmd %d", cmd);

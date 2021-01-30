@@ -2,7 +2,7 @@
 /*
  * Xilinx Kernel Driver XCLBIN parser
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *    David Zhang <davidzha@xilinx.com>
@@ -28,23 +28,25 @@ struct axlf;
  * Please note that this struct definition is not owned by the driver and
  * hence it does not use Linux coding style.
  */
-struct XHwIcap_Bit_Header {
-	unsigned int HeaderLength;     /* Length of header in 32 bit words */
-	unsigned int BitstreamLength;  /* Length of bitstream to read in bytes*/
-	unsigned char *DesignName;     /* Design name get from bitstream */
-	unsigned char *PartName;       /* Part name read from bitstream */
-	unsigned char *Date;           /* Date read from bitstream header */
-	unsigned char *Time;           /* Bitstream creation time*/
-	unsigned int MagicLength;      /* Length of the magic numbers*/
+struct hw_icap_bit_header {
+	unsigned int header_length;     /* Length of header in 32 bit words */
+	unsigned int bitstream_length;  /* Length of bitstream to read in bytes*/
+	unsigned char *design_name;     /* Design name get from bitstream */
+	unsigned char *part_name;       /* Part name read from bitstream */
+	unsigned char *date;           /* Date read from bitstream header */
+	unsigned char *time;           /* Bitstream creation time*/
+	unsigned int magic_length;      /* Length of the magic numbers*/
 };
 
 const char *xrt_xclbin_kind_to_string(enum axlf_section_kind kind);
 int xrt_xclbin_get_section(const struct axlf *xclbin,
-	enum axlf_section_kind kind, void **data, uint64_t *len);
+			   enum axlf_section_kind kind, void **data,
+			   uint64_t *len);
 int xrt_xclbin_get_metadata(struct device *dev, const struct axlf *xclbin, char **dtb);
 int xrt_xclbin_parse_bitstream_header(const unsigned char *data,
-	unsigned int size, struct XHwIcap_Bit_Header *header);
-void xrt_xclbin_free_header(struct XHwIcap_Bit_Header *header);
+				      unsigned int size,
+				      struct hw_icap_bit_header *header);
+void xrt_xclbin_free_header(struct hw_icap_bit_header *header);
 const char *xrt_clock_type2epname(enum CLOCK_TYPE type);
 
 #endif /* _XRT_XCLBIN_H */

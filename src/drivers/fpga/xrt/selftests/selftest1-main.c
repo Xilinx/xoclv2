@@ -26,7 +26,7 @@
 
 struct selftest1_main {
 	struct platform_device *pdev;
-	struct mutex busy_mutex;
+	struct mutex busy_mutex; /* device busy lock */
 };
 
 struct selftest1_main_client_data {
@@ -239,7 +239,6 @@ static int selftest1_main_close(struct inode *inode, struct file *file)
 	xrt_info(pdev, "closed");
 	return 0;
 }
-
 
 static struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 	{

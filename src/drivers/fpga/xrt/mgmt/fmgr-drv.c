@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo Management Function Driver
  *
- * Copyright (C) 2019-2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  * Bulk of the code borrowed from XRT mgmt driver file, fmgr.c
  *
  * Authors: Sonal.Santan@xilinx.com
@@ -32,37 +32,36 @@ struct xfpga_klass {
  * pass the xclbin for heavy lifting
  */
 static int xmgmt_download_bitstream(struct platform_device *pdev,
-	const struct axlf *xclbin)
+				    const struct axlf *xclbin)
 
 {
-	struct XHwIcap_Bit_Header bit_header = { 0 };
+	struct hw_icap_bit_header bit_header = { 0 };
 	struct platform_device *icap_leaf = NULL;
 	struct xrt_icap_ioctl_wr arg;
 	char *bitstream = NULL;
 	int ret;
 
-	ret = xrt_xclbin_get_section(xclbin, BITSTREAM, (void **)&bitstream,
-		NULL);
+	ret = xrt_xclbin_get_section(xclbin, BITSTREAM, (void **)&bitstream, NULL);
 	if (ret || !bitstream) {
 		xrt_err(pdev, "bitstream not found");
 		return -ENOENT;
 	}
 	ret = xrt_xclbin_parse_bitstream_header(bitstream,
-		DMA_HWICAP_BITFILE_BUFFER_SIZE, &bit_header);
+						DMA_HWICAP_BITFILE_BUFFER_SIZE,
+						&bit_header);
 	if (ret) {
 		ret = -EINVAL;
 		xrt_err(pdev, "invalid bitstream header");
 		goto done;
 	}
-	icap_leaf = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_ICAP,
-		PLATFORM_DEVID_NONE);
+	icap_leaf = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_ICAP, PLATFORM_DEVID_NONE);
 	if (!icap_leaf) {
 		ret = -ENODEV;
 		xrt_err(pdev, "icap does not exist");
 		goto done;
 	}
-	arg.xiiw_bit_data = bitstream + bit_header.HeaderLength;
-	arg.xiiw_data_len = bit_header.BitstreamLength;
+	arg.xiiw_bit_data = bitstream + bit_header.header_length;
+	arg.xiiw_data_len = bit_header.bitstream_length;
 	ret = xleaf_ioctl(icap_leaf, XRT_ICAP_WRITE, &arg);
 	if (ret)
 		xrt_err(pdev, "write bitstream failed, ret = %d", ret);
@@ -80,7 +79,8 @@ done:
  * xclbin for its sanity check.
  */
 static int xmgmt_pr_write_init(struct fpga_manager *mgr,
-	struct fpga_image_info *info, const char *buf, size_t count)
+			       struct fpga_image_info *info,
+			       const char *buf, size_t count)
 {
 	const struct axlf *bin = (const struct axlf *)buf;
 	struct xfpga_klass *obj = mgr->priv;
@@ -97,7 +97,7 @@ static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 		return -EINVAL;
 
 	xrt_info(obj->pdev, "Prepare download of xclbin %pUb of length %lld B",
-		&bin->m_header.uuid, bin->m_header.m_length);
+		 &bin->m_header.uuid, bin->m_header.m_length);
 
 	return 0;
 }
@@ -109,7 +109,7 @@ static int xmgmt_pr_write_init(struct fpga_manager *mgr,
  * discover the bitstream.
  */
 static int xmgmt_pr_write(struct fpga_manager *mgr,
-	const char *buf, size_t count)
+			  const char *buf, size_t count)
 {
 	const struct axlf *bin = (const struct axlf *)buf;
 	struct xfpga_klass *obj = mgr->priv;
@@ -121,7 +121,7 @@ static int xmgmt_pr_write(struct fpga_manager *mgr,
 }
 
 static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
-	struct fpga_image_info *info)
+				   struct fpga_image_info *info)
 {
 	const struct axlf *bin = (const struct axlf *)info->buf;
 	struct xfpga_klass *obj = mgr->priv;
@@ -143,7 +143,6 @@ static const struct fpga_manager_ops xmgmt_pr_ops = {
 	.write_complete = xmgmt_pr_write_complete,
 	.state = xmgmt_pr_state,
 };
-
 
 struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev)
 {

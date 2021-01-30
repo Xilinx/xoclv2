@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *    Cheng Zhen <maxz@xilinx.com>
@@ -29,8 +29,9 @@
 	((struct xrt_subdev_drvdata *)			\
 	platform_get_device_id(pdev)->driver_data)
 #define	FMT_PRT(prt_fn, pdev, fmt, args...)		\
-	prt_fn(DEV(pdev), "%s %s: "fmt,			\
-	DEV_PDATA(pdev)->xsp_root_name, __func__, ##args)
+	({typeof(pdev) (_pdev) = (pdev);		\
+	prt_fn(DEV(_pdev), "%s %s: " fmt,		\
+	DEV_PDATA(_pdev)->xsp_root_name, __func__, ##args); })
 #define xrt_err(pdev, fmt, args...) FMT_PRT(dev_err, pdev, fmt, ##args)
 #define xrt_warn(pdev, fmt, args...) FMT_PRT(dev_warn, pdev, fmt, ##args)
 #define xrt_info(pdev, fmt, args...) FMT_PRT(dev_info, pdev, fmt, ##args)
@@ -59,6 +60,7 @@ enum xrt_subdev_file_mode {
 	// No auto creation of cdev by infra, leaf handles it by itself
 	XRT_SUBDEV_FILE_NO_AUTO,
 };
+
 struct xrt_subdev_file_ops {
 	const struct file_operations xsf_ops;
 	dev_t xsf_dev_t;
@@ -126,7 +128,7 @@ struct xrt_subdev_platdata {
 	 */
 	struct cdev xsp_cdev;
 	struct device *xsp_sysdev;
-	struct mutex xsp_devnode_lock;
+	struct mutex xsp_devnode_lock; /* devnode lock */
 	struct completion xsp_devnode_comp;
 	int xsp_devnode_ref;
 	bool xsp_devnode_online;
@@ -167,12 +169,12 @@ struct subdev_match_arg {
 	int instance;
 };
 
-extern bool xleaf_has_epname(struct platform_device *pdev, const char *nm);
-extern struct platform_device *xleaf_get_leaf(
-	struct platform_device *pdev, xrt_subdev_match_t cb, void *arg);
+bool xleaf_has_epname(struct platform_device *pdev, const char *nm);
+struct platform_device *xleaf_get_leaf(struct platform_device *pdev,
+				       xrt_subdev_match_t cb, void *arg);
 
 static inline bool subdev_match(enum xrt_subdev_id id,
-	struct platform_device *pdev, void *arg)
+				struct platform_device *pdev, void *arg)
 {
 	const struct subdev_match_arg *a = (struct subdev_match_arg *)arg;
 	return id == a->id &&
@@ -180,14 +182,14 @@ static inline bool subdev_match(enum xrt_subdev_id id,
 }
 
 static inline bool xrt_subdev_match_epname(enum xrt_subdev_id id,
-	struct platform_device *pdev, void *arg)
+					   struct platform_device *pdev, void *arg)
 {
 	return xleaf_has_epname(pdev, arg);
 }
 
 static inline struct platform_device *
 xleaf_get_leaf_by_id(struct platform_device *pdev,
-	enum xrt_subdev_id id, int instance)
+		     enum xrt_subdev_id id, int instance)
 {
 	struct subdev_match_arg arg = { id, instance };
 
@@ -207,60 +209,62 @@ static inline int xleaf_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
 	return (*drvdata->xsd_dev_ops.xsd_ioctl)(tgt, cmd, arg);
 }
 
-extern int xleaf_put_leaf(struct platform_device *pdev,
-			  struct platform_device *leaf);
-extern int xleaf_create_group(struct platform_device *pdev, char *dtb);
-extern int xleaf_destroy_group(struct platform_device *pdev, int instance);
-extern int xleaf_wait_for_group_bringup(struct platform_device *pdev);
-extern void xleaf_hot_reset(struct platform_device *pdev);
-extern int xleaf_broadcast_event(struct platform_device *pdev,
-	enum xrt_events evt, bool async);
-extern void xleaf_get_barres(struct platform_device *pdev,
-	struct resource **res, uint bar_idx);
-extern void xleaf_get_root_id(struct platform_device *pdev,
-	unsigned short *vendor, unsigned short *device,
-	unsigned short *subvendor, unsigned short *subdevice);
-extern struct device *xleaf_register_hwmon(struct platform_device *pdev,
-	const char *name, void *drvdata, const struct attribute_group **grps);
-extern void xleaf_unregister_hwmon(struct platform_device *pdev,
-	struct device *hwmon);
+int xleaf_put_leaf(struct platform_device *pdev,
+		   struct platform_device *leaf);
+int xleaf_create_group(struct platform_device *pdev, char *dtb);
+int xleaf_destroy_group(struct platform_device *pdev, int instance);
+int xleaf_wait_for_group_bringup(struct platform_device *pdev);
+void xleaf_hot_reset(struct platform_device *pdev);
+int xleaf_broadcast_event(struct platform_device *pdev,
+			  enum xrt_events evt, bool async);
+void xleaf_get_barres(struct platform_device *pdev,
+		      struct resource **res, uint bar_idx);
+void xleaf_get_root_id(struct platform_device *pdev,
+		       unsigned short *vendor, unsigned short *device,
+		       unsigned short *subvendor, unsigned short *subdevice);
+struct device *xleaf_register_hwmon(struct platform_device *pdev,
+				    const char *name, void *drvdata,
+				    const struct attribute_group **grps);
+void xleaf_unregister_hwmon(struct platform_device *pdev, struct device *hwmon);
 
 /*
  * Character device helper APIs for use by leaf drivers
  */
 static inline bool xleaf_devnode_enabled(struct xrt_subdev_drvdata *drvdata)
 {
-	return drvdata && drvdata->xsd_file_ops.xsf_ops.open != NULL;
+	return drvdata && drvdata->xsd_file_ops.xsf_ops.open;
 }
 
-extern int xleaf_devnode_create(struct platform_device *pdev,
-	const char *file_name, const char *inst_name);
-extern int xleaf_devnode_destroy(struct platform_device *pdev);
+int xleaf_devnode_create(struct platform_device *pdev,
+			 const char *file_name, const char *inst_name);
+int xleaf_devnode_destroy(struct platform_device *pdev);
 
-extern struct platform_device *xleaf_devnode_open_excl(struct inode *inode);
-extern struct platform_device *xleaf_devnode_open(struct inode *inode);
-extern void xleaf_devnode_close(struct inode *inode);
+struct platform_device *xleaf_devnode_open_excl(struct inode *inode);
+struct platform_device *xleaf_devnode_open(struct inode *inode);
+void xleaf_devnode_close(struct inode *inode);
 
 /* Helpers. */
 static inline void xrt_memcpy_fromio(void *buf, void __iomem *iomem, u32 size)
 {
 	int i;
 
-	BUG_ON(size & 0x3);
+	WARN_ON(size & 0x3);
 	for (i = 0; i < size / 4; i++)
 		((u32 *)buf)[i] = ioread32((char *)(iomem) + sizeof(u32) * i);
 }
+
 static inline void xrt_memcpy_toio(void __iomem *iomem, void *buf, u32 size)
 {
 	int i;
 
-	BUG_ON(size & 0x3);
+	WARN_ON(size & 0x3);
 	for (i = 0; i < size / 4; i++)
 		iowrite32(((u32 *)buf)[i], ((char *)(iomem) + sizeof(u32) * i));
 }
 
-extern int xleaf_register_external_driver(enum xrt_subdev_id id,
-	struct platform_driver *drv, struct xrt_subdev_endpoints *eps);
-extern void xleaf_unregister_external_driver(enum xrt_subdev_id id);
+int xleaf_register_external_driver(enum xrt_subdev_id id,
+				   struct platform_driver *drv,
+				   struct xrt_subdev_endpoints *eps);
+void xleaf_unregister_external_driver(enum xrt_subdev_id id);
 
 #endif	/* _XRT_LEAF_H_ */

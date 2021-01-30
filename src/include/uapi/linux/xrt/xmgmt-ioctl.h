@@ -9,13 +9,12 @@
  * Interfaces exposed by *xclmgmt* driver are defined in file, *mgmt-ioctl.h*.
  * Core functionality provided by *xmgmt* driver is described in the following table:
  *
- * ==== ====================================== ============================== ==================================
- * #    Functionality                          ioctl request code             data format
- * ==== ====================================== ============================== ==================================
- * 1    FPGA image download                    XCLMGMT_IOCICAPDOWNLOAD_AXLF   xmgmt_ioc_bitstream_axlf
- * 2    CL frequency scaling                   XCLMGMT_IOCFREQSCALE           xmgmt_ioc_freqscaling
- * ==== ====================================== ============================== ==================================
- *
+ * =========== ============================== ==================================
+ * Functionality           ioctl request code           data format
+ * =========== ============================== ==================================
+ * 1 FPGA image download   XCLMGMT_IOCICAPDOWNLOAD_AXLF xmgmt_ioc_bitstream_axlf
+ * 2 CL frequency scaling  XCLMGMT_IOCFREQSCALE         xmgmt_ioc_freqscaling
+ * =========== ============================== ==================================
  */
 
 #ifndef _XMGMT_IOCALLS_POSIX_H_
@@ -28,7 +27,6 @@
 
 #define XMGMT_IOC_FREQ_SCALE 0x2
 #define XMGMT_IOC_ICAP_DOWNLOAD_AXLF 0x6
-
 
 /**
  * struct xmgmt_ioc_bitstream_axlf - load xclbin (AXLF) device image
@@ -45,7 +43,8 @@ struct xmgmt_ioc_bitstream_axlf {
  * used with XMGMT_IOCFREQSCALE ioctl
  *
  * @ocl_region:	        PR region (currently only 0 is supported)
- * @ocl_target_freq:	Array of requested frequencies, a value o zero in the array indicates leave untouched
+ * @ocl_target_freq:	Array of requested frequencies, a value o zero in the
+ *                      array indicates leave untouched
  */
 struct xmgmt_ioc_freqscaling {
 	unsigned int ocl_region;
@@ -56,8 +55,10 @@ struct xmgmt_ioc_freqscaling {
 #define KERNEL_CLK			1
 #define SYSTEM_CLK			2
 
-#define XMGMT_IOCICAPDOWNLOAD_AXLF	_IOW(XMGMT_IOC_MAGIC, XMGMT_IOC_ICAP_DOWNLOAD_AXLF, struct xmgmt_ioc_bitstream_axlf)
-#define XMGMT_IOCFREQSCALE		_IOW(XMGMT_IOC_MAGIC, XMGMT_IOC_FREQ_SCALE, struct xmgmt_ioc_freqscaling)
+#define XMGMT_IOCICAPDOWNLOAD_AXLF				\
+	_IOW(XMGMT_IOC_MAGIC, XMGMT_IOC_ICAP_DOWNLOAD_AXLF, struct xmgmt_ioc_bitstream_axlf)
+#define XMGMT_IOCFREQSCALE					\
+	_IOW(XMGMT_IOC_MAGIC, XMGMT_IOC_FREQ_SCALE, struct xmgmt_ioc_freqscaling)
 
 /*
  * The following definitions are for binary compatibility with classic XRT management driver

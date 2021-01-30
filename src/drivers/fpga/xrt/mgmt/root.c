@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo Management Function Driver
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
@@ -31,9 +31,10 @@
 	dev_info(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
 #define xmgmt_dbg(xm, fmt, args...)	\
 	dev_dbg(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
-#define	XMGMT_DEV_ID(pdev)			\
-	((pci_domain_nr(pdev->bus) << 16) |	\
-	PCI_DEVID(pdev->bus->number, 0))
+#define	XMGMT_DEV_ID(_pcidev)			\
+	({ typeof(_pcidev) (pcidev) = (_pcidev);	\
+	((pci_domain_nr((pcidev)->bus) << 16) |	\
+	PCI_DEVID((pcidev)->bus->number, 0)); })
 
 static struct class *xmgmt_class;
 static const struct pci_device_id xmgmt_pci_ids[] = {
@@ -100,8 +101,7 @@ static int xmgmt_match_slot_and_save(struct device *dev, void *data)
 	if (XMGMT_DEV_ID(pdev) == XMGMT_DEV_ID(xm->pdev)) {
 		pci_cfg_access_lock(pdev);
 		pci_save_state(pdev);
-		xmgmt_save_config_space(pdev,
-			xm->saved_config[PCI_FUNC(pdev->devfn)]);
+		xmgmt_save_config_space(pdev, xm->saved_config[PCI_FUNC(pdev->devfn)]);
 	}
 
 	return 0;
@@ -124,10 +124,8 @@ static void xmgmt_restore_config_space(struct pci_dev *pdev, u32 *config_saved)
 
 		pci_write_config_dword(pdev, i * 4, config_saved[i]);
 		pci_read_config_dword(pdev, i * 4, &val);
-		if (val != config_saved[i]) {
-			dev_err(&pdev->dev,
-				 "restore config at %d failed", i * 4);
-		}
+		if (val != config_saved[i])
+			dev_err(&pdev->dev, "restore config at %d failed", i * 4);
 	}
 }
 
@@ -137,8 +135,7 @@ static int xmgmt_match_slot_and_restore(struct device *dev, void *data)
 	struct pci_dev *pdev = to_pci_dev(dev);
 
 	if (XMGMT_DEV_ID(pdev) == XMGMT_DEV_ID(xm->pdev)) {
-		xmgmt_restore_config_space(pdev,
-			xm->saved_config[PCI_FUNC(pdev->devfn)]);
+		xmgmt_restore_config_space(pdev, xm->saved_config[PCI_FUNC(pdev->devfn)]);
 
 		pci_restore_state(pdev);
 		pci_cfg_access_unlock(pdev);
@@ -179,10 +176,10 @@ static void xmgmt_root_hot_reset(struct pci_dev *pdev)
 
 	pci_read_config_word(bus->self, PCI_COMMAND, &pci_cmd);
 	pci_write_config_word(bus->self, PCI_COMMAND,
-		(pci_cmd & ~PCI_COMMAND_SERR));
+			      (pci_cmd & ~PCI_COMMAND_SERR));
 	pcie_capability_read_word(bus->self, PCI_EXP_DEVCTL, &devctl);
 	pcie_capability_write_word(bus->self, PCI_EXP_DEVCTL,
-		(devctl & ~PCI_EXP_DEVCTL_FERE));
+				   (devctl & ~PCI_EXP_DEVCTL_FERE));
 	pci_read_config_byte(bus->self, PCI_BRIDGE_CONTROL, &pci_bctl);
 	pci_bctl |= PCI_BRIDGE_CTL_BUS_RESET;
 	pci_write_config_byte(bus->self, PCI_BRIDGE_CONTROL, pci_bctl);
@@ -247,7 +244,8 @@ failed:
 }
 
 static ssize_t ready_show(struct device *dev,
-	struct device_attribute *da, char *buf)
+			  struct device_attribute *da,
+			  char *buf)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct xmgmt *xm = pci_get_drvdata(pdev);
@@ -272,7 +270,7 @@ static struct xroot_pf_cb xmgmt_xroot_pf_cb = {
 static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret;
-	struct device *dev = &(pdev->dev);
+	struct device *dev = &pdev->dev;
 	struct xmgmt *xm = devm_kzalloc(dev, sizeof(*xm), GFP_KERNEL);
 	char *dtb = NULL;
 
@@ -314,7 +312,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	return 0;
 
 failed_metadata:
-	(void) xroot_remove(xm->root);
+	(void)xroot_remove(xm->root);
 failed:
 	pci_set_drvdata(pdev, NULL);
 	return ret;
@@ -326,7 +324,7 @@ static void xmgmt_remove(struct pci_dev *pdev)
 
 	xroot_broadcast(xm->root, XRT_EVENT_PRE_REMOVAL);
 	sysfs_remove_group(&pdev->dev.kobj, &xmgmt_root_attr_group);
-	(void) xroot_remove(xm->root);
+	(void)xroot_remove(xm->root);
 	pci_disable_pcie_error_reporting(xm->pdev);
 	xmgmt_info(xm, "%s cleaned up successfully", XMGMT_MODULE_NAME);
 }

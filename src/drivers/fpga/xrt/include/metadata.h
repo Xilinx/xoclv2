@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA Test Leaf Driver
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *      Lizhi Hou <Lizhi.Hou@xilinx.com>
@@ -127,11 +127,10 @@ struct xrt_iores_map {
 };
 
 static inline int xrt_md_res_name2id(const struct xrt_iores_map *res_map,
-	int entry_num, const char *res_name)
+				     int entry_num, const char *res_name)
 {
 	int i;
 
-	BUG_ON(res_name == NULL);
 	for (i = 0; i < entry_num; i++) {
 		if (!strcmp(res_name, res_map->res_name))
 			return res_map->res_id;
@@ -145,7 +144,6 @@ xrt_md_res_id2name(const struct xrt_iores_map *res_map, int entry_num, int id)
 {
 	int i;
 
-	BUG_ON(id > entry_num);
 	for (i = 0; i < entry_num; i++) {
 		if (res_map->res_id == id)
 			return res_map->res_name;
@@ -157,27 +155,31 @@ xrt_md_res_id2name(const struct xrt_iores_map *res_map, int entry_num, int id)
 long xrt_md_size(struct device *dev, const char *blob);
 int xrt_md_create(struct device *dev, char **blob);
 int xrt_md_add_endpoint(struct device *dev, char *blob,
-	struct xrt_md_endpoint *ep);
+			struct xrt_md_endpoint *ep);
 int xrt_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
-	char *regmap_name);
+			char *regmap_name);
 int xrt_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
-	const char *regmap_name, const char *prop, const void **val, int *size);
+		    const char *regmap_name, const char *prop,
+		    const void **val, int *size);
 int xrt_md_set_prop(struct device *dev, char *blob, const char *ep_name,
-	const char *regmap_name, const char *prop, const void *val, int size);
+		    const char *regmap_name, const char *prop,
+		    const void *val, int size);
 int xrt_md_copy_endpoint(struct device *dev, char *blob, const char *src_blob,
-	const char *ep_name, const char *regmap_name, const char *new_ep_name);
+			 const char *ep_name, const char *regmap_name,
+			 const char *new_ep_name);
 int xrt_md_copy_all_eps(struct device *dev, char  *blob, const char *src_blob);
 int xrt_md_get_next_endpoint(struct device *dev, const char *blob,
-	const char *ep_name,  const char *regmap_name,
-	char **next_ep, char **next_regmap);
+			     const char *ep_name,  const char *regmap_name,
+			     char **next_ep, char **next_regmap);
 int xrt_md_get_compatible_epname(struct device *dev, const char *blob,
-	const char *regmap_name, const char **ep_name);
+				 const char *regmap_name, const char **ep_name);
 int xrt_md_get_epname_pointer(struct device *dev, const char *blob,
-	const char *ep_name, const char *regmap_name, const char **epname);
+			      const char *ep_name, const char *regmap_name,
+			      const char **epname);
 void xrt_md_pack(struct device *dev, char *blob);
 char *xrt_md_dup(struct device *dev, const char *blob);
 int xrt_md_get_intf_uuids(struct device *dev, const char *blob,
-	u32 *num_uuids, uuid_t *intf_uuids);
+			  u32 *num_uuids, uuid_t *intf_uuids);
 int xrt_md_check_uuids(struct device *dev, const char *blob, char *subset_blob);
 int xrt_md_uuid_strtoid(struct device *dev, const char *uuidstr, uuid_t *uuid);
 

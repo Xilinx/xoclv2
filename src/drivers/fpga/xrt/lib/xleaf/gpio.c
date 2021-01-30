@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA GPIO Driver
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
@@ -40,8 +40,7 @@ static int xrt_gpio_name2id(struct xrt_gpio *gpio, const char *name)
 	int	i;
 
 	for (i = 0; i < XRT_GPIO_MAX && name_id[i].ep_name; i++) {
-		if (!strncmp(name_id[i].ep_name, name,
-		    strlen(name_id[i].ep_name) + 1))
+		if (!strncmp(name_id[i].ep_name, name, strlen(name_id[i].ep_name) + 1))
 			return name_id[i].id;
 	}
 
@@ -142,8 +141,7 @@ static int xrt_gpio_probe(struct platform_device *pdev)
 			xrt_err(pdev, "ep %s not found", res->name);
 			continue;
 		}
-		gpio->base_addrs[id] = ioremap(res->start,
-			res->end - res->start + 1);
+		gpio->base_addrs[id] = ioremap(res->start, res->end - res->start + 1);
 		if (!gpio->base_addrs[id]) {
 			xrt_err(pdev, "map base failed %pR", res);
 			ret = -EIO;

@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA UCS Driver
  *
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
@@ -27,7 +27,6 @@
 #define UCS_DBG(ucs, fmt, arg...)   \
 	xrt_dbg((ucs)->pdev, fmt "\n", ##arg)
 
-
 #define XRT_UCS		"xrt_ucs"
 
 #define CHANNEL1_OFFSET			0
@@ -42,11 +41,10 @@ struct ucs_control_status_ch1 {
 	unsigned int reserved2:2;
 };
 
-
 struct xrt_ucs {
 	struct platform_device	*pdev;
 	void __iomem		*ucs_base;
-	struct mutex		ucs_lock;
+	struct mutex		ucs_lock; /* ucs dev lock */
 };
 
 static inline u32 reg_rd(struct xrt_ucs *ucs, u32 offset)
@@ -79,7 +77,11 @@ static void xrt_ucs_event_cb(struct platform_device *pdev, void *arg)
 		return;
 
 	leaf = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_CLOCK, instance);
-	BUG_ON(!leaf);
+	if (!leaf) {
+		xrt_err(pdev, "does not get clock subdev");
+		return;
+	}
+
 	xleaf_ioctl(leaf, XRT_CLOCK_VERIFY, NULL);
 	xleaf_put_leaf(pdev, leaf);
 }
@@ -93,7 +95,10 @@ static void ucs_check(struct xrt_ucs *ucs, bool *latched)
 	status = reg_rd(ucs, CHANNEL1_OFFSET);
 	ucs_status_ch1 = (struct ucs_control_status_ch1 *)&status;
 	if (ucs_status_ch1->shutdown_clocks_latched) {
-		UCS_ERR(ucs, "Critical temperature or power event, kernel clocks have been stopped, run 'xbutil valiate -q' to continue. See AR 73398 for more details.");
+		UCS_ERR(ucs,
+			"Critical temperature or power event, kernel clocks have been stopped.");
+		UCS_ERR(ucs,
+			"run 'xbutil valiate -q' to continue. See AR 73398 for more details.");
 		/* explicitly indicate reset should be latched */
 		*latched = true;
 	} else if (ucs_status_ch1->clock_throttling_average >
@@ -160,8 +165,6 @@ static int ucs_remove(struct platform_device *pdev)
 	return 0;
 }
 
-
-
 static int ucs_probe(struct platform_device *pdev)
 {
 	struct xrt_ucs *ucs = NULL;
@@ -191,7 +194,6 @@ failed:
 	ucs_remove(pdev);
 	return ret;
 }
-
 
 struct xrt_subdev_endpoints xrt_ucs_endpoints[] = {
 	{

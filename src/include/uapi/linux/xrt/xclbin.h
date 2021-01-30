@@ -5,7 +5,6 @@
  *  Copyright (C) 2015-2020, Xilinx Inc
  */
 
-
 #ifndef _XCLBIN_H_
 #define _XCLBIN_H_
 
@@ -135,14 +134,17 @@ enum IP_TYPE {
 
 struct axlf_section_header {
 	uint32_t m_sectionKind;		    /* Section type */
-	char m_sectionName[16];		    /* Examples: "stage2", "clear1", "clear2", "ocl1", "ocl2, "ublaze", "sched" */
+	char m_sectionName[16];		    /* Examples: "stage2", "clear1", */
+					    /* "clear2", "ocl1", "ocl2, */
+					    /* "ublaze", "sched" */
 	uint64_t m_sectionOffset;	    /* File offset of section data */
 	uint64_t m_sectionSize;		    /* Size of section data */
 };
 
 struct axlf_header {
 	uint64_t m_length;		    /* Total size of the xclbin file */
-	uint64_t m_timeStamp;		    /* Number of seconds since epoch when xclbin was created */
+	uint64_t m_timeStamp;		    /* Number of seconds since epoch */
+					    /* when xclbin was created */
 	uint64_t m_featureRomTimeStamp;	    /* TimeSinceEpoch of the featureRom */
 	uint16_t m_versionPatch;	    /* Patch Version */
 	uint8_t m_versionMajor;		    /* Major Version - Version: 2.1.0*/
@@ -150,29 +152,38 @@ struct axlf_header {
 	uint32_t m_mode;		    /* XCLBIN_MODE */
 	union {
 		struct {
-			uint64_t m_platformId;	/* 64 bit platform ID: vendor-device-subvendor-subdev */
+			uint64_t m_platformId;	/* 64 bit platform ID: */
+					/* vendor-device-subvendor-subdev */
 			uint64_t m_featureId;	/* 64 bit feature id */
 		} rom;
-		unsigned char rom_uuid[16];	/* feature ROM UUID for which this xclbin was generated */
+		unsigned char rom_uuid[16];	/* feature ROM UUID for which */
+						/* this xclbin was generated */
 	};
-	unsigned char m_platformVBNV[64];	/* e.g. xilinx:xil-accel-rd-ku115:4ddr-xpr:3.4: null terminated */
+	unsigned char m_platformVBNV[64];	/* e.g. */
+		/* xilinx:xil-accel-rd-ku115:4ddr-xpr:3.4: null terminated */
 	union {
-		char m_next_axlf[16];		/* Name of next xclbin file in the daisy chain */
+		char m_next_axlf[16];		/* Name of next xclbin file */
+						/* in the daisy chain */
 		uuid_t uuid;			/* uuid of this xclbin*/
 	};
-	char m_debug_bin[16];			/* Name of binary with debug information */
+	char m_debug_bin[16];			/* Name of binary with debug */
+						/* information */
 	uint32_t m_numSections;			/* Number of section headers */
 };
 
 struct axlf {
-	char m_magic[8];			    /* Should be "xclbin2\0"  */
-	int32_t m_signature_length;		    /* Length of the signature. -1 indicates no signature */
-	unsigned char reserved[28];		    /* Note: Initialized to 0xFFs */
+	char m_magic[8];			/* Should be "xclbin2\0"  */
+	int32_t m_signature_length;		/* Length of the signature. */
+						/* -1 indicates no signature */
+	unsigned char reserved[28];		/* Note: Initialized to 0xFFs */
 
-	unsigned char m_keyBlock[256];		    /* Signature for validation of binary */
-	uint64_t m_uniqueId;			    /* axlf's uniqueId, use it to skip redownload etc */
-	struct axlf_header m_header;		    /* Inline header */
-	struct axlf_section_header m_sections[1];   /* One or more section headers follow */
+	unsigned char m_keyBlock[256];		/* Signature for validation */
+						/* of binary */
+	uint64_t m_uniqueId;			/* axlf's uniqueId, use it to */
+						/* skip redownload etc */
+	struct axlf_header m_header;		/* Inline header */
+	struct axlf_section_header m_sections[1];   /* One or more section */
+						    /* headers follow */
 };
 
 /* bitstream information */
@@ -183,22 +194,23 @@ struct xlnx_bitstream {
 
 /****	MEMORY TOPOLOGY SECTION ****/
 struct mem_data {
-	uint8_t m_type; //enum corresponding to mem_type.
-	uint8_t m_used; //if 0 this bank is not present
+	uint8_t m_type; /* enum corresponding to mem_type. */
+	uint8_t m_used; /* if 0 this bank is not present */
 	union {
-		uint64_t m_size; //if mem_type DDR, then size in KB;
-		uint64_t route_id; //if streaming then "route_id"
+		uint64_t m_size; /* if mem_type DDR, then size in KB; */
+		uint64_t route_id; /* if streaming then "route_id" */
 	};
 	union {
-		uint64_t m_base_address;//if DDR then the base address;
-		uint64_t flow_id; //if streaming then "flow id"
+		uint64_t m_base_address;/* if DDR then the base address; */
+		uint64_t flow_id; /* if streaming then "flow id" */
 	};
-	unsigned char m_tag[16]; //DDR: BANK0,1,2,3, has to be null terminated; if streaming then stream0, 1 etc
+	unsigned char m_tag[16]; /* DDR: BANK0,1,2,3, has to be null */
+			/* terminated; if streaming then stream0, 1 etc */
 };
 
 struct mem_topology {
-	int32_t m_count; //Number of mem_data
-	struct mem_data m_mem_data[1]; //Should be sorted on mem_type
+	int32_t m_count; /* Number of mem_data */
+	struct mem_data m_mem_data[1]; /* Should be sorted on mem_type */
 };
 
 /****	CONNECTIVITY SECTION ****/
@@ -211,9 +223,12 @@ struct mem_topology {
  */
 
 struct connection {
-	int32_t arg_index; //From 0 to n, may not be contiguous as scalars skipped
-	int32_t m_ip_layout_index; //index into the ip_layout section. ip_layout.m_ip_data[index].m_type == IP_KERNEL
-	int32_t mem_data_index; //index of the m_mem_data . Flag error is m_used false.
+	int32_t arg_index; /* From 0 to n, may not be contiguous as scalars */
+			   /* skipped */
+	int32_t m_ip_layout_index; /* index into the ip_layout section. */
+			   /* ip_layout.m_ip_data[index].m_type == IP_KERNEL */
+	int32_t mem_data_index; /* index of the m_mem_data . Flag error is */
+				/* m_used false. */
 };
 
 struct connectivity {
@@ -221,10 +236,9 @@ struct connectivity {
 	struct connection m_connection[1];
 };
 
-
 /****	IP_LAYOUT SECTION ****/
 
-// IP Kernel
+/* IP Kernel */
 #define IP_INT_ENABLE_MASK	  0x0001
 #define IP_INTERRUPT_ID_MASK  0x00FE
 #define IP_INTERRUPT_ID_SHIFT 0x1
@@ -242,26 +256,30 @@ enum IP_CONTROL {
 
 /* IPs on AXI lite - their types, names, and base addresses.*/
 struct ip_data {
-	uint32_t m_type; //map to IP_TYPE enum
+	uint32_t m_type; /* map to IP_TYPE enum */
 	union {
-		uint32_t properties; // Default: 32-bits to indicate ip specific property.
-		// m_type: IP_KERNEL
-		//	    m_int_enable   : Bit  - 0x0000_0001;
-		//	    m_interrupt_id : Bits - 0x0000_00FE;
-		//	    m_ip_control   : Bits = 0x0000_FF00;
-		struct {		 // m_type: IP_MEM_*
+		uint32_t properties; /* Default: 32-bits to indicate ip */
+				     /* specific property. */
+		/* m_type: IP_KERNEL
+		 *	    m_int_enable   : Bit  - 0x0000_0001;
+		 *	    m_interrupt_id : Bits - 0x0000_00FE;
+		 *	    m_ip_control   : Bits = 0x0000_FF00;
+		 */
+		struct {		 /* m_type: IP_MEM_* */
 			uint16_t m_index;
 			uint8_t m_pc_index;
 			uint8_t unused;
 		} indices;
 	};
 	uint64_t m_base_address;
-	uint8_t m_name[64]; //eg Kernel name corresponding to KERNEL instance, can embed CU name in future.
+	uint8_t m_name[64]; /* eg Kernel name corresponding to KERNEL */
+			    /* instance, can embed CU name in future. */
 };
 
 struct ip_layout {
 	int32_t m_count;
-	struct ip_data m_ip_data[1]; //All the ip_data needs to be sorted by m_base_address.
+	struct ip_data m_ip_data[1]; /* All the ip_data needs to be sorted */
+				     /* by m_base_address. */
 };
 
 /*** Debug IP section layout ****/
@@ -282,7 +300,7 @@ enum DEBUG_IP_TYPE {
 };
 
 struct debug_ip_data {
-	uint8_t m_type; // type of enum DEBUG_IP_TYPE
+	uint8_t m_type; /* type of enum DEBUG_IP_TYPE */
 	uint8_t m_index_lowbyte;
 	uint8_t m_properties;
 	uint8_t m_major;
@@ -331,7 +349,8 @@ enum MCS_TYPE {
 struct mcs_chunk {
 	uint8_t m_type;			   /* MCS data type */
 	uint8_t m_unused[7];		   /* padding */
-	uint64_t m_offset;		   /* data offset from the start of the section */
+	uint64_t m_offset;		   /* data offset from the start of */
+					   /* the section */
 	uint64_t m_size;		   /* data size */
 };
 
@@ -344,12 +363,15 @@ struct mcs {
 
 /* bmc data section */
 struct bmc {
-	uint64_t m_offset;		   /* data offset from the start of the section */
-	uint64_t m_size;		   /* data size (bytes)*/
-	char m_image_name[64];		   /* Name of the image (e.g., MSP432P401R) */
-	char m_device_name[64];		   /* Device ID		(e.g., VCU1525)	 */
+	uint64_t m_offset;		   /* data offset from the start of */
+					   /* the section */
+	uint64_t m_size;		   /* data size (bytes) */
+	char m_image_name[64];		   /* Name of the image */
+					   /* (e.g., MSP432P401R) */
+	char m_device_name[64];		   /* Device ID	(e.g., VCU1525)	 */
 	char m_version[64];
-	char m_md5value[33];		   /* MD5 Expected Value(e.g., 56027182079c0bd621761b7dab5a27ca)*/
+	char m_md5value[33];		   /* MD5 Expected Value */
+				/* (e.g., 56027182079c0bd621761b7dab5a27ca)*/
 	char m_padding[7];		   /* Padding */
 };
 

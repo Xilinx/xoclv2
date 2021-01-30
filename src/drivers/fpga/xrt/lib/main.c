@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Xilinx, Inc.
+ * Copyright (C) 2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
@@ -16,7 +16,7 @@
 #define	XRT_DRVNAME(drv)		((drv)->driver.name)
 #define	XRT_MAX_DEVICE_NODES		128
 
-struct mutex xrt_class_lock;
+struct mutex xrt_class_lock; /* class global lock */
 struct class *xrt_class;
 
 /*
@@ -78,8 +78,6 @@ static int xrt_drv_register_driver(enum xrt_subdev_id id)
 	int rc = 0;
 	const char *drvname;
 
-	BUG_ON(!map);
-
 	if (!map->drv) {
 		pr_info("skip registration of subdev driver for id %d\n", id);
 		return rc;
@@ -105,15 +103,13 @@ static int xrt_drv_register_driver(enum xrt_subdev_id id)
 	if (drvdata) {
 		/* Initialize dev_t for char dev node. */
 		if (xleaf_devnode_enabled(drvdata)) {
-			rc = alloc_chrdev_region(
-				&drvdata->xsd_file_ops.xsf_dev_t, 0,
-				XRT_MAX_DEVICE_NODES, drvname);
+			rc = alloc_chrdev_region(&drvdata->xsd_file_ops.xsf_dev_t, 0,
+						 XRT_MAX_DEVICE_NODES, drvname);
 			if (rc) {
 				if (drvdata->xsd_dev_ops.xsd_pre_exit)
 					drvdata->xsd_dev_ops.xsd_pre_exit();
 				platform_driver_unregister(map->drv);
-				pr_err("failed to alloc dev minor for %s: %d\n",
-					drvname, rc);
+				pr_err("failed to alloc dev minor for %s: %d\n", drvname, rc);
 				return rc;
 			}
 		} else {
@@ -131,7 +127,6 @@ static void xrt_drv_unregister_driver(enum xrt_subdev_id id)
 	struct xrt_drv_map *map = xrt_drv_find_map_by_id(id);
 	struct xrt_subdev_drvdata *drvdata;
 
-	BUG_ON(!map);
 	if (!map->drv) {
 		pr_info("skip unregistration of subdev driver for id %d\n", id);
 		return;
@@ -142,7 +137,7 @@ static void xrt_drv_unregister_driver(enum xrt_subdev_id id)
 	drvdata = xrt_drv_map2drvdata(map);
 	if (drvdata && drvdata->xsd_file_ops.xsf_dev_t != (dev_t)-1) {
 		unregister_chrdev_region(drvdata->xsd_file_ops.xsf_dev_t,
-			XRT_MAX_DEVICE_NODES);
+					 XRT_MAX_DEVICE_NODES);
 	}
 
 	if (drvdata && drvdata->xsd_dev_ops.xsd_pre_exit)
@@ -152,7 +147,8 @@ static void xrt_drv_unregister_driver(enum xrt_subdev_id id)
 }
 
 int xleaf_register_external_driver(enum xrt_subdev_id id,
-	struct platform_driver *drv, struct xrt_subdev_endpoints *eps)
+				   struct platform_driver *drv,
+				   struct xrt_subdev_endpoints *eps)
 {
 	int i;
 	int result = 0;
@@ -166,11 +162,11 @@ int xleaf_register_external_driver(enum xrt_subdev_id id,
 		if (map->drv) {
 			result = -EEXIST;
 			pr_err("Id %d already has a registered driver, 0x%p\n",
-				id, map->drv);
+			       id, map->drv);
 			break;
 		}
 		map->drv = drv;
-		BUG_ON(map->eps);
+		WARN_ON(map->eps);
 		map->eps = eps;
 		xrt_drv_register_driver(id);
 	}
