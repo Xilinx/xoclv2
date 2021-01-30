@@ -45,7 +45,8 @@ LIBFDT REQUIREMENT
 XRT driver infrastructure uses Device Tree as a metadata format to discover
 HW subsystems in the Alveo PCIe device. The Device Tree schema used by XRT
 is documented in Documentation/xrt.rst. This patch series includes a fdt patch
-to EXPORT_SYMBOL_GPL symbols which are used by XRT driver.
+to EXPORT_SYMBOL_GPL symbols which are used by XRT driver. This does introduce
+checkpatch warning that we are looking for suggestions to resolve.
 
 TESTING AND VALIDATION
 
