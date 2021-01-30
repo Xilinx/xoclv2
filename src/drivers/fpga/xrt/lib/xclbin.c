@@ -94,6 +94,9 @@ static int xrt_xclbin_section_info(const struct axlf *xclbin,
 		return -EINVAL;
 
 	xclbin_len = xclbin->m_header.m_length;
+	if (xclbin_len > MAX_XCLBIN_SIZE)
+		return -EINVAL;
+
 	err = xrt_xclbin_check_section_hdr(mem_header, xclbin_len);
 	if (err)
 		return err;
