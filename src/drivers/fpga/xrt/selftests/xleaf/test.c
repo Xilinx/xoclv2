@@ -233,7 +233,7 @@ static int xrt_test_close(struct inode *inode, struct file *file)
 }
 
 /* Link to device tree nodes. */
-struct xrt_subdev_endpoints xrt_test_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_test_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
 			{ .ep_name = NODE_TEST },
@@ -271,7 +271,7 @@ static const struct platform_device_id xrt_test_id_table[] = {
 /*
  * Callbacks registered with Linux's platform driver infrastructure.
  */
-struct platform_driver xrt_test_driver = {
+static struct platform_driver xrt_test_driver = {
 	.driver	= {
 		.name    = XRT_TEST,
 	},
@@ -282,11 +282,11 @@ struct platform_driver xrt_test_driver = {
 
 int selftest_test_register_leaf(void)
 {
-	return xleaf_register_external_driver(XRT_SUBDEV_TEST,
+	return xleaf_register_driver(XRT_SUBDEV_TEST,
 		&xrt_test_driver, xrt_test_endpoints);
 }
 
 void selftest_test_unregister_leaf(void)
 {
-	xleaf_unregister_external_driver(XRT_SUBDEV_TEST);
+	xleaf_unregister_driver(XRT_SUBDEV_TEST);
 }

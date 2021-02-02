@@ -137,8 +137,7 @@ static int cmc_load_image(struct xrt_cmc_ctrl *cmc_ctrl)
 		return -EINVAL;
 	}
 
-	xrt_memcpy_toio(cmc_ctrl->reg_image.crm_addr,
-		cmc_ctrl->firmware, cmc_ctrl->firmware_size);
+	xrt_memcpy_toio(cmc_ctrl->reg_image.crm_addr, cmc_ctrl->firmware, cmc_ctrl->firmware_size);
 	return 0;
 }
 
@@ -162,9 +161,9 @@ static int cmc_start(struct xrt_cmc_ctrl *cmc_ctrl)
 	ssleep(5);
 
 	xrt_info(pdev, "CMC is ready: version 0x%x, status 0x%x, id 0x%x",
-		cmc_io_rd(cmc_ctrl, CMC_REG_IO_VERSION),
-		cmc_io_rd(cmc_ctrl, CMC_REG_IO_STATUS),
-		cmc_io_rd(cmc_ctrl, CMC_REG_IO_MAGIC));
+		 cmc_io_rd(cmc_ctrl, CMC_REG_IO_VERSION),
+		 cmc_io_rd(cmc_ctrl, CMC_REG_IO_STATUS),
+		 cmc_io_rd(cmc_ctrl, CMC_REG_IO_MAGIC));
 
 	return 0;
 }
@@ -179,29 +178,27 @@ static int cmc_fetch_firmware(struct xrt_cmc_ctrl *cmc_ctrl)
 		XMGMT_BLP, FIRMWARE,
 	};
 
-	if (mgmt_leaf == NULL)
+	if (!mgmt_leaf)
 		return -ENOENT;
 
 	ret = xleaf_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_AXLF_SECTION, &gs);
 	if (ret == 0) {
 		cmc_ctrl->firmware = vmalloc(gs.xmmigas_section_size);
-		if (cmc_ctrl->firmware == NULL) {
+		if (!cmc_ctrl->firmware) {
 			ret = -ENOMEM;
 		} else {
-			memcpy(cmc_ctrl->firmware, gs.xmmigas_section,
-				gs.xmmigas_section_size);
+			memcpy(cmc_ctrl->firmware, gs.xmmigas_section, gs.xmmigas_section_size);
 			cmc_ctrl->firmware_size = gs.xmmigas_section_size;
 		}
 	} else {
 		xrt_err(pdev, "failed to fetch firmware: %d", ret);
 	}
-	(void) xleaf_put_leaf(pdev, mgmt_leaf);
+	xleaf_put_leaf(pdev, mgmt_leaf);
 
 	return ret;
 }
 
-static ssize_t status_show(struct device *dev,
-	struct device_attribute *da, char *buf)
+static ssize_t status_show(struct device *dev, struct device_attribute *da, char *buf)
 {
 	struct xrt_cmc_ctrl *cmc_ctrl = dev_get_drvdata(dev);
 	u32 val = cmc_io_rd(cmc_ctrl, CMC_REG_IO_STATUS);
@@ -227,9 +224,8 @@ void cmc_ctrl_remove(struct platform_device *pdev)
 	if (!cmc_ctrl)
 		return;
 
-	(void) sysfs_remove_group(&DEV(cmc_ctrl->pdev)->kobj,
-		&cmc_ctrl_attr_group);
-	(void) cmc_ulp_access(cmc_ctrl, false);
+	sysfs_remove_group(&DEV(cmc_ctrl->pdev)->kobj, &cmc_ctrl_attr_group);
+	cmc_ulp_access(cmc_ctrl, false);
 	vfree(cmc_ctrl->firmware);
 	/* We intentionally leave CMC in running state. */
 }
@@ -243,10 +239,10 @@ void cmc_ctrl_event_cb(struct platform_device *pdev, void *arg)
 
 	switch (e) {
 	case XRT_EVENT_PRE_GATE_CLOSE:
-		(void) cmc_ulp_access(cmc_ctrl, false);
+		cmc_ulp_access(cmc_ctrl, false);
 		break;
 	case XRT_EVENT_POST_GATE_OPEN:
-		(void) cmc_ulp_access(cmc_ctrl, true);
+		cmc_ulp_access(cmc_ctrl, true);
 		break;
 	default:
 		xrt_dbg(pdev, "ignored event %d", e);
@@ -254,8 +250,7 @@ void cmc_ctrl_event_cb(struct platform_device *pdev, void *arg)
 	}
 }
 
-int cmc_ctrl_probe(struct platform_device *pdev,
-	struct cmc_reg_map *regmaps, void **hdl)
+int cmc_ctrl_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl)
 {
 	struct xrt_cmc_ctrl *cmc_ctrl;
 	int ret = 0;
@@ -303,7 +298,7 @@ int cmc_ctrl_probe(struct platform_device *pdev,
 	return 0;
 
 done:
-	(void) cmc_ctrl_remove(pdev);
+	cmc_ctrl_remove(pdev);
 	devm_kfree(DEV(pdev), cmc_ctrl);
 	return ret;
 }

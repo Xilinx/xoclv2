@@ -836,7 +836,7 @@ static const struct platform_device_id xmgmt_main_id_table[] = {
 	{ },
 };
 
-struct platform_driver xmgmt_main_driver = {
+static struct platform_driver xmgmt_main_driver = {
 	.driver	= {
 		.name    = XMGMT_MAIN,
 	},
@@ -847,11 +847,11 @@ struct platform_driver xmgmt_main_driver = {
 
 int xmgmt_main_register_leaf(void)
 {
-	return xleaf_register_external_driver(XRT_SUBDEV_MGMT_MAIN,
+	return xleaf_register_driver(XRT_SUBDEV_MGMT_MAIN,
 		&xmgmt_main_driver, xrt_mgmt_main_endpoints);
 }
 
 void xmgmt_main_unregister_leaf(void)
 {
-	xleaf_unregister_external_driver(XRT_SUBDEV_MGMT_MAIN);
+	xleaf_unregister_driver(XRT_SUBDEV_MGMT_MAIN);
 }

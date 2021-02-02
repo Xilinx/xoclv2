@@ -157,7 +157,7 @@ failed:
 	return ret;
 }
 
-struct xrt_subdev_endpoints xrt_gpio_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_gpio_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names[]) {
 			/* add name if ep is in same partition */
@@ -188,7 +188,7 @@ static const struct platform_device_id xrt_gpio_table[] = {
 	{ },
 };
 
-struct platform_driver xrt_gpio_driver = {
+static struct platform_driver xrt_gpio_driver = {
 	.driver = {
 		.name = XRT_GPIO,
 	},
@@ -196,3 +196,11 @@ struct platform_driver xrt_gpio_driver = {
 	.remove = xrt_gpio_remove,
 	.id_table = xrt_gpio_table,
 };
+
+void gpio_leaf_init_fini(bool init)
+{
+	if (init)
+		xleaf_register_driver(XRT_SUBDEV_GPIO, &xrt_gpio_driver, xrt_gpio_endpoints);
+	else
+		xleaf_unregister_driver(XRT_SUBDEV_GPIO);
+}

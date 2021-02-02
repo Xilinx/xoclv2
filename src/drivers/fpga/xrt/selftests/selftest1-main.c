@@ -283,11 +283,11 @@ static struct platform_driver selftest1_main_driver = {
 
 int selftest1_main_register_leaf(void)
 {
-	return xleaf_register_external_driver(XRT_SUBDEV_MGMT_MAIN,
+	return xleaf_register_driver(XRT_SUBDEV_MGMT_MAIN,
 		&selftest1_main_driver, xrt_mgmt_main_endpoints);
 }
 
 void selftest1_main_unregister_leaf(void)
 {
-	xleaf_unregister_external_driver(XRT_SUBDEV_MGMT_MAIN);
+	xleaf_unregister_driver(XRT_SUBDEV_MGMT_MAIN);
 }

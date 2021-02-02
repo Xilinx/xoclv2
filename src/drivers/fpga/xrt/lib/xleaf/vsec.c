@@ -307,7 +307,7 @@ failed:
 	return ret;
 }
 
-struct xrt_subdev_endpoints xrt_vsec_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_vsec_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
 			{ .ep_name = NODE_VSEC },
@@ -329,7 +329,7 @@ static const struct platform_device_id xrt_vsec_table[] = {
 	{ },
 };
 
-struct platform_driver xrt_vsec_driver = {
+static struct platform_driver xrt_vsec_driver = {
 	.driver = {
 		.name = XRT_VSEC,
 	},
@@ -337,3 +337,11 @@ struct platform_driver xrt_vsec_driver = {
 	.remove = xrt_vsec_remove,
 	.id_table = xrt_vsec_table,
 };
+
+void vsec_leaf_init_fini(bool init)
+{
+	if (init)
+		xleaf_register_driver(XRT_SUBDEV_VSEC, &xrt_vsec_driver, xrt_vsec_endpoints);
+	else
+		xleaf_unregister_driver(XRT_SUBDEV_VSEC);
+}

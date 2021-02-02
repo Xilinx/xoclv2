@@ -93,14 +93,14 @@ static int cmc_erase_sc_firmware(struct xrt_cmc_sc *cmc_sc)
 
 	xrt_info(cmc_sc->pdev, "erasing SC firmware...");
 	ret = cmc_mailbox_send_packet(cmc_sc->pdev, cmc_sc->mbx_generation,
-		CMC_MBX_PKT_OP_MSP432_ERASE_FW, NULL, 0);
+				      CMC_MBX_PKT_OP_MSP432_ERASE_FW, NULL, 0);
 	if (ret == 0)
 		cmc_sc->sc_fw_erased = true;
 	return ret;
 }
 
 static int cmc_write_sc_firmware_section(struct xrt_cmc_sc *cmc_sc,
-	loff_t start, size_t n, const char *buf)
+					 loff_t start, size_t n, const char *buf)
 {
 	int ret = 0;
 	size_t sz, thissz, pktsize;
@@ -114,7 +114,7 @@ static int cmc_write_sc_firmware_section(struct xrt_cmc_sc *cmc_sc,
 	if (n == 0)
 		return 0;
 
-	BUG_ON(!cmc_sc->sc_fw_erased);
+	WARN_ON(!cmc_sc->sc_fw_erased);
 
 	pkt = vzalloc(cmc_sc->mbx_max_payload_sz);
 	if (!pkt)
@@ -127,24 +127,22 @@ static int cmc_write_sc_firmware_section(struct xrt_cmc_sc *cmc_sc,
 			start_payload = pkt;
 			start_payload->addr = start;
 			start_payload->size = n;
-			thissz = cmc_sc->mbx_max_payload_sz - offsetof(
-				struct cmc_pkt_payload_sector_start, data);
+			thissz = cmc_sc->mbx_max_payload_sz -
+				offsetof(struct cmc_pkt_payload_sector_start, data);
 			thissz = min(thissz, n - sz);
 			memcpy(start_payload->data, buf + sz, thissz);
-			pktsize = thissz + offsetof(
-				struct cmc_pkt_payload_sector_start, data);
+			pktsize = thissz + offsetof(struct cmc_pkt_payload_sector_start, data);
 		} else {
 			pkt_op = CMC_MBX_PKT_OP_MSP432_SEC_DATA;
 			data_payload = pkt;
-			thissz = cmc_sc->mbx_max_payload_sz - offsetof(
-				struct cmc_pkt_payload_sector_data, data);
+			thissz = cmc_sc->mbx_max_payload_sz -
+				offsetof(struct cmc_pkt_payload_sector_data, data);
 			thissz = min(thissz, n - sz);
 			memcpy(data_payload->data, buf + sz, thissz);
-			pktsize = thissz + offsetof(
-				struct cmc_pkt_payload_sector_data, data);
+			pktsize = thissz + offsetof(struct cmc_pkt_payload_sector_data, data);
 		}
 		ret = cmc_mailbox_send_packet(cmc_sc->pdev,
-			cmc_sc->mbx_generation, pkt_op, pkt, pktsize);
+					      cmc_sc->mbx_generation, pkt_op, pkt, pktsize);
 	}
 
 	return ret;
@@ -158,7 +156,7 @@ cmc_boot_sc(struct xrt_cmc_sc *cmc_sc, u32 jump_addr)
 
 	xrt_info(cmc_sc->pdev, "rebooting SC @0x%x", jump_addr);
 
-	BUG_ON(!cmc_sc->sc_fw_erased);
+	WARN_ON(!cmc_sc->sc_fw_erased);
 
 	/* Mark new SC firmware is installed. */
 	cmc_sc->sc_fw_erased = false;
@@ -166,7 +164,7 @@ cmc_boot_sc(struct xrt_cmc_sc *cmc_sc, u32 jump_addr)
 	/* Try booting it up. */
 	pkt.BSL_jump_addr = jump_addr;
 	ret = cmc_mailbox_send_packet(cmc_sc->pdev, cmc_sc->mbx_generation,
-		CMC_MBX_PKT_OP_MSP432_IMAGE_END, (char *)&pkt, sizeof(pkt));
+				      CMC_MBX_PKT_OP_MSP432_IMAGE_END, (char *)&pkt, sizeof(pkt));
 	if (ret)
 		return ret;
 
@@ -181,8 +179,7 @@ cmc_boot_sc(struct xrt_cmc_sc *cmc_sc, u32 jump_addr)
 /*
  * Write SC firmware image data at specified location.
  */
-ssize_t cmc_update_sc_firmware(struct file *file,
-	const char __user *ubuf, size_t n, loff_t *off)
+ssize_t cmc_update_sc_firmware(struct file *file, const char __user *ubuf, size_t n, loff_t *off)
 {
 	u32 jump_addr = 0;
 	struct xrt_cmc_sc *cmc_sc = file->private_data;
@@ -197,7 +194,7 @@ ssize_t cmc_update_sc_firmware(struct file *file,
 		return -EINVAL;
 
 	kbuf = vmalloc(n);
-	if (kbuf == NULL)
+	if (!kbuf)
 		return -ENOMEM;
 	if (copy_from_user(kbuf, ubuf, n)) {
 		vfree(kbuf);
@@ -234,7 +231,7 @@ ssize_t cmc_update_sc_firmware(struct file *file,
 	cmc_mailbox_release(cmc_sc->pdev, cmc_sc->mbx_generation);
 
 	if (need_refresh)
-		(void) cmc_refresh_board_info(cmc_sc->pdev);
+		cmc_refresh_board_info(cmc_sc->pdev);
 
 	vfree(kbuf);
 	if (ret) {
@@ -292,8 +289,7 @@ loff_t cmc_sc_llseek(struct file *filp, loff_t off, int whence)
 	return npos;
 }
 
-static ssize_t sc_is_fixed_show(struct device *dev,
-	struct device_attribute *da, char *buf)
+static ssize_t sc_is_fixed_show(struct device *dev, struct device_attribute *da, char *buf)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct xrt_cmc_sc *cmc_sc = cmc_pdev2sc(pdev);
@@ -302,8 +298,7 @@ static ssize_t sc_is_fixed_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(sc_is_fixed);
 
-static ssize_t sc_presence_show(struct device *dev,
-	struct device_attribute *da, char *buf)
+static ssize_t sc_presence_show(struct device *dev, struct device_attribute *da, char *buf)
 {
 	return sprintf(buf, "1\n");
 }
@@ -329,8 +324,7 @@ void cmc_sc_remove(struct platform_device *pdev)
 	sysfs_remove_group(&pdev->dev.kobj, &cmc_sc_attr_group);
 }
 
-int cmc_sc_probe(struct platform_device *pdev,
-	struct cmc_reg_map *regmaps, void **hdl)
+int cmc_sc_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl)
 {
 	int ret;
 	struct xrt_cmc_sc *cmc_sc;

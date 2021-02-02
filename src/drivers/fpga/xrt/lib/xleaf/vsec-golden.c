@@ -208,7 +208,7 @@ failed:
 	return ret;
 }
 
-struct xrt_subdev_endpoints xrt_vsec_golden_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_vsec_golden_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
 			{ .ep_name = NODE_VSEC_GOLDEN },
@@ -227,7 +227,7 @@ static const struct platform_device_id xrt_vsec_table[] = {
 	{ },
 };
 
-struct platform_driver xrt_vsec_golden_driver = {
+static struct platform_driver xrt_vsec_golden_driver = {
 	.driver = {
 		.name = XRT_VSEC_GOLDEN,
 	},
@@ -235,3 +235,13 @@ struct platform_driver xrt_vsec_golden_driver = {
 	.remove = xrt_vsec_remove,
 	.id_table = xrt_vsec_table,
 };
+
+void vsec_golden_leaf_init_fini(bool init)
+{
+	if (init) {
+		xleaf_register_driver(XRT_SUBDEV_VSEC_GOLDEN,
+				      &xrt_vsec_golden_driver, xrt_vsec_golden_endpoints);
+	} else {
+		xleaf_unregister_driver(XRT_SUBDEV_VSEC_GOLDEN);
+	}
+}

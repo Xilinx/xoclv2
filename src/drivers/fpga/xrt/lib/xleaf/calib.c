@@ -63,7 +63,7 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 	struct xrt_srsr_ioctl_calib req = { 0 };
 
 	ret = xleaf_ioctl(srsr_leaf, XRT_SRSR_EP_NAME,
-		(void *)&ep_name);
+			  (void *)&ep_name);
 	if (ret) {
 		xrt_err(calib->pdev, "failed to get SRSR name %d", ret);
 		goto done;
@@ -76,7 +76,7 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 			req.xsic_buf = cache->data;
 			req.xsic_size = cache->data_size;
 			ret = xleaf_ioctl(srsr_leaf,
-				XRT_SRSR_FAST_CALIB, &req);
+					  XRT_SRSR_FAST_CALIB, &req);
 			if (ret) {
 				xrt_err(calib->pdev, "Fast calib failed %d",
 					ret);
@@ -111,7 +111,6 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 		goto done;
 	}
 	cache->data_size = req.xsic_size;
-
 
 done:
 	mutex_unlock(&calib->lock);
@@ -250,7 +249,7 @@ xrt_calib_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	return ret;
 }
 
-struct xrt_subdev_endpoints xrt_calib_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_calib_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .ep_name = NODE_DDR_CALIB },
@@ -272,7 +271,7 @@ static const struct platform_device_id xrt_calib_table[] = {
 	{ },
 };
 
-struct platform_driver xrt_calib_driver = {
+static struct platform_driver xrt_calib_driver = {
 	.driver = {
 		.name = XRT_CALIB,
 	},
@@ -280,3 +279,11 @@ struct platform_driver xrt_calib_driver = {
 	.remove = xrt_calib_remove,
 	.id_table = xrt_calib_table,
 };
+
+void calib_leaf_init_fini(bool init)
+{
+	if (init)
+		xleaf_register_driver(XRT_SUBDEV_CALIB, &xrt_calib_driver, xrt_calib_endpoints);
+	else
+		xleaf_unregister_driver(XRT_SUBDEV_CALIB);
+}
