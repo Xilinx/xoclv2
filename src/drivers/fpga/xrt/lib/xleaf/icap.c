@@ -275,7 +275,7 @@ failed:
 	return ret;
 }
 
-struct xrt_subdev_endpoints xrt_icap_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_icap_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .ep_name = NODE_FPGA_CONFIG },
@@ -297,7 +297,7 @@ static const struct platform_device_id xrt_icap_table[] = {
 	{ },
 };
 
-struct platform_driver xrt_icap_driver = {
+static struct platform_driver xrt_icap_driver = {
 	.driver = {
 		.name = XRT_ICAP,
 	},
@@ -305,3 +305,11 @@ struct platform_driver xrt_icap_driver = {
 	.remove = xrt_icap_remove,
 	.id_table = xrt_icap_table,
 };
+
+void icap_leaf_init_fini(bool init)
+{
+	if (init)
+		xleaf_register_driver(XRT_SUBDEV_ICAP, &xrt_icap_driver, xrt_icap_endpoints);
+	else
+		xleaf_unregister_driver(XRT_SUBDEV_ICAP);
+}

@@ -195,7 +195,7 @@ failed:
 	return ret;
 }
 
-struct xrt_subdev_endpoints xrt_ucs_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_ucs_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .ep_name = NODE_UCS_CONTROL_STATUS },
@@ -217,7 +217,7 @@ static const struct platform_device_id xrt_ucs_table[] = {
 	{ },
 };
 
-struct platform_driver xrt_ucs_driver = {
+static struct platform_driver xrt_ucs_driver = {
 	.driver = {
 		.name = XRT_UCS,
 	},
@@ -225,3 +225,11 @@ struct platform_driver xrt_ucs_driver = {
 	.remove = ucs_remove,
 	.id_table = xrt_ucs_table,
 };
+
+void ucs_leaf_init_fini(bool init)
+{
+	if (init)
+		xleaf_register_driver(XRT_SUBDEV_UCS, &xrt_ucs_driver, xrt_ucs_endpoints);
+	else
+		xleaf_unregister_driver(XRT_SUBDEV_UCS);
+}

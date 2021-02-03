@@ -36,7 +36,7 @@ struct xrt_cmc_mbx {
 	struct platform_device *pdev;
 	struct cmc_reg_map reg_io;
 	u32 mbx_offset;
-	struct mutex lock;
+	struct mutex lock; /* protect xrt_cmc_mbx */
 	struct cmc_pkt pkt;
 	struct semaphore sem;
 	int generation;
@@ -85,7 +85,7 @@ static int cmc_mailbox_wait(struct xrt_cmc_mbx *cmc_mbx)
 {
 	u32 val;
 
-	BUG_ON(!mutex_is_locked(&cmc_mbx->lock));
+	WARN_ON(!mutex_is_locked(&cmc_mbx->lock));
 
 	CMC_LONG_WAIT(cmc_pkt_host_owned(cmc_mbx));
 	if (!cmc_pkt_host_owned(cmc_mbx)) {
@@ -112,22 +112,20 @@ static int cmc_mailbox_pkt_write(struct xrt_cmc_mbx *cmc_mbx)
 	int ret = 0;
 	u32 i;
 
-	BUG_ON(!mutex_is_locked(&cmc_mbx->lock));
+	WARN_ON(!mutex_is_locked(&cmc_mbx->lock));
 
 #ifdef	MBX_PKT_DEBUG
 	xrt_info(cmc_mbx->pdev, "Sending CMC packet: %d DWORDS...", len);
 	xrt_info(cmc_mbx->pdev, "opcode=%d payload_sz=0x%x (0x%x)",
-		cmc_mbx->pkt.hdr.op, cmc_mbx->pkt.hdr.payload_sz, pkt[0]);
+		 cmc_mbx->pkt.hdr.op, cmc_mbx->pkt.hdr.payload_sz, pkt[0]);
 	for (i = 0; i < 16; i++) {// print out first 16 bytes
 		/* Comment out to avoid check patch complaint. */
 		//pr_cont("%02x ", *((u8 *)(cmc_mbx->pkt.data) + i));
 	}
 #endif
 	/* Push pkt data to mailbox on HW. */
-	for (i = 0; i < len; i++) {
-		cmc_io_wr(cmc_mbx,
-			cmc_mbx->mbx_offset + i * sizeof(u32), pkt[i]);
-	}
+	for (i = 0; i < len; i++)
+		cmc_io_wr(cmc_mbx, cmc_mbx->mbx_offset + i * sizeof(u32), pkt[i]);
 
 	/* Notify HW that a pkt is ready for process. */
 	cmc_pkt_notify_device(cmc_mbx);
@@ -145,7 +143,7 @@ static int cmc_mailbox_pkt_read(struct xrt_cmc_mbx *cmc_mbx)
 	u32 i;
 	int ret = 0;
 
-	BUG_ON(!mutex_is_locked(&cmc_mbx->lock));
+	WARN_ON(!mutex_is_locked(&cmc_mbx->lock));
 
 	/* Make sure HW is done with the mailbox buffer. */
 	ret = cmc_mailbox_wait(cmc_mbx);
@@ -155,10 +153,8 @@ static int cmc_mailbox_pkt_read(struct xrt_cmc_mbx *cmc_mbx)
 	/* Receive pkt hdr. */
 	pkt = (u32 *)&hdr;
 	len = sizeof(hdr) / sizeof(u32);
-	for (i = 0; i < len; i++) {
-		pkt[i] = cmc_io_rd(cmc_mbx,
-			cmc_mbx->mbx_offset + i * sizeof(u32));
-	}
+	for (i = 0; i < len; i++)
+		pkt[i] = cmc_io_rd(cmc_mbx, cmc_mbx->mbx_offset + i * sizeof(u32));
 
 	pkt = (u32 *)&cmc_mbx->pkt;
 	len = CMC_PKT_SZ(&hdr);
@@ -168,21 +164,18 @@ static int cmc_mailbox_pkt_read(struct xrt_cmc_mbx *cmc_mbx)
 	}
 
 	/* Load pkt data from mailbox on HW. */
-	for (i = 0; i < len; i++) {
-		pkt[i] = cmc_io_rd(cmc_mbx,
-			cmc_mbx->mbx_offset + i * sizeof(u32));
-	}
+	for (i = 0; i < len; i++)
+		pkt[i] = cmc_io_rd(cmc_mbx, cmc_mbx->mbx_offset + i * sizeof(u32));
 
 	return ret;
 }
 
-int cmc_mailbox_recv_packet(struct platform_device *pdev, int generation,
-	char *buf, size_t *len)
+int cmc_mailbox_recv_packet(struct platform_device *pdev, int generation, char *buf, size_t *len)
 {
 	int ret;
 	struct xrt_cmc_mbx *cmc_mbx = cmc_pdev2mbx(pdev);
 
-	if (cmc_mbx == NULL)
+	if (!cmc_mbx)
 		return -EINVAL;
 
 	if (cmc_mbx->generation != generation) {
@@ -212,12 +205,12 @@ int cmc_mailbox_recv_packet(struct platform_device *pdev, int generation,
 }
 
 int cmc_mailbox_send_packet(struct platform_device *pdev, int generation,
-	u8 op, const char *buf, size_t len)
+			    u8 op, const char *buf, size_t len)
 {
 	int ret;
 	struct xrt_cmc_mbx *cmc_mbx = cmc_pdev2mbx(pdev);
 
-	if (cmc_mbx == NULL)
+	if (!cmc_mbx)
 		return -ENODEV;
 
 	if (cmc_mbx->generation != generation) {
@@ -250,7 +243,7 @@ int cmc_mailbox_acquire(struct platform_device *pdev)
 {
 	struct xrt_cmc_mbx *cmc_mbx = cmc_pdev2mbx(pdev);
 
-	if (cmc_mbx == NULL)
+	if (!cmc_mbx)
 		return -EINVAL;
 
 	if (down_killable(&cmc_mbx->sem)) {
@@ -288,8 +281,7 @@ void cmc_mailbox_remove(struct platform_device *pdev)
 	/* Nothing to do */
 }
 
-int cmc_mailbox_probe(struct platform_device *pdev,
-	struct cmc_reg_map *regmaps, void **hdl)
+int cmc_mailbox_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl)
 {
 	struct xrt_cmc_mbx *cmc_mbx;
 
@@ -307,8 +299,7 @@ int cmc_mailbox_probe(struct platform_device *pdev,
 		xrt_err(cmc_mbx->pdev, "CMC mailbox is not available");
 		goto done;
 	} else {
-		xrt_info(cmc_mbx->pdev, "CMC mailbox offset is 0x%x",
-			cmc_mbx->mbx_offset);
+		xrt_info(cmc_mbx->pdev, "CMC mailbox offset is 0x%x", cmc_mbx->mbx_offset);
 	}
 
 	*hdl = cmc_mbx;

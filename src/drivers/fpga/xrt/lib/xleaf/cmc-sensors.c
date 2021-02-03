@@ -64,8 +64,8 @@
 #define	CMC_VCCAUX_REG                  0x344
 #define	CMC_VCCAUX_PMC_REG              0x350
 #define	CMC_VCCRAM_REG                  0x35C
-#define	XMC_CORE_VERSION_REG		0xC4C
-#define	XMC_OEM_ID_REG                  0xC50
+#define	CMC_CORE_VERSION_REG		0xC4C
+#define	CMC_OEM_ID_REG                  0xC50
 
 struct xrt_cmc_sensor {
 	struct platform_device *pdev;
@@ -87,27 +87,27 @@ enum sensor_val_kind {
 };
 
 #define	READ_SENSOR(cmc_sensor, off, val_kind)	\
-	(cmc_reg_rd(cmc_sensor, off + sizeof(u32) * val_kind))
+	(cmc_reg_rd(cmc_sensor, (off) + sizeof(u32) * (val_kind)))
 
 /*
  * Defining sysfs nodes for HWMON.
  */
 
-#define	HWMON_INDEX(sensor, val_kind)	(sensor | (val_kind << 24))
-#define	HWMON_INDEX2SENSOR(index)	(index & 0xffffff)
-#define	HWMON_INDEX2VAL_KIND(index)	((index & ~0xffffff) >> 24)
+#define	HWMON_INDEX(sensor, val_kind)	((sensor) | ((val_kind) << 24))
+#define	HWMON_INDEX2SENSOR(index)	((index) & 0xffffff)
+#define	HWMON_INDEX2VAL_KIND(index)	(((index) & ~0xffffff) >> 24)
 
 /* For voltage and current */
-static ssize_t hwmon_show(struct device *dev,
-	struct device_attribute *da, char *buf)
+static ssize_t hwmon_show(struct device *dev, struct device_attribute *da, char *buf)
 {
 	struct xrt_cmc_sensor *cmc_sensor = dev_get_drvdata(dev);
 	int index = to_sensor_dev_attr(da)->index;
 	u32 val = READ_SENSOR(cmc_sensor, HWMON_INDEX2SENSOR(index),
-		HWMON_INDEX2VAL_KIND(index));
+			      HWMON_INDEX2VAL_KIND(index));
 
 	return sprintf(buf, "%d\n", val);
 }
+
 #define	HWMON_VOLT_CURR_GROUP(type, id) hwmon_##type##id##_attrgroup
 #define	HWMON_VOLT_CURR_SYSFS_NODE(type, id, name, sensor)		\
 	static ssize_t type##id##_label(struct device *dev,		\
@@ -116,13 +116,13 @@ static ssize_t hwmon_show(struct device *dev,
 		return sprintf(buf, "%s\n", name);			\
 	}								\
 	static SENSOR_DEVICE_ATTR(type##id##_max, 0444, hwmon_show,	\
-		NULL, HWMON_INDEX(sensor, SENSOR_MAX));			\
+		NULL, HWMON_INDEX(CMC_##sensor, SENSOR_MAX));		\
 	static SENSOR_DEVICE_ATTR(type##id##_average, 0444, hwmon_show,	\
-		NULL, HWMON_INDEX(sensor, SENSOR_AVG));			\
+		NULL, HWMON_INDEX(CMC_##sensor, SENSOR_AVG));		\
 	static SENSOR_DEVICE_ATTR(type##id##_input, 0444, hwmon_show,	\
-		NULL, HWMON_INDEX(sensor, SENSOR_INS));			\
+		NULL, HWMON_INDEX(CMC_##sensor, SENSOR_INS));		\
 	static SENSOR_DEVICE_ATTR(type##id##_label, 0444, type##id##_label,    \
-		NULL, HWMON_INDEX(sensor, SENSOR_INS));			\
+		NULL, HWMON_INDEX(CMC_##sensor, SENSOR_INS));		\
 	static struct attribute *hwmon_##type##id##_attributes[] = {	\
 		&sensor_dev_attr_##type##id##_max.dev_attr.attr,	\
 		&sensor_dev_attr_##type##id##_average.dev_attr.attr,	\
@@ -143,9 +143,9 @@ static ssize_t hwmon_show(struct device *dev,
 		return sprintf(buf, "%s\n", name);			\
 	}								\
 	static SENSOR_DEVICE_ATTR(fan##id##_input, 0444, hwmon_show,	\
-		NULL, HWMON_INDEX(sensor, SENSOR_INS));			\
+		NULL, HWMON_INDEX(CMC_##sensor, SENSOR_INS));		\
 	static SENSOR_DEVICE_ATTR(fan##id##_label, 0444, fan##id##_label,      \
-		NULL, HWMON_INDEX(sensor, SENSOR_INS));			\
+		NULL, HWMON_INDEX(CMC_##sensor, SENSOR_INS));		\
 	static struct attribute *hwmon_fan##id##_attributes[] = {	\
 		&sensor_dev_attr_fan##id##_input.dev_attr.attr,		\
 		&sensor_dev_attr_fan##id##_label.dev_attr.attr,		\
@@ -156,8 +156,7 @@ static ssize_t hwmon_show(struct device *dev,
 	}
 
 /* For temperature */
-static ssize_t hwmon_temp_show(struct device *dev,
-	struct device_attribute *da, char *buf)
+static ssize_t hwmon_temp_show(struct device *dev, struct device_attribute *da, char *buf)
 {
 	struct xrt_cmc_sensor *cmc_sensor = dev_get_drvdata(dev);
 	int index = to_sensor_dev_attr(da)->index;
@@ -166,19 +165,21 @@ static ssize_t hwmon_temp_show(struct device *dev,
 
 	return sprintf(buf, "%d\n", val * 1000);
 }
+
 #define	HWMON_TEMPERATURE_GROUP(id) hwmon_temp##id##_attrgroup
 #define	HWMON_TEMPERATURE_SYSFS_NODE(id, name, sensor)			\
 	static ssize_t temp##id##_label(struct device *dev,		\
-		struct device_attribute *attr, char *buf)		\
+					struct device_attribute *attr,	\
+					char *buf)			\
 	{								\
 		return sprintf(buf, "%s\n", name);			\
 	}								\
 	static SENSOR_DEVICE_ATTR(temp##id##_highest, 0444, hwmon_temp_show,   \
-		NULL, HWMON_INDEX(sensor, SENSOR_MAX));			\
+		NULL, HWMON_INDEX(CMC_##sensor, SENSOR_MAX));		\
 	static SENSOR_DEVICE_ATTR(temp##id##_input, 0444, hwmon_temp_show,     \
-		NULL, HWMON_INDEX(sensor, SENSOR_INS));			\
+		NULL, HWMON_INDEX(CMC_##sensor, SENSOR_INS));		\
 	static SENSOR_DEVICE_ATTR(temp##id##_label, 0444, temp##id##_label,    \
-		NULL, HWMON_INDEX(sensor, SENSOR_INS));			\
+		NULL, HWMON_INDEX(CMC_##sensor, SENSOR_INS));		\
 	static struct attribute *hwmon_temp##id##_attributes[] = {	\
 		&sensor_dev_attr_temp##id##_highest.dev_attr.attr,	\
 		&sensor_dev_attr_temp##id##_input.dev_attr.attr,	\
@@ -190,8 +191,7 @@ static ssize_t hwmon_temp_show(struct device *dev,
 	}
 
 /* For power */
-static uint64_t cmc_get_power(struct xrt_cmc_sensor *cmc_sensor,
-	enum sensor_val_kind kind)
+static uint64_t cmc_get_power(struct xrt_cmc_sensor *cmc_sensor, enum sensor_val_kind kind)
 {
 	u32 v_pex, v_aux, v_3v3, c_pex, c_aux, c_3v3;
 	u64 val = 0;
@@ -207,8 +207,8 @@ static uint64_t cmc_get_power(struct xrt_cmc_sensor *cmc_sensor,
 
 	return val;
 }
-static ssize_t hwmon_power_show(struct device *dev,
-	struct device_attribute *da, char *buf)
+
+static ssize_t hwmon_power_show(struct device *dev, struct device_attribute *da, char *buf)
 {
 	struct xrt_cmc_sensor *cmc_sensor = dev_get_drvdata(dev);
 	int index = to_sensor_dev_attr(da)->index;
@@ -216,10 +216,12 @@ static ssize_t hwmon_power_show(struct device *dev,
 
 	return sprintf(buf, "%lld\n", val);
 }
+
 #define	HWMON_POWER_GROUP(id) hwmon_power##id##_attrgroup
 #define	HWMON_POWER_SYSFS_NODE(id, name)				\
 	static ssize_t power##id##_label(struct device *dev,		\
-		struct device_attribute *attr, char *buf)		\
+					 struct device_attribute *attr,	\
+					 char *buf)			\
 	{								\
 		return sprintf(buf, "%s\n", name);			\
 	}								\
@@ -239,46 +241,46 @@ static ssize_t hwmon_power_show(struct device *dev,
 		.attrs = hwmon_power##id##_attributes,			\
 	}
 
-HWMON_VOLT_CURR_SYSFS_NODE(in, 0, "12V PEX", CMC_12V_PEX_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 1, "12V AUX", CMC_12V_AUX_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 2, "3V3 PEX", CMC_3V3_PEX_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 3, "3V3 AUX", CMC_3V3_AUX_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 4, "5V5 SYS", CMC_SYS_5V5_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 5, "1V2 TOP", CMC_VCC1V2_TOP_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 6, "1V2 BTM", CMC_VCC1V2_BTM_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 7, "1V8 TOP", CMC_VCC1V8_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 8, "12V SW", CMC_12V_SW_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 9, "VCC INT", CMC_VCCINT_V_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 10, "0V9 MGT", CMC_MGT0V9AVCC_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 11, "0V85", CMC_VCC0V85_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 12, "MGT VTT", CMC_MGTAVTT_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 13, "DDR VPP BOTTOM", CMC_DDR4_VPP_BTM_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 14, "DDR VPP TOP", CMC_DDR4_VPP_TOP_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 15, "VCC 3V3", CMC_VCC3V3_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 16, "1V2 HBM", CMC_HBM_1V2_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 17, "2V5 VPP", CMC_VPP2V5_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(in, 18, "VCC INT BRAM", CMC_VCCINT_BRAM_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(curr, 1, "12V PEX Current", CMC_12V_PEX_I_IN_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(curr, 2, "12V AUX Current", CMC_12V_AUX_I_IN_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(curr, 3, "VCC INT Current", CMC_VCCINT_I_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(curr, 4, "3V3 PEX Current", CMC_3V3_PEX_I_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(curr, 5, "VCC 0V85 Current", CMC_VCC0V85_I_REG);
-HWMON_VOLT_CURR_SYSFS_NODE(curr, 6, "3V3 AUX Current", CMC_3V3_AUX_I_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(1, "PCB TOP FRONT", CMC_SE98_TEMP0_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(2, "PCB TOP REAR", CMC_SE98_TEMP1_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(3, "PCB BTM FRONT", CMC_SE98_TEMP2_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(4, "FPGA TEMP", CMC_FPGA_TEMP);
-HWMON_TEMPERATURE_SYSFS_NODE(5, "TCRIT TEMP", CMC_FAN_TEMP_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(6, "DIMM0 TEMP", CMC_DIMM_TEMP0_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(7, "DIMM1 TEMP", CMC_DIMM_TEMP1_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(8, "DIMM2 TEMP", CMC_DIMM_TEMP2_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(9, "DIMM3 TEMP", CMC_DIMM_TEMP3_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(10, "HBM TEMP", CMC_HBM_TEMP_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(11, "QSPF 0", CMC_CAGE_TEMP0_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(12, "QSPF 1", CMC_CAGE_TEMP1_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(13, "QSPF 2", CMC_CAGE_TEMP2_REG);
-HWMON_TEMPERATURE_SYSFS_NODE(14, "QSPF 3", CMC_CAGE_TEMP3_REG);
-HWMON_FAN_SPEED_SYSFS_NODE(1, "FAN SPEED", CMC_FAN_SPEED_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 0, "12V PEX", 12V_PEX_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 1, "12V AUX", 12V_AUX_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 2, "3V3 PEX", 3V3_PEX_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 3, "3V3 AUX", 3V3_AUX_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 4, "5V5 SYS", SYS_5V5_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 5, "1V2 TOP", VCC1V2_TOP_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 6, "1V2 BTM", VCC1V2_BTM_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 7, "1V8 TOP", VCC1V8_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 8, "12V SW", 12V_SW_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 9, "VCC INT", VCCINT_V_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 10, "0V9 MGT", MGT0V9AVCC_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 11, "0V85", VCC0V85_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 12, "MGT VTT", MGTAVTT_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 13, "DDR VPP BOTTOM", DDR4_VPP_BTM_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 14, "DDR VPP TOP", DDR4_VPP_TOP_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 15, "VCC 3V3", VCC3V3_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 16, "1V2 HBM", HBM_1V2_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 17, "2V5 VPP", VPP2V5_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(in, 18, "VCC INT BRAM", VCCINT_BRAM_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(curr, 1, "12V PEX Current", 12V_PEX_I_IN_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(curr, 2, "12V AUX Current", 12V_AUX_I_IN_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(curr, 3, "VCC INT Current", VCCINT_I_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(curr, 4, "3V3 PEX Current", 3V3_PEX_I_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(curr, 5, "VCC 0V85 Current", VCC0V85_I_REG);
+HWMON_VOLT_CURR_SYSFS_NODE(curr, 6, "3V3 AUX Current", 3V3_AUX_I_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(1, "PCB TOP FRONT", SE98_TEMP0_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(2, "PCB TOP REAR", SE98_TEMP1_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(3, "PCB BTM FRONT", SE98_TEMP2_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(4, "FPGA TEMP", FPGA_TEMP);
+HWMON_TEMPERATURE_SYSFS_NODE(5, "TCRIT TEMP", FAN_TEMP_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(6, "DIMM0 TEMP", DIMM_TEMP0_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(7, "DIMM1 TEMP", DIMM_TEMP1_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(8, "DIMM2 TEMP", DIMM_TEMP2_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(9, "DIMM3 TEMP", DIMM_TEMP3_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(10, "HBM TEMP", HBM_TEMP_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(11, "QSPF 0", CAGE_TEMP0_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(12, "QSPF 1", CAGE_TEMP1_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(13, "QSPF 2", CAGE_TEMP2_REG);
+HWMON_TEMPERATURE_SYSFS_NODE(14, "QSPF 3", CAGE_TEMP3_REG);
+HWMON_FAN_SPEED_SYSFS_NODE(1, "FAN SPEED", FAN_SPEED_REG);
 HWMON_POWER_SYSFS_NODE(1, "POWER");
 
 static const struct attribute_group *hwmon_cmc_attrgroups[] = {
@@ -331,7 +333,7 @@ void cmc_sensor_remove(struct platform_device *pdev)
 	struct xrt_cmc_sensor *cmc_sensor =
 		(struct xrt_cmc_sensor *)cmc_pdev2sensor(pdev);
 
-	BUG_ON(cmc_sensor == NULL);
+	WARN_ON(!cmc_sensor);
 	if (cmc_sensor->hwmon_dev)
 		xleaf_unregister_hwmon(pdev, cmc_sensor->hwmon_dev);
 	kfree(cmc_sensor->name);
@@ -342,21 +344,19 @@ static const char *cmc_get_vbnv(struct xrt_cmc_sensor *cmc_sensor)
 	int ret;
 	const char *vbnv;
 	struct platform_device *mgmt_leaf =
-		xleaf_get_leaf_by_id(cmc_sensor->pdev,
-		XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
+		xleaf_get_leaf_by_id(cmc_sensor->pdev, XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
 
-	if (mgmt_leaf == NULL)
+	if (!mgmt_leaf)
 		return NULL;
 
 	ret = xleaf_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_VBNV, &vbnv);
-	(void) xleaf_put_leaf(cmc_sensor->pdev, mgmt_leaf);
+	xleaf_put_leaf(cmc_sensor->pdev, mgmt_leaf);
 	if (ret)
 		return NULL;
 	return vbnv;
 }
 
-int cmc_sensor_probe(struct platform_device *pdev,
-	struct cmc_reg_map *regmaps, void **hdl)
+int cmc_sensor_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl)
 {
 	struct xrt_cmc_sensor *cmc_sensor;
 	const char *vbnv;
@@ -375,9 +375,8 @@ int cmc_sensor_probe(struct platform_device *pdev,
 	 * Make a root call to ask root to register. If we register using
 	 * platform device, we'll be treated as ISA device, not PCI device.
 	 */
-	cmc_sensor->hwmon_dev = xleaf_register_hwmon(pdev,
-		vbnv, cmc_sensor, hwmon_cmc_attrgroups);
-	if (cmc_sensor->hwmon_dev == NULL)
+	cmc_sensor->hwmon_dev = xleaf_register_hwmon(pdev, vbnv, cmc_sensor, hwmon_cmc_attrgroups);
+	if (!cmc_sensor->hwmon_dev)
 		xrt_err(pdev, "failed to create HWMON device");
 
 	*hdl = cmc_sensor;
@@ -387,8 +386,7 @@ int cmc_sensor_probe(struct platform_device *pdev,
 void cmc_sensor_read(struct platform_device *pdev, struct xcl_sensor *s)
 {
 #define	READ_INST_SENSOR(off)	READ_SENSOR(cmc_sensor, off, SENSOR_INS)
-	struct xrt_cmc_sensor *cmc_sensor =
-		(struct xrt_cmc_sensor *)cmc_pdev2sensor(pdev);
+	struct xrt_cmc_sensor *cmc_sensor = (struct xrt_cmc_sensor *)cmc_pdev2sensor(pdev);
 
 	s->vol_12v_pex = READ_INST_SENSOR(CMC_12V_PEX_REG);
 	s->vol_12v_aux = READ_INST_SENSOR(CMC_12V_AUX_REG);
@@ -430,8 +428,8 @@ void cmc_sensor_read(struct platform_device *pdev, struct xcl_sensor *s)
 	s->vol_1v2_hbm = READ_INST_SENSOR(CMC_HBM_1V2_REG);
 	s->vol_2v5_vpp = READ_INST_SENSOR(CMC_VPP2V5_REG);
 	s->vccint_bram = READ_INST_SENSOR(CMC_VCCINT_BRAM_REG);
-	s->version = cmc_reg_rd(cmc_sensor, XMC_CORE_VERSION_REG);
-	s->oem_id = cmc_reg_rd(cmc_sensor, XMC_OEM_ID_REG);
+	s->version = cmc_reg_rd(cmc_sensor, CMC_CORE_VERSION_REG);
+	s->oem_id = cmc_reg_rd(cmc_sensor, CMC_OEM_ID_REG);
 	s->vccint_temp = READ_INST_SENSOR(CMC_VCCINT_TEMP_REG);
 	s->vol_12v_aux1 = READ_INST_SENSOR(CMC_12V_AUX1_REG);
 	s->vol_vcc1v2_i = READ_INST_SENSOR(CMC_VCC1V2_I_REG);

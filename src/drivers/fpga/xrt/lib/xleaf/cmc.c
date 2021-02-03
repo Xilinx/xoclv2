@@ -72,8 +72,7 @@ static int cmc_map_io(struct xrt_cmc *cmc, struct resource *res)
 {
 	int	id;
 
-	id = xrt_md_res_name2id(cmc_iores_id_map, ARRAY_SIZE(cmc_iores_id_map),
-		res->name);
+	id = xrt_md_res_name2id(cmc_iores_id_map, ARRAY_SIZE(cmc_iores_id_map), res->name);
 	if (id < 0) {
 		xrt_err(cmc->pdev, "resource %s ignored", res->name);
 		return -EINVAL;
@@ -106,7 +105,7 @@ static int cmc_remove(struct platform_device *pdev)
 	cmc_ctrl_remove(pdev);
 
 	for (i = 0; i < NUM_IOADDR; i++) {
-		if (cmc->regs[i].crm_addr == NULL)
+		if (!cmc->regs[i].crm_addr)
 			continue;
 		iounmap(cmc->regs[i].crm_addr);
 	}
@@ -134,10 +133,10 @@ static int cmc_probe(struct platform_device *pdev)
 		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
 		if (!res)
 			break;
-		(void) cmc_map_io(cmc, res);
+		cmc_map_io(cmc, res);
 	}
 	for (i = 0; i < NUM_IOADDR; i++) {
-		if (cmc->regs[i].crm_addr == NULL)
+		if (!cmc->regs[i].crm_addr)
 			break;
 	}
 	if (i != NUM_IOADDR) {
@@ -151,15 +150,15 @@ static int cmc_probe(struct platform_device *pdev)
 		goto done;
 
 	/* Non-critical part of init can fail. */
-	(void) cmc_sensor_probe(cmc->pdev, cmc->regs, &cmc->sensor_hdl);
-	(void) cmc_mailbox_probe(cmc->pdev, cmc->regs, &cmc->mbx_hdl);
-	(void) cmc_bdinfo_probe(cmc->pdev, cmc->regs, &cmc->bdinfo_hdl);
-	(void) cmc_sc_probe(cmc->pdev, cmc->regs, &cmc->sc_hdl);
+	cmc_sensor_probe(cmc->pdev, cmc->regs, &cmc->sensor_hdl);
+	cmc_mailbox_probe(cmc->pdev, cmc->regs, &cmc->mbx_hdl);
+	cmc_bdinfo_probe(cmc->pdev, cmc->regs, &cmc->bdinfo_hdl);
+	cmc_sc_probe(cmc->pdev, cmc->regs, &cmc->sc_hdl);
 
 	return 0;
 
 done:
-	(void) cmc_remove(pdev);
+	cmc_remove(pdev);
 	return ret;
 }
 
@@ -197,7 +196,7 @@ xrt_cmc_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	return ret;
 }
 
-struct xrt_subdev_endpoints xrt_cmc_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_cmc_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []) {
 			{ .ep_name = NODE_CMC_REG },
@@ -232,7 +231,7 @@ static const struct platform_device_id cmc_id_table[] = {
 	{ },
 };
 
-struct platform_driver xrt_cmc_driver = {
+static struct platform_driver xrt_cmc_driver = {
 	.driver	= {
 		.name    = XRT_CMC,
 	},
@@ -240,3 +239,11 @@ struct platform_driver xrt_cmc_driver = {
 	.remove  = cmc_remove,
 	.id_table = cmc_id_table,
 };
+
+void cmc_leaf_init_fini(bool init)
+{
+	if (init)
+		xleaf_register_driver(XRT_SUBDEV_CMC, &xrt_cmc_driver, xrt_cmc_endpoints);
+	else
+		xleaf_unregister_driver(XRT_SUBDEV_CMC);
+}

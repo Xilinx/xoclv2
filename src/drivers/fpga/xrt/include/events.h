@@ -40,9 +40,7 @@ struct xrt_event_arg_subdev {
 
 struct xrt_event {
 	enum xrt_events xe_evt;
-	union {
-		struct xrt_event_arg_subdev xe_subdev;
-	};
+	struct xrt_event_arg_subdev xe_subdev;
 };
 
 #endif	/* _XRT_EVENTS_H_ */

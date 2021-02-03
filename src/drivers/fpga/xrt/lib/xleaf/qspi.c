@@ -1303,7 +1303,7 @@ qspi_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 	return ret;
 }
 
-struct xrt_subdev_endpoints xrt_qspi_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_qspi_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
 			{
@@ -1338,7 +1338,7 @@ static const struct platform_device_id qspi_id_table[] = {
 	{ },
 };
 
-struct platform_driver xrt_qspi_driver = {
+static struct platform_driver xrt_qspi_driver = {
 	.driver	= {
 		.name    = XRT_QSPI,
 	},
@@ -1346,3 +1346,11 @@ struct platform_driver xrt_qspi_driver = {
 	.remove  = qspi_remove,
 	.id_table = qspi_id_table,
 };
+
+void qspi_leaf_init_fini(bool init)
+{
+	if (init)
+		xleaf_register_driver(XRT_SUBDEV_QSPI, &xrt_qspi_driver, xrt_qspi_endpoints);
+	else
+		xleaf_unregister_driver(XRT_SUBDEV_QSPI);
+}

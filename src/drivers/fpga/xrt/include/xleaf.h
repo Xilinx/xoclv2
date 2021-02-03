@@ -73,13 +73,6 @@ struct xrt_subdev_file_ops {
  */
 struct xrt_subdev_drv_ops {
 	/*
-	 * Per driver module callback. Don't take any arguments.
-	 * If defined these are called as part of driver (un)registration.
-	 */
-	int (*xsd_post_init)(void);
-	void (*xsd_pre_exit)(void);
-
-	/*
 	 * Per driver instance callback. The pdev points to the instance.
 	 * If defined these are called by other leaf drivers.
 	 * Note that root driver may call into xsd_ioctl of a group driver.
@@ -262,9 +255,23 @@ static inline void xrt_memcpy_toio(void __iomem *iomem, void *buf, u32 size)
 		iowrite32(((u32 *)buf)[i], ((char *)(iomem) + sizeof(u32) * i));
 }
 
-int xleaf_register_external_driver(enum xrt_subdev_id id,
-				   struct platform_driver *drv,
-				   struct xrt_subdev_endpoints *eps);
-void xleaf_unregister_external_driver(enum xrt_subdev_id id);
+int xleaf_register_driver(enum xrt_subdev_id id, struct platform_driver *drv,
+			  struct xrt_subdev_endpoints *eps);
+void xleaf_unregister_driver(enum xrt_subdev_id id);
+
+/* Module's init/fini routines for leaf driver in xrt-lib module */
+void group_leaf_init_fini(bool init);
+void vsec_leaf_init_fini(bool init);
+void vsec_golden_leaf_init_fini(bool init);
+void gpio_leaf_init_fini(bool init);
+void axigate_leaf_init_fini(bool init);
+void icap_leaf_init_fini(bool init);
+void calib_leaf_init_fini(bool init);
+void qspi_leaf_init_fini(bool init);
+void mailbox_leaf_init_fini(bool init);
+void cmc_leaf_init_fini(bool init);
+void clkfreq_leaf_init_fini(bool init);
+void clock_leaf_init_fini(bool init);
+void ucs_leaf_init_fini(bool init);
 
 #endif	/* _XRT_LEAF_H_ */

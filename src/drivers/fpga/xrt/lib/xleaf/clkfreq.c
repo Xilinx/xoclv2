@@ -179,7 +179,7 @@ failed:
 	return ret;
 }
 
-struct xrt_subdev_endpoints xrt_clkfreq_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_clkfreq_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names[]) {
 			{ .regmap_name = "freq_cnt" },
@@ -201,7 +201,7 @@ static const struct platform_device_id xrt_clkfreq_table[] = {
 	{ },
 };
 
-struct platform_driver xrt_clkfreq_driver = {
+static struct platform_driver xrt_clkfreq_driver = {
 	.driver = {
 		.name = XRT_CLKFREQ,
 	},
@@ -209,3 +209,13 @@ struct platform_driver xrt_clkfreq_driver = {
 	.remove = clkfreq_remove,
 	.id_table = xrt_clkfreq_table,
 };
+
+void clkfreq_leaf_init_fini(bool init)
+{
+	if (init) {
+		xleaf_register_driver(XRT_SUBDEV_CLKFREQ,
+				      &xrt_clkfreq_driver, xrt_clkfreq_endpoints);
+	} else {
+		xleaf_unregister_driver(XRT_SUBDEV_CLKFREQ);
+	}
+}

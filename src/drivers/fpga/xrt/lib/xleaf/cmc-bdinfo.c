@@ -28,18 +28,18 @@ enum board_info_key {
 
 struct xrt_cmc_bdinfo {
 	struct platform_device *pdev;
-	struct mutex lock;
+	struct mutex lock; /* protect bdinfo */
 	char *bdinfo;
 	size_t bdinfo_sz;
 };
 
 static const char *cmc_parse_board_info(struct xrt_cmc_bdinfo *cmc_bdi,
-	enum board_info_key key, size_t *len)
+					enum board_info_key key, size_t *len)
 {
 	const char *buf = cmc_bdi->bdinfo, *p;
 	u32 sz = cmc_bdi->bdinfo_sz;
 
-	BUG_ON(!mutex_is_locked(&cmc_bdi->lock));
+	WARN_ON(!mutex_is_locked(&cmc_bdi->lock));
 
 	if (!buf)
 		return NULL;
@@ -68,10 +68,10 @@ static int cmc_refresh_board_info_nolock(struct xrt_cmc_bdinfo *cmc_bdi)
 	struct platform_device *pdev = cmc_bdi->pdev;
 	void *newinfo = NULL;
 
-	BUG_ON(!mutex_is_locked(&cmc_bdi->lock));
+	WARN_ON(!mutex_is_locked(&cmc_bdi->lock));
 
 	bdinfo_raw = vzalloc(bd_info_sz);
-	if (bdinfo_raw == NULL) {
+	if (!bdinfo_raw) {
 		ret = -ENOMEM;
 		goto done;
 	}
@@ -83,8 +83,7 @@ static int cmc_refresh_board_info_nolock(struct xrt_cmc_bdinfo *cmc_bdi)
 		ret = gen;
 		goto done;
 	}
-	ret = cmc_mailbox_send_packet(pdev, gen, CMC_MBX_PKT_OP_BOARD_INFO,
-		NULL, 0);
+	ret = cmc_mailbox_send_packet(pdev, gen, CMC_MBX_PKT_OP_BOARD_INFO, NULL, 0);
 	if (ret) {
 		xrt_err(pdev, "failed to send pkt: %d", ret);
 		goto done;
@@ -96,7 +95,7 @@ static int cmc_refresh_board_info_nolock(struct xrt_cmc_bdinfo *cmc_bdi)
 	}
 
 	newinfo = kmemdup(bdinfo_raw, bd_info_sz, GFP_KERNEL);
-	if (newinfo == NULL) {
+	if (!newinfo) {
 		ret = -ENOMEM;
 		goto done;
 	}
@@ -127,7 +126,7 @@ int cmc_refresh_board_info(struct platform_device *pdev)
 }
 
 static void cmc_copy_board_info_by_key(struct xrt_cmc_bdinfo *cmc_bdi,
-	enum board_info_key key, void *target)
+				       enum board_info_key key, void *target)
 {
 	size_t len;
 	const char *info;
@@ -138,8 +137,7 @@ static void cmc_copy_board_info_by_key(struct xrt_cmc_bdinfo *cmc_bdi,
 	memcpy(target, info, len);
 }
 
-static void cmc_copy_dynamic_mac(struct xrt_cmc_bdinfo *cmc_bdi,
-	u32 *num_mac, void *first_mac)
+static void cmc_copy_dynamic_mac(struct xrt_cmc_bdinfo *cmc_bdi, u32 *num_mac, void *first_mac)
 {
 	size_t len = 0;
 	const char *info;
@@ -169,14 +167,14 @@ static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 #define	NONE_BMC_VERSION	"0.0.0"
 	int ret = 0;
 	struct platform_device *pdev = cmc_bdi->pdev;
-	struct platform_device *mgmt_leaf = xleaf_get_leaf_by_id(pdev,
-		XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
+	struct platform_device *mgmt_leaf =
+		xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
 	struct xrt_mgmt_main_ioctl_get_axlf_section gs = { XMGMT_BLP, BMC, };
 	struct bmc *bmcsect;
 
 	(void)sprintf(expbmc, "%s", NONE_BMC_VERSION);
 
-	if (mgmt_leaf == NULL) {
+	if (!mgmt_leaf) {
 		xrt_err(pdev, "failed to get hold of main");
 		return;
 	}
@@ -192,7 +190,7 @@ static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 		 */
 		cmc_copy_board_info_by_key(cmc_bdi, BDINFO_BMC_VER, expbmc);
 	}
-	(void) xleaf_put_leaf(pdev, mgmt_leaf);
+	xleaf_put_leaf(pdev, mgmt_leaf);
 }
 
 int cmc_bdinfo_read(struct platform_device *pdev, struct xcl_board_info *bdinfo)
@@ -201,7 +199,7 @@ int cmc_bdinfo_read(struct platform_device *pdev, struct xcl_board_info *bdinfo)
 
 	mutex_lock(&cmc_bdi->lock);
 
-	if (cmc_bdi->bdinfo == NULL) {
+	if (!cmc_bdi->bdinfo) {
 		xrt_err(cmc_bdi->pdev, "board info is not available");
 		mutex_unlock(&cmc_bdi->lock);
 		return -ENOENT;
@@ -216,12 +214,9 @@ int cmc_bdinfo_read(struct platform_device *pdev, struct xcl_board_info *bdinfo)
 	cmc_copy_board_info_by_key(cmc_bdi, BDINFO_NAME, bdinfo->bd_name);
 	cmc_copy_board_info_by_key(cmc_bdi, BDINFO_BMC_VER, bdinfo->bmc_ver);
 	cmc_copy_board_info_by_key(cmc_bdi, BDINFO_MAX_PWR, &bdinfo->max_power);
-	cmc_copy_board_info_by_key(cmc_bdi, BDINFO_FAN_PRESENCE,
-		&bdinfo->fan_presence);
-	cmc_copy_board_info_by_key(cmc_bdi, BDINFO_CONFIG_MODE,
-		&bdinfo->config_mode);
-	cmc_copy_dynamic_mac(cmc_bdi, &bdinfo->mac_contiguous_num,
-		bdinfo->mac_addr_first);
+	cmc_copy_board_info_by_key(cmc_bdi, BDINFO_FAN_PRESENCE, &bdinfo->fan_presence);
+	cmc_copy_board_info_by_key(cmc_bdi, BDINFO_CONFIG_MODE, &bdinfo->config_mode);
+	cmc_copy_dynamic_mac(cmc_bdi, &bdinfo->mac_contiguous_num, bdinfo->mac_addr_first);
 	cmc_copy_expect_bmc(cmc_bdi, bdinfo->exp_bmc_ver);
 
 	mutex_unlock(&cmc_bdi->lock);
@@ -253,7 +248,7 @@ static struct attribute *cmc_bdinfo_attrs[] = {
 };
 
 static ssize_t bdinfo_raw_show(struct file *filp, struct kobject *kobj,
-	struct bin_attribute *attr, char *buf, loff_t off, size_t count)
+			       struct bin_attribute *attr, char *buf, loff_t off, size_t count)
 {
 	ssize_t ret = 0;
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -306,8 +301,7 @@ void cmc_bdinfo_remove(struct platform_device *pdev)
 	kfree(cmc_bdi->bdinfo);
 }
 
-int cmc_bdinfo_probe(struct platform_device *pdev,
-	struct cmc_reg_map *regmaps, void **hdl)
+int cmc_bdinfo_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl)
 {
 	int ret;
 	struct xrt_cmc_bdinfo *cmc_bdi;

@@ -1861,7 +1861,7 @@ failed:
 	return ret;
 }
 
-struct xrt_subdev_endpoints xrt_mailbox_endpoints[] = {
+static struct xrt_subdev_endpoints xrt_mailbox_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
 			{ .ep_name = NODE_MAILBOX_VSEC},
@@ -1896,7 +1896,7 @@ static struct platform_device_id mailbox_id_table[] = {
 	{ },
 };
 
-struct platform_driver xrt_mailbox_driver = {
+static struct platform_driver xrt_mailbox_driver = {
 	.probe		= mailbox_probe,
 	.remove		= mailbox_remove,
 	.driver		= {
@@ -1904,3 +1904,13 @@ struct platform_driver xrt_mailbox_driver = {
 	},
 	.id_table = mailbox_id_table,
 };
+
+void mailbox_leaf_init_fini(bool init)
+{
+	if (init) {
+		xleaf_register_driver(XRT_SUBDEV_MAILBOX,
+				      &xrt_mailbox_driver, xrt_mailbox_endpoints);
+	} else {
+		xleaf_unregister_driver(XRT_SUBDEV_MAILBOX);
+	}
+}
