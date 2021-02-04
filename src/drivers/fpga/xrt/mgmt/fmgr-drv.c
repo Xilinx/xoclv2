@@ -3,7 +3,6 @@
  * Xilinx Alveo Management Function Driver
  *
  * Copyright (C) 2021 Xilinx, Inc.
- * Bulk of the code borrowed from XRT mgmt driver file, fmgr.c
  *
  * Authors: Sonal.Santan@xilinx.com
  */
@@ -22,7 +21,7 @@
 #include "xleaf/icap.h"
 #include "main-impl.h"
 
-struct xfpga_klass {
+struct xfpga_class {
 	const struct platform_device *pdev;
 	char                          name[64];
 };
@@ -83,7 +82,7 @@ static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 			       const char *buf, size_t count)
 {
 	const struct axlf *bin = (const struct axlf *)buf;
-	struct xfpga_klass *obj = mgr->priv;
+	struct xfpga_class *obj = mgr->priv;
 
 	if (!(info->flags & FPGA_MGR_PARTIAL_RECONFIG)) {
 		xrt_info(obj->pdev, "%s only supports partial reconfiguration\n", obj->name);
@@ -112,7 +111,7 @@ static int xmgmt_pr_write(struct fpga_manager *mgr,
 			  const char *buf, size_t count)
 {
 	const struct axlf *bin = (const struct axlf *)buf;
-	struct xfpga_klass *obj = mgr->priv;
+	struct xfpga_class *obj = mgr->priv;
 
 	if (bin->m_header.m_length != count)
 		return -EINVAL;
@@ -124,7 +123,7 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 				   struct fpga_image_info *info)
 {
 	const struct axlf *bin = (const struct axlf *)info->buf;
-	struct xfpga_klass *obj = mgr->priv;
+	struct xfpga_class *obj = mgr->priv;
 
 	xrt_info(obj->pdev, "Finished download of xclbin %pUb",
 		 &bin->m_header.uuid);
@@ -146,7 +145,7 @@ static const struct fpga_manager_ops xmgmt_pr_ops = {
 
 struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev)
 {
-	struct xfpga_klass *obj = devm_kzalloc(DEV(pdev), sizeof(struct xfpga_klass),
+	struct xfpga_class *obj = devm_kzalloc(DEV(pdev), sizeof(struct xfpga_class),
 					       GFP_KERNEL);
 	struct fpga_manager *fmgr = NULL;
 	int ret = 0;

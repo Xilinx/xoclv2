@@ -38,14 +38,14 @@
 
 static struct class *xmgmt_class;
 static const struct pci_device_id xmgmt_pci_ids[] = {
-	{ PCI_DEVICE(0x10EE, 0xd020), },
-	{ PCI_DEVICE(0x10EE, 0x5020), },
+	{ PCI_DEVICE(0x10EE, 0xd020), }, /* Alveo U50 (golden image) */
+	{ PCI_DEVICE(0x10EE, 0x5020), }, /* Alveo U50 */
 	{ 0, }
 };
 
 struct xmgmt {
 	struct pci_dev *pdev;
-	struct xroot *root;
+	void *root;
 
 	/* save config for pci reset */
 	u32 saved_config[8][16];
@@ -204,9 +204,7 @@ static void xmgmt_root_hot_reset(struct pci_dev *pdev)
 	}
 
 	xmgmt_info(xm, "waiting for %d ms", i * 20);
-
 	xmgmt_pci_restore_config_all(xm);
-
 	xmgmt_config_pci(xm);
 }
 

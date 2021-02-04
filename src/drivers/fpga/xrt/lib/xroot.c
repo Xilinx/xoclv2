@@ -162,8 +162,9 @@ xroot_group_trigger_event(struct xroot *xr, int inst, enum xrt_events e)
 	(void)xroot_put_group(xr, pdev);
 }
 
-int xroot_create_group(struct xroot *xr, char *dtb)
+int xroot_create_group(void *root, char *dtb)
 {
+	struct xroot *xr = (struct xroot *)root;
 	int ret;
 
 	atomic_inc(&xr->grps.bringup_pending);
@@ -458,8 +459,9 @@ static void xroot_grps_fini(struct xroot *xr)
 	(void)xrt_subdev_pool_fini(&xr->grps.pool);
 }
 
-int xroot_add_vsec_node(struct xroot *xr, char *dtb)
+int xroot_add_vsec_node(void *root, char *dtb)
 {
+	struct xroot *xr = (struct xroot *)root;
 	struct device *dev = DEV(xr->pdev);
 	struct xrt_md_endpoint ep = { 0 };
 	int cap = 0, ret = 0;
@@ -511,8 +513,9 @@ failed:
 }
 EXPORT_SYMBOL_GPL(xroot_add_vsec_node);
 
-int xroot_add_simple_node(struct xroot *xr, char *dtb, const char *endpoint)
+int xroot_add_simple_node(void *root, char *dtb, const char *endpoint)
 {
+	struct xroot *xr = (struct xroot *)root;
 	struct device *dev = DEV(xr->pdev);
 	struct xrt_md_endpoint ep = { 0 };
 	int ret = 0;
@@ -526,15 +529,16 @@ int xroot_add_simple_node(struct xroot *xr, char *dtb, const char *endpoint)
 }
 EXPORT_SYMBOL_GPL(xroot_add_simple_node);
 
-bool xroot_wait_for_bringup(struct xroot *xr)
+bool xroot_wait_for_bringup(void *root)
 {
+	struct xroot *xr = (struct xroot *)root;
+
 	wait_for_completion(&xr->grps.bringup_comp);
 	return atomic_xchg(&xr->grps.bringup_failed, 0) == 0;
 }
 EXPORT_SYMBOL_GPL(xroot_wait_for_bringup);
 
-int xroot_probe(struct pci_dev *pdev, struct xroot_pf_cb *cb,
-		struct xroot **root)
+int xroot_probe(struct pci_dev *pdev, struct xroot_pf_cb *cb, void **root)
 {
 	struct device *dev = DEV(pdev);
 	struct xroot *xr = NULL;
@@ -555,8 +559,9 @@ int xroot_probe(struct pci_dev *pdev, struct xroot_pf_cb *cb,
 }
 EXPORT_SYMBOL_GPL(xroot_probe);
 
-void xroot_remove(struct xroot *xr)
+void xroot_remove(void *root)
 {
+	struct xroot *xr = (struct xroot *)root;
 	struct platform_device *grp = NULL;
 
 	xroot_info(xr, "leaving...");
@@ -573,8 +578,9 @@ void xroot_remove(struct xroot *xr)
 }
 EXPORT_SYMBOL_GPL(xroot_remove);
 
-void xroot_broadcast(struct xroot *xr, enum xrt_events evt)
+void xroot_broadcast(void *root, enum xrt_events evt)
 {
+	struct xroot *xr = (struct xroot *)root;
 	struct xrt_event e = { 0 };
 
 	/* Root pf driver only broadcasts below two events. */

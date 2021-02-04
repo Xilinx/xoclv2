@@ -283,7 +283,6 @@ static int xmgmt_mailbox_dtb_copy_user_endpoints(struct platform_device *pdev,
 
 static char *xmgmt_mailbox_user_dtb(struct platform_device *pdev)
 {
-	/* TODO: add support for PLP. */
 	const char *src = NULL;
 	char *dst = NULL;
 	struct device *dev = DEV(pdev);
@@ -552,7 +551,7 @@ static void xmgmt_mailbox_resp_peer_data(struct xmgmt_mailbox *xmbx,
 		break;
 	case XCL_MIG_ECC:
 	case XCL_FIREWALL:
-	case XCL_DNA: /* TODO **/
+	case XCL_DNA:
 		xmgmt_mailbox_simple_respond(xmbx, msgid, sw_ch, 0);
 		break;
 	default:
@@ -663,7 +662,7 @@ static void xmgmt_mailbox_listener(void *arg, void *data, size_t len,
 	case XCL_MAILBOX_REQ_PEER_DATA:
 		xmgmt_mailbox_resp_peer_data(xmbx, req, len, msgid, sw_ch);
 		break;
-	case XCL_MAILBOX_REQ_READ_P2P_BAR_ADDR: /* TODO */
+	case XCL_MAILBOX_REQ_READ_P2P_BAR_ADDR:
 		xmgmt_mailbox_simple_respond(xmbx, msgid, sw_ch, -ENOTSUPP);
 		break;
 	case XCL_MAILBOX_REQ_USER_PROBE:

@@ -40,6 +40,7 @@ struct xmgmt_main {
 	u32 blp_intf_uuid_num;
 };
 
+/* Caller should be responsible for freeing the returned string. */
 char *xmgmt_get_vbnv(struct platform_device *pdev)
 {
 	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
@@ -55,6 +56,9 @@ char *xmgmt_get_vbnv(struct platform_device *pdev)
 		return NULL;
 
 	ret = kstrdup(vbnv, GFP_KERNEL);
+	if (!ret)
+		return NULL;
+
 	for (i = 0; i < strlen(ret); i++) {
 		if (ret[i] == ':' || ret[i] == '.')
 			ret[i] = '_';
@@ -114,7 +118,7 @@ static ssize_t reset_store(struct device *dev,
 {
 	struct platform_device *pdev = to_platform_device(dev);
 
-	(void)xmgmt_hot_reset(pdev);
+	xmgmt_hot_reset(pdev);
 	return count;
 }
 static DEVICE_ATTR_WO(reset);
@@ -143,7 +147,6 @@ static ssize_t logic_uuids_show(struct device *dev,
 	/*
 	 * Getting UUID pointed to by VSEC,
 	 * should be the same as logic UUID of BLP.
-	 * TODO: add PLP logic UUID
 	 */
 	ret = get_dev_uuid(pdev, uuid, sizeof(uuid));
 	if (ret)
@@ -170,9 +173,6 @@ static ssize_t interface_uuids_show(struct device *dev,
 	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
 	u32 i;
 
-	/*
-	 * TODO: add PLP interface UUID
-	 */
 	for (i = 0; i < xmm->blp_intf_uuid_num; i++) {
 		char uuidstr[80];
 
