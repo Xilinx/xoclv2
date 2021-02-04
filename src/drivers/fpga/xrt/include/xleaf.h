@@ -90,7 +90,7 @@ struct xrt_subdev_drvdata {
 };
 
 /*
- * Partially initialized by parent driver, then, passed in as subdev driver's
+ * Partially initialized by the parent driver, then, passed in as subdev driver's
  * platform data when creating subdev driver instance by calling platform
  * device register API (platform_device_register_data() or the likes).
  *
@@ -166,12 +166,12 @@ bool xleaf_has_epname(struct platform_device *pdev, const char *nm);
 struct platform_device *xleaf_get_leaf(struct platform_device *pdev,
 				       xrt_subdev_match_t cb, void *arg);
 
-static inline bool subdev_match(enum xrt_subdev_id id,
-				struct platform_device *pdev, void *arg)
+static inline bool subdev_match(enum xrt_subdev_id id, struct platform_device *pdev, void *arg)
 {
 	const struct subdev_match_arg *a = (struct subdev_match_arg *)arg;
-	return id == a->id &&
-		(pdev->id == a->instance || PLATFORM_DEVID_NONE == a->instance);
+	bool ret = (id == a->id && (pdev->id == a->instance || PLATFORM_DEVID_NONE == a->instance));
+
+	return ret;
 }
 
 static inline bool xrt_subdev_match_epname(enum xrt_subdev_id id,

@@ -93,8 +93,6 @@ struct xrt_root_ioctl_hwmon {
 typedef int (*xrt_subdev_root_cb_t)(struct device *, void *, u32, void *);
 int xrt_subdev_root_ioctl(struct platform_device *self, u32 cmd, void *arg);
 
-struct xroot;
-
 /*
  * Defines physical function (MPF / UPF) specific operations
  * needed in common root driver.
@@ -103,13 +101,12 @@ struct xroot_pf_cb {
 	void (*xpc_hot_reset)(struct pci_dev *pdev);
 };
 
-int xroot_probe(struct pci_dev *pdev, struct xroot_pf_cb *cb,
-		struct xroot **root);
-void xroot_remove(struct xroot *root);
-bool xroot_wait_for_bringup(struct xroot *root);
-int xroot_add_vsec_node(struct xroot *root, char *dtb);
-int xroot_create_group(struct xroot *xr, char *dtb);
-int xroot_add_simple_node(struct xroot *root, char *dtb, const char *endpoint);
-void xroot_broadcast(struct xroot *root, enum xrt_events evt);
+int xroot_probe(struct pci_dev *pdev, struct xroot_pf_cb *cb, void **root);
+void xroot_remove(void *root);
+bool xroot_wait_for_bringup(void *root);
+int xroot_add_vsec_node(void *root, char *dtb);
+int xroot_create_group(void *xr, char *dtb);
+int xroot_add_simple_node(void *root, char *dtb, const char *endpoint);
+void xroot_broadcast(void *root, enum xrt_events evt);
 
 #endif	/* _XRT_ROOT_H_ */

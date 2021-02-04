@@ -12,13 +12,13 @@
  * =========== ============================== ==================================
  * Functionality           ioctl request code           data format
  * =========== ============================== ==================================
- * 1 FPGA image download   XCLMGMT_IOCICAPDOWNLOAD_AXLF xmgmt_ioc_bitstream_axlf
- * 2 CL frequency scaling  XCLMGMT_IOCFREQSCALE         xmgmt_ioc_freqscaling
+ * 1 FPGA image download   XMGMT_IOCICAPDOWNLOAD_AXLF xmgmt_ioc_bitstream_axlf
+ * 2 CL frequency scaling  XMGMT_IOCFREQSCALE         xmgmt_ioc_freqscaling
  * =========== ============================== ==================================
  */
 
-#ifndef _XMGMT_IOCALLS_POSIX_H_
-#define _XMGMT_IOCALLS_POSIX_H_
+#ifndef _XMGMT_IOCTL_H_
+#define _XMGMT_IOCTL_H_
 
 #include <linux/ioctl.h>
 
