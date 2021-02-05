@@ -6,8 +6,8 @@
  *	Sonal Santan <sonal.santan@xilinx.com>
  */
 
-#ifndef	_XRT_XLEAF_TEST_H_
-#define	_XRT_XLEAF_TEST_H_
+#ifndef _XRT_XLEAF_TEST_H_
+#define _XRT_XLEAF_TEST_H_
 
 #include "xleaf.h"
 

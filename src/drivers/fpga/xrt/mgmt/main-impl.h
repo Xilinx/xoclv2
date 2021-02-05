@@ -7,8 +7,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XMGMT_MAIN_IMPL_H_
-#define	_XMGMT_MAIN_IMPL_H_
+#ifndef _XMGMT_MAIN_IMPL_H_
+#define _XMGMT_MAIN_IMPL_H_
 
 #include <linux/platform_device.h>
 #include "xmgmt-main.h"
@@ -29,13 +29,13 @@ char *xmgmt_get_vbnv(struct platform_device *pdev);
 int xmgmt_get_provider_uuid(struct platform_device *pdev,
 			    enum provider_kind kind, uuid_t *uuid);
 
-extern void *xmgmt_pdev2mailbox(struct platform_device *pdev);
-extern void *xmgmt_mailbox_probe(struct platform_device *pdev);
-extern void xmgmt_mailbox_remove(void *handle);
-extern void xmgmt_peer_notify_state(void *handle, bool online);
-extern void xmgmt_mailbox_event_cb(struct platform_device *pdev, void *arg);
+void *xmgmt_pdev2mailbox(struct platform_device *pdev);
+void *xmgmt_mailbox_probe(struct platform_device *pdev);
+void xmgmt_mailbox_remove(void *handle);
+void xmgmt_peer_notify_state(void *handle, bool online);
+void xmgmt_mailbox_event_cb(struct platform_device *pdev, void *arg);
 
-extern int xmgmt_main_register_leaf(void);
-extern void xmgmt_main_unregister_leaf(void);
+int xmgmt_main_register_leaf(void);
+void xmgmt_main_unregister_leaf(void);
 
 #endif	/* _XMGMT_MAIN_IMPL_H_ */

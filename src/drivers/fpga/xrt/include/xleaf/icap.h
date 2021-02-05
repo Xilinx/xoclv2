@@ -6,8 +6,8 @@
  *	Lizhi Hou <Lizhi.Hou@xilinx.com>
  */
 
-#ifndef	_XRT_ICAP_H_
-#define	_XRT_ICAP_H_
+#ifndef _XRT_ICAP_H_
+#define _XRT_ICAP_H_
 
 #include "xleaf.h"
 

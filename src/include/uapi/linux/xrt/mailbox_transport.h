@@ -47,11 +47,11 @@ enum packet_type {
 	PKT_MSG_BODY
 };
 
-#define	PACKET_SIZE	16 /* Number of DWORD. */
+#define PACKET_SIZE	16 /* Number of DWORD. */
 
 /* Lower 8 bits for type, the rest for flags. Total packet size is 64 bytes */
-#define	PKT_TYPE_MASK		0xff
-#define	PKT_TYPE_MSG_END	(1 << 31)
+#define PKT_TYPE_MASK		0xff
+#define PKT_TYPE_MSG_END	BIT(31)
 struct mailbox_pkt {
 	struct {
 		u32		type;

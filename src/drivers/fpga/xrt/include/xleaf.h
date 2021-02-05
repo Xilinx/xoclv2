@@ -7,8 +7,8 @@
  *    Sonal Santan <sonal.santan@xilinx.com>
  */
 
-#ifndef	_XRT_XLEAF_H_
-#define	_XRT_XLEAF_H_
+#ifndef _XRT_XLEAF_H_
+#define _XRT_XLEAF_H_
 
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
@@ -22,13 +22,13 @@
 #include "events.h"
 
 /* All subdev drivers should use below common routines to print out msg. */
-#define	DEV(pdev)	(&(pdev)->dev)
-#define	DEV_PDATA(pdev)					\
+#define DEV(pdev)	(&(pdev)->dev)
+#define DEV_PDATA(pdev)					\
 	((struct xrt_subdev_platdata *)dev_get_platdata(DEV(pdev)))
-#define	DEV_DRVDATA(pdev)				\
+#define DEV_DRVDATA(pdev)				\
 	((struct xrt_subdev_drvdata *)			\
 	platform_get_device_id(pdev)->driver_data)
-#define	FMT_PRT(prt_fn, pdev, fmt, args...)		\
+#define FMT_PRT(prt_fn, pdev, fmt, args...)		\
 	({typeof(pdev) (_pdev) = (pdev);		\
 	prt_fn(DEV(_pdev), "%s %s: " fmt,		\
 	DEV_PDATA(_pdev)->xsp_root_name, __func__, ##args); })

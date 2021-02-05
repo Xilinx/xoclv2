@@ -15,8 +15,8 @@
 #include "group.h"
 #include "metadata.h"
 
-#define	XROOT_PDEV(xr)		((xr)->pdev)
-#define	XROOT_DEV(xr)		(&(XROOT_PDEV(xr)->dev))
+#define XROOT_PDEV(xr)		((xr)->pdev)
+#define XROOT_DEV(xr)		(&(XROOT_PDEV(xr)->dev))
 #define xroot_err(xr, fmt, args...)	\
 	dev_err(XROOT_DEV(xr), "%s: " fmt, __func__, ##args)
 #define xroot_warn(xr, fmt, args...)	\
@@ -28,8 +28,8 @@
 
 #define XRT_VSEC_ID		0x20
 
-#define	XROOT_GRP_FIRST		(-1)
-#define	XROOT_GRP_LAST		(-2)
+#define XROOT_GRP_FIRST		(-1)
+#define XROOT_GRP_LAST		(-2)
 
 static int xroot_root_cb(struct device *, void *, u32, void *);
 
@@ -456,7 +456,7 @@ static void xroot_grps_init(struct xroot *xr)
 static void xroot_grps_fini(struct xroot *xr)
 {
 	flush_scheduled_work();
-	(void)xrt_subdev_pool_fini(&xr->grps.pool);
+	xrt_subdev_pool_fini(&xr->grps.pool);
 }
 
 int xroot_add_vsec_node(void *root, char *dtb)

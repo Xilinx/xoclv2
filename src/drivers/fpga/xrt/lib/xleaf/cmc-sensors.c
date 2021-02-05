@@ -11,61 +11,61 @@
 #include "xmgmt-main.h"
 #include "xrt-cmc-impl.h"
 
-#define	CMC_12V_PEX_REG			0x20
-#define	CMC_3V3_PEX_REG			0x2C
-#define	CMC_3V3_AUX_REG			0x38
-#define	CMC_12V_AUX_REG			0x44
-#define	CMC_DDR4_VPP_BTM_REG		0x50
-#define	CMC_SYS_5V5_REG			0x5C
-#define	CMC_VCC1V2_TOP_REG		0x68
-#define	CMC_VCC1V8_REG			0x74
-#define	CMC_VCC0V85_REG			0x80
-#define	CMC_DDR4_VPP_TOP_REG		0x8C
-#define	CMC_MGT0V9AVCC_REG		0x98
-#define	CMC_12V_SW_REG			0xA4
-#define	CMC_MGTAVTT_REG			0xB0
-#define	CMC_VCC1V2_BTM_REG		0xBC
-#define	CMC_12V_PEX_I_IN_REG		0xC8
-#define	CMC_12V_AUX_I_IN_REG		0xD4
-#define	CMC_VCCINT_V_REG		0xE0
-#define	CMC_VCCINT_I_REG		0xEC
-#define	CMC_FPGA_TEMP			0xF8
-#define	CMC_FAN_TEMP_REG		0x104
-#define	CMC_DIMM_TEMP0_REG		0x110
-#define	CMC_DIMM_TEMP1_REG		0x11C
-#define	CMC_DIMM_TEMP2_REG		0x128
-#define	CMC_DIMM_TEMP3_REG		0x134
-#define	CMC_FAN_SPEED_REG		0x164
-#define	CMC_SE98_TEMP0_REG		0x140
-#define	CMC_SE98_TEMP1_REG		0x14C
-#define	CMC_SE98_TEMP2_REG		0x158
-#define	CMC_CAGE_TEMP0_REG		0x170
-#define	CMC_CAGE_TEMP1_REG		0x17C
-#define	CMC_CAGE_TEMP2_REG		0x188
-#define	CMC_CAGE_TEMP3_REG		0x194
-#define	CMC_HBM_TEMP_REG		0x260
-#define	CMC_VCC3V3_REG			0x26C
-#define	CMC_3V3_PEX_I_REG		0x278
-#define	CMC_VCC0V85_I_REG		0x284
-#define	CMC_HBM_1V2_REG			0x290
-#define	CMC_VPP2V5_REG			0x29C
-#define	CMC_VCCINT_BRAM_REG		0x2A8
-#define	CMC_HBM_TEMP2_REG		0x2B4
-#define	CMC_12V_AUX1_REG                0x2C0
-#define	CMC_VCCINT_TEMP_REG             0x2CC
-#define	CMC_3V3_AUX_I_REG               0x2F0
-#define	CMC_HOST_MSG_OFFSET_REG		0x300
-#define	CMC_HOST_MSG_ERROR_REG		0x304
-#define	CMC_HOST_MSG_HEADER_REG		0x308
-#define	CMC_VCC1V2_I_REG                0x314
-#define	CMC_V12_IN_I_REG                0x320
-#define	CMC_V12_IN_AUX0_I_REG           0x32C
-#define	CMC_V12_IN_AUX1_I_REG           0x338
-#define	CMC_VCCAUX_REG                  0x344
-#define	CMC_VCCAUX_PMC_REG              0x350
-#define	CMC_VCCRAM_REG                  0x35C
-#define	CMC_CORE_VERSION_REG		0xC4C
-#define	CMC_OEM_ID_REG                  0xC50
+#define CMC_12V_PEX_REG			0x20
+#define CMC_3V3_PEX_REG			0x2C
+#define CMC_3V3_AUX_REG			0x38
+#define CMC_12V_AUX_REG			0x44
+#define CMC_DDR4_VPP_BTM_REG		0x50
+#define CMC_SYS_5V5_REG			0x5C
+#define CMC_VCC1V2_TOP_REG		0x68
+#define CMC_VCC1V8_REG			0x74
+#define CMC_VCC0V85_REG			0x80
+#define CMC_DDR4_VPP_TOP_REG		0x8C
+#define CMC_MGT0V9AVCC_REG		0x98
+#define CMC_12V_SW_REG			0xA4
+#define CMC_MGTAVTT_REG			0xB0
+#define CMC_VCC1V2_BTM_REG		0xBC
+#define CMC_12V_PEX_I_IN_REG		0xC8
+#define CMC_12V_AUX_I_IN_REG		0xD4
+#define CMC_VCCINT_V_REG		0xE0
+#define CMC_VCCINT_I_REG		0xEC
+#define CMC_FPGA_TEMP			0xF8
+#define CMC_FAN_TEMP_REG		0x104
+#define CMC_DIMM_TEMP0_REG		0x110
+#define CMC_DIMM_TEMP1_REG		0x11C
+#define CMC_DIMM_TEMP2_REG		0x128
+#define CMC_DIMM_TEMP3_REG		0x134
+#define CMC_FAN_SPEED_REG		0x164
+#define CMC_SE98_TEMP0_REG		0x140
+#define CMC_SE98_TEMP1_REG		0x14C
+#define CMC_SE98_TEMP2_REG		0x158
+#define CMC_CAGE_TEMP0_REG		0x170
+#define CMC_CAGE_TEMP1_REG		0x17C
+#define CMC_CAGE_TEMP2_REG		0x188
+#define CMC_CAGE_TEMP3_REG		0x194
+#define CMC_HBM_TEMP_REG		0x260
+#define CMC_VCC3V3_REG			0x26C
+#define CMC_3V3_PEX_I_REG		0x278
+#define CMC_VCC0V85_I_REG		0x284
+#define CMC_HBM_1V2_REG			0x290
+#define CMC_VPP2V5_REG			0x29C
+#define CMC_VCCINT_BRAM_REG		0x2A8
+#define CMC_HBM_TEMP2_REG		0x2B4
+#define CMC_12V_AUX1_REG                0x2C0
+#define CMC_VCCINT_TEMP_REG             0x2CC
+#define CMC_3V3_AUX_I_REG               0x2F0
+#define CMC_HOST_MSG_OFFSET_REG		0x300
+#define CMC_HOST_MSG_ERROR_REG		0x304
+#define CMC_HOST_MSG_HEADER_REG		0x308
+#define CMC_VCC1V2_I_REG                0x314
+#define CMC_V12_IN_I_REG                0x320
+#define CMC_V12_IN_AUX0_I_REG           0x32C
+#define CMC_V12_IN_AUX1_I_REG           0x338
+#define CMC_VCCAUX_REG                  0x344
+#define CMC_VCCAUX_PMC_REG              0x350
+#define CMC_VCCRAM_REG                  0x35C
+#define CMC_CORE_VERSION_REG		0xC4C
+#define CMC_OEM_ID_REG                  0xC50
 
 struct xrt_cmc_sensor {
 	struct platform_device *pdev;
@@ -86,16 +86,16 @@ enum sensor_val_kind {
 	SENSOR_INS,
 };
 
-#define	READ_SENSOR(cmc_sensor, off, val_kind)	\
+#define READ_SENSOR(cmc_sensor, off, val_kind)	\
 	(cmc_reg_rd(cmc_sensor, (off) + sizeof(u32) * (val_kind)))
 
 /*
  * Defining sysfs nodes for HWMON.
  */
 
-#define	HWMON_INDEX(sensor, val_kind)	((sensor) | ((val_kind) << 24))
-#define	HWMON_INDEX2SENSOR(index)	((index) & 0xffffff)
-#define	HWMON_INDEX2VAL_KIND(index)	(((index) & ~0xffffff) >> 24)
+#define HWMON_INDEX(sensor, val_kind)	((sensor) | ((val_kind) << 24))
+#define HWMON_INDEX2SENSOR(index)	((index) & 0xffffff)
+#define HWMON_INDEX2VAL_KIND(index)	(((index) & ~0xffffff) >> 24)
 
 /* For voltage and current */
 static ssize_t hwmon_show(struct device *dev, struct device_attribute *da, char *buf)
@@ -108,8 +108,8 @@ static ssize_t hwmon_show(struct device *dev, struct device_attribute *da, char 
 	return sprintf(buf, "%d\n", val);
 }
 
-#define	HWMON_VOLT_CURR_GROUP(type, id) hwmon_##type##id##_attrgroup
-#define	HWMON_VOLT_CURR_SYSFS_NODE(type, id, name, sensor)		\
+#define HWMON_VOLT_CURR_GROUP(type, id) hwmon_##type##id##_attrgroup
+#define HWMON_VOLT_CURR_SYSFS_NODE(type, id, name, sensor)		\
 	static ssize_t type##id##_label(struct device *dev,		\
 		struct device_attribute *attr, char *buf)		\
 	{								\
@@ -135,8 +135,8 @@ static ssize_t hwmon_show(struct device *dev, struct device_attribute *da, char 
 	}
 
 /* For fan speed. */
-#define	HWMON_FAN_SPEED_GROUP(id) hwmon_fan##id##_attrgroup
-#define	HWMON_FAN_SPEED_SYSFS_NODE(id, name, sensor)			\
+#define HWMON_FAN_SPEED_GROUP(id) hwmon_fan##id##_attrgroup
+#define HWMON_FAN_SPEED_SYSFS_NODE(id, name, sensor)			\
 	static ssize_t fan##id##_label(struct device *dev,		\
 		struct device_attribute *attr, char *buf)		\
 	{								\
@@ -166,8 +166,8 @@ static ssize_t hwmon_temp_show(struct device *dev, struct device_attribute *da, 
 	return sprintf(buf, "%d\n", val * 1000);
 }
 
-#define	HWMON_TEMPERATURE_GROUP(id) hwmon_temp##id##_attrgroup
-#define	HWMON_TEMPERATURE_SYSFS_NODE(id, name, sensor)			\
+#define HWMON_TEMPERATURE_GROUP(id) hwmon_temp##id##_attrgroup
+#define HWMON_TEMPERATURE_SYSFS_NODE(id, name, sensor)			\
 	static ssize_t temp##id##_label(struct device *dev,		\
 					struct device_attribute *attr,	\
 					char *buf)			\
@@ -217,8 +217,8 @@ static ssize_t hwmon_power_show(struct device *dev, struct device_attribute *da,
 	return sprintf(buf, "%lld\n", val);
 }
 
-#define	HWMON_POWER_GROUP(id) hwmon_power##id##_attrgroup
-#define	HWMON_POWER_SYSFS_NODE(id, name)				\
+#define HWMON_POWER_GROUP(id) hwmon_power##id##_attrgroup
+#define HWMON_POWER_SYSFS_NODE(id, name)				\
 	static ssize_t power##id##_label(struct device *dev,		\
 					 struct device_attribute *attr,	\
 					 char *buf)			\
@@ -385,7 +385,7 @@ int cmc_sensor_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, 
 
 void cmc_sensor_read(struct platform_device *pdev, struct xcl_sensor *s)
 {
-#define	READ_INST_SENSOR(off)	READ_SENSOR(cmc_sensor, off, SENSOR_INS)
+#define READ_INST_SENSOR(off)	READ_SENSOR(cmc_sensor, off, SENSOR_INS)
 	struct xrt_cmc_sensor *cmc_sensor = (struct xrt_cmc_sensor *)cmc_pdev2sensor(pdev);
 
 	s->vol_12v_pex = READ_INST_SENSOR(CMC_12V_PEX_REG);

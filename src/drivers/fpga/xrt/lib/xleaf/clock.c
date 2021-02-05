@@ -19,21 +19,21 @@
 #include "xleaf/clkfreq.h"
 
 /* CLOCK_MAX_NUM_CLOCKS should be a concept from XCLBIN_ in the future */
-#define	CLOCK_MAX_NUM_CLOCKS		4
-#define	OCL_CLKWIZ_STATUS_OFFSET	0x4
-#define	OCL_CLKWIZ_STATUS_MASK		0xffff
-#define	OCL_CLKWIZ_STATUS_MEASURE_START	0x1
-#define	OCL_CLKWIZ_STATUS_MEASURE_DONE	0x2
-#define	OCL_CLKWIZ_CONFIG_OFFSET(n)	(0x200 + 4 * (n))
-#define	CLOCK_DEFAULT_EXPIRE_SECS	1
+#define CLOCK_MAX_NUM_CLOCKS		4
+#define OCL_CLKWIZ_STATUS_OFFSET	0x4
+#define OCL_CLKWIZ_STATUS_MASK		0xffff
+#define OCL_CLKWIZ_STATUS_MEASURE_START	0x1
+#define OCL_CLKWIZ_STATUS_MEASURE_DONE	0x2
+#define OCL_CLKWIZ_CONFIG_OFFSET(n)	(0x200 + 4 * (n))
+#define CLOCK_DEFAULT_EXPIRE_SECS	1
 
-#define	CLOCK_ERR(clock, fmt, arg...)	\
+#define CLOCK_ERR(clock, fmt, arg...)	\
 	xrt_err((clock)->pdev, fmt "\n", ##arg)
-#define	CLOCK_WARN(clock, fmt, arg...)	\
+#define CLOCK_WARN(clock, fmt, arg...)	\
 	xrt_warn((clock)->pdev, fmt "\n", ##arg)
-#define	CLOCK_INFO(clock, fmt, arg...)	\
+#define CLOCK_INFO(clock, fmt, arg...)	\
 	xrt_info((clock)->pdev, fmt "\n", ##arg)
-#define	CLOCK_DBG(clock, fmt, arg...)	\
+#define CLOCK_DBG(clock, fmt, arg...)	\
 	xrt_dbg((clock)->pdev, fmt "\n", ##arg)
 
 #define XRT_CLOCK	"xrt_clock"

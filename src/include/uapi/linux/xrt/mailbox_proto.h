@@ -263,7 +263,6 @@ struct xcl_firewall {
 	uint64_t err_detected_time;
 };
 
-
 /**
  * struct xcl_dna -  Data structure used to fetch DNA group
  */
@@ -274,6 +273,7 @@ struct xcl_dna {
 	uint64_t dna_version;
 	uint64_t revision;
 };
+
 /**
  * Data structure used to fetch SUBDEV group
  */
@@ -283,6 +283,7 @@ enum xcl_subdev_return_code {
 	XRT_MSG_SUBDEV_RTN_COMPLETE,
 	XRT_MSG_SUBDEV_RTN_PENDINGPLP,
 };
+
 struct xcl_subdev {
 	uint32_t ver;
 	enum xcl_subdev_return_code rtncode;
@@ -291,6 +292,7 @@ struct xcl_subdev {
 	uint64_t offset;
 	uint64_t data[1];
 };
+
 /**
  * struct mailbox_subdev_peer - MAILBOX_REQ_PEER_DATA payload type
  * @kind: data group
@@ -307,7 +309,7 @@ struct xcl_mailbox_peer_data {
 /**
  * struct mailbox_conn - MAILBOX_REQ_USER_PROBE payload type
  * @kaddr: KVA of the verification data buffer
- * @paddr: physical addresss of the verification data buffer
+ * @paddr: physical address of the verification data buffer
  * @crc32: CRC value of the verification data buffer
  * @version: protocol version supported by peer
  */
@@ -318,9 +320,9 @@ struct xcl_mailbox_conn {
 	uint32_t version;
 };
 
-#define	XCL_COMM_ID_SIZE		2048
-#define XCL_MB_PEER_READY		(1UL << 0)
-#define XCL_MB_PEER_SAME_DOMAIN		(1UL << 1)
+#define XCL_COMM_ID_SIZE		2048
+#define XCL_MB_PEER_READY		BIT(0)
+#define XCL_MB_PEER_SAME_DOMAIN		BIT(1)
 /**
  * struct mailbox_conn_resp - MAILBOX_REQ_USER_PROBE response payload type
  * @version: protocol version should be used
@@ -336,8 +338,8 @@ struct xcl_mailbox_conn_resp {
 	char comm_id[XCL_COMM_ID_SIZE];
 };
 
-#define	XCL_MB_STATE_ONLINE	(1UL << 0)
-#define	XCL_MB_STATE_OFFLINE	(1UL << 1)
+#define XCL_MB_STATE_ONLINE		BIT(0)
+#define XCL_MB_STATE_OFFLINE		BIT(1)
 /**
  * struct mailbox_peer_state - MAILBOX_REQ_MGMT_STATE payload type
  * @state_flags: peer state flags
@@ -385,10 +387,5 @@ struct xcl_mailbox_p2p_bar_addr {
 	uint64_t  p2p_bar_addr;
 	uint64_t  p2p_bar_len;
 };
-
-static inline const char *mailbox_chan2name(bool sw_ch)
-{
-	return sw_ch ? "SW-CHANNEL" : "HW-CHANNEL";
-}
 
 #endif /* _XCL_MB_PROTOCOL_H_ */

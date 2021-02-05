@@ -70,7 +70,7 @@ static int xrt_vsec_get_golden_ver(struct xrt_vsec *vsec)
 	gpio_arg.xgir_len = sizeof(ver);
 	gpio_arg.xgir_offset = 0;
 	err = xleaf_ioctl(gpio_leaf, XRT_GPIO_READ, &gpio_arg);
-	(void) xleaf_put_leaf(pdev, gpio_leaf);
+	xleaf_put_leaf(pdev, gpio_leaf);
 	if (err) {
 		xrt_err(pdev, "can't get golden image version: %d", err);
 		return err;
@@ -79,8 +79,7 @@ static int xrt_vsec_get_golden_ver(struct xrt_vsec *vsec)
 	return ver;
 }
 
-static int xrt_vsec_add_node(struct xrt_vsec *vsec,
-	struct xrt_md_endpoint *dev)
+static int xrt_vsec_add_node(struct xrt_vsec *vsec, struct xrt_md_endpoint *dev)
 {
 	int ret;
 
@@ -130,8 +129,7 @@ static int xrt_vsec_create_metadata(struct xrt_vsec *vsec)
 	return ret;
 }
 
-static ssize_t VBNV_show(struct device *dev,
-	struct device_attribute *da, char *buf)
+static ssize_t VBNV_show(struct device *dev, struct device_attribute *da, char *buf)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct xrt_vsec *vsec = platform_get_drvdata(pdev);
@@ -155,7 +153,7 @@ static int xrt_vsec_remove(struct platform_device *pdev)
 	struct xrt_vsec	*vsec;
 
 	xrt_info(pdev, "leaving...");
-	(void) sysfs_remove_group(&DEV(pdev)->kobj, &vsec_attrgroup);
+	sysfs_remove_group(&DEV(pdev)->kobj, &vsec_attrgroup);
 	vsec = platform_get_drvdata(pdev);
 	vfree(vsec->metadata);
 	return 0;

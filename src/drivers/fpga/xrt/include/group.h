@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XRT_GROUP_H_
-#define	_XRT_GROUP_H_
+#ifndef _XRT_GROUP_H_
+#define _XRT_GROUP_H_
 
 #include "xleaf.h"
 

@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XRT_EVENTS_H_
-#define	_XRT_EVENTS_H_
+#ifndef _XRT_EVENTS_H_
+#define _XRT_EVENTS_H_
 
 #include <linux/platform_device.h>
 #include "subdev_id.h"

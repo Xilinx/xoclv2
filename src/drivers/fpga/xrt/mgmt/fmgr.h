@@ -7,8 +7,8 @@
  * Authors: Sonal.Santan@xilinx.com
  */
 
-#ifndef	_XMGMT_FMGR_H_
-#define	_XMGMT_FMGR_H_
+#ifndef _XMGMT_FMGR_H_
+#define _XMGMT_FMGR_H_
 
 #include <linux/fpga/fpga-mgr.h>
 #include <linux/mutex.h>

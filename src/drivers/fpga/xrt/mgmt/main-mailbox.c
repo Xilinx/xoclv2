@@ -24,35 +24,43 @@
 struct xmgmt_mailbox {
 	struct platform_device *pdev;
 	struct platform_device *mailbox;
-	struct mutex lock;
+	struct mutex lock; /* lock for xmgmt_mailbox */
 	char *test_msg;
 	bool peer_in_same_domain;
 };
 
-#define	XMGMT_MAILBOX_PRT_REQ(xmbx, send, request, sw_ch)	do {	\
-	const char *dir = (send) ? ">>>>>" : "<<<<<";			\
-									\
-	if ((request)->req == XCL_MAILBOX_REQ_PEER_DATA) {		\
-		struct xcl_mailbox_peer_data *p =			\
-			(struct xcl_mailbox_peer_data *)(request)->data;\
-									\
-		xrt_info((xmbx)->pdev, "%s(%s) %s%s",			\
-			mailbox_req2name((request)->req),		\
-			mailbox_group_kind2name(p->kind),		\
-			dir, mailbox_chan2name(sw_ch));			\
-	} else {							\
-		xrt_info((xmbx)->pdev, "%s %s%s",			\
-			mailbox_req2name((request)->req),		\
-			dir, mailbox_chan2name(sw_ch));			\
-	}								\
-} while (0)
-#define	XMGMT_MAILBOX_PRT_REQ_SEND(xmbx, req, sw_ch)			\
-	XMGMT_MAILBOX_PRT_REQ(xmbx, true, req, sw_ch)
-#define	XMGMT_MAILBOX_PRT_REQ_RECV(xmbx, req, sw_ch)			\
-	XMGMT_MAILBOX_PRT_REQ(xmbx, false, req, sw_ch)
-#define	XMGMT_MAILBOX_PRT_RESP(xmbx, resp)				\
-	xrt_info((xmbx)->pdev, "respond %zu bytes >>>>>%s",		\
-	(resp)->xmip_data_size, mailbox_chan2name((resp)->xmip_sw_ch))
+static inline const char *mailbox_chan2name(bool sw_ch)
+{
+	return sw_ch ? "SW" : "HW";
+}
+
+static inline void xmgmt_mailbox_prt_req(struct xmgmt_mailbox *xmbx, bool send,
+					 struct xcl_mailbox_req *request, bool sw_ch)
+{
+	const char *dir = send ? ">>>" : "<<<";
+
+	if (request->req == XCL_MAILBOX_REQ_PEER_DATA) {
+		struct xcl_mailbox_peer_data *p = (struct xcl_mailbox_peer_data *)request->data;
+
+		xrt_info(xmbx->pdev, "%s(%s) %s%s%s", mailbox_req2name(request->req),
+			 mailbox_group_kind2name(p->kind), dir, mailbox_chan2name(sw_ch), dir);
+	} else {
+		xrt_info(xmbx->pdev, "%s %s%s%s", mailbox_req2name(request->req),
+			 dir, mailbox_chan2name(sw_ch), dir);
+	}
+}
+
+#define XMGMT_MAILBOX_PRT_REQ_SEND(xmbx, req, sw_ch)			\
+	xmgmt_mailbox_prt_req(xmbx, true, req, sw_ch)
+#define XMGMT_MAILBOX_PRT_REQ_RECV(xmbx, req, sw_ch)			\
+	xmgmt_mailbox_prt_req(xmbx, false, req, sw_ch)
+
+static inline void xmgmt_mailbox_prt_resp(struct xmgmt_mailbox *xmbx,
+					  struct xrt_mailbox_ioctl_post *resp)
+{
+	xrt_info(xmbx->pdev, "respond %zu bytes >>>>>%s", resp->xmip_data_size,
+		 mailbox_chan2name((resp)->xmip_sw_ch));
+}
 
 static inline struct xmgmt_mailbox *pdev2mbx(struct platform_device *pdev)
 {
@@ -60,29 +68,27 @@ static inline struct xmgmt_mailbox *pdev2mbx(struct platform_device *pdev)
 }
 
 static void xmgmt_mailbox_post(struct xmgmt_mailbox *xmbx,
-	u64 msgid, bool sw_ch, void *buf, size_t len)
+			       u64 msgid, bool sw_ch, void *buf, size_t len)
 {
-	int rc;
 	struct xrt_mailbox_ioctl_post post = {
 		.xmip_req_id = msgid,
 		.xmip_sw_ch = sw_ch,
 		.xmip_data = buf,
 		.xmip_data_size = len
 	};
+	int rc;
 
-	BUG_ON(!mutex_is_locked(&xmbx->lock));
+	WARN_ON(!mutex_is_locked(&xmbx->lock));
 
 	if (!xmbx->mailbox) {
 		xrt_err(xmbx->pdev, "mailbox not available");
 		return;
 	}
 
-	if (msgid == 0) {
-		XMGMT_MAILBOX_PRT_REQ_SEND(xmbx,
-			(struct xcl_mailbox_req *)buf, sw_ch);
-	} else {
-		XMGMT_MAILBOX_PRT_RESP(xmbx, &post);
-	}
+	if (msgid == 0)
+		XMGMT_MAILBOX_PRT_REQ_SEND(xmbx, (struct xcl_mailbox_req *)buf, sw_ch);
+	else
+		xmgmt_mailbox_prt_resp(xmbx, &post);
 
 	rc = xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_POST, &post);
 	if (rc && rc != -ESHUTDOWN)
@@ -90,28 +96,27 @@ static void xmgmt_mailbox_post(struct xmgmt_mailbox *xmbx,
 }
 
 static void xmgmt_mailbox_notify(struct xmgmt_mailbox *xmbx, bool sw_ch,
-	struct xcl_mailbox_req *req, size_t len)
+				 struct xcl_mailbox_req *req, size_t len)
 {
 	xmgmt_mailbox_post(xmbx, 0, sw_ch, req, len);
 }
 
 static void xmgmt_mailbox_respond(struct xmgmt_mailbox *xmbx,
-	u64 msgid, bool sw_ch, void *buf, size_t len)
+				  u64 msgid, bool sw_ch, void *buf, size_t len)
 {
 	mutex_lock(&xmbx->lock);
 	xmgmt_mailbox_post(xmbx, msgid, sw_ch, buf, len);
 	mutex_unlock(&xmbx->lock);
 }
 
-static void xmgmt_mailbox_resp_test_msg(struct xmgmt_mailbox *xmbx,
-	u64 msgid, bool sw_ch)
+static void xmgmt_mailbox_resp_test_msg(struct xmgmt_mailbox *xmbx, u64 msgid, bool sw_ch)
 {
 	struct platform_device *pdev = xmbx->pdev;
 	char *msg;
 
 	mutex_lock(&xmbx->lock);
 
-	if (xmbx->test_msg == NULL) {
+	if (!xmbx->test_msg) {
 		mutex_unlock(&xmbx->lock);
 		xrt_err(pdev, "test msg is not set, drop request");
 		return;
@@ -126,16 +131,13 @@ static void xmgmt_mailbox_resp_test_msg(struct xmgmt_mailbox *xmbx,
 }
 
 static int xmgmt_mailbox_dtb_add_prop(struct platform_device *pdev,
-	char *dst_dtb, const char *ep_name, const char *regmap_name,
-	const char *prop, const void *val, int size)
+				      char *dst_dtb, const char *ep_name, const char *regmap_name,
+				      const char *prop, const void *val, int size)
 {
-	int rc = xrt_md_set_prop(DEV(pdev), dst_dtb, ep_name, regmap_name,
-		prop, val, size);
+	int rc = xrt_md_set_prop(DEV(pdev), dst_dtb, ep_name, regmap_name, prop, val, size);
 
-	if (rc) {
-		xrt_err(pdev, "failed to set %s@(%s, %s): %d",
-			ep_name, regmap_name, prop, rc);
-	}
+	if (rc)
+		xrt_err(pdev, "failed to set %s@(%s, %s): %d", ep_name, regmap_name, prop, rc);
 	return rc;
 }
 
@@ -144,37 +146,34 @@ static int xmgmt_mailbox_dtb_add_vbnv(struct platform_device *pdev, char *dtb)
 	int rc = 0;
 	char *vbnv = xmgmt_get_vbnv(pdev);
 
-	if (vbnv == NULL) {
+	if (!vbnv) {
 		xrt_err(pdev, "failed to get VBNV");
 		return -ENOENT;
 	}
-	rc = xmgmt_mailbox_dtb_add_prop(pdev, dtb, NULL, NULL,
-		PROP_VBNV, vbnv, strlen(vbnv) + 1);
+	rc = xmgmt_mailbox_dtb_add_prop(pdev, dtb, NULL, NULL, PROP_VBNV, vbnv, strlen(vbnv) + 1);
 	kfree(vbnv);
 	return rc;
 }
 
 static int xmgmt_mailbox_dtb_copy_logic_uuid(struct platform_device *pdev,
-	const char *src_dtb, char *dst_dtb)
+					     const char *src_dtb, char *dst_dtb)
 {
 	const void *val;
 	int sz;
-	int rc = xrt_md_get_prop(DEV(pdev), src_dtb, NULL, NULL,
-		PROP_LOGIC_UUID, &val, &sz);
+	int rc = xrt_md_get_prop(DEV(pdev), src_dtb, NULL, NULL, PROP_LOGIC_UUID, &val, &sz);
 
 	if (rc) {
 		xrt_err(pdev, "failed to get %s: %d", PROP_LOGIC_UUID, rc);
 		return rc;
 	}
-	return xmgmt_mailbox_dtb_add_prop(pdev, dst_dtb, NULL, NULL,
-		PROP_LOGIC_UUID, val, sz);
+	return xmgmt_mailbox_dtb_add_prop(pdev, dst_dtb, NULL, NULL, PROP_LOGIC_UUID, val, sz);
 }
 
 static int xmgmt_mailbox_dtb_add_vrom(struct platform_device *pdev,
-	const char *src_dtb, char *dst_dtb)
+				      const char *src_dtb, char *dst_dtb)
 {
 	/* For compatibility for legacy xrt driver. */
-	enum FeatureBitMask {
+	enum feature_bit_mask {
 		UNIFIED_PLATFORM		= 0x0000000000000001
 		, XARE_ENBLD			= 0x0000000000000002
 		, BOARD_MGMT_ENBLD		= 0x0000000000000004
@@ -189,53 +188,51 @@ static int xmgmt_mailbox_dtb_add_vrom(struct platform_device *pdev,
 		, RUNTIME_CLK_SCALE		= 0x0000000000200000
 		, PASSTHROUGH_VIRTUALIZATION	= 0x0000000000400000
 	};
-	struct FeatureRomHeader {
-		unsigned char EntryPointString[4];
-		uint8_t MajorVersion;
-		uint8_t MinorVersion;
-		uint32_t VivadoBuildID;
-		uint32_t IPBuildID;
-		uint64_t TimeSinceEpoch;
-		unsigned char FPGAPartName[64];
-		unsigned char VBNVName[64];
-		uint8_t DDRChannelCount;
-		uint8_t DDRChannelSize;
-		uint64_t DRBaseAddress;
-		uint64_t FeatureBitMap;
+	struct feature_rom_header {
+		unsigned char entry_point_string[4];
+		u8 major_version;
+		u8 minor_version;
+		u32 vivado_build_id;
+		u32 ip_build_id;
+		u64 time_since_ephoc;
+		unsigned char fpga_part_number[64];
+		unsigned char vbnv_name[64];
+		u8 ddr_channel_count;
+		u8 ddr_channel_size;
+		u64 dr_base_address;
+		u64 feature_bitmap;
 		unsigned char uuid[16];
-		uint8_t HBMCount;
-		uint8_t HBMSize;
-		uint32_t CDMABaseAddress[4];
+		u8 hbm_count;
+		u8 hbm_size;
+		u32 cdma_base_address[4];
 	} header = { 0 };
 	char *vbnv = xmgmt_get_vbnv(pdev);
 	int rc;
 
-	*(u32 *)header.EntryPointString = 0x786e6c78;
+	*(u32 *)header.entry_point_string = 0x786e6c78;
 
 	if (vbnv)
-		strncpy(header.VBNVName, vbnv, sizeof(header.VBNVName) - 1);
+		strncpy(header.vbnv_name, vbnv, sizeof(header.vbnv_name) - 1);
 	kfree(vbnv);
 
-	header.FeatureBitMap = UNIFIED_PLATFORM;
-	rc = xrt_md_get_prop(DEV(pdev), src_dtb,
-		NODE_CMC_FW_MEM, NULL, PROP_IO_OFFSET, NULL, NULL);
+	header.feature_bitmap = UNIFIED_PLATFORM;
+	rc = xrt_md_get_prop(DEV(pdev), src_dtb, NODE_CMC_FW_MEM, NULL, PROP_IO_OFFSET, NULL, NULL);
 	if (rc == 0)
-		header.FeatureBitMap |= BOARD_MGMT_ENBLD;
-	rc = xrt_md_get_prop(DEV(pdev), src_dtb,
-		NODE_ERT_FW_MEM, NULL, PROP_IO_OFFSET, NULL, NULL);
+		header.feature_bitmap |= BOARD_MGMT_ENBLD;
+	rc = xrt_md_get_prop(DEV(pdev), src_dtb, NODE_ERT_FW_MEM, NULL, PROP_IO_OFFSET, NULL, NULL);
 	if (rc == 0)
-		header.FeatureBitMap |= MB_SCHEDULER;
+		header.feature_bitmap |= MB_SCHEDULER;
 
 	return xmgmt_mailbox_dtb_add_prop(pdev, dst_dtb, NULL, NULL,
-		PROP_VROM, &header, sizeof(header));
+					  PROP_VROM, &header, sizeof(header));
 }
 
 static u32 xmgmt_mailbox_dtb_user_pf(struct platform_device *pdev,
-	const char *dtb, const char *epname, const char *regmap)
+				     const char *dtb, const char *epname, const char *regmap)
 {
 	const u32 *pfnump;
 	int rc = xrt_md_get_prop(DEV(pdev), dtb, epname, regmap,
-		PROP_PF_NUM, (const void **)&pfnump, NULL);
+				 PROP_PF_NUM, (const void **)&pfnump, NULL);
 
 	if (rc)
 		return -1;
@@ -243,12 +240,11 @@ static u32 xmgmt_mailbox_dtb_user_pf(struct platform_device *pdev,
 }
 
 static int xmgmt_mailbox_dtb_copy_user_endpoints(struct platform_device *pdev,
-	const char *src, char *dst)
+						 const char *src, char *dst)
 {
 	int rc = 0;
 	char *epname = NULL, *regmap = NULL;
-	u32 pfnum = xmgmt_mailbox_dtb_user_pf(pdev, src,
-		NODE_MAILBOX_USER, NULL);
+	u32 pfnum = xmgmt_mailbox_dtb_user_pf(pdev, src, NODE_MAILBOX_USER, NULL);
 	const u32 level = cpu_to_be32(1);
 	struct device *dev = DEV(pdev);
 
@@ -258,22 +254,19 @@ static int xmgmt_mailbox_dtb_copy_user_endpoints(struct platform_device *pdev,
 	}
 
 	for (xrt_md_get_next_endpoint(dev, src, NULL, NULL, &epname, &regmap);
-		rc == 0 && epname != NULL;
-		xrt_md_get_next_endpoint(dev, src, epname, regmap,
-		&epname, &regmap)) {
+		rc == 0 && epname;
+		xrt_md_get_next_endpoint(dev, src, epname, regmap, &epname, &regmap)) {
 		if (pfnum !=
 			xmgmt_mailbox_dtb_user_pf(pdev, src, epname, regmap))
 			continue;
 		rc = xrt_md_copy_endpoint(dev, dst, src, epname, regmap, NULL);
 		if (rc) {
-			xrt_err(pdev, "failed to copy (%s, %s): %d",
-				epname, regmap, rc);
+			xrt_err(pdev, "failed to copy (%s, %s): %d", epname, regmap, rc);
 		} else {
 			rc = xrt_md_set_prop(dev, dst, epname, regmap,
-				PROP_PARTITION_LEVEL, &level, sizeof(level));
+					     PROP_PARTITION_LEVEL, &level, sizeof(level));
 			if (rc) {
-				xrt_err(pdev,
-					"can't set level for (%s, %s): %d",
+				xrt_err(pdev, "can't set level for (%s, %s): %d",
 					epname, regmap, rc);
 			}
 		}
@@ -288,7 +281,7 @@ static char *xmgmt_mailbox_user_dtb(struct platform_device *pdev)
 	struct device *dev = DEV(pdev);
 	int rc = xrt_md_create(dev, &dst);
 
-	if (rc || dst == NULL)
+	if (rc || !dst)
 		return NULL;
 
 	rc = xmgmt_mailbox_dtb_add_vbnv(pdev, dst);
@@ -296,7 +289,7 @@ static char *xmgmt_mailbox_user_dtb(struct platform_device *pdev)
 		goto fail;
 
 	src = xmgmt_get_dtb(pdev, XMGMT_BLP);
-	if (src == NULL) {
+	if (!src) {
 		xrt_err(pdev, "failed to get BLP dtb");
 		goto fail;
 	}
@@ -310,7 +303,7 @@ static char *xmgmt_mailbox_user_dtb(struct platform_device *pdev)
 		goto fail;
 
 	rc = xrt_md_copy_endpoint(dev, dst, src, NODE_PARTITION_INFO,
-		NULL, NODE_PARTITION_INFO_BLP);
+				  NULL, NODE_PARTITION_INFO_BLP);
 	if (rc)
 		goto fail;
 
@@ -333,7 +326,7 @@ fail:
 }
 
 static void xmgmt_mailbox_resp_subdev(struct xmgmt_mailbox *xmbx,
-	u64 msgid, bool sw_ch, u64 offset, u64 size)
+				      u64 msgid, bool sw_ch, u64 offset, u64 size)
 {
 	struct platform_device *pdev = xmbx->pdev;
 	char *dtb = xmgmt_mailbox_user_dtb(pdev);
@@ -341,7 +334,7 @@ static void xmgmt_mailbox_resp_subdev(struct xmgmt_mailbox *xmbx,
 	struct xcl_subdev *hdr;
 	u64 totalsz;
 
-	if (dtb == NULL)
+	if (!dtb)
 		return;
 
 	dtbsz = xrt_md_size(DEV(pdev), dtb);
@@ -349,13 +342,12 @@ static void xmgmt_mailbox_resp_subdev(struct xmgmt_mailbox *xmbx,
 	if (offset != 0 || totalsz > size) {
 		/* Only support fetching dtb in one shot. */
 		vfree(dtb);
-		xrt_err(pdev, "need %lldB, user buffer size is %lldB, dropped",
-			totalsz, size);
+		xrt_err(pdev, "need %lldB, user buffer size is %lldB, dropped", totalsz, size);
 		return;
 	}
 
 	hdr = vzalloc(totalsz);
-	if (hdr == NULL) {
+	if (!hdr) {
 		vfree(dtb);
 		return;
 	}
@@ -363,7 +355,7 @@ static void xmgmt_mailbox_resp_subdev(struct xmgmt_mailbox *xmbx,
 	hdr->ver = 1;
 	hdr->size = dtbsz;
 	hdr->rtncode = XRT_MSG_SUBDEV_RTN_COMPLETE;
-	(void) memcpy(hdr->data, dtb, dtbsz);
+	memcpy(hdr->data, dtb, dtbsz);
 
 	xmgmt_mailbox_respond(xmbx, msgid, sw_ch, hdr, totalsz);
 
@@ -372,27 +364,26 @@ static void xmgmt_mailbox_resp_subdev(struct xmgmt_mailbox *xmbx,
 }
 
 static void xmgmt_mailbox_resp_sensor(struct xmgmt_mailbox *xmbx,
-	u64 msgid, bool sw_ch, u64 offset, u64 size)
+				      u64 msgid, bool sw_ch, u64 offset, u64 size)
 {
 	struct platform_device *pdev = xmbx->pdev;
 	struct xcl_sensor sensors = { 0 };
-	struct platform_device *cmcpdev = xleaf_get_leaf_by_id(pdev,
-		XRT_SUBDEV_CMC, PLATFORM_DEVID_NONE);
+	struct platform_device *cmcpdev =
+		xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_CMC, PLATFORM_DEVID_NONE);
 	int rc;
 
 	if (cmcpdev) {
 		rc = xleaf_ioctl(cmcpdev, XRT_CMC_READ_SENSORS, &sensors);
-		(void) xleaf_put_leaf(pdev, cmcpdev);
+		xleaf_put_leaf(pdev, cmcpdev);
 		if (rc)
 			xrt_err(pdev, "can't read sensors: %d", rc);
 	}
 
-	xmgmt_mailbox_respond(xmbx, msgid, sw_ch, &sensors,
-		min((u64)sizeof(sensors), size));
+	xmgmt_mailbox_respond(xmbx, msgid, sw_ch, &sensors, min((u64)sizeof(sensors), size));
 }
 
 static int xmgmt_mailbox_get_freq(struct xmgmt_mailbox *xmbx,
-	enum CLOCK_TYPE type, u64 *freq, u64 *freq_cnter)
+				  enum CLOCK_TYPE type, u64 *freq, u64 *freq_cnter)
 {
 	struct platform_device *pdev = xmbx->pdev;
 	const char *clkname =
@@ -403,13 +394,13 @@ static int xmgmt_mailbox_get_freq(struct xmgmt_mailbox *xmbx,
 	int rc;
 	struct xrt_clock_ioctl_get getfreq = { 0 };
 
-	if (clkpdev == NULL) {
+	if (!clkpdev) {
 		xrt_info(pdev, "%s clock is not available", clkname);
 		return -ENOENT;
 	}
 
 	rc = xleaf_ioctl(clkpdev, XRT_CLOCK_GET, &getfreq);
-	(void) xleaf_put_leaf(pdev, clkpdev);
+	xleaf_put_leaf(pdev, clkpdev);
 	if (rc) {
 		xrt_err(pdev, "can't get %s clock frequency: %d", clkname, rc);
 		return rc;
@@ -425,17 +416,17 @@ static int xmgmt_mailbox_get_freq(struct xmgmt_mailbox *xmbx,
 static int xmgmt_mailbox_get_icap_idcode(struct xmgmt_mailbox *xmbx, u64 *id)
 {
 	struct platform_device *pdev = xmbx->pdev;
-	struct platform_device *icappdev = xleaf_get_leaf_by_id(pdev,
-		XRT_SUBDEV_ICAP, PLATFORM_DEVID_NONE);
+	struct platform_device *icappdev =
+		xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_ICAP, PLATFORM_DEVID_NONE);
 	int rc;
 
-	if (icappdev == NULL) {
+	if (!icappdev) {
 		xrt_err(pdev, "can't find icap");
 		return -ENOENT;
 	}
 
 	rc = xleaf_ioctl(icappdev, XRT_ICAP_IDCODE, id);
-	(void) xleaf_put_leaf(pdev, icappdev);
+	xleaf_put_leaf(pdev, icappdev);
 	if (rc)
 		xrt_err(pdev, "can't get icap idcode: %d", rc);
 	return rc;
@@ -444,18 +435,18 @@ static int xmgmt_mailbox_get_icap_idcode(struct xmgmt_mailbox *xmbx, u64 *id)
 static int xmgmt_mailbox_get_mig_calib(struct xmgmt_mailbox *xmbx, u64 *calib)
 {
 	struct platform_device *pdev = xmbx->pdev;
-	struct platform_device *calibpdev = xleaf_get_leaf_by_id(pdev,
-		XRT_SUBDEV_CALIB, PLATFORM_DEVID_NONE);
+	struct platform_device *calibpdev =
+		xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_CALIB, PLATFORM_DEVID_NONE);
 	int rc;
 	enum xrt_calib_results res;
 
-	if (calibpdev == NULL) {
+	if (!calibpdev) {
 		xrt_err(pdev, "can't find mig calibration subdev");
 		return -ENOENT;
 	}
 
 	rc = xleaf_ioctl(calibpdev, XRT_CALIB_RESULT, &res);
-	(void) xleaf_put_leaf(pdev, calibpdev);
+	xleaf_put_leaf(pdev, calibpdev);
 	if (rc) {
 		xrt_err(pdev, "can't get mig calibration result: %d", rc);
 	} else {
@@ -468,86 +459,74 @@ static int xmgmt_mailbox_get_mig_calib(struct xmgmt_mailbox *xmbx, u64 *calib)
 }
 
 static void xmgmt_mailbox_resp_icap(struct xmgmt_mailbox *xmbx,
-	u64 msgid, bool sw_ch, u64 offset, u64 size)
+				    u64 msgid, bool sw_ch, u64 offset, u64 size)
 {
 	struct platform_device *pdev = xmbx->pdev;
 	struct xcl_pr_region icap = { 0 };
 
-	(void) xmgmt_mailbox_get_freq(xmbx,
-		CT_DATA, &icap.freq_data, &icap.freq_cntr_data);
-	(void) xmgmt_mailbox_get_freq(xmbx,
-		CT_KERNEL, &icap.freq_kernel, &icap.freq_cntr_kernel);
-	(void) xmgmt_mailbox_get_freq(xmbx,
-		CT_SYSTEM, &icap.freq_system, &icap.freq_cntr_system);
-	(void) xmgmt_mailbox_get_icap_idcode(xmbx, &icap.idcode);
-	(void) xmgmt_mailbox_get_mig_calib(xmbx, &icap.mig_calib);
-	BUG_ON(sizeof(icap.uuid) != sizeof(uuid_t));
-	(void) xmgmt_get_provider_uuid(pdev, XMGMT_ULP, (uuid_t *)&icap.uuid);
+	xmgmt_mailbox_get_freq(xmbx, CT_DATA, &icap.freq_data, &icap.freq_cntr_data);
+	xmgmt_mailbox_get_freq(xmbx, CT_KERNEL, &icap.freq_kernel, &icap.freq_cntr_kernel);
+	xmgmt_mailbox_get_freq(xmbx, CT_SYSTEM, &icap.freq_system, &icap.freq_cntr_system);
+	xmgmt_mailbox_get_icap_idcode(xmbx, &icap.idcode);
+	xmgmt_mailbox_get_mig_calib(xmbx, &icap.mig_calib);
+	WARN_ON(sizeof(icap.uuid) != sizeof(uuid_t));
+	xmgmt_get_provider_uuid(pdev, XMGMT_ULP, (uuid_t *)&icap.uuid);
 
-	xmgmt_mailbox_respond(xmbx, msgid, sw_ch, &icap,
-		min((u64)sizeof(icap), size));
+	xmgmt_mailbox_respond(xmbx, msgid, sw_ch, &icap, min_t(u64, sizeof(icap), size));
 }
 
 static void xmgmt_mailbox_resp_bdinfo(struct xmgmt_mailbox *xmbx,
-	u64 msgid, bool sw_ch, u64 offset, u64 size)
+				      u64 msgid, bool sw_ch, u64 offset, u64 size)
 {
 	struct platform_device *pdev = xmbx->pdev;
 	struct xcl_board_info *info = vzalloc(sizeof(*info));
 	struct platform_device *cmcpdev;
 	int rc;
 
-	if (info == NULL)
+	if (!info)
 		return;
 
-	cmcpdev = xleaf_get_leaf_by_id(pdev,
-		XRT_SUBDEV_CMC, PLATFORM_DEVID_NONE);
+	cmcpdev = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_CMC, PLATFORM_DEVID_NONE);
 	if (cmcpdev) {
 		rc = xleaf_ioctl(cmcpdev, XRT_CMC_READ_BOARD_INFO, info);
-		(void) xleaf_put_leaf(pdev, cmcpdev);
+		xleaf_put_leaf(pdev, cmcpdev);
 		if (rc)
 			xrt_err(pdev, "can't read board info: %d", rc);
 	}
 
-	xmgmt_mailbox_respond(xmbx, msgid, sw_ch, info,
-		min((u64)sizeof(*info), size));
+	xmgmt_mailbox_respond(xmbx, msgid, sw_ch, info, min((u64)sizeof(*info), size));
 
 	vfree(info);
 }
 
-static void xmgmt_mailbox_simple_respond(struct xmgmt_mailbox *xmbx,
-	u64 msgid, bool sw_ch, int rc)
+static void xmgmt_mailbox_simple_respond(struct xmgmt_mailbox *xmbx, u64 msgid, bool sw_ch, int rc)
 {
 	xmgmt_mailbox_respond(xmbx, msgid, sw_ch, &rc, sizeof(rc));
 }
 
-static void xmgmt_mailbox_resp_peer_data(struct xmgmt_mailbox *xmbx,
-	struct xcl_mailbox_req *req, size_t len, u64 msgid, bool sw_ch)
+static void xmgmt_mailbox_resp_peer_data(struct xmgmt_mailbox *xmbx, struct xcl_mailbox_req *req,
+					 size_t len, u64 msgid, bool sw_ch)
 {
 	struct xcl_mailbox_peer_data *pdata =
 		(struct xcl_mailbox_peer_data *)req->data;
 
 	if (len < (sizeof(*req) + sizeof(*pdata) - 1)) {
-		xrt_err(xmbx->pdev, "received corrupted %s, dropped",
-			mailbox_req2name(req->req));
+		xrt_err(xmbx->pdev, "received corrupted %s, dropped", mailbox_req2name(req->req));
 		return;
 	}
 
 	switch (pdata->kind) {
 	case XCL_SENSOR:
-		xmgmt_mailbox_resp_sensor(xmbx, msgid, sw_ch,
-			pdata->offset, pdata->size);
+		xmgmt_mailbox_resp_sensor(xmbx, msgid, sw_ch, pdata->offset, pdata->size);
 		break;
 	case XCL_ICAP:
-		xmgmt_mailbox_resp_icap(xmbx, msgid, sw_ch,
-			pdata->offset, pdata->size);
+		xmgmt_mailbox_resp_icap(xmbx, msgid, sw_ch, pdata->offset, pdata->size);
 		break;
 	case XCL_BDINFO:
-		xmgmt_mailbox_resp_bdinfo(xmbx, msgid, sw_ch,
-			pdata->offset, pdata->size);
+		xmgmt_mailbox_resp_bdinfo(xmbx, msgid, sw_ch, pdata->offset, pdata->size);
 		break;
 	case XCL_SUBDEV:
-		xmgmt_mailbox_resp_subdev(xmbx, msgid, sw_ch,
-			pdata->offset, pdata->size);
+		xmgmt_mailbox_resp_subdev(xmbx, msgid, sw_ch, pdata->offset, pdata->size);
 		break;
 	case XCL_MIG_ECC:
 	case XCL_FIREWALL:
@@ -555,49 +534,45 @@ static void xmgmt_mailbox_resp_peer_data(struct xmgmt_mailbox *xmbx,
 		xmgmt_mailbox_simple_respond(xmbx, msgid, sw_ch, 0);
 		break;
 	default:
-		xrt_err(xmbx->pdev, "%s(%s) request not handled",
-			mailbox_req2name(req->req),
+		xrt_err(xmbx->pdev, "%s(%s) request not handled", mailbox_req2name(req->req),
 			mailbox_group_kind2name(pdata->kind));
 		break;
 	}
 }
 
 static bool xmgmt_mailbox_is_same_domain(struct xmgmt_mailbox *xmbx,
-	struct xcl_mailbox_conn *mb_conn)
+					 struct xcl_mailbox_conn *mb_conn)
 {
-	uint32_t crc_chk;
+	u32 crc_chk;
 	phys_addr_t paddr;
 	struct platform_device *pdev = xmbx->pdev;
 
 	paddr = virt_to_phys((void *)mb_conn->kaddr);
 	if (paddr != (phys_addr_t)mb_conn->paddr) {
-		xrt_info(pdev, "paddrs differ, user 0x%llx, mgmt 0x%llx",
-			mb_conn->paddr, paddr);
+		xrt_info(pdev, "paddrs differ, user 0x%llx, mgmt 0x%llx", mb_conn->paddr, paddr);
 		return false;
 	}
 
 	crc_chk = crc32c_le(~0, (void *)mb_conn->kaddr, PAGE_SIZE);
 	if (crc_chk != mb_conn->crc32) {
-		xrt_info(pdev, "CRCs differ, user 0x%x, mgmt 0x%x",
-			mb_conn->crc32, crc_chk);
+		xrt_info(pdev, "CRCs differ, user 0x%x, mgmt 0x%x", mb_conn->crc32, crc_chk);
 		return false;
 	}
 
 	return true;
 }
 
-static void xmgmt_mailbox_resp_user_probe(struct xmgmt_mailbox *xmbx,
-	struct xcl_mailbox_req *req, size_t len, u64 msgid, bool sw_ch)
+static void xmgmt_mailbox_resp_user_probe(struct xmgmt_mailbox *xmbx, struct xcl_mailbox_req *req,
+					  size_t len, u64 msgid, bool sw_ch)
 {
 	struct xcl_mailbox_conn_resp *resp = vzalloc(sizeof(*resp));
 	struct xcl_mailbox_conn *conn = (struct xcl_mailbox_conn *)req->data;
 
-	if (resp == NULL)
+	if (!resp)
 		return;
 
 	if (len < (sizeof(*req) + sizeof(*conn) - 1)) {
-		xrt_err(xmbx->pdev, "received corrupted %s, dropped",
-			mailbox_req2name(req->req));
+		xrt_err(xmbx->pdev, "received corrupted %s, dropped", mailbox_req2name(req->req));
 		vfree(resp);
 		return;
 	}
@@ -612,8 +587,8 @@ static void xmgmt_mailbox_resp_user_probe(struct xmgmt_mailbox *xmbx,
 	vfree(resp);
 }
 
-static void xmgmt_mailbox_resp_hot_reset(struct xmgmt_mailbox *xmbx,
-	struct xcl_mailbox_req *req, size_t len, u64 msgid, bool sw_ch)
+static void xmgmt_mailbox_resp_hot_reset(struct xmgmt_mailbox *xmbx, struct xcl_mailbox_req *req,
+					 size_t len, u64 msgid, bool sw_ch)
 {
 	int ret;
 	struct platform_device *pdev = xmbx->pdev;
@@ -627,8 +602,8 @@ static void xmgmt_mailbox_resp_hot_reset(struct xmgmt_mailbox *xmbx,
 		xmgmt_peer_notify_state(xmbx, true);
 }
 
-static void xmgmt_mailbox_resp_load_xclbin(struct xmgmt_mailbox *xmbx,
-	struct xcl_mailbox_req *req, size_t len, u64 msgid, bool sw_ch)
+static void xmgmt_mailbox_resp_load_xclbin(struct xmgmt_mailbox *xmbx, struct xcl_mailbox_req *req,
+					   size_t len, u64 msgid, bool sw_ch)
 {
 	struct xcl_mailbox_bitstream_kaddr *kaddr =
 		(struct xcl_mailbox_bitstream_kaddr *)req->data;
@@ -639,7 +614,7 @@ static void xmgmt_mailbox_resp_load_xclbin(struct xmgmt_mailbox *xmbx,
 }
 
 static void xmgmt_mailbox_listener(void *arg, void *data, size_t len,
-	u64 msgid, int err, bool sw_ch)
+				   u64 msgid, int err, bool sw_ch)
 {
 	struct xmgmt_mailbox *xmbx = (struct xmgmt_mailbox *)arg;
 	struct platform_device *pdev = xmbx->pdev;
@@ -673,38 +648,35 @@ static void xmgmt_mailbox_listener(void *arg, void *data, size_t len,
 		break;
 	case XCL_MAILBOX_REQ_LOAD_XCLBIN_KADDR:
 		if (xmbx->peer_in_same_domain) {
-			xmgmt_mailbox_resp_load_xclbin(xmbx,
-				req, len, msgid, sw_ch);
+			xmgmt_mailbox_resp_load_xclbin(xmbx, req, len, msgid, sw_ch);
 		} else {
 			xrt_err(pdev, "%s not handled, not in same domain",
 				mailbox_req2name(req->req));
 		}
 		break;
 	default:
-		xrt_err(pdev, "%s(%d) request not handled",
-			mailbox_req2name(req->req), req->req);
+		xrt_err(pdev, "%s(%d) request not handled", mailbox_req2name(req->req), req->req);
 		break;
 	}
 }
 
 static void xmgmt_mailbox_reg_listener(struct xmgmt_mailbox *xmbx)
 {
-	struct xrt_mailbox_ioctl_listen listen = {
-		xmgmt_mailbox_listener, xmbx };
+	struct xrt_mailbox_ioctl_listen listen = { xmgmt_mailbox_listener, xmbx };
 
-	BUG_ON(!mutex_is_locked(&xmbx->lock));
+	WARN_ON(!mutex_is_locked(&xmbx->lock));
 	if (!xmbx->mailbox)
 		return;
-	(void) xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
+	xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
 }
 
 static void xmgmt_mailbox_unreg_listener(struct xmgmt_mailbox *xmbx)
 {
 	struct xrt_mailbox_ioctl_listen listen = { 0 };
 
-	BUG_ON(!mutex_is_locked(&xmbx->lock));
-	BUG_ON(!xmbx->mailbox);
-	(void) xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
+	WARN_ON(!mutex_is_locked(&xmbx->lock));
+	WARN_ON(!xmbx->mailbox);
+	xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
 }
 
 void xmgmt_mailbox_event_cb(struct platform_device *pdev, void *arg)
@@ -719,18 +691,17 @@ void xmgmt_mailbox_event_cb(struct platform_device *pdev, void *arg)
 
 	switch (e) {
 	case XRT_EVENT_POST_CREATION:
-		BUG_ON(xmbx->mailbox);
+		WARN_ON(xmbx->mailbox);
 		mutex_lock(&xmbx->lock);
-		xmbx->mailbox = xleaf_get_leaf_by_id(pdev,
-			XRT_SUBDEV_MAILBOX, PLATFORM_DEVID_NONE);
+		xmbx->mailbox = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_MAILBOX, PLATFORM_DEVID_NONE);
 		xmgmt_mailbox_reg_listener(xmbx);
 		mutex_unlock(&xmbx->lock);
 		break;
 	case XRT_EVENT_PRE_REMOVAL:
-		BUG_ON(!xmbx->mailbox);
+		WARN_ON(!xmbx->mailbox);
 		mutex_lock(&xmbx->lock);
 		xmgmt_mailbox_unreg_listener(xmbx);
-		(void) xleaf_put_leaf(pdev, xmbx->mailbox);
+		xleaf_put_leaf(pdev, xmbx->mailbox);
 		xmbx->mailbox = NULL;
 		mutex_unlock(&xmbx->lock);
 		break;
@@ -739,9 +710,9 @@ void xmgmt_mailbox_event_cb(struct platform_device *pdev, void *arg)
 	}
 }
 
-static ssize_t xmgmt_mailbox_user_dtb_show(struct file *filp,
-	struct kobject *kobj, struct bin_attribute *attr,
-	char *buf, loff_t off, size_t count)
+static ssize_t xmgmt_mailbox_user_dtb_show(struct file *filp, struct kobject *kobj,
+					   struct bin_attribute *attr, char *buf,
+					   loff_t off, size_t count)
 {
 	struct device *dev = kobj_to_dev(kobj);
 	struct platform_device *pdev = to_platform_device(dev);
@@ -788,7 +759,7 @@ static struct bin_attribute  *xmgmt_mailbox_bin_attrs[] = {
 };
 
 static int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
-	char *buf, size_t *len)
+				      char *buf, size_t *len)
 {
 	int rc;
 	struct platform_device *pdev = xmbx->pdev;
@@ -810,8 +781,7 @@ static int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
 		 * either notification or response. here is the only exception
 		 * for debugging purpose.
 		 */
-		rc = xleaf_ioctl(xmbx->mailbox,
-			XRT_MAILBOX_REQUEST, &leaf_req);
+		rc = xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_REQUEST, &leaf_req);
 	} else {
 		rc = -ENODEV;
 		xrt_err(pdev, "mailbox not available");
@@ -823,26 +793,24 @@ static int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
 	return rc;
 }
 
-static int xmgmt_mailbox_set_test_msg(struct xmgmt_mailbox *xmbx,
-	char *buf, size_t len)
+static int xmgmt_mailbox_set_test_msg(struct xmgmt_mailbox *xmbx, char *buf, size_t len)
 {
 	mutex_lock(&xmbx->lock);
 
 	if (xmbx->test_msg)
 		vfree(xmbx->test_msg);
 	xmbx->test_msg = vmalloc(len);
-	if (xmbx->test_msg == NULL) {
+	if (!xmbx->test_msg) {
 		mutex_unlock(&xmbx->lock);
 		return -ENOMEM;
 	}
-	(void) memcpy(xmbx->test_msg, buf, len);
+	memcpy(xmbx->test_msg, buf, len);
 
 	mutex_unlock(&xmbx->lock);
 	return 0;
 }
 
-static ssize_t peer_msg_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
+static ssize_t peer_msg_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	size_t len = 4096;
 	struct platform_device *pdev = to_platform_device(dev);
@@ -851,8 +819,9 @@ static ssize_t peer_msg_show(struct device *dev,
 
 	return ret == 0 ? len : ret;
 }
+
 static ssize_t peer_msg_store(struct device *dev,
-	struct device_attribute *da, const char *buf, size_t count)
+			      struct device_attribute *da, const char *buf, size_t count)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct xmgmt_mailbox *xmbx = pdev2mbx(pdev);
@@ -860,6 +829,7 @@ static ssize_t peer_msg_store(struct device *dev,
 
 	return ret == 0 ? count : ret;
 }
+
 /* Message test i/f. */
 static DEVICE_ATTR_RW(peer_msg);
 
@@ -875,8 +845,7 @@ static const struct attribute_group xmgmt_mailbox_attrgroup = {
 
 void *xmgmt_mailbox_probe(struct platform_device *pdev)
 {
-	struct xmgmt_mailbox *xmbx =
-		devm_kzalloc(DEV(pdev), sizeof(*xmbx), GFP_KERNEL);
+	struct xmgmt_mailbox *xmbx = devm_kzalloc(DEV(pdev), sizeof(*xmbx), GFP_KERNEL);
 	int ret;
 
 	if (!xmbx)
@@ -898,9 +867,9 @@ void xmgmt_mailbox_remove(void *handle)
 	struct xmgmt_mailbox *xmbx = (struct xmgmt_mailbox *)handle;
 	struct platform_device *pdev = xmbx->pdev;
 
-	(void) sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_mailbox_attrgroup);
+	sysfs_remove_group(&DEV(pdev)->kobj, &xmgmt_mailbox_attrgroup);
 	if (xmbx->mailbox)
-		(void) xleaf_put_leaf(pdev, xmbx->mailbox);
+		xleaf_put_leaf(pdev, xmbx->mailbox);
 	if (xmbx->test_msg)
 		vfree(xmbx->test_msg);
 }
@@ -913,7 +882,7 @@ void xmgmt_peer_notify_state(void *handle, bool online)
 	size_t reqlen = sizeof(*req) + sizeof(*st) - 1;
 
 	req = vzalloc(reqlen);
-	if (req == NULL)
+	if (!req)
 		return;
 
 	req->req = XCL_MAILBOX_REQ_MGMT_STATE;

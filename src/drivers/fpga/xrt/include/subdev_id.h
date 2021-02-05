@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XRT_SUBDEV_ID_H_
-#define	_XRT_SUBDEV_ID_H_
+#ifndef _XRT_SUBDEV_ID_H_
+#define _XRT_SUBDEV_ID_H_
 
 /*
  * Every subdev driver should have an ID for others to refer to it.

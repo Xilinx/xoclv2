@@ -10,7 +10,7 @@
 #include "xleaf.h"
 #include "xrt-cmc-impl.h"
 
-#define	CMC_CORE_SUPPORT_NOTUPGRADABLE	0x0c010004
+#define CMC_CORE_SUPPORT_NOTUPGRADABLE	0x0c010004
 
 enum sc_mode {
 	CMC_SC_UNKNOWN = 0,

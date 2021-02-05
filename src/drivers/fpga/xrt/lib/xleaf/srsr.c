@@ -19,36 +19,35 @@
 
 #define XRT_DDR_SRSR "xrt_ddr_srsr"
 
-#define	REG_STATUS_OFFSET		0x00000000
-#define	REG_CTRL_OFFSET			0x00000004
-#define	REG_CALIB_OFFSET		0x00000008
-#define	REG_XSDB_RAM_BASE		0x00004000
+#define REG_STATUS_OFFSET		0x00000000
+#define REG_CTRL_OFFSET			0x00000004
+#define REG_CALIB_OFFSET		0x00000008
+#define REG_XSDB_RAM_BASE		0x00004000
 
-#define	FULL_CALIB_TIMEOUT		100
-#define	FAST_CALIB_TIMEOUT		15
+#define FULL_CALIB_TIMEOUT		100
+#define FAST_CALIB_TIMEOUT		15
 
-#define	CTRL_BIT_SYS_RST		0x00000001
-#define	CTRL_BIT_XSDB_SELECT		0x00000010
-#define	CTRL_BIT_MEM_INIT_SKIP		0x00000020
-#define	CTRL_BIT_RESTORE_EN		0x00000040
-#define	CTRL_BIT_RESTORE_COMPLETE	0x00000080
-#define	CTRL_BIT_SREF_REQ		0x00000100
+#define CTRL_BIT_SYS_RST		0x00000001
+#define CTRL_BIT_XSDB_SELECT		0x00000010
+#define CTRL_BIT_MEM_INIT_SKIP		0x00000020
+#define CTRL_BIT_RESTORE_EN		0x00000040
+#define CTRL_BIT_RESTORE_COMPLETE	0x00000080
+#define CTRL_BIT_SREF_REQ		0x00000100
 
-#define	STATUS_BIT_CALIB_COMPLETE	0x00000001
-#define	STATUS_BIT_SREF_ACK		0x00000100
+#define STATUS_BIT_CALIB_COMPLETE	0x00000001
+#define STATUS_BIT_SREF_ACK		0x00000100
 
 struct xrt_ddr_srsr {
 	void __iomem		*base;
 	struct platform_device	*pdev;
-	struct mutex		lock;
+	struct mutex		lock;	/* lock for xrt_ddr_srsr */
 	const char		*ep_name;
 };
 
-#define reg_rd(g, offset)	ioread32(g->base + offset)
-#define reg_wr(g, val, offset)	iowrite32(val, g->base + offset)
+#define reg_rd(g, offset)	ioread32((g)->base + (offset))
+#define reg_wr(g, val, offset)	iowrite32((val), (g)->base + (offset))
 
-static ssize_t status_show(struct device *dev, struct device_attribute *attr,
-	char *buf)
+static ssize_t status_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	u32 status = 1;
 
@@ -65,8 +64,7 @@ static const struct attribute_group xrt_ddr_srsr_attrgroup = {
 	.attrs = xrt_ddr_srsr_attributes,
 };
 
-static int srsr_full_calib(struct xrt_ddr_srsr *srsr,
-	char **data, u32 *data_len)
+static int srsr_full_calib(struct xrt_ddr_srsr *srsr, char **data, u32 *data_len)
 {
 	int i = 0, err = -ETIMEDOUT;
 	u32 val, sz_lo, sz_hi;
@@ -75,7 +73,6 @@ static int srsr_full_calib(struct xrt_ddr_srsr *srsr,
 	mutex_lock(&srsr->lock);
 	reg_wr(srsr, CTRL_BIT_SYS_RST, REG_CTRL_OFFSET);
 	reg_wr(srsr, 0x0, REG_CTRL_OFFSET);
-
 
 	/* Safe to say, full calibration should finish in 2000ms*/
 	for (; i < FULL_CALIB_TIMEOUT; ++i) {
@@ -104,8 +101,8 @@ static int srsr_full_calib(struct xrt_ddr_srsr *srsr,
 	 * and the total size is 0xB55+1
 	 * Check the value, it should not excess predefined XSDB range
 	 */
-	sz_lo = reg_rd(srsr, REG_XSDB_RAM_BASE+4);
-	sz_hi = reg_rd(srsr, REG_XSDB_RAM_BASE+8);
+	sz_lo = reg_rd(srsr, REG_XSDB_RAM_BASE + 4);
+	sz_hi = reg_rd(srsr, REG_XSDB_RAM_BASE + 8);
 
 	*data_len = (((sz_hi << 9) | sz_lo) + 1) * sizeof(uint32_t);
 	if (*data_len >= 0x4000) {
@@ -124,7 +121,7 @@ static int srsr_full_calib(struct xrt_ddr_srsr *srsr,
 	reg_wr(srsr, CTRL_BIT_SREF_REQ, REG_CTRL_OFFSET);
 	for ( ; i < FULL_CALIB_TIMEOUT; ++i) {
 		val = reg_rd(srsr, REG_STATUS_OFFSET);
-		if (val == (STATUS_BIT_SREF_ACK|STATUS_BIT_CALIB_COMPLETE)) {
+		if (val == (STATUS_BIT_SREF_ACK | STATUS_BIT_CALIB_COMPLETE)) {
 			err = 0;
 			break;
 		}
@@ -155,8 +152,7 @@ failed:
 	return err;
 }
 
-static int srsr_fast_calib(struct xrt_ddr_srsr *srsr, char *data,
-	u32 data_size, bool retention)
+static int srsr_fast_calib(struct xrt_ddr_srsr *srsr, char *data, u32 data_size, bool retention)
 {
 	int i = 0, err = -ETIMEDOUT;
 	u32 val, write_val = CTRL_BIT_RESTORE_EN | CTRL_BIT_XSDB_SELECT;
@@ -170,7 +166,7 @@ static int srsr_fast_calib(struct xrt_ddr_srsr *srsr, char *data,
 	msleep(20);
 	for (i = 0; i < data_size / sizeof(u32); ++i) {
 		val = *((u32 *)data + i);
-		reg_wr(srsr, val, REG_XSDB_RAM_BASE+i*4);
+		reg_wr(srsr, val, REG_XSDB_RAM_BASE + i * 4);
 	}
 
 	write_val = CTRL_BIT_RESTORE_EN | CTRL_BIT_RESTORE_COMPLETE;
@@ -201,8 +197,7 @@ static int srsr_fast_calib(struct xrt_ddr_srsr *srsr, char *data,
 	return err;
 }
 
-static int
-xrt_srsr_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+static int xrt_srsr_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct xrt_ddr_srsr *srsr = platform_get_drvdata(pdev);
 	struct xrt_srsr_ioctl_calib *req = arg;
@@ -210,12 +205,10 @@ xrt_srsr_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 
 	switch (cmd) {
 	case XRT_SRSR_CALIB:
-		ret = srsr_full_calib(srsr, (char **)req->xsic_buf,
-			&req->xsic_size);
+		ret = srsr_full_calib(srsr, (char **)req->xsic_buf, &req->xsic_size);
 		break;
 	case XRT_SRSR_FAST_CALIB:
-		ret = srsr_fast_calib(srsr, req->xsic_buf, req->xsic_size,
-			req->xsic_retention);
+		ret = srsr_fast_calib(srsr, req->xsic_buf, req->xsic_size, req->xsic_retention);
 		break;
 	case XRT_SRSR_EP_NAME:
 		*(const char **)arg = srsr->ep_name;
@@ -245,8 +238,7 @@ static int xrt_srsr_probe(struct platform_device *pdev)
 	if (!res)
 		goto failed;
 
-	xrt_info(pdev, "IO start: 0x%llx, end: 0x%llx",
-		res->start, res->end);
+	xrt_info(pdev, "IO start: 0x%llx, end: 0x%llx", res->start, res->end);
 
 	srsr->ep_name = res->name;
 	srsr->base = ioremap(res->start, res->end - res->start + 1);

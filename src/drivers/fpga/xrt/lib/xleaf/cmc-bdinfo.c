@@ -164,7 +164,7 @@ static void cmc_copy_dynamic_mac(struct xrt_cmc_bdinfo *cmc_bdi, u32 *num_mac, v
 static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 {
 /* Not a real SC version to indicate that SC image does not exist. */
-#define	NONE_BMC_VERSION	"0.0.0"
+#define NONE_BMC_VERSION	"0.0.0"
 	int ret = 0;
 	struct platform_device *pdev = cmc_bdi->pdev;
 	struct platform_device *mgmt_leaf =
@@ -223,7 +223,7 @@ int cmc_bdinfo_read(struct platform_device *pdev, struct xcl_board_info *bdinfo)
 	return 0;
 }
 
-#define	CMC_BDINFO_STRING_SYSFS_NODE(name, key)				\
+#define CMC_BDINFO_STRING_SYSFS_NODE(name, key)				\
 	static ssize_t name##_show(struct device *dev,			\
 		struct device_attribute *attr, char *buf)		\
 	{								\

@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XRT_MAIN_H_
-#define	_XRT_MAIN_H_
+#ifndef _XRT_MAIN_H_
+#define _XRT_MAIN_H_
 
 const char *xrt_drv_name(enum xrt_subdev_id id);
 int xrt_drv_get_instance(enum xrt_subdev_id id);

@@ -18,11 +18,11 @@
 #include "main-impl.h"
 #include "metadata.h"
 
-#define	XMGMT_MODULE_NAME	"xmgmt"
-#define	XMGMT_DRIVER_VERSION	"4.0.0"
+#define XMGMT_MODULE_NAME	"xmgmt"
+#define XMGMT_DRIVER_VERSION	"4.0.0"
 
-#define	XMGMT_PDEV(xm)		((xm)->pdev)
-#define	XMGMT_DEV(xm)		(&(XMGMT_PDEV(xm)->dev))
+#define XMGMT_PDEV(xm)		((xm)->pdev)
+#define XMGMT_DEV(xm)		(&(XMGMT_PDEV(xm)->dev))
 #define xmgmt_err(xm, fmt, args...)	\
 	dev_err(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
 #define xmgmt_warn(xm, fmt, args...)	\
@@ -31,7 +31,7 @@
 	dev_info(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
 #define xmgmt_dbg(xm, fmt, args...)	\
 	dev_dbg(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
-#define	XMGMT_DEV_ID(_pcidev)			\
+#define XMGMT_DEV_ID(_pcidev)			\
 	({ typeof(_pcidev) (pcidev) = (_pcidev);	\
 	((pci_domain_nr((pcidev)->bus) << 16) |	\
 	PCI_DEVID((pcidev)->bus->number, 0)); })
