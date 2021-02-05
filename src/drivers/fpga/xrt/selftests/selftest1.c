@@ -19,11 +19,11 @@
 #include "metadata.h"
 #include "xleaf/test.h"
 
-#define	SELFTEST1_MODULE_NAME	"xrt-selftest1"
-#define	SELFTEST1_DRIVER_VERSION	"4.0.0"
+#define SELFTEST1_MODULE_NAME	"xrt-selftest1"
+#define SELFTEST1_DRIVER_VERSION	"4.0.0"
 
-#define	SELFTEST1_PDEV(xm)		((xm)->pdev)
-#define	SELFTEST1_DEV(xm)		(&(SELFTEST1_PDEV(xm)->dev))
+#define SELFTEST1_PDEV(xm)		((xm)->pdev)
+#define SELFTEST1_DEV(xm)		(&(SELFTEST1_PDEV(xm)->dev))
 #define selftest1_err(xm, fmt, args...)	\
 	dev_err(SELFTEST1_DEV(xm), "%s: " fmt, __func__, ##args)
 #define selftest1_warn(xm, fmt, args...)	\
@@ -32,7 +32,7 @@
 	dev_info(SELFTEST1_DEV(xm), "%s: " fmt, __func__, ##args)
 #define selftest1_dbg(xm, fmt, args...)	\
 	dev_dbg(SELFTEST1_DEV(xm), "%s: " fmt, __func__, ##args)
-#define	SELFTEST1_DEV_ID(_pdev)			\
+#define SELFTEST1_DEV_ID(_pdev)			\
 	({ typeof(_pdev) pdev = (_pdev);	\
 	((pci_domain_nr(pdev->bus) << 16) |	\
 	PCI_DEVID(pdev->bus->number, 0)); })

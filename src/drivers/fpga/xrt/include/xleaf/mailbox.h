@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XRT_MAILBOX_H_
-#define	_XRT_MAILBOX_H_
+#ifndef _XRT_MAILBOX_H_
+#define _XRT_MAILBOX_H_
 
 #include "xleaf.h"
 /*

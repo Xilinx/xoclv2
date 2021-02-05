@@ -107,8 +107,8 @@
 #define PROP_OFFSET "drv_offset"
 #define PROP_CLK_FREQ "drv_clock_frequency"
 #define PROP_CLK_CNT "drv_clock_frequency_counter"
-#define	PROP_VBNV "vbnv"
-#define	PROP_VROM "vrom"
+#define PROP_VBNV "vbnv"
+#define PROP_VROM "vrom"
 #define PROP_PARTITION_LEVEL "partition_level"
 
 struct xrt_md_endpoint {

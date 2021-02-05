@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XRT_CALIB_H_
-#define	_XRT_CALIB_H_
+#ifndef _XRT_CALIB_H_
+#define _XRT_CALIB_H_
 
 #include "xleaf.h"
 #include <linux/xrt/xclbin.h>

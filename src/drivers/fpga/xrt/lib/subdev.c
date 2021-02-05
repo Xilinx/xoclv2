@@ -443,7 +443,7 @@ xrt_subdev_get_holders(struct xrt_subdev *sdev, char *buf, size_t len)
 		h = list_entry(ptr, struct xrt_subdev_holder, xsh_holder_list);
 		n += snprintf(buf + n, len - n, "%s:%d ",
 			dev_name(h->xsh_holder), kref_read(&h->xsh_kref));
-		if (n >= len)
+		if (n >= (len - 1))
 			break;
 	}
 	return n;
@@ -451,10 +451,10 @@ xrt_subdev_get_holders(struct xrt_subdev *sdev, char *buf, size_t len)
 
 void xrt_subdev_pool_init(struct device *dev, struct xrt_subdev_pool *spool)
 {
-	INIT_LIST_HEAD(&spool->xpool_dev_list);
-	spool->xpool_owner = dev;
-	mutex_init(&spool->xpool_lock);
-	spool->xpool_closing = false;
+	INIT_LIST_HEAD(&spool->xsp_dev_list);
+	spool->xsp_owner = dev;
+	mutex_init(&spool->xsp_lock);
+	spool->xsp_closing = false;
 }
 
 static void xrt_subdev_free_holder(struct xrt_subdev_holder *holder)
@@ -469,7 +469,7 @@ static void xrt_subdev_pool_wait_for_holders(struct xrt_subdev_pool *spool,
 	const struct list_head *ptr, *next;
 	char holders[128];
 	struct xrt_subdev_holder *holder;
-	struct mutex *lk = &spool->xpool_lock;
+	struct mutex *lk = &spool->xsp_lock;
 
 	WARN_ON(!mutex_is_locked(lk));
 
@@ -477,7 +477,7 @@ static void xrt_subdev_pool_wait_for_holders(struct xrt_subdev_pool *spool,
 		int rc;
 
 		/* It's most likely a bug if we ever enters this loop. */
-		(void)xrt_subdev_get_holders(sdev, holders, sizeof(holders));
+		xrt_subdev_get_holders(sdev, holders, sizeof(holders));
 		xrt_err(sdev->xs_pdev, "awaits holders: %s", holders);
 		mutex_unlock(lk);
 		rc = wait_for_completion_killable(&sdev->xs_holder_comp);
@@ -493,22 +493,21 @@ static void xrt_subdev_pool_wait_for_holders(struct xrt_subdev_pool *spool,
 	}
 }
 
-int xrt_subdev_pool_fini(struct xrt_subdev_pool *spool)
+void xrt_subdev_pool_fini(struct xrt_subdev_pool *spool)
 {
-	int ret = 0;
-	struct list_head *dl = &spool->xpool_dev_list;
-	struct mutex *lk = &spool->xpool_lock;
+	struct list_head *dl = &spool->xsp_dev_list;
+	struct mutex *lk = &spool->xsp_lock;
 
 	mutex_lock(lk);
 
-	if (spool->xpool_closing) {
+	if (spool->xsp_closing) {
 		mutex_unlock(lk);
-		return 0;
+		return;
 	}
 
-	spool->xpool_closing = true;
+	spool->xsp_closing = true;
 	/* Remove subdev in the reverse order of added. */
-	while (!ret && !list_empty(dl)) {
+	while (!list_empty(dl)) {
 		struct xrt_subdev *sdev = list_first_entry(dl,
 			struct xrt_subdev, xs_dev_list);
 		xrt_subdev_pool_wait_for_holders(spool, sdev);
@@ -519,8 +518,6 @@ int xrt_subdev_pool_fini(struct xrt_subdev_pool *spool)
 	}
 
 	mutex_unlock(lk);
-
-	return ret;
 }
 
 static struct xrt_subdev_holder *xrt_subdev_find_holder(struct xrt_subdev *sdev,
@@ -586,15 +583,15 @@ xrt_subdev_release(struct xrt_subdev *sdev, struct device *holder_dev)
 int xrt_subdev_pool_add(struct xrt_subdev_pool *spool, enum xrt_subdev_id id,
 			xrt_subdev_root_cb_t pcb, void *pcb_arg, char *dtb)
 {
-	struct mutex *lk = &spool->xpool_lock;
-	struct list_head *dl = &spool->xpool_dev_list;
+	struct mutex *lk = &spool->xsp_lock;
+	struct list_head *dl = &spool->xsp_dev_list;
 	struct xrt_subdev *sdev;
 	int ret = 0;
 
-	sdev = xrt_subdev_create(spool->xpool_owner, id, pcb, pcb_arg, dtb);
+	sdev = xrt_subdev_create(spool->xsp_owner, id, pcb, pcb_arg, dtb);
 	if (sdev) {
 		mutex_lock(lk);
-		if (spool->xpool_closing) {
+		if (spool->xsp_closing) {
 			/* No new subdev when pool is going away. */
 			xrt_err(sdev->xs_pdev, "pool is closing");
 			ret = -ENODEV;
@@ -615,8 +612,8 @@ int xrt_subdev_pool_del(struct xrt_subdev_pool *spool, enum xrt_subdev_id id,
 			int instance)
 {
 	const struct list_head *ptr;
-	struct mutex *lk = &spool->xpool_lock;
-	struct list_head *dl = &spool->xpool_dev_list;
+	struct mutex *lk = &spool->xsp_lock;
+	struct list_head *dl = &spool->xsp_dev_list;
 	struct xrt_subdev *sdev;
 	int ret = -ENOENT;
 
@@ -644,8 +641,8 @@ static int xrt_subdev_pool_get_impl(struct xrt_subdev_pool *spool,
 				    struct xrt_subdev **sdevp)
 {
 	const struct list_head *ptr;
-	struct mutex *lk = &spool->xpool_lock;
-	struct list_head *dl = &spool->xpool_dev_list;
+	struct mutex *lk = &spool->xsp_lock;
+	struct list_head *dl = &spool->xsp_dev_list;
 	struct xrt_subdev *sdev = NULL;
 	int ret = -ENOENT;
 
@@ -721,12 +718,7 @@ int xrt_subdev_pool_get(struct xrt_subdev_pool *spool,
 		return rc;
 	}
 
-	if (DEV_IS_PCI(holder_dev)) {
-#ifdef	SUBDEV_DEBUG
-		dev_info(holder_dev, "%s: %s <<==== %s, ref=%d", __func__,
-			 dev_name(holder_dev), dev_name(DEV(sdev->xs_pdev)), rc);
-#endif
-	} else {
+	if (!DEV_IS_PCI(holder_dev)) {
 		xrt_dbg(to_platform_device(holder_dev), "%s <<==== %s",
 			dev_name(holder_dev), dev_name(DEV(sdev->xs_pdev)));
 	}
@@ -735,13 +727,12 @@ int xrt_subdev_pool_get(struct xrt_subdev_pool *spool,
 	return 0;
 }
 
-static int xrt_subdev_pool_put_impl(struct xrt_subdev_pool *spool,
-				    struct platform_device *pdev,
+static int xrt_subdev_pool_put_impl(struct xrt_subdev_pool *spool, struct platform_device *pdev,
 				    struct device *holder_dev)
 {
 	const struct list_head *ptr;
-	struct mutex *lk = &spool->xpool_lock;
-	struct list_head *dl = &spool->xpool_dev_list;
+	struct mutex *lk = &spool->xsp_lock;
+	struct list_head *dl = &spool->xsp_dev_list;
 	struct xrt_subdev *sdev;
 	int ret = -ENOENT;
 
@@ -758,8 +749,7 @@ static int xrt_subdev_pool_put_impl(struct xrt_subdev_pool *spool,
 	return ret;
 }
 
-int xrt_subdev_pool_put(struct xrt_subdev_pool *spool,
-			struct platform_device *pdev,
+int xrt_subdev_pool_put(struct xrt_subdev_pool *spool, struct platform_device *pdev,
 			struct device *holder_dev)
 {
 	int ret = xrt_subdev_pool_put_impl(spool, pdev, holder_dev);
@@ -767,15 +757,8 @@ int xrt_subdev_pool_put(struct xrt_subdev_pool *spool,
 	if (ret)
 		return ret;
 
-	if (DEV_IS_PCI(holder_dev)) {
-#ifdef	SUBDEV_DEBUG
-		dev_info(holder_dev, "%s: %s <<==X== %s, ref=%d", __func__,
-			 dev_name(holder_dev), dev_name(DEV(spdev)), ret);
-#endif
-	} else {
-		struct platform_device *d = to_platform_device(holder_dev);
-
-		xrt_dbg(d, "%s <<==X== %s",
+	if (!DEV_IS_PCI(holder_dev)) {
+		xrt_dbg(to_platform_device(holder_dev), "%s <<==X== %s",
 			dev_name(holder_dev), dev_name(DEV(pdev)));
 	}
 	return 0;
@@ -789,13 +772,13 @@ void xrt_subdev_pool_trigger_event(struct xrt_subdev_pool *spool,
 	struct xrt_event evt;
 
 	while (!xrt_subdev_pool_get_impl(spool, XRT_SUBDEV_MATCH_NEXT,
-					 tgt, spool->xpool_owner, &sdev)) {
+					 tgt, spool->xsp_owner, &sdev)) {
 		tgt = sdev->xs_pdev;
 		evt.xe_evt = e;
 		evt.xe_subdev.xevt_subdev_id = sdev->xs_id;
 		evt.xe_subdev.xevt_subdev_instance = tgt->id;
 		xrt_subdev_root_ioctl(tgt, XRT_ROOT_EVENT, &evt);
-		xrt_subdev_pool_put_impl(spool, tgt, spool->xpool_owner);
+		xrt_subdev_pool_put_impl(spool, tgt, spool->xsp_owner);
 	}
 }
 
@@ -806,10 +789,10 @@ void xrt_subdev_pool_handle_event(struct xrt_subdev_pool *spool,
 	struct xrt_subdev *sdev = NULL;
 
 	while (!xrt_subdev_pool_get_impl(spool, XRT_SUBDEV_MATCH_NEXT,
-					 tgt, spool->xpool_owner, &sdev)) {
+					 tgt, spool->xsp_owner, &sdev)) {
 		tgt = sdev->xs_pdev;
 		xleaf_ioctl(tgt, XRT_XLEAF_EVENT, evt);
-		xrt_subdev_pool_put_impl(spool, tgt, spool->xpool_owner);
+		xrt_subdev_pool_put_impl(spool, tgt, spool->xsp_owner);
 	}
 }
 
@@ -818,8 +801,8 @@ ssize_t xrt_subdev_pool_get_holders(struct xrt_subdev_pool *spool,
 				    char *buf, size_t len)
 {
 	const struct list_head *ptr;
-	struct mutex *lk = &spool->xpool_lock;
-	struct list_head *dl = &spool->xpool_dev_list;
+	struct mutex *lk = &spool->xsp_lock;
+	struct list_head *dl = &spool->xsp_dev_list;
 	struct xrt_subdev *sdev;
 	ssize_t ret = 0;
 

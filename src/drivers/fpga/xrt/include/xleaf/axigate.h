@@ -6,8 +6,8 @@
  *	Lizhi Hou <Lizhi.Hou@xilinx.com>
  */
 
-#ifndef	_XRT_AXIGATE_H_
-#define	_XRT_AXIGATE_H_
+#ifndef _XRT_AXIGATE_H_
+#define _XRT_AXIGATE_H_
 
 #include "xleaf.h"
 #include "metadata.h"

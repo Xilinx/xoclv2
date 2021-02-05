@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XRT_SUBDEV_POOL_H_
-#define	_XRT_SUBDEV_POOL_H_
+#ifndef _XRT_SUBDEV_POOL_H_
+#define _XRT_SUBDEV_POOL_H_
 
 #include "xroot.h"
 
@@ -15,10 +15,10 @@
  * It manages a list of xrt_subdevs for root and group drivers.
  */
 struct xrt_subdev_pool {
-	struct list_head xpool_dev_list;
-	struct device *xpool_owner;
-	struct mutex xpool_lock; /* pool lock */
-	bool xpool_closing;
+	struct list_head xsp_dev_list;
+	struct device *xsp_owner;
+	struct mutex xsp_lock; /* pool lock */
+	bool xsp_closing;
 };
 
 /*
@@ -26,7 +26,7 @@ struct xrt_subdev_pool {
  */
 void xrt_subdev_pool_init(struct device *dev,
 			  struct xrt_subdev_pool *spool);
-int xrt_subdev_pool_fini(struct xrt_subdev_pool *spool);
+void xrt_subdev_pool_fini(struct xrt_subdev_pool *spool);
 int xrt_subdev_pool_get(struct xrt_subdev_pool *spool,
 			xrt_subdev_match_t match,
 			void *arg, struct device *holder_dev,

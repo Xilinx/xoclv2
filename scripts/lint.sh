@@ -25,7 +25,7 @@ do
     if [[ $item =~ $regex ]]; then
 	continue
     fi
-    regex="^.+\/xclbin\.c$"
+    regex="^.+\/xclbin\.[c|h]$"
     if [[ $item =~ $regex ]]; then
 	continue
     fi

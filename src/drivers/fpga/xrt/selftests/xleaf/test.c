@@ -15,7 +15,7 @@
 #include "xleaf.h"
 #include "test.h"
 
-#define	XRT_TEST "xrt_test"
+#define XRT_TEST "xrt_test"
 
 struct xrt_test {
 	struct platform_device *pdev;

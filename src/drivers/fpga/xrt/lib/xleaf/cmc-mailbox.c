@@ -12,11 +12,11 @@
 #include "xrt-cmc-impl.h"
 
 /* We have a 4k buffer for cmc mailbox */
-#define	CMC_PKT_MAX_SZ	1024 /* In u32 */
-#define	CMC_PKT_MAX_PAYLOAD_SZ	\
+#define CMC_PKT_MAX_SZ	1024 /* In u32 */
+#define CMC_PKT_MAX_PAYLOAD_SZ	\
 	(CMC_PKT_MAX_SZ - sizeof(struct cmc_pkt_hdr) / sizeof(u32)) /* In u32 */
-#define	CMC_PKT_MAX_PAYLOAD_SZ_IN_BYTES	(CMC_PKT_MAX_PAYLOAD_SZ * sizeof(u32))
-#define	CMC_PKT_SZ(hdr)		\
+#define CMC_PKT_MAX_PAYLOAD_SZ_IN_BYTES	(CMC_PKT_MAX_PAYLOAD_SZ * sizeof(u32))
+#define CMC_PKT_SZ(hdr)		\
 	((sizeof(struct cmc_pkt_hdr) + (hdr)->payload_sz + sizeof(u32) - 1) / \
 	sizeof(u32)) /* In u32 */
 

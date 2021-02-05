@@ -11,10 +11,10 @@
 #include "xroot.h"
 #include "main.h"
 
-#define	XRT_IPLIB_MODULE_NAME		"xrt-lib"
-#define	XRT_IPLIB_MODULE_VERSION	"4.0.0"
-#define	XRT_MAX_DEVICE_NODES		128
-#define	XRT_DRVNAME(drv)		((drv)->driver.name)
+#define XRT_IPLIB_MODULE_NAME		"xrt-lib"
+#define XRT_IPLIB_MODULE_VERSION	"4.0.0"
+#define XRT_MAX_DEVICE_NODES		128
+#define XRT_DRVNAME(drv)		((drv)->driver.name)
 
 /*
  * Subdev driver is known by ID to others. We map the ID to it's

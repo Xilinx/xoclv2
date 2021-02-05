@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XMGMT_MAIN_H_
-#define	_XMGMT_MAIN_H_
+#ifndef _XMGMT_MAIN_H_
+#define _XMGMT_MAIN_H_
 
 #include <linux/xrt/xclbin.h>
 #include "xleaf.h"

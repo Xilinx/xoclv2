@@ -6,48 +6,48 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XRT_CMC_IMPL_H_
-#define	_XRT_CMC_IMPL_H_
+#ifndef _XRT_CMC_IMPL_H_
+#define _XRT_CMC_IMPL_H_
 
 #include "linux/delay.h"
 #include "xleaf.h"
 #include <linux/xrt/mailbox_proto.h>
 
-#define	CMC_MAX_RETRY		150 /* Retry is set to 15s */
-#define	CMC_MAX_RETRY_LONG	(CMC_MAX_RETRY * 4) /* mailbox retry is 1min */
-#define	CMC_RETRY_INTERVAL	100 /* 100ms */
+#define CMC_MAX_RETRY		150 /* Retry is set to 15s */
+#define CMC_MAX_RETRY_LONG	(CMC_MAX_RETRY * 4) /* mailbox retry is 1min */
+#define CMC_RETRY_INTERVAL	100 /* 100ms */
 
 /* Mutex register defines. */
-#define	CMC_REG_MUTEX_CONFIG			0x0
-#define	CMC_REG_MUTEX_STATUS			0x8
-#define	CMC_MUTEX_MASK_GRANT			(0x1 << 0)
-#define	CMC_MUTEX_MASK_READY			(0x1 << 1)
+#define CMC_REG_MUTEX_CONFIG			0x0
+#define CMC_REG_MUTEX_STATUS			0x8
+#define CMC_MUTEX_MASK_GRANT			BIT(0)
+#define CMC_MUTEX_MASK_READY			BIT(1)
 
 /* Reset register defines. */
-#define	CMC_RESET_MASK_ON			0x0
-#define	CMC_RESET_MASK_OFF			0x1
+#define CMC_RESET_MASK_ON			0x0
+#define CMC_RESET_MASK_OFF			0x1
 
 /* IO register defines. */
-#define	CMC_REG_IO_MAGIC			0x0
-#define	CMC_REG_IO_VERSION			0x4
-#define	CMC_REG_IO_STATUS			0x8
-#define	CMC_REG_IO_ERROR			0xc
-#define	CMC_REG_IO_CONTROL			0x18
-#define	CMC_REG_IO_STOP_CONFIRM			0x1C
-#define	CMC_REG_IO_MBX_OFFSET			0x300
-#define	CMC_REG_IO_MBX_ERROR			0x304
-#define	CMC_REG_IO_CORE_VERSION			0xC4C
+#define CMC_REG_IO_MAGIC			0x0
+#define CMC_REG_IO_VERSION			0x4
+#define CMC_REG_IO_STATUS			0x8
+#define CMC_REG_IO_ERROR			0xc
+#define CMC_REG_IO_CONTROL			0x18
+#define CMC_REG_IO_STOP_CONFIRM			0x1C
+#define CMC_REG_IO_MBX_OFFSET			0x300
+#define CMC_REG_IO_MBX_ERROR			0x304
+#define CMC_REG_IO_CORE_VERSION			0xC4C
 
-#define	CMC_CTRL_MASK_CLR_ERR			(1 << 1)
-#define	CMC_CTRL_MASK_STOP			(1 << 3)
-#define	CMC_CTRL_MASK_MBX_PKT_OWNER		(1 << 5)
-#define	CMC_ERROR_MASK_MBX_ERR			(1 << 26)
-#define	CMC_STATUS_MASK_STOPPED			(1 << 1)
+#define CMC_CTRL_MASK_CLR_ERR			BIT(1)
+#define CMC_CTRL_MASK_STOP			BIT(3)
+#define CMC_CTRL_MASK_MBX_PKT_OWNER		BIT(5)
+#define CMC_ERROR_MASK_MBX_ERR			BIT(26)
+#define CMC_STATUS_MASK_STOPPED			BIT(1)
 
-#define	__CMC_WAIT(cond, retries)				\
+#define __CMC_WAIT(cond, retries)				\
 	do {							\
 		int retry = 0;					\
-		while (retry++ < retries && !(cond))		\
+		while (retry++ < (retries) && !(cond))		\
 			msleep(CMC_RETRY_INTERVAL);		\
 	} while (0)
 #define CMC_WAIT(cond)	__CMC_WAIT(cond, CMC_MAX_RETRY)
@@ -91,46 +91,38 @@ struct cmc_reg_map {
 	size_t crm_size;
 };
 
-extern int cmc_ctrl_probe(struct platform_device *pdev,
-	struct cmc_reg_map *regmaps, void **hdl);
-extern void cmc_ctrl_remove(struct platform_device *pdev);
-extern void *cmc_pdev2ctrl(struct platform_device *pdev);
-extern void cmc_ctrl_event_cb(struct platform_device *pdev, void *arg);
+int cmc_ctrl_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl);
+void cmc_ctrl_remove(struct platform_device *pdev);
+void *cmc_pdev2ctrl(struct platform_device *pdev);
+void cmc_ctrl_event_cb(struct platform_device *pdev, void *arg);
 
-extern int cmc_sensor_probe(struct platform_device *pdev,
-	struct cmc_reg_map *regmaps, void **hdl);
-extern void cmc_sensor_remove(struct platform_device *pdev);
-extern void *cmc_pdev2sensor(struct platform_device *pdev);
-extern void cmc_sensor_read(struct platform_device *pdev, struct xcl_sensor *s);
+int cmc_sensor_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl);
+void cmc_sensor_remove(struct platform_device *pdev);
+void *cmc_pdev2sensor(struct platform_device *pdev);
+void cmc_sensor_read(struct platform_device *pdev, struct xcl_sensor *s);
 
-extern int cmc_mailbox_probe(struct platform_device *pdev,
-	struct cmc_reg_map *regmaps, void **hdl);
-extern void cmc_mailbox_remove(struct platform_device *pdev);
-extern void *cmc_pdev2mbx(struct platform_device *pdev);
-extern int cmc_mailbox_acquire(struct platform_device *pdev);
-extern void cmc_mailbox_release(struct platform_device *pdev, int generation);
-extern size_t cmc_mailbox_max_payload(struct platform_device *pdev);
-extern int cmc_mailbox_send_packet(struct platform_device *pdev, int generation,
-	u8 op, const char *buf, size_t len);
-extern int cmc_mailbox_recv_packet(struct platform_device *pdev, int generation,
-	char *buf, size_t *len);
+int cmc_mailbox_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl);
+void cmc_mailbox_remove(struct platform_device *pdev);
+void *cmc_pdev2mbx(struct platform_device *pdev);
+int cmc_mailbox_acquire(struct platform_device *pdev);
+void cmc_mailbox_release(struct platform_device *pdev, int generation);
+size_t cmc_mailbox_max_payload(struct platform_device *pdev);
+int cmc_mailbox_send_packet(struct platform_device *pdev, int generation,
+			    u8 op, const char *buf, size_t len);
+int cmc_mailbox_recv_packet(struct platform_device *pdev, int generation, char *buf, size_t *len);
 
-extern int cmc_bdinfo_probe(struct platform_device *pdev,
-	struct cmc_reg_map *regmaps, void **hdl);
-extern void cmc_bdinfo_remove(struct platform_device *pdev);
-extern void *cmc_pdev2bdinfo(struct platform_device *pdev);
-extern int cmc_refresh_board_info(struct platform_device *pdev);
-extern int cmc_bdinfo_read(struct platform_device *pdev,
-	struct xcl_board_info *bdinfo);
+int cmc_bdinfo_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl);
+void cmc_bdinfo_remove(struct platform_device *pdev);
+void *cmc_pdev2bdinfo(struct platform_device *pdev);
+int cmc_refresh_board_info(struct platform_device *pdev);
+int cmc_bdinfo_read(struct platform_device *pdev, struct xcl_board_info *bdinfo);
 
-extern int cmc_sc_probe(struct platform_device *pdev,
-	struct cmc_reg_map *regmaps, void **hdl);
-extern void cmc_sc_remove(struct platform_device *pdev);
-extern void *cmc_pdev2sc(struct platform_device *pdev);
-extern int cmc_sc_open(struct inode *inode, struct file *file);
-extern int cmc_sc_close(struct inode *inode, struct file *file);
-extern ssize_t cmc_update_sc_firmware(struct file *file,
-	const char __user *ubuf, size_t n, loff_t *off);
-extern loff_t cmc_sc_llseek(struct file *filp, loff_t off, int whence);
+int cmc_sc_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl);
+void cmc_sc_remove(struct platform_device *pdev);
+void *cmc_pdev2sc(struct platform_device *pdev);
+int cmc_sc_open(struct inode *inode, struct file *file);
+int cmc_sc_close(struct inode *inode, struct file *file);
+ssize_t cmc_update_sc_firmware(struct file *file, const char __user *ubuf, size_t n, loff_t *off);
+loff_t cmc_sc_llseek(struct file *filp, loff_t off, int whence);
 
 #endif	/* _XRT_CMC_IMPL_H_ */

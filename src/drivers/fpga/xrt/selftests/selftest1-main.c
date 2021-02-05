@@ -22,7 +22,7 @@
 #include <linux/xrt/flash_xrt_data.h>
 #include <linux/xrt/xmgmt-ioctl.h>
 
-#define	SELFTEST1_MAIN "xrt-selftest1-main"
+#define SELFTEST1_MAIN "xrt-selftest1-main"
 
 struct selftest1_main {
 	struct platform_device *pdev;
@@ -156,8 +156,7 @@ finally:
 	return ret;
 }
 
-static int selftest1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd,
-				     void *arg)
+static int selftest1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct selftest1_main *xmm = platform_get_drvdata(pdev);
 	int ret = 0;
@@ -175,8 +174,7 @@ static int selftest1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd,
 	return ret;
 }
 
-static ssize_t selftest1_main_leaf_read(struct file *file, char __user *ubuf,
-				    size_t n, loff_t *off)
+static ssize_t selftest1_main_leaf_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
 {
 	int i;
 	struct selftest1_main_client_data *xdd = file->private_data;
@@ -189,7 +187,7 @@ static ssize_t selftest1_main_leaf_read(struct file *file, char __user *ubuf,
 }
 
 static ssize_t selftest1_main_leaf_write(struct file *file, const char __user *ubuf,
-				     size_t n, loff_t *off)
+					 size_t n, loff_t *off)
 {
 	int i;
 	struct selftest1_main_client_data *xdd = file->private_data;

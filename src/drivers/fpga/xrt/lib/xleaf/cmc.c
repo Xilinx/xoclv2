@@ -14,7 +14,7 @@
 #include "xleaf/cmc.h"
 #include <linux/xrt/mailbox_proto.h>
 
-#define	XRT_CMC "xrt_cmc"
+#define XRT_CMC "xrt_cmc"
 
 static struct xrt_iores_map cmc_iores_id_map[] = {
 	{ NODE_CMC_REG, IO_REG},

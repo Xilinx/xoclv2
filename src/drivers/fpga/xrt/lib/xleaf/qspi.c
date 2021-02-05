@@ -14,7 +14,7 @@
 #include "xleaf.h"
 #include "xleaf/flash.h"
 
-#define	XRT_QSPI "xrt_qspi"
+#define XRT_QSPI "xrt_qspi"
 
 /* Status write command */
 #define QSPI_CMD_STATUSREG_WRITE		0x01
@@ -69,24 +69,24 @@
 /* Quad IO Fast Read */
 #define QSPI_CMD_QUAD_IO_READ			0xEB
 
-#define	QSPI_ERR(flash, fmt, arg...)	xrt_err((flash)->pdev, fmt, ##arg)
-#define	QSPI_WARN(flash, fmt, arg...)	xrt_warn((flash)->pdev, fmt, ##arg)
-#define	QSPI_INFO(flash, fmt, arg...)	xrt_info((flash)->pdev, fmt, ##arg)
-#define	QSPI_DBG(flash, fmt, arg...)	xrt_dbg((flash)->pdev, fmt, ##arg)
+#define QSPI_ERR(flash, fmt, arg...)	xrt_err((flash)->pdev, fmt, ##arg)
+#define QSPI_WARN(flash, fmt, arg...)	xrt_warn((flash)->pdev, fmt, ##arg)
+#define QSPI_INFO(flash, fmt, arg...)	xrt_info((flash)->pdev, fmt, ##arg)
+#define QSPI_DBG(flash, fmt, arg...)	xrt_dbg((flash)->pdev, fmt, ##arg)
 
 /*
  * QSPI control reg bits.
  */
-#define QSPI_CR_LOOPBACK		(1 << 0)
-#define QSPI_CR_ENABLED			(1 << 1)
-#define QSPI_CR_MASTER_MODE		(1 << 2)
-#define QSPI_CR_CLK_POLARITY		(1 << 3)
-#define QSPI_CR_CLK_PHASE		(1 << 4)
-#define QSPI_CR_TXFIFO_RESET		(1 << 5)
-#define QSPI_CR_RXFIFO_RESET		(1 << 6)
-#define QSPI_CR_MANUAL_SLAVE_SEL	(1 << 7)
-#define QSPI_CR_TRANS_INHIBIT		(1 << 8)
-#define QSPI_CR_LSB_FIRST		(1 << 9)
+#define QSPI_CR_LOOPBACK		BIT(0)
+#define QSPI_CR_ENABLED			BIT(1)
+#define QSPI_CR_MASTER_MODE		BIT(2)
+#define QSPI_CR_CLK_POLARITY		BIT(3)
+#define QSPI_CR_CLK_PHASE		BIT(4)
+#define QSPI_CR_TXFIFO_RESET		BIT(5)
+#define QSPI_CR_RXFIFO_RESET		BIT(6)
+#define QSPI_CR_MANUAL_SLAVE_SEL	BIT(7)
+#define QSPI_CR_TRANS_INHIBIT		BIT(8)
+#define QSPI_CR_LSB_FIRST		BIT(9)
 #define QSPI_CR_INIT_STATE		(QSPI_CR_TRANS_INHIBIT		| \
 					QSPI_CR_MANUAL_SLAVE_SEL	| \
 					QSPI_CR_RXFIFO_RESET		| \
@@ -97,17 +97,17 @@
 /*
  * QSPI status reg bits.
  */
-#define QSPI_SR_RX_EMPTY		(1 << 0)
-#define QSPI_SR_RX_FULL			(1 << 1)
-#define QSPI_SR_TX_EMPTY		(1 << 2)
-#define QSPI_SR_TX_FULL			(1 << 3)
-#define QSPI_SR_MODE_ERR		(1 << 4)
-#define QSPI_SR_SLAVE_MODE		(1 << 5)
-#define QSPI_SR_CPOL_CPHA_ERR		(1 << 6)
-#define QSPI_SR_SLAVE_MODE_ERR		(1 << 7)
-#define QSPI_SR_MSB_ERR			(1 << 8)
-#define QSPI_SR_LOOPBACK_ERR		(1 << 9)
-#define QSPI_SR_CMD_ERR			(1 << 10)
+#define QSPI_SR_RX_EMPTY		BIT(0)
+#define QSPI_SR_RX_FULL			BIT(1)
+#define QSPI_SR_TX_EMPTY		BIT(2)
+#define QSPI_SR_TX_FULL			BIT(3)
+#define QSPI_SR_MODE_ERR		BIT(4)
+#define QSPI_SR_SLAVE_MODE		BIT(5)
+#define QSPI_SR_CPOL_CPHA_ERR		BIT(6)
+#define QSPI_SR_SLAVE_MODE_ERR		BIT(7)
+#define QSPI_SR_MSB_ERR			BIT(8)
+#define QSPI_SR_LOOPBACK_ERR		BIT(9)
+#define QSPI_SR_CMD_ERR			BIT(10)
 #define QSPI_SR_ERRS			(QSPI_SR_CMD_ERR	|	\
 					QSPI_SR_LOOPBACK_ERR	|	\
 					QSPI_SR_MSB_ERR		|	\
@@ -115,20 +115,20 @@
 					QSPI_SR_CPOL_CPHA_ERR	|	\
 					QSPI_SR_MODE_ERR)
 
-#define	MAX_NUM_OF_SLAVES	2
-#define	SLAVE_NONE		(-1)
-#define SLAVE_SELECT_NONE	((1 << MAX_NUM_OF_SLAVES) - 1)
+#define MAX_NUM_OF_SLAVES	2
+#define SLAVE_NONE		(-1)
+#define SLAVE_SELECT_NONE	(BIT(MAX_NUM_OF_SLAVES) - 1)
 
 /*
  * We support erasing flash memory at three page unit. Page read-modify-write
  * is done at smallest page unit.
  */
-#define	QSPI_LARGE_PAGE_SIZE	(32UL * 1024)
-#define	QSPI_HUGE_PAGE_SIZE	(64UL * 1024)
-#define	QSPI_PAGE_SIZE		(4UL * 1024)
-#define	QSPI_PAGE_MASK		(QSPI_PAGE_SIZE - 1)
-#define	QSPI_PAGE_ALIGN(off)	((off) & ~QSPI_PAGE_MASK)
-#define	QSPI_PAGE_OFFSET(off)	((off) & QSPI_PAGE_MASK)
+#define QSPI_LARGE_PAGE_SIZE	(32UL * 1024)
+#define QSPI_HUGE_PAGE_SIZE	(64UL * 1024)
+#define QSPI_PAGE_SIZE		(4UL * 1024)
+#define QSPI_PAGE_MASK		(QSPI_PAGE_SIZE - 1)
+#define QSPI_PAGE_ALIGN(off)	((off) & ~QSPI_PAGE_MASK)
+#define QSPI_PAGE_OFFSET(off)	((off) & QSPI_PAGE_MASK)
 static inline size_t QSPI_PAGE_ROUNDUP(loff_t offset)
 {
 	if (QSPI_PAGE_OFFSET(offset))
@@ -184,7 +184,7 @@ static size_t macronix_code2sectors(u8 code)
 {
 	if (code < 0x38 || code > 0x3c)
 		return 0;
-	return (1 << (code - 0x38));
+	return BIT((code - 0x38));
 }
 
 static u8 macronix_write_cmd(void)
@@ -237,7 +237,7 @@ struct qspi_reg {
 struct xrt_qspi {
 	struct platform_device	*pdev;
 	struct resource *res;
-	struct mutex io_lock;
+	struct mutex io_lock;	/* qspi lock */
 	size_t flash_size;
 	u8 *io_buf;
 	struct qspi_reg *qspi_regs;
@@ -304,7 +304,7 @@ static inline void qspi_activate_slave(struct xrt_qspi *flash, int index)
 	if (index == SLAVE_NONE)
 		slave_reg = SLAVE_SELECT_NONE;
 	else
-		slave_reg = ~(1 << index);
+		slave_reg = ~BIT(index);
 	qspi_reg_wr(flash, &flash->qspi_regs->qspi_slave, slave_reg);
 }
 
@@ -375,31 +375,29 @@ static int qspi_tx(struct xrt_qspi *flash, u8 *buf, size_t len)
 	u32 ctrl = qspi_get_ctrl(flash);
 	int i;
 
-	BUG_ON(len > flash->qspi_fifo_depth);
+	WARN_ON(len > flash->qspi_fifo_depth);
 
-	/* Stop transfering to the flash. */
+	/* Stop transferring to the flash. */
 	qspi_set_ctrl(flash, ctrl | QSPI_CR_TRANS_INHIBIT);
 
 	/* Fill out the FIFO. */
 	for (i = 0; i < len; i++)
 		qspi_send8(flash, buf[i]);
 
-	/* Start transfering to the flash. */
+	/* Start transferring to the flash. */
 	qspi_set_ctrl(flash, ctrl & ~QSPI_CR_TRANS_INHIBIT);
 
 	/* Waiting for FIFO to become empty again. */
 	if (QSPI_BUSY_WAIT(qspi_get_status(flash) &
 		(QSPI_SR_TX_EMPTY | QSPI_SR_ERRS))) {
-		if (qspi_has_err(flash)) {
+		if (qspi_has_err(flash))
 			QSPI_ERR(flash, "QSPI write failed");
-		} else {
-			QSPI_ERR(flash, "QSPI write timeout, status: 0x%x",
-				qspi_get_status(flash));
-		}
+		else
+			QSPI_ERR(flash, "QSPI write timeout, status: 0x%x", qspi_get_status(flash));
 		return -ETIMEDOUT;
 	}
 
-	/* Always stop transfering to the flash after we finish. */
+	/* Always stop transferring to the flash after we finish. */
 	qspi_set_ctrl(flash, ctrl | QSPI_CR_TRANS_INHIBIT);
 
 	if (qspi_has_err(flash))
@@ -425,15 +423,13 @@ static int qspi_reset_fifo(struct xrt_qspi *flash)
 
 	if (QSPI_BUSY_WAIT((qspi_get_status(flash) & status_fifo_mask) ==
 		(QSPI_SR_TX_EMPTY | QSPI_SR_RX_EMPTY))) {
-		QSPI_ERR(flash, "failed to reset FIFO, status: 0x%x",
-			qspi_get_status(flash));
+		QSPI_ERR(flash, "failed to reset FIFO, status: 0x%x", qspi_get_status(flash));
 		return -ETIMEDOUT;
 	}
 	return 0;
 }
 
-static int qspi_transaction(struct xrt_qspi *flash,
-	u8 *buf, size_t len, bool need_output)
+static int qspi_transaction(struct xrt_qspi *flash, u8 *buf, size_t len, bool need_output)
 {
 	int ret = 0;
 
@@ -455,7 +451,7 @@ static int qspi_transaction(struct xrt_qspi *flash,
 		ret = qspi_rx(flash, buf, len);
 	} else {
 		/* Needs to drain the FIFO even when the data is not wanted. */
-		(void) qspi_rx(flash, NULL, len);
+		qspi_rx(flash, NULL, len);
 	}
 
 	/* Always need to reset slave select register after each transaction */
@@ -473,7 +469,7 @@ static size_t qspi_get_fifo_depth(struct xrt_qspi *flash)
 	if (qspi_reset_fifo(flash))
 		return depth;
 
-	/* Stop transfering to flash. */
+	/* Stop transferring to flash. */
 	ctrl = qspi_get_ctrl(flash);
 	qspi_set_ctrl(flash, ctrl | QSPI_CR_TRANS_INHIBIT);
 
@@ -493,7 +489,7 @@ static size_t qspi_get_fifo_depth(struct xrt_qspi *flash)
 
 	/* Reset RX/TX fifo and restore ctrl since we just touched them. */
 	qspi_set_ctrl(flash, ctrl);
-	(void) qspi_reset_fifo(flash);
+	qspi_reset_fifo(flash);
 
 	return depth;
 }
@@ -501,8 +497,7 @@ static size_t qspi_get_fifo_depth(struct xrt_qspi *flash)
 /*
  * Exec flash IO command on specified slave.
  */
-static inline int qspi_exec_io_cmd(struct xrt_qspi *flash,
-	size_t len, bool output_needed)
+static inline int qspi_exec_io_cmd(struct xrt_qspi *flash, size_t len, bool output_needed)
 {
 	char *buf = flash->io_buf;
 
@@ -585,9 +580,8 @@ static inline loff_t qspi_faddr2offset(struct qspi_flash_addr *faddr)
 }
 
 /* IO cmd starts with op code followed by address. */
-static inline int
-qspi_setup_io_cmd_header(struct xrt_qspi *flash,
-	u8 op, struct qspi_flash_addr *faddr, size_t *header_len)
+static inline int qspi_setup_io_cmd_header(struct xrt_qspi *flash,
+					   u8 op, struct qspi_flash_addr *faddr, size_t *header_len)
 {
 	int ret = 0;
 
@@ -617,8 +611,7 @@ static bool qspi_wait_until_ready(struct xrt_qspi *flash)
  * Do one FIFO read from flash.
  * @cnt contains bytes actually read on successful return.
  */
-static int qspi_fifo_rd(struct xrt_qspi *flash,
-	loff_t off, u8 *buf, size_t *cnt)
+static int qspi_fifo_rd(struct xrt_qspi *flash, loff_t off, u8 *buf, size_t *cnt)
 {
 	/* For read cmd, we need to exclude a few more dummy bytes in FIFO. */
 	const size_t read_dummy_len = 4;
@@ -628,11 +621,10 @@ static int qspi_fifo_rd(struct xrt_qspi *flash,
 	size_t header_len, total_len, payload_len;
 
 	/* Should not cross page bundary. */
-	BUG_ON(off + *cnt > QSPI_PAGE_ROUNDUP(off));
+	WARN_ON(off + *cnt > QSPI_PAGE_ROUNDUP(off));
 	qspi_offset2faddr(off, &faddr);
 
-	ret = qspi_setup_io_cmd_header(flash,
-		QSPI_CMD_QUAD_READ, &faddr, &header_len);
+	ret = qspi_setup_io_cmd_header(flash, QSPI_CMD_QUAD_READ, &faddr, &header_len);
 	if (ret)
 		return ret;
 
@@ -645,8 +637,7 @@ static int qspi_fifo_rd(struct xrt_qspi *flash,
 	 * always garbage, need to make room for them. What a wonderful memory
 	 * controller!!
 	 */
-	payload_len = min(*cnt,
-		flash->qspi_fifo_depth - header_len - read_dummy_len);
+	payload_len = min(*cnt, flash->qspi_fifo_depth - header_len - read_dummy_len);
 	total_len = payload_len + header_len + read_dummy_len;
 
 	QSPI_DBG(flash, "reading %zu bytes @0x%llx", payload_len, off);
@@ -672,8 +663,7 @@ static int qspi_fifo_rd(struct xrt_qspi *flash,
  * Do one FIFO write to flash. Assuming erase is already done.
  * @cnt contains bytes actually written on successful return.
  */
-static int qspi_fifo_wr(struct xrt_qspi *flash,
-	loff_t off, u8 *buf, size_t *cnt)
+static int qspi_fifo_wr(struct xrt_qspi *flash, loff_t off, u8 *buf, size_t *cnt)
 {
 	/*
 	 * For write cmd, we can't write more than write_max_len bytes in one
@@ -688,8 +678,7 @@ static int qspi_fifo_wr(struct xrt_qspi *flash,
 
 	qspi_offset2faddr(off, &faddr);
 
-	ret = qspi_setup_io_cmd_header(flash,
-		flash->vendor->write_cmd(), &faddr, &header_len);
+	ret = qspi_setup_io_cmd_header(flash, flash->vendor->write_cmd(), &faddr, &header_len);
 	if (ret)
 		return ret;
 
@@ -726,8 +715,7 @@ static int qspi_fifo_wr(struct xrt_qspi *flash,
 /*
  * Load/store the whole buf of data from/to flash memory.
  */
-static int qspi_buf_rdwr(struct xrt_qspi *flash,
-	u8 *buf, loff_t off, size_t len, bool write)
+static int qspi_buf_rdwr(struct xrt_qspi *flash, u8 *buf, loff_t off, size_t len, bool write)
 {
 	int ret = 0;
 	size_t n, curlen;
@@ -753,7 +741,7 @@ static u8 qspi_erase_cmd(size_t pagesz)
 	u8 cmd = 0;
 	const size_t onek = 1024;
 
-	BUG_ON(!IS_ALIGNED(pagesz, onek));
+	WARN_ON(!IS_ALIGNED(pagesz, onek));
 	switch (pagesz / onek) {
 	case 4:
 		cmd = QSPI_CMD_4KB_SUBSECTOR_ERASE;
@@ -765,7 +753,7 @@ static u8 qspi_erase_cmd(size_t pagesz)
 		cmd = QSPI_CMD_SECTOR_ERASE;
 		break;
 	default:
-		BUG_ON(1);
+		WARN_ON(1);
 		break;
 	}
 	return cmd;
@@ -781,10 +769,8 @@ static int qspi_page_erase(struct xrt_qspi *flash, loff_t off, size_t pagesz)
 	size_t cmdlen;
 	u8 cmd = qspi_erase_cmd(pagesz);
 
-	QSPI_DBG(flash, "Erasing 0x%lx bytes @0x%llx with cmd=0x%x",
-		pagesz, off, (u32)cmd);
-
-	BUG_ON(!IS_ALIGNED(off, pagesz));
+	QSPI_DBG(flash, "Erasing 0x%lx bytes @0x%llx with cmd=0x%x", pagesz, off, (u32)cmd);
+	WARN_ON(!IS_ALIGNED(off, pagesz));
 	qspi_offset2faddr(off, &faddr);
 
 	if (!qspi_wait_until_ready(flash))
@@ -800,8 +786,7 @@ static int qspi_page_erase(struct xrt_qspi *flash, loff_t off, size_t pagesz)
 
 	ret = qspi_exec_io_cmd(flash, cmdlen, false);
 	if (ret) {
-		QSPI_ERR(flash, "Failed to erase 0x%lx bytes @0x%llx",
-			pagesz, off);
+		QSPI_ERR(flash, "Failed to erase 0x%lx bytes @0x%llx", pagesz, off);
 		return ret;
 	}
 
@@ -833,7 +818,7 @@ qspi_do_read(struct xrt_qspi *flash, char *kbuf, size_t n, loff_t off)
 	int ret = 0;
 
 	page = vmalloc(QSPI_PAGE_SIZE);
-	if (page == NULL)
+	if (!page)
 		return -ENOMEM;
 
 	mutex_lock(&flash->io_lock);
@@ -846,8 +831,7 @@ qspi_do_read(struct xrt_qspi *flash, char *kbuf, size_t n, loff_t off)
 
 	while (ret == 0 && cnt < n) {
 		loff_t thisoff = off + cnt;
-		size_t thislen = min(n - cnt,
-			QSPI_PAGE_ROUNDUP(thisoff) - (size_t)thisoff);
+		size_t thislen = min(n - cnt, QSPI_PAGE_ROUNDUP(thisoff) - (size_t)thisoff);
 		char *thisbuf = &page[QSPI_PAGE_OFFSET(thisoff)];
 
 		ret = qspi_buf_rdwr(flash, thisbuf, thisoff, thislen, false);
@@ -881,7 +865,7 @@ qspi_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
 	}
 	n = min(n, flash->flash_size - (size_t)*off);
 	kbuf = vmalloc(n);
-	if (kbuf == NULL)
+	if (!kbuf)
 		return -ENOMEM;
 
 	ret = qspi_do_read(flash, kbuf, n, *off);
@@ -899,8 +883,7 @@ qspi_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
 }
 
 /* Read request from other parts of driver. */
-static int qspi_kernel_read(struct platform_device *pdev,
-	char *buf, size_t n, loff_t off)
+static int qspi_kernel_read(struct platform_device *pdev, char *buf, size_t n, loff_t off)
 {
 	struct xrt_qspi *flash = platform_get_drvdata(pdev);
 
@@ -913,7 +896,7 @@ static int qspi_kernel_read(struct platform_device *pdev,
  * @cnt contains actual bytes copied from user on successful return.
  */
 static int qspi_page_rmw(struct xrt_qspi *flash,
-	const char __user *ubuf, u8 *kbuf, loff_t off, size_t *cnt)
+			 const char __user *ubuf, u8 *kbuf, loff_t off, size_t *cnt)
 {
 	loff_t thisoff = QSPI_PAGE_ALIGN(off);
 	size_t front = QSPI_PAGE_OFFSET(off);
@@ -941,23 +924,18 @@ static int qspi_page_rmw(struct xrt_qspi *flash,
 	}
 
 	ret = qspi_page_erase(flash, QSPI_PAGE_ALIGN(off), QSPI_PAGE_SIZE);
-	if (ret == 0) {
-		ret = qspi_buf_rdwr(flash, kbuf, QSPI_PAGE_ALIGN(off),
-			QSPI_PAGE_SIZE, true);
-	}
+	if (ret == 0)
+		ret = qspi_buf_rdwr(flash, kbuf, QSPI_PAGE_ALIGN(off), QSPI_PAGE_SIZE, true);
 	return ret;
 }
 
 static inline size_t qspi_get_page_io_size(loff_t off, size_t sz)
 {
-	if (IS_ALIGNED(off, QSPI_HUGE_PAGE_SIZE) &&
-		sz >= QSPI_HUGE_PAGE_SIZE)
+	if (IS_ALIGNED(off, QSPI_HUGE_PAGE_SIZE) && sz >= QSPI_HUGE_PAGE_SIZE)
 		return QSPI_HUGE_PAGE_SIZE;
-	if (IS_ALIGNED(off, QSPI_LARGE_PAGE_SIZE) &&
-		sz >= QSPI_LARGE_PAGE_SIZE)
+	if (IS_ALIGNED(off, QSPI_LARGE_PAGE_SIZE) && sz >= QSPI_LARGE_PAGE_SIZE)
 		return QSPI_LARGE_PAGE_SIZE;
-	if (IS_ALIGNED(off, QSPI_PAGE_SIZE) &&
-		sz >= QSPI_PAGE_SIZE)
+	if (IS_ALIGNED(off, QSPI_PAGE_SIZE) && sz >= QSPI_PAGE_SIZE)
 		return QSPI_PAGE_SIZE;
 
 	return 0; // can't do full page IO
@@ -969,7 +947,7 @@ static inline size_t qspi_get_page_io_size(loff_t off, size_t sz)
  * Needs to fallback to RMW, if not possible.
  */
 static int qspi_page_wr(struct xrt_qspi *flash,
-	const char __user *ubuf, u8 *kbuf, loff_t off, size_t *cnt)
+			const char __user *ubuf, u8 *kbuf, loff_t off, size_t *cnt)
 {
 	int ret;
 	size_t thislen = qspi_get_page_io_size(off, *cnt);
@@ -991,8 +969,7 @@ static int qspi_page_wr(struct xrt_qspi *flash,
 /*
  * Write to flash memory page by page from user buf.
  */
-static ssize_t
-qspi_write(struct file *file, const char __user *buf, size_t n, loff_t *off)
+static ssize_t qspi_write(struct file *file, const char __user *buf, size_t n, loff_t *off)
 {
 	struct xrt_qspi *flash = file->private_data;
 	u8 *page = NULL;
@@ -1009,7 +986,7 @@ qspi_write(struct file *file, const char __user *buf, size_t n, loff_t *off)
 	n = min(n, flash->flash_size - (size_t)*off);
 
 	page = vmalloc(QSPI_HUGE_PAGE_SIZE);
-	if (page == NULL)
+	if (!page)
 		return -ENOMEM;
 
 	mutex_lock(&flash->io_lock);
@@ -1028,10 +1005,8 @@ qspi_write(struct file *file, const char __user *buf, size_t n, loff_t *off)
 		ret = qspi_page_wr(flash, thisbuf, page, thisoff, &thislen);
 		if (ret) {
 			/* Fallback to RMW. */
-			if (ret == -EOPNOTSUPP) {
-				ret = qspi_page_rmw(flash, thisbuf, page,
-					thisoff, &thislen);
-			}
+			if (ret == -EOPNOTSUPP)
+				ret = qspi_page_rmw(flash, thisbuf, page, thisoff, &thislen);
 			if (ret)
 				break;
 		}
@@ -1047,8 +1022,7 @@ qspi_write(struct file *file, const char __user *buf, size_t n, loff_t *off)
 	return n;
 }
 
-static loff_t
-qspi_llseek(struct file *filp, loff_t off, int whence)
+static loff_t qspi_llseek(struct file *filp, loff_t off, int whence)
 {
 	loff_t npos;
 
@@ -1099,16 +1073,14 @@ static int qspi_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t flash_type_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
+static ssize_t flash_type_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	/* We support only QSPI flash controller. */
 	return sprintf(buf, "spi\n");
 }
 static DEVICE_ATTR_RO(flash_type);
 
-static ssize_t size_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
+static ssize_t size_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct xrt_qspi *flash = dev_get_drvdata(dev);
 
@@ -1134,7 +1106,7 @@ static int qspi_remove(struct platform_device *pdev)
 		return -EINVAL;
 	platform_set_drvdata(pdev, NULL);
 
-	(void) sysfs_remove_group(&DEV(flash->pdev)->kobj, &qspi_attr_group);
+	sysfs_remove_group(&DEV(flash->pdev)->kobj, &qspi_attr_group);
 
 	if (flash->io_buf)
 		vfree(flash->io_buf);
@@ -1148,14 +1120,14 @@ static int qspi_remove(struct platform_device *pdev)
 
 static int qspi_get_ID(struct xrt_qspi *flash)
 {
-	int i;
+	u8 cmd[5] = { QSPI_CMD_IDCODE_READ, };
+	int ret = qspi_transaction(flash, cmd, sizeof(cmd), true);
 	struct qspi_flash_vendor *vendor = NULL;
 	/*
 	 * Reading flash device vendor ID. Vendor ID is in cmd[1], max vector
 	 * number is in cmd[3] from output.
 	 */
-	u8 cmd[5] = { QSPI_CMD_IDCODE_READ, };
-	int ret = qspi_transaction(flash, cmd, sizeof(cmd), true);
+	int i;
 
 	if (ret) {
 		QSPI_ERR(flash, "Can't get flash memory ID, err: %d", ret);
@@ -1170,7 +1142,7 @@ static int qspi_get_ID(struct xrt_qspi *flash)
 	}
 
 	/* Find out flash vendor and size. */
-	if (vendor == NULL) {
+	if (!vendor) {
 		QSPI_ERR(flash, "Unknown flash vendor: %d", cmd[1]);
 		return -EINVAL;
 	}
@@ -1182,7 +1154,7 @@ static int qspi_get_ID(struct xrt_qspi *flash)
 		return -EINVAL;
 	}
 	QSPI_INFO(flash, "Flash vendor: %s, size: %zu MB",
-		vendor->vendor_name, flash->flash_size / 1024 / 1024);
+		  vendor->vendor_name, flash->flash_size / 1024 / 1024);
 
 	return 0;
 }
@@ -1236,8 +1208,7 @@ static int qspi_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	flash->qspi_regs = ioremap(flash->res->start,
-		flash->res->end - flash->res->start + 1);
+	flash->qspi_regs = ioremap(flash->res->start, flash->res->end - flash->res->start + 1);
 	if (!flash->qspi_regs) {
 		ret = -ENOMEM;
 		QSPI_ERR(flash, "failed to map resource");
@@ -1249,7 +1220,7 @@ static int qspi_probe(struct platform_device *pdev)
 		goto error;
 
 	flash->io_buf = vmalloc(flash->qspi_fifo_depth);
-	if (flash->io_buf == NULL) {
+	if (!flash->io_buf) {
 		ret = -ENOMEM;
 		goto error;
 	}
@@ -1289,10 +1260,9 @@ qspi_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	case XRT_FLASH_READ: {
-		struct xrt_flash_ioctl_read *rd =
-			(struct xrt_flash_ioctl_read *)arg;
-		ret = qspi_kernel_read(pdev,
-			rd->xfir_buf, rd->xfir_size, rd->xfir_offset);
+		struct xrt_flash_ioctl_read *rd = (struct xrt_flash_ioctl_read *)arg;
+
+		ret = qspi_kernel_read(pdev, rd->xfir_buf, rd->xfir_size, rd->xfir_offset);
 		break;
 	}
 	default:

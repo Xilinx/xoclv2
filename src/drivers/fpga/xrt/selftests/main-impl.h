@@ -6,8 +6,8 @@
  *	Sonal Santan <sonal.santan@xilinx.com>
  */
 
-#ifndef	_SELFTEST1_MAIN_IMPL_H_
-#define	_SELFTEST1_MAIN_IMPL_H_
+#ifndef _SELFTEST1_MAIN_IMPL_H_
+#define _SELFTEST1_MAIN_IMPL_H_
 
 #include <linux/platform_device.h>
 #include "xmgmt-main.h"

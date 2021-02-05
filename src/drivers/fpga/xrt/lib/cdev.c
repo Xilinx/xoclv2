@@ -12,12 +12,12 @@
 
 extern struct class *xrt_class;
 
-#define	XRT_CDEV_DIR		"xfpga"
-#define	INODE2PDATA(inode)	\
+#define XRT_CDEV_DIR		"xfpga"
+#define INODE2PDATA(inode)	\
 	container_of((inode)->i_cdev, struct xrt_subdev_platdata, xsp_cdev)
-#define	INODE2PDEV(inode)	\
+#define INODE2PDEV(inode)	\
 	to_platform_device(kobj_to_dev((inode)->i_cdev->kobj.parent))
-#define	CDEV_NAME(sysdev)	(strchr((sysdev)->kobj.name, '!') + 1)
+#define CDEV_NAME(sysdev)	(strchr((sysdev)->kobj.name, '!') + 1)
 
 /* Allow it to be accessed from cdev. */
 static void xleaf_devnode_allowed(struct platform_device *pdev)

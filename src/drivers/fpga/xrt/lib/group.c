@@ -16,7 +16,7 @@
 #include "metadata.h"
 #include "main.h"
 
-#define	XRT_GRP "xrt_group"
+#define XRT_GRP "xrt_group"
 
 struct xrt_group {
 	struct platform_device *pdev;
@@ -147,24 +147,20 @@ bail:
 	return failed == 0 ? 0 : -ECHILD;
 }
 
-static int xrt_grp_remove_leaves(struct xrt_group *xg)
+static void xrt_grp_remove_leaves(struct xrt_group *xg)
 {
-	int rc;
-
 	mutex_lock(&xg->lock);
 
 	if (!xg->leaves_created) {
 		mutex_unlock(&xg->lock);
-		return 0;
+		return;
 	}
 
 	xrt_info(xg->pdev, "tearing down leaves...");
-	rc = xrt_subdev_pool_fini(&xg->leaves);
+	xrt_subdev_pool_fini(&xg->leaves);
 	xg->leaves_created = false;
 
 	mutex_unlock(&xg->lock);
-
-	return rc;
 }
 
 static int xrt_grp_probe(struct platform_device *pdev)
@@ -190,7 +186,8 @@ static int xrt_grp_remove(struct platform_device *pdev)
 	struct xrt_group *xg = platform_get_drvdata(pdev);
 
 	xrt_info(pdev, "leaving...");
-	return xrt_grp_remove_leaves(xg);
+	xrt_grp_remove_leaves(xg);
+	return 0;
 }
 
 static int xrt_grp_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
@@ -226,7 +223,7 @@ static int xrt_grp_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		rc = xrt_grp_create_leaves(xg);
 		break;
 	case XRT_GROUP_FINI_CHILDREN:
-		rc = xrt_grp_remove_leaves(xg);
+		xrt_grp_remove_leaves(xg);
 		break;
 	case XRT_GROUP_TRIGGER_EVENT:
 		xrt_subdev_pool_trigger_event(&xg->leaves, (enum xrt_events)(uintptr_t)arg);

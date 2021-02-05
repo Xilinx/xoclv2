@@ -6,8 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef	_XRT_ROOT_H_
-#define	_XRT_ROOT_H_
+#ifndef _XRT_ROOT_H_
+#define _XRT_ROOT_H_
 
 #include <linux/pci.h>
 #include "subdev_id.h"
@@ -15,8 +15,8 @@
 
 typedef bool (*xrt_subdev_match_t)(enum xrt_subdev_id,
 	struct platform_device *, void *);
-#define	XRT_SUBDEV_MATCH_PREV	((xrt_subdev_match_t)-1)
-#define	XRT_SUBDEV_MATCH_NEXT	((xrt_subdev_match_t)-2)
+#define XRT_SUBDEV_MATCH_PREV	((xrt_subdev_match_t)-1)
+#define XRT_SUBDEV_MATCH_NEXT	((xrt_subdev_match_t)-2)
 
 /*
  * Root IOCTL calls.

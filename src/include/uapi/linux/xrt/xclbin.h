@@ -159,7 +159,7 @@ struct axlf_header {
 		unsigned char rom_uuid[16];	/* feature ROM UUID for which */
 						/* this xclbin was generated */
 	};
-	unsigned char m_platformVBNV[64];	/* e.g. */
+	unsigned char m_platform_vbnv[64];	/* e.g. */
 		/* xilinx:xil-accel-rd-ku115:4ddr-xpr:3.4: null terminated */
 	union {
 		char m_next_axlf[16];		/* Name of next xclbin file */

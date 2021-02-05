@@ -20,13 +20,13 @@
 
 #define XRT_ICAP "xrt_icap"
 
-#define	ICAP_ERR(icap, fmt, arg...)	\
+#define ICAP_ERR(icap, fmt, arg...)	\
 	xrt_err((icap)->pdev, fmt "\n", ##arg)
-#define	ICAP_WARN(icap, fmt, arg...)	\
+#define ICAP_WARN(icap, fmt, arg...)	\
 	xrt_warn((icap)->pdev, fmt "\n", ##arg)
-#define	ICAP_INFO(icap, fmt, arg...)	\
+#define ICAP_INFO(icap, fmt, arg...)	\
 	xrt_info((icap)->pdev, fmt "\n", ##arg)
-#define	ICAP_DBG(icap, fmt, arg...)	\
+#define ICAP_DBG(icap, fmt, arg...)	\
 	xrt_dbg((icap)->pdev, fmt "\n", ##arg)
 
 /*
