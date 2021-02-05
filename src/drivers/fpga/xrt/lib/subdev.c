@@ -442,7 +442,7 @@ xrt_subdev_get_holders(struct xrt_subdev *sdev, char *buf, size_t len)
 	list_for_each(ptr, &sdev->xs_holder_list) {
 		h = list_entry(ptr, struct xrt_subdev_holder, xsh_holder_list);
 		n += snprintf(buf + n, len - n, "%s:%d ",
-			dev_name(h->xsh_holder), kref_read(&h->xsh_kref));
+			      dev_name(h->xsh_holder), kref_read(&h->xsh_kref));
 		if (n >= (len - 1))
 			break;
 	}
