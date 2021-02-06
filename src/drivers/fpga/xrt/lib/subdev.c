@@ -172,8 +172,7 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 
 	*res = vzalloc(sizeof(**res) * count1);
 
-	for (xrt_md_get_next_endpoint(parent, dtb, NULL, NULL, &ep_name, &regmap);
-	     ep_name;
+	for (xrt_md_get_next_endpoint(parent, dtb, NULL, NULL, &ep_name, &regmap); ep_name;
 	     xrt_md_get_next_endpoint(parent, dtb, ep_name, regmap, &ep_name, &regmap)) {
 		ret = xrt_md_get_prop(parent, dtb, ep_name, regmap,
 				      PROP_IO_OFFSET, (const void **)&bar_range, NULL);
