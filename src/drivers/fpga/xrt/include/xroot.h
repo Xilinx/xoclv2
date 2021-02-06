@@ -91,7 +91,7 @@ struct xrt_root_ioctl_hwmon {
 };
 
 typedef int (*xrt_subdev_root_cb_t)(struct device *, void *, u32, void *);
-int xrt_subdev_root_ioctl(struct platform_device *self, u32 cmd, void *arg);
+int xrt_subdev_root_request(struct platform_device *self, u32 cmd, void *arg);
 
 /*
  * Defines physical function (MPF / UPF) specific operations
