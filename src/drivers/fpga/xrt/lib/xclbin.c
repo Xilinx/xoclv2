@@ -65,8 +65,8 @@ xrt_xclbin_get_section_hdr(const struct axlf *xclbin,
 {
 	int i = 0;
 
-	for (i = 0; i < xclbin->m_header.m_numSections; i++) {
-		if (xclbin->m_sections[i].m_sectionKind == kind)
+	for (i = 0; i < xclbin->m_header.m_num_sections; i++) {
+		if (xclbin->m_sections[i].m_section_kind == kind)
 			return &xclbin->m_sections[i];
 	}
 
@@ -77,7 +77,7 @@ static int
 xrt_xclbin_check_section_hdr(const struct axlf_section_header *header,
 			     u64 xclbin_len)
 {
-	return (header->m_sectionOffset + header->m_sectionSize) > xclbin_len ?
+	return (header->m_section_offset + header->m_section_size) > xclbin_len ?
 		-EINVAL : 0;
 }
 
@@ -101,8 +101,8 @@ static int xrt_xclbin_section_info(const struct axlf *xclbin,
 	if (err)
 		return err;
 
-	*offset = mem_header->m_sectionOffset;
-	*size = mem_header->m_sectionSize;
+	*offset = mem_header->m_section_offset;
+	*size = mem_header->m_section_size;
 
 	return 0;
 }
@@ -345,7 +345,7 @@ static int xrt_xclbin_add_clock_metadata(struct device *dev,
 		if (!ep_name || !counter_name)
 			continue;
 
-		freq = cpu_to_be16(clock_topo->m_clock_freq[i].m_freq_Mhz);
+		freq = cpu_to_be16(clock_topo->m_clock_freq[i].m_freq_MHZ);
 		rc = xrt_md_set_prop(dev, dtb, ep_name, NULL, PROP_CLK_FREQ,
 				     &freq, sizeof(freq));
 		if (rc)
