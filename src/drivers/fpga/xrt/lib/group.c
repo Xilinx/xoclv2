@@ -45,7 +45,7 @@ static int xrt_grp_root_cb(struct device *dev, void *parg,
 	}
 	default:
 		/* Forward parent call to root. */
-		rc = xrt_subdev_root_ioctl(pdev, cmd, arg);
+		rc = xrt_subdev_root_request(pdev, cmd, arg);
 		break;
 	}
 

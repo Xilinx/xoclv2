@@ -133,28 +133,28 @@ enum IP_TYPE {
 };
 
 struct axlf_section_header {
-	uint32_t m_sectionKind;		    /* Section type */
-	char m_sectionName[16];		    /* Examples: "stage2", "clear1", */
+	uint32_t m_section_kind;	    /* Section type */
+	char m_section_name[16];	    /* Examples: "stage2", "clear1", */
 					    /* "clear2", "ocl1", "ocl2, */
 					    /* "ublaze", "sched" */
-	uint64_t m_sectionOffset;	    /* File offset of section data */
-	uint64_t m_sectionSize;		    /* Size of section data */
+	uint64_t m_section_offset;	    /* File offset of section data */
+	uint64_t m_section_size;	    /* Size of section data */
 };
 
 struct axlf_header {
 	uint64_t m_length;		    /* Total size of the xclbin file */
-	uint64_t m_timeStamp;		    /* Number of seconds since epoch */
+	uint64_t m_time_stamp;		    /* Number of seconds since epoch */
 					    /* when xclbin was created */
-	uint64_t m_featureRomTimeStamp;	    /* TimeSinceEpoch of the featureRom */
-	uint16_t m_versionPatch;	    /* Patch Version */
-	uint8_t m_versionMajor;		    /* Major Version - Version: 2.1.0*/
-	uint8_t m_versionMinor;		    /* Minor Version */
+	uint64_t m_feature_rom_timestamp;    /* TimeSinceEpoch of the featureRom */
+	uint16_t m_version_patch;	    /* Patch Version */
+	uint8_t m_version_major;	    /* Major Version - Version: 2.1.0*/
+	uint8_t m_version_minor;	    /* Minor Version */
 	uint32_t m_mode;		    /* XCLBIN_MODE */
 	union {
 		struct {
-			uint64_t m_platformId;	/* 64 bit platform ID: */
+			uint64_t m_platform_id;	/* 64 bit platform ID: */
 					/* vendor-device-subvendor-subdev */
-			uint64_t m_featureId;	/* 64 bit feature id */
+			uint64_t m_feature_id;	/* 64 bit feature id */
 		} rom;
 		unsigned char rom_uuid[16];	/* feature ROM UUID for which */
 						/* this xclbin was generated */
@@ -168,7 +168,7 @@ struct axlf_header {
 	};
 	char m_debug_bin[16];			/* Name of binary with debug */
 						/* information */
-	uint32_t m_numSections;			/* Number of section headers */
+	uint32_t m_num_sections;		/* Number of section headers */
 };
 
 struct axlf {
@@ -177,9 +177,9 @@ struct axlf {
 						/* -1 indicates no signature */
 	unsigned char reserved[28];		/* Note: Initialized to 0xFFs */
 
-	unsigned char m_keyBlock[256];		/* Signature for validation */
+	unsigned char m_key_block[256];		/* Signature for validation */
 						/* of binary */
-	uint64_t m_uniqueId;			/* axlf's uniqueId, use it to */
+	uint64_t m_unique_id;			/* axlf's uniqueId, use it to */
 						/* skip redownload etc */
 	struct axlf_header m_header;		/* Inline header */
 	struct axlf_section_header m_sections[1];   /* One or more section */
@@ -326,7 +326,7 @@ enum CLOCK_TYPE {
 
 /* Clock Frequency Entry */
 struct clock_freq {
-	uint16_t m_freq_Mhz;		   /* Frequency in MHz */
+	uint16_t m_freq_MHZ;		   /* Frequency in MHz */
 	uint8_t m_type;			   /* Clock type (enum CLOCK_TYPE) */
 	uint8_t m_unused[5];		   /* Not used - padding */
 	char m_name[128];		   /* Clock Name */
@@ -392,7 +392,7 @@ struct soft_kernel {
 	uint32_t mpo_symbol_name;  /* Symbol name */
 	uint32_t m_num_instances;  /* Number of instances */
 	uint8_t padding[36];	   /* Reserved for future use */
-	uint8_t reservedExt[16];   /* Reserved for future extended data */
+	uint8_t reserved_ext[16];   /* Reserved for future extended data */
 };
 
 enum CHECKSUM_TYPE {
