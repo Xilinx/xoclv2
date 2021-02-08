@@ -20,6 +20,270 @@ is called **xmgmt**. Primary user physical function (UPF) driver is called
 drivers are packaged into a library module called **xrt-lib**, which is
 shared by **xmgmt** and **xuser** (under development) .
 
+Driver Modules
+==============
+
+xrt-lib.ko
+----------
+
+Repository of all subsystem drivers and pure software modules that can potentially
+be shared between xmgmt and xuser. All these drivers are structured as Linux
+*platform driver* and are instantiated by xmgmt (or xuser under development) based on
+meta data associated with hardware. The metadata is in the form of device tree as
+explained before. Within each platform driver, it statically defines a subsystem
+node array by using node name or a string in its ``compatible`` property. And this
+array is eventually translated to IOMEM resources of the platform device.
+
+xmgmt.ko
+--------
+
+The xmgmt driver is a PCIe device driver driving MPF found on Xilinx's Alveo
+PCIE device. It consists of one *root* driver, one or more *group* drivers
+and one or more *xleaf* drivers. The root and MPF specific xleaf drivers are in
+xmgmt.ko. The group driver and other xleaf drivers are in xrt-lib.ko.
+
+The instantiation of specific group driver or xleaf driver is completely data
+driven based on meta data (mostly in device tree format) found through VSEC
+capability and inside firmware files, such as xsabin or xclbin file. The root
+driver manages life cycle of multiple group drivers, which, in turn, manages
+multiple xleaf drivers. This allows a single set of driver code to support all
+kinds of subsystems exposed by different shells. The difference among all
+these subsystems will be handled in xleaf drivers with root and group drivers
+being part of the infrastructure and provide common services for all leaves found
+on all platforms.
+
+The driver object model looks like the following::
+
+                    +-----------+
+                    |   xroot   |
+                    +-----+-----+
+                          |
+              +-----------+-----------+
+              |                       |
+              v                       v
+        +-----------+          +-----------+
+        |   group   |    ...   |   group   |
+        +-----+-----+          +------+----+
+              |                       |
+              |                       |
+        +-----+----+            +-----+----+
+        |          |            |          |
+        v          v            v          v
+    +-------+  +-------+    +-------+  +-------+
+    | xleaf |..| xleaf |    | xleaf |..| xleaf |
+    +-------+  +-------+    +-------+  +-------+
+
+As an example for Alveo U50 before xclbin download the tree looks like the following::
+
+                                +-----------+
+                                |   xmgmt   |
+                                +-----+-----+
+                                      |
+            +-------------------------+--------------------+
+            |                         |                    |
+            v                         v                    v
+       +--------+                +--------+            +--------+
+       | group0 |                | group1 |            | group2 |
+       +----+---+                +----+---+            +---+----+
+            |                         |                    |
+            |                         |                    |
+      +-----+-----+        +----+-----+---+    +-----+-----+----+--------+
+      |           |        |    |         |    |     |          |        |
+      v           v        |    v         v    |     v          v        |
+ +------------+  +------+  | +------+ +------+ |  +------+ +-----------+ |
+ | xmgmt_main |  | VSEC |  | | GPIO | | QSPI | |  |  CMC | | AXI-GATE0 | |
+ +------------+  +------+  | +------+ +------+ |  +------+ +-----------+ |
+                           | +---------+       |  +------+ +-----------+ |
+                           +>| MAILBOX |       +->| ICAP | | AXI-GATE1 |<+
+                             +---------+       |  +------+ +-----------+
+                                               |  +-------+
+                                               +->| CALIB |
+                                                  +-------+
+
+After an xclbin is download, group3 will be added and the tree looks like the following::
+
+                                +-----------+
+                                |   xmgmt   |
+                                +-----+-----+
+                                      |
+            +-------------------------+--------------------+-----------------+
+            |                         |                    |                 |
+            v                         v                    v                 |
+       +--------+                +--------+            +--------+            |
+       | group0 |                | group1 |            | group2 |            |
+       +----+---+                +----+---+            +---+----+            |
+            |                         |                    |                 |
+            |                         |                    |                 |
+      +-----+-----+       +-----+-----+---+    +-----+-----+----+--------+   |
+      |           |       |     |         |    |     |          |        |   |
+      v           v       |     v         v    |     v          v        |   |
+ +------------+  +------+ | +------+ +------+  |  +------+ +-----------+ |   |
+ | xmgmt_main |  | VSEC | | | GPIO | | QSPI |  |  |  CMC | | AXI-GATE0 | |   |
+ +------------+  +------+ | +------+ +------+  |  +------+ +-----------+ |   |
+                          | +---------+        |  +------+ +-----------+ |   |
+                          +>| MAILBOX |        +->| ICAP | | AXI-GATE1 |<+   |
+                            +---------+        |  +------+ +-----------+     |
+                                               |  +-------+                  |
+                                               +->| CALIB |                  |
+                                                  +-------+                  |
+                      +---+----+                                             |
+                      | group3 |<--------------------------------------------+
+                      +--------+
+                          |
+                          |
+     +-------+--------+---+--+--------+------+-------+
+     |       |        |      |        |      |       |
+     v       |        v      |        v      |       v
+ +--------+  |   +--------+  |   +--------+  |    +-----+
+ | CLOCK0 |  |   | CLOCK1 |  |   | CLOCK2 |  |    | UCS |
+ +--------+  v   +--------+  v   +--------+  v    +-----+
+ +-------------+ +-------------+ +-------------+
+ | CLOCK-FREQ0 | | CLOCK-FREQ1 | | CLOCK-FREQ2 |
+ +-------------+ +-------------+ +-------------+
+
+
+xmgmt-root
+^^^^^^^^^^
+
+The xmgmt-root driver is a PCIe device driver attached to MPF. It's part of the
+infrastructure of the MPF driver and resides in xmgmt.ko. This driver
+
+* manages one or more group drivers
+* provides access to functionalities that requires pci_dev, such as PCIE config
+  space access, to other xleaf drivers through root calls
+* together with group driver, facilities event callbacks for other xleaf drivers
+* together with group driver, facilities inter-leaf driver calls for other xleaf
+  drivers
+
+When root driver starts, it will explicitly create an initial group instance,
+which contains xleaf drivers that will trigger the creation of other group
+instances. The root driver will wait for all group and leaves to be created
+before it returns from it's probe routine and claim success of the initialization
+of the entire xmgmt driver.
+
+.. note::
+   See code in ``lib/xroot.c`` and ``mgmt/root.c``
+
+
+group
+^^^^^
+
+The group driver is a platform device driver whose life cycle is managed by
+root and does not have real IO mem or IRQ resources. It's part of the
+infrastructure of the MPF driver and resides in xrt-lib.ko. This driver
+
+* manages one or more xleaf drivers so that multiple leaves can be managed as a
+  group
+* provides access to root from leaves, so that root calls, event notifications
+  and inter-leaf calls can happen
+
+In xmgmt, an initial group driver instance will be created by root, which
+contains leaves that will trigger group instances to be created to manage
+groups of leaves found on different partitions on hardware, such as VSEC, Shell,
+and User.
+
+Every *fpga_region* has a group object associated with it. The group is
+created when xclbin image is loaded on the fpga_region. The existing group
+is destroyed when a new xclbin image is loaded. The fpga_region persists
+across xclbin downloads.
+
+.. note::
+   See code in ``lib/group.c``
+
+
+xleaf
+^^^^^
+
+The xleaf driver is a platform device driver whose life cycle is managed by
+a group driver and may or may not have real IO mem or IRQ resources. They
+are the real meat of xmgmt and contains platform specific code to Shell and
+User found on a MPF.
+
+A xleaf driver may not have real hardware resources when it merely acts as a
+driver that manages certain in-memory states for xmgmt. These in-memory states
+could be shared by multiple other leaves.
+
+Leaf drivers assigned to specific hardware resources drive specific subsystem in
+the device. To manipulate the subsystem or carry out a task, a xleaf driver may
+ask help from root via root calls and/or from other leaves via inter-leaf calls.
+
+A xleaf can also broadcast events through infrastructure code for other leaves
+to process. It can also receive event notification from infrastructure about
+certain events, such as post-creation or pre-exit of a particular xleaf.
+
+.. note::
+   See code in ``lib/xleaf/*.c``
+
+
+FPGA Manager Interaction
+========================
+
+fpga_manager
+------------
+
+An instance of fpga_manager is created by xmgmt_main and is used for xclbin
+image download. fpga_manager requires the full xclbin image before it can
+start programming the FPGA configuration engine via ICAP subdev driver.
+
+fpga_region
+-----------
+
+For every interface exposed by currently loaded xclbin/xsabin in the *parent*
+fpga_region a new instance of fpga_region is created like a *child* region.
+The device tree of the *parent* fpga_region defines the
+resources for a new instance of fpga_bridge which isolates the parent from
+child fpga_region. This new instance of fpga_bridge will be used when a
+xclbin image is loaded on the child fpga_region. After the xclbin image is
+downloaded to the fpga_region, a group instance is created for the
+fpga_region using the device tree obtained as part of xclbin. If this device
+tree defines any child interfaces then it can trigger the creation of
+fpga_bridge and fpga_region for the next region in the chain.
+
+fpga_bridge
+-----------
+
+Like fpga_region, matching fpga_bridge is also created by walking the device
+tree of the parent group.
+
+Driver Interfaces
+=================
+
+xmgmt Driver Ioctls
+-------------------
+
+Ioctls exposed by xmgmt driver to user space are enumerated in the following table:
+
+== ===================== ============================= ===========================
+#  Functionality         ioctl request code            data format
+== ===================== ============================= ===========================
+1  FPGA image download   XMGMT_IOCICAPDOWNLOAD_AXLF    xmgmt_ioc_bitstream_axlf
+2  CL frequency scaling  XMGMT_IOCFREQSCALE            xmgmt_ioc_freqscaling
+== ===================== ============================= ===========================
+
+A xclbin can be downloaded by using xbmgmt tool from XRT open source suite. See
+example usage below ::
+
+  xbmgmt partition --program --path /lib/firmware/xilinx/862c7020a250293e32036f19956669e5/test/verify.xclbin --force
+
+xmgmt Driver Sysfs
+------------------
+
+xmgmt driver exposes a rich set of sysfs interfaces. Subsystem platform
+drivers export sysfs node for every platform instance.
+
+Every partition also exports its UUIDs. See below for examples::
+
+  /sys/bus/pci/devices/0000:06:00.0/xmgmt_main.0/interface_uuids
+  /sys/bus/pci/devices/0000:06:00.0/xmgmt_main.0/logic_uuids
+
+
+hwmon
+-----
+
+xmgmt driver exposes standard hwmon interface to report voltage, current,
+temperature, power, etc. These can easily be viewed using *sensors* command
+line utility.
+
 Alveo Platform Overview
 =======================
 
@@ -549,267 +813,6 @@ service provider. The full stack is illustrated below::
 
 
 
-Driver Modules
-==============
-
-xrt-lib.ko
-----------
-
-Repository of all subsystem drivers and pure software modules that can potentially
-be shared between xmgmt and xuser. All these drivers are structured as Linux
-*platform driver* and are instantiated by xmgmt (or xuser in future) based on meta
-data associated with hardware. The metadata is in the form of device tree as
-explained before. Within each platform driver, it statically defines a subsystem node array by using node name or a string in its ``compatible`` property. And this array is eventually translated to IOMEM resources of the platform device.
-
-xmgmt.ko
---------
-
-The xmgmt driver is a PCIe device driver driving MPF found on Xilinx's Alveo
-PCIE device. It consists of one *root* driver, one or more *group* drivers
-and one or more *leaf* drivers. The root and MPF specific leaf drivers are in
-xmgmt.ko. The group driver and other leaf drivers are in xrt-lib.ko.
-
-The instantiation of specific group driver or leaf driver is completely data
-driven based on meta data (mostly in device tree format) found through VSEC
-capability and inside firmware files, such as xsabin or xclbin file. The root
-driver manages life cycle of multiple group drivers, which, in turn, manages
-multiple leaf drivers. This allows a single set of driver code to support all
-kinds of subsystems exposed by different shells. The difference among all
-these subsystems will be handled in leaf drivers with root and group drivers
-being part of the infrastructure and provide common services for all leaves found
-on all platforms.
-
-The driver object model looks like the following::
-
-                    +-----------+
-                    |   xroot   |
-                    +-----+-----+
-                          |
-              +-----------+-----------+
-              |                       |
-              v                       v
-        +-----------+          +-----------+
-        |   group   |    ...   |   group   |
-        +-----+-----+          +------+----+
-              |                       |
-              |                       |
-        +-----+----+            +-----+----+
-        |          |            |          |
-        v          v            v          v
-    +-------+  +-------+    +-------+  +-------+
-    | xleaf |..| xleaf |    | xleaf |..| xleaf |
-    +-------+  +-------+    +-------+  +-------+
-
-One example on Alveo U50 before xclbin download looks like the following::
-
-                                +-----------+
-                                |   xmgmt   |
-                                +-----+-----+
-                                      |
-            +-------------------------+--------------------+
-            |                         |                    |
-            v                         v                    v
-       +--------+                +--------+            +--------+
-       | group0 |                | group1 |            | group2 |
-       +----+---+                +----+---+            +---+----+
-            |                         |                    |
-            |                         |                    |
-      +-----+-----+        +----+-----+---+    +-----+-----+----+--------+
-      |           |        |    |         |    |     |          |        |
-      v           v        |    v         v    |     v          v        |
- +------------+  +------+  | +------+ +------+ |  +------+ +-----------+ |
- | xmgmt_main |  | VSEC |  | | GPIO | | QSPI | |  |  CMC | | AXI-GATE0 | |
- +------------+  +------+  | +------+ +------+ |  +------+ +-----------+ |
-                           | +---------+       |  +------+ +-----------+ |
-                           +>| MAILBOX |       +->| ICAP | | AXI-GATE1 |<+
-                             +---------+       |  +------+ +-----------+
-                                               |  +-------+
-                                               +->| CALIB |
-                                                  +-------+
-
-After an xclbin is download, group3 will be added and we have::
-
-                                +-----------+
-                                |   xmgmt   |
-                                +-----+-----+
-                                      |
-            +-------------------------+--------------------+-----------------+
-            |                         |                    |                 |
-            v                         v                    v                 |
-       +--------+                +--------+            +--------+            |
-       | group0 |                | group1 |            | group2 |            |
-       +----+---+                +----+---+            +---+----+            |
-            |                         |                    |                 |
-            |                         |                    |                 |
-      +-----+-----+       +-----+-----+---+    +-----+-----+----+--------+   |
-      |           |       |     |         |    |     |          |        |   |
-      v           v       |     v         v    |     v          v        |   |
- +------------+  +------+ | +------+ +------+  |  +------+ +-----------+ |   |
- | xmgmt_main |  | VSEC | | | GPIO | | QSPI |  |  |  CMC | | AXI-GATE0 | |   |
- +------------+  +------+ | +------+ +------+  |  +------+ +-----------+ |   |
-                          | +---------+        |  +------+ +-----------+ |   |
-                          +>| MAILBOX |        +->| ICAP | | AXI-GATE1 |<+   |
-                            +---------+        |  +------+ +-----------+     |
-                                               |  +-------+                  |
-                                               +->| CALIB |                  |
-                                                  +-------+                  |
-                      +---+----+                                             |
-                      | group3 |<--------------------------------------------+
-                      +--------+
-                          |
-                          |
-     +-------+--------+---+--+--------+------+-------+
-     |       |        |      |        |      |       |
-     v       |        v      |        v      |       v
- +--------+  |   +--------+  |   +--------+  |    +-----+
- | CLOCK0 |  |   | CLOCK1 |  |   | CLOCK2 |  |    | UCS |
- +--------+  v   +--------+  v   +--------+  v    +-----+
- +-------------+ +-------------+ +-------------+
- | CLOCK-FREQ0 | | CLOCK-FREQ1 | | CLOCK-FREQ2 |
- +-------------+ +-------------+ +-------------+
-
-
-xmgmt-root
-^^^^^^^^^^
-
-The xmgmt-root driver is a PCIe device driver attached to MPF. It's part of the
-infrastructure of the MPF driver and resides in xmgmt.ko. This driver
-
-* manages one or more group drivers
-* provides access to functionalities that requires pci_dev, such as PCIE config
-  space access, to other leaf drivers through root calls
-* together with group driver, facilities event callbacks for other leaf drivers
-* together with group driver, facilities inter-leaf driver calls for other leaf
-  drivers
-
-When root driver starts, it will explicitly create an initial group instance,
-which contains leaf drivers that will trigger the creation of other group
-instances. The root driver will wait for all group and leaves to be created
-before it returns from it's probe routine and claim success of the initialization
-of the entire xmgmt driver.
-
-.. note::
-   See code in ``lib/xroot.c`` and ``mgmt/root.c``
-
-
-group
-^^^^^
-
-The group driver is a platform device driver whose life cycle is managed by
-root and does not have real IO mem or IRQ resources. It's part of the
-infrastructure of the MPF driver and resides in xrt-lib.ko. This driver
-
-* manages one or more leaf drivers so that multiple leaves can be managed as a
-  group
-* provides access to root from leaves, so that root calls, event notifications
-  and inter-leaf calls can happen
-
-In xmgmt, an initial group driver instance will be created by root, which
-contains leaves that will trigger group instances to be created to manage
-groups of leaves found on different partitions on hardware, such as VSEC, Shell,
-and User.
-
-Every *fpga_region* has a group object associated with it. The group is
-created when xclbin image is loaded on the fpga_region. The existing group
-is destroyed when a new xclbin image is loaded. The fpga_region persists
-across xclbin downloads.
-
-.. note::
-   See code in ``lib/group.c``
-
-
-xleaf
-^^^^^
-
-The leaf driver is a platform device driver whose life cycle is managed by
-a group driver and may or may not have real IO mem or IRQ resources. They
-are the real meat of xmgmt and contains platform specific code to Shell and
-User found on a MPF.
-
-A leaf driver may not have real hardware resources when it merely acts as a
-driver that manages certain in-memory states for xmgmt. These in-memory states
-could be shared by multiple other leaves.
-
-Leaf drivers assigned to specific hardware resources drive specific subsystem in
-the device. To manipulate the subsystem or carry out a task, a leaf driver may
-ask help from root via root calls and/or from other leaves via inter-leaf calls.
-
-A leaf can also broadcast events through infrastructure code for other leaves
-to process. It can also receive event notification from infrastructure about
-certain events, such as post-creation or pre-exit of a particular leaf.
-
-.. note::
-   See code in ``lib/xleaf/*.c``
-
-
-FPGA Manager Interaction
-========================
-
-fpga_manager
-------------
-
-An instance of fpga_manager is created by xmgmt_main and is used for xclbin
-image download. fpga_manager requires the full xclbin image before it can
-start programming the FPGA configuration engine via ICAP subdev driver.
-
-fpga_region
------------
-
-For every interface exposed by currently loaded xclbin/xsabin in the *parent*
-fpga_region a new instance of fpga_region is created like a *child* region.
-The device tree of the *parent* fpga_region defines the
-resources for a new instance of fpga_bridge which isolates the parent from
-child fpga_region. This new instance of fpga_bridge will be used when a
-xclbin image is loaded on the child fpga_region. After the xclbin image is
-downloaded to the fpga_region, a group instance is created for the
-fpga_region using the device tree obtained as part of xclbin. If this device
-tree defines any child interfaces then it can trigger the creation of
-fpga_bridge and fpga_region for the next region in the chain.
-
-fpga_bridge
------------
-
-Like fpga_region, matching fpga_bridge is also created by walking the device
-tree of the parent group.
-
-Driver Interfaces
-=================
-
-xmgmt Driver Ioctls
--------------------
-
-Ioctls exposed by xmgmt driver to user space are enumerated in the following table:
-
-== ===================== ============================= ===========================
-#  Functionality         ioctl request code            data format
-== ===================== ============================= ===========================
-1  FPGA image download   XMGMT_IOCICAPDOWNLOAD_AXLF    xmgmt_ioc_bitstream_axlf
-2  CL frequency scaling  XMGMT_IOCFREQSCALE            xmgmt_ioc_freqscaling
-== ===================== ============================= ===========================
-
-A xclbin can be downloaded by using xbmgmt tool from XRT open source suite. See
-example usage below ::
-
-  xbmgmt partition --program --path /lib/firmware/xilinx/862c7020a250293e32036f19956669e5/test/verify.xclbin --force
-
-xmgmt Driver Sysfs
-------------------
-
-xmgmt driver exposes a rich set of sysfs interfaces. Subsystem platform
-drivers export sysfs node for every platform instance.
-
-Every partition also exports its UUIDs. See below for examples::
-
-  /sys/bus/pci/devices/0000:06:00.0/xmgmt_main.0/interface_uuids
-  /sys/bus/pci/devices/0000:06:00.0/xmgmt_main.0/logic_uuids
-
-
-hwmon
------
-
-xmgmt driver exposes standard hwmon interface to report voltage, current,
-temperature, power, etc. These can easily be viewed using *sensors* command
-line utility.
 
 
 Platform Security Considerations
