@@ -22,7 +22,7 @@ enum xrt_calib_results {
 };
 
 enum xrt_calib_ioctl_cmd {
-	XRT_CALIB_RESULT = XRT_XLEAF_CUSTOM_BASE,
+	XRT_CALIB_RESULT = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 };
 
 #endif	/* _XRT_CALIB_H_ */

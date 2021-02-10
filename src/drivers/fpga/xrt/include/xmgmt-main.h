@@ -14,7 +14,7 @@
 
 enum xrt_mgmt_main_ioctl_cmd {
 	// section needs to be vfree'd by caller
-	XRT_MGMT_MAIN_GET_AXLF_SECTION = XRT_XLEAF_CUSTOM_BASE,
+	XRT_MGMT_MAIN_GET_AXLF_SECTION = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	// vbnv needs to be kfree'd by caller
 	XRT_MGMT_MAIN_GET_VBNV,
 };

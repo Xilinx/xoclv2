@@ -15,7 +15,7 @@
  * Group driver IOCTL calls.
  */
 enum xrt_group_ioctl_cmd {
-	XRT_GROUP_GET_LEAF = XRT_XLEAF_CUSTOM_BASE,
+	XRT_GROUP_GET_LEAF = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	XRT_GROUP_PUT_LEAF,
 	XRT_GROUP_INIT_CHILDREN,
 	XRT_GROUP_FINI_CHILDREN,

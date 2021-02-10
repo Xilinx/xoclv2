@@ -15,7 +15,7 @@
  * Flash controller driver IOCTL calls.
  */
 enum xrt_flash_ioctl_cmd {
-	XRT_FLASH_GET_SIZE = XRT_XLEAF_CUSTOM_BASE,
+	XRT_FLASH_GET_SIZE = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	XRT_FLASH_READ,
 };
 

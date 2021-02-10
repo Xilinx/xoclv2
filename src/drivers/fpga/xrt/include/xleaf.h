@@ -37,15 +37,12 @@
 #define xrt_info(pdev, fmt, args...) FMT_PRT(dev_info, pdev, fmt, ##args)
 #define xrt_dbg(pdev, fmt, args...) FMT_PRT(dev_dbg, pdev, fmt, ##args)
 
-/*
- * Common IOCTLs implemented by all leafs.
- */
-enum xrt_xleaf_ioctl_cmd {
-	XRT_XLEAF_BASE = 0,
-	XRT_XLEAF_EVENT = XRT_XLEAF_BASE,
-
-	/* Below cmds are leaf specific ones. */
-	XRT_XLEAF_CUSTOM_BASE = 64,
+/* Starting IOCTL for common IOCTLs implemented by all leaves. */
+#define XRT_XLEAF_COMMON_BASE	0
+/* Starting IOCTL for leaves' specific IOCTLs. */
+#define XRT_XLEAF_CUSTOM_BASE	64
+enum xrt_xleaf_common_ioctl_cmd {
+	XRT_XLEAF_EVENT = XRT_XLEAF_COMMON_BASE,
 };
 
 /*
