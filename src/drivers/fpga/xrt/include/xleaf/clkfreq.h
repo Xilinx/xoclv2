@@ -15,7 +15,7 @@
  * CLKFREQ driver IOCTL calls.
  */
 enum xrt_clkfreq_ioctl_cmd {
-	XRT_CLKFREQ_READ = XRT_XLEAF_CUSTOM_BASE,
+	XRT_CLKFREQ_READ = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 };
 
 #endif	/* _XRT_CLKFREQ_H_ */

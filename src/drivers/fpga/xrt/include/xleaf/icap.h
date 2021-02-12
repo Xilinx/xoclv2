@@ -15,7 +15,7 @@
  * ICAP driver IOCTL calls.
  */
 enum xrt_icap_ioctl_cmd {
-	XRT_ICAP_WRITE = XRT_XLEAF_CUSTOM_BASE,
+	XRT_ICAP_WRITE = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	XRT_ICAP_IDCODE,
 };
 
