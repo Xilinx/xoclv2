@@ -36,6 +36,15 @@ as mentioned before. Each platform driver statically defines a subsystem node
 array by using node name or a string in its ``compatible`` property. And this
 array is eventually translated to IOMEM resources of the platform device.
 
+The xrt-lib core infrastructure provides hooks to platform drivers for device node
+management, user file operations and ioctl callbacks. The core also provides pseudo-bus
+functionality for platform driver registration, discovery and inter platform driver
+ioctl calls.
+
+.. note::
+   See code in ``include/xleaf.h``
+
+
 xmgmt.ko
 --------
 
