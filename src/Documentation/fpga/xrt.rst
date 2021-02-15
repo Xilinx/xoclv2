@@ -18,7 +18,7 @@ configuration and behavior is determined by meta data provided by the platform
 is called **xmgmt**. Primary user physical function (UPF) driver is called
 **xuser** and is under development. xrt driver framework and HW subsystem
 drivers are packaged into a library module called **xrt-lib**, which is
-shared by **xmgmt** and **xuser** (under development) .
+shared by **xmgmt** and **xuser** (under development).
 
 Driver Modules
 ==============
@@ -28,9 +28,9 @@ xrt-lib.ko
 
 Repository of all subsystem drivers and pure software modules that can potentially
 be shared between xmgmt and xuser. All these drivers are structured as Linux
-*platform driver* and are instantiated by xmgmt (or xuser under development) based on
-meta data associated with hardware. The metadata is in the form of device tree as
-explained before. Within each platform driver, it statically defines a subsystem
+*platform driver* and are instantiated by xmgmt (or xuser under development) based
+on meta data associated with hardware. The metadata is in the form of device tree
+as mentioned before. Within each platform driver, it statically defines a subsystem
 node array by using node name or a string in its ``compatible`` property. And this
 array is eventually translated to IOMEM resources of the platform device.
 
@@ -39,8 +39,8 @@ xmgmt.ko
 
 The xmgmt driver is a PCIe device driver driving MPF found on Xilinx's Alveo
 PCIE device. It consists of one *root* driver, one or more *group* drivers
-and one or more *xleaf* drivers. The root and MPF specific xleaf drivers are in
-xmgmt.ko. The group driver and other xleaf drivers are in xrt-lib.ko.
+and one or more *xleaf* drivers. The root and MPF specific xleaf drivers are
+in xmgmt.ko. The group driver and other xleaf drivers are in xrt-lib.ko.
 
 The instantiation of specific group driver or xleaf driver is completely data
 driven based on meta data (mostly in device tree format) found through VSEC
@@ -49,8 +49,8 @@ driver manages life cycle of multiple group drivers, which, in turn, manages
 multiple xleaf drivers. This allows a single set of driver code to support all
 kinds of subsystems exposed by different shells. The difference among all
 these subsystems will be handled in xleaf drivers with root and group drivers
-being part of the infrastructure and provide common services for all leaves found
-on all platforms.
+being part of the infrastructure and provide common services for all leaves
+found on all platforms.
 
 The driver object model looks like the following::
 
@@ -73,7 +73,8 @@ The driver object model looks like the following::
     | xleaf |..| xleaf |    | xleaf |..| xleaf |
     +-------+  +-------+    +-------+  +-------+
 
-As an example for Alveo U50 before xclbin download the tree looks like the following::
+As an example for Alveo U50 before xclbin download the tree looks like the
+following::
 
                                 +-----------+
                                 |   xmgmt   |
@@ -100,7 +101,8 @@ As an example for Alveo U50 before xclbin download the tree looks like the follo
                                                +->| CALIB |
                                                   +-------+
 
-After an xclbin is download, group3 will be added and the tree looks like the following::
+After an xclbin is download, group3 will be added and the tree looks like the
+following::
 
                                 +-----------+
                                 |   xmgmt   |
@@ -158,8 +160,8 @@ infrastructure of the MPF driver and resides in xmgmt.ko. This driver
 When root driver starts, it will explicitly create an initial group instance,
 which contains xleaf drivers that will trigger the creation of other group
 instances. The root driver will wait for all group and leaves to be created
-before it returns from it's probe routine and claim success of the initialization
-of the entire xmgmt driver.
+before it returns from it's probe routine and claim success of the
+initialization of the entire xmgmt driver.
 
 .. note::
    See code in ``lib/xroot.c`` and ``mgmt/root.c``
@@ -251,14 +253,15 @@ Driver Interfaces
 xmgmt Driver Ioctls
 -------------------
 
-Ioctls exposed by xmgmt driver to user space are enumerated in the following table:
+Ioctls exposed by xmgmt driver to user space are enumerated in the following
+table:
 
-== ===================== ============================= ===========================
+== ===================== ============================ ==========================
 #  Functionality         ioctl request code            data format
-== ===================== ============================= ===========================
+== ===================== ============================ ==========================
 1  FPGA image download   XMGMT_IOCICAPDOWNLOAD_AXLF    xmgmt_ioc_bitstream_axlf
 2  CL frequency scaling  XMGMT_IOCFREQSCALE            xmgmt_ioc_freqscaling
-== ===================== ============================= ===========================
+== ===================== ============================ ==========================
 
 A xclbin can be downloaded by using xbmgmt tool from XRT open source suite. See
 example usage below ::
