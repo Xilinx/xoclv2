@@ -1,3 +1,5 @@
+.. SPDX-License-Identifier: GPL-2.0
+
 ==================================
 XRTV2 Linux Kernel Driver Overview
 ==================================
@@ -18,7 +20,9 @@ configuration and behavior is determined by meta data provided by the platform
 is called **xmgmt**. Primary user physical function (UPF) driver is called
 **xuser** and is under development. xrt driver framework and HW subsystem
 drivers are packaged into a library module called **xrt-lib**, which is
-shared by **xmgmt** and **xuser** (under development) .
+shared by **xmgmt** and **xuser** (under development). The xrt driver framework
+implements a pseudo-bus which is used to discover HW subsystems and facilitate
+inter HW subsystem interaction.
 
 Driver Modules
 ==============
@@ -28,29 +32,38 @@ xrt-lib.ko
 
 Repository of all subsystem drivers and pure software modules that can potentially
 be shared between xmgmt and xuser. All these drivers are structured as Linux
-*platform driver* and are instantiated by xmgmt (or xuser under development) based on
-meta data associated with hardware. The metadata is in the form of device tree as
-explained before. Within each platform driver, it statically defines a subsystem
-node array by using node name or a string in its ``compatible`` property. And this
+*platform driver* and are instantiated by xmgmt (or xuser under development) based
+on meta data associated with hardware. The metadata is in the form of device tree
+as mentioned before. Each platform driver statically defines a subsystem node
+array by using node name or a string in its ``compatible`` property. And this
 array is eventually translated to IOMEM resources of the platform device.
+
+The xrt-lib core infrastructure provides hooks to platform drivers for device node
+management, user file operations and ioctl callbacks. The core also provides pseudo-bus
+functionality for platform driver registration, discovery and inter platform driver
+ioctl calls.
+
+.. note::
+   See code in ``include/xleaf.h``
+
 
 xmgmt.ko
 --------
 
 The xmgmt driver is a PCIe device driver driving MPF found on Xilinx's Alveo
 PCIE device. It consists of one *root* driver, one or more *group* drivers
-and one or more *xleaf* drivers. The root and MPF specific xleaf drivers are in
-xmgmt.ko. The group driver and other xleaf drivers are in xrt-lib.ko.
+and one or more *xleaf* drivers. The root and MPF specific xleaf drivers are
+in xmgmt.ko. The group driver and other xleaf drivers are in xrt-lib.ko.
 
 The instantiation of specific group driver or xleaf driver is completely data
 driven based on meta data (mostly in device tree format) found through VSEC
-capability and inside firmware files, such as xsabin or xclbin file. The root
-driver manages life cycle of multiple group drivers, which, in turn, manages
-multiple xleaf drivers. This allows a single set of driver code to support all
-kinds of subsystems exposed by different shells. The difference among all
+capability and inside firmware files, such as platform xsabin or user xclbin file.
+The root driver manages life cycle of multiple group drivers, which, in turn,
+manages multiple xleaf drivers. This allows a single set of driver code to support
+all kinds of subsystems exposed by different shells. The difference among all
 these subsystems will be handled in xleaf drivers with root and group drivers
-being part of the infrastructure and provide common services for all leaves found
-on all platforms.
+being part of the infrastructure and provide common services for all leaves
+found on all platforms.
 
 The driver object model looks like the following::
 
@@ -73,7 +86,8 @@ The driver object model looks like the following::
     | xleaf |..| xleaf |    | xleaf |..| xleaf |
     +-------+  +-------+    +-------+  +-------+
 
-As an example for Alveo U50 before xclbin download the tree looks like the following::
+As an example for Xilinx Alveo U50 before user xclbin download, the tree
+looks like the following::
 
                                 +-----------+
                                 |   xmgmt   |
@@ -100,7 +114,8 @@ As an example for Alveo U50 before xclbin download the tree looks like the follo
                                                +->| CALIB |
                                                   +-------+
 
-After an xclbin is download, group3 will be added and the tree looks like the following::
+After an xclbin is download, group3 will be added and the tree looks like the
+following::
 
                                 +-----------+
                                 |   xmgmt   |
@@ -158,8 +173,8 @@ infrastructure of the MPF driver and resides in xmgmt.ko. This driver
 When root driver starts, it will explicitly create an initial group instance,
 which contains xleaf drivers that will trigger the creation of other group
 instances. The root driver will wait for all group and leaves to be created
-before it returns from it's probe routine and claim success of the initialization
-of the entire xmgmt driver.
+before it returns from it's probe routine and claim success of the
+initialization of the entire xmgmt driver.
 
 .. note::
    See code in ``lib/xroot.c`` and ``mgmt/root.c``
@@ -223,7 +238,7 @@ fpga_manager
 
 An instance of fpga_manager is created by xmgmt_main and is used for xclbin
 image download. fpga_manager requires the full xclbin image before it can
-start programming the FPGA configuration engine via ICAP subdev driver.
+start programming the FPGA configuration engine via ICAP platform driver.
 
 fpga_region
 -----------
@@ -234,7 +249,7 @@ The device tree of the *parent* fpga_region defines the
 resources for a new instance of fpga_bridge which isolates the parent from
 child fpga_region. This new instance of fpga_bridge will be used when a
 xclbin image is loaded on the child fpga_region. After the xclbin image is
-downloaded to the fpga_region, a group instance is created for the
+downloaded to the fpga_region, an instance of group is created for the
 fpga_region using the device tree obtained as part of xclbin. If this device
 tree defines any child interfaces then it can trigger the creation of
 fpga_bridge and fpga_region for the next region in the chain.
@@ -251,17 +266,17 @@ Driver Interfaces
 xmgmt Driver Ioctls
 -------------------
 
-Ioctls exposed by xmgmt driver to user space are enumerated in the following table:
+Ioctls exposed by xmgmt driver to user space are enumerated in the following
+table:
 
-== ===================== ============================= ===========================
+== ===================== ============================ ==========================
 #  Functionality         ioctl request code            data format
-== ===================== ============================= ===========================
+== ===================== ============================ ==========================
 1  FPGA image download   XMGMT_IOCICAPDOWNLOAD_AXLF    xmgmt_ioc_bitstream_axlf
-2  CL frequency scaling  XMGMT_IOCFREQSCALE            xmgmt_ioc_freqscaling
-== ===================== ============================= ===========================
+== ===================== ============================ ==========================
 
-A xclbin can be downloaded by using xbmgmt tool from XRT open source suite. See
-example usage below ::
+User xclbin can be downloaded by using xbmgmt tool from XRT open source suite. See
+example usage below::
 
   xbmgmt partition --program --path /lib/firmware/xilinx/862c7020a250293e32036f19956669e5/test/verify.xclbin --force
 
@@ -388,11 +403,11 @@ the same container format as xsabin which is described below.
 xsabin/xclbin Container Format
 ------------------------------
 
-xclbin/xsabin is ELF-like binary container format. It is structured as series of sections.
-There is a file header followed by several section headers which is followed by sections.
-A section header points to an actual section. There is an optional signature at the end.
-The format is defined by header file ``xclbin.h``. The following figure illustrates a
-typical xclbin::
+xclbin/xsabin is ELF-like binary container format. It is structured as series of
+sections. There is a file header followed by several section headers which is
+followed by sections. A section header points to an actual section. There is an
+optional signature at the end. The format is defined by header file ``xclbin.h``.
+The following figure illustrates a typical xclbin::
 
 
            +---------------------+
@@ -430,6 +445,7 @@ https://github.com/Xilinx/XRT/tree/master/src/runtime_src/tools/xclbinutil
 For example to enumerate the contents of a xclbin/xsabin use the *--info* switch
 as shown below::
 
+
   xclbinutil --info --input /opt/xilinx/firmware/u50/gen3x16-xdma/blp/test/bandwidth.xclbin
   xclbinutil --info --input /lib/firmware/xilinx/862c7020a250293e32036f19956669e5/partition.xsabin
 
@@ -440,14 +456,14 @@ Device Tree Usage
 -----------------
 
 As mentioned previously xsabin stores metadata which advertise HW subsystems present
-in a partition. The metadata is stored in device tree format with well defined schema.XRT management driver uses this
-information to bind *platform drivers* to the subsystem instantiations. The platform
-drivers are found in **xrt-lib.ko** kernel module defined later.
+in a partition. The metadata is stored in device tree format with well defined schema.
+XRT management driver uses this information to bind *platform drivers* to the subsystem
+instantiations. The platform drivers are found in **xrt-lib.ko** kernel module defined
+later.
 
 Logic UUID
 ^^^^^^^^^^
-A partition is identified uniquely through ``logic_uuid`` property.
-::
+A partition is identified uniquely through ``logic_uuid`` property::
 
   /dts-v1/;
   / {
@@ -457,8 +473,8 @@ A partition is identified uniquely through ``logic_uuid`` property.
 
 Schema Version
 ^^^^^^^^^^^^^^
-Schema version is defined through ``schema_version`` node. And it contains ``major`` and ``minor`` properties as below.
-::
+Schema version is defined through ``schema_version`` node. And it contains ``major``
+and ``minor`` properties as below::
 
   /dts-v1/;
   / {
@@ -471,8 +487,8 @@ Schema version is defined through ``schema_version`` node. And it contains ``maj
 
 Partition UUIDs
 ^^^^^^^^^^^^^^^
-As said earlier, each partition may have parent and child UUIDs. These UUIDs are defined by ``interfaces`` node and ``interface_uuid`` property.
-::
+As said earlier, each partition may have parent and child UUIDs. These UUIDs are
+defined by ``interfaces`` node and ``interface_uuid`` property::
 
   /dts-v1/;
   / {
@@ -489,10 +505,10 @@ As said earlier, each partition may have parent and child UUIDs. These UUIDs are
     }
 
 
-Subsystem instantiations
+Subsystem Instantiations
 ^^^^^^^^^^^^^^^^^^^^^^^^
-Subsystem instantiations are captured as children of ``addressable_endpoints`` node.
-::
+Subsystem instantiations are captured as children of ``addressable_endpoints``
+node::
 
   /dts-v1/;
   / {
@@ -509,10 +525,10 @@ Subsystem instantiations are captured as children of ``addressable_endpoints`` n
 
 Subnode 'abc' and 'def' are the name of subsystem nodes
 
-Subsystem node
+Subsystem Node
 ^^^^^^^^^^^^^^
-Each subsystem node and its properties define a hardware instance.
-::
+Each subsystem node and its properties define a hardware instance::
+
 
   addressable_endpoints {
       abc {
@@ -531,13 +547,17 @@ Each subsystem node and its properties define a hardware instance.
   }
 
 :reg:
- Property defines address range. '<0xa 0xb>' is BAR offset and length pair, both are 64-bit integer.
+ Property defines address range. '<0xa 0xb>' is BAR offset and length pair, both
+ are 64-bit integer.
 :pcie_physical_function:
  Property specifies which PCIe physical function the subsystem node resides.
 :pcie_bar_mapping:
- Property specifies which PCIe BAR the subsystem node resides. '<0x2>' is BAR index and it is 0 if this property is not defined.
+ Property specifies which PCIe BAR the subsystem node resides. '<0x2>' is BAR
+ index and it is 0 if this property is not defined.
 :compatible:
- Property is a list of strings. The first string in the list specifies the exact subsystem node. The following strings represent other devices that the device is compatible with.
+ Property is a list of strings. The first string in the list specifies the exact
+ subsystem node. The following strings represent other devices that the device
+ is compatible with.
 :firmware:
  Subnode defines the firmware required by this subsystem node.
 

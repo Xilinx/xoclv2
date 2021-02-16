@@ -4,7 +4,7 @@ This is V3 of patch series which adds management physical function driver for Xi
 Alveo PCIe accelerator cards, https://www.xilinx.com/products/boards-and-kits/alveo.html
 This driver is part of Xilinx Runtime (XRT) open source stack.
 
-ALVEO PLATFORM ARCHITECTURE
+XILINX ALVEO PLATFORM ARCHITECTURE
 
 Alveo PCIe FPGA based platforms have a static *shell* partition and a partial
 re-configurable *user* partition. The shell partition is automatically loaded from
@@ -19,11 +19,12 @@ XRT driver architecture and deployment model in more detail.
 
 Users compile their high level design in C/C++/OpenCL or RTL into FPGA image using
 Vitis https://www.xilinx.com/products/design-tools/vitis/vitis-platform.html
-tools. The compiled image is packaged as xclbin and contains partial bitstream for
-the user partition and necessary metadata. Users can dynamically swap the image
-running on the user partition in order to switch between different workloads.
+tools. The compiled image is packaged as xclbin which contains partial bitstream
+for the user partition and necessary metadata. Users can dynamically swap the image
+running on the user partition in order to switch between different workloads by
+loading different xclbins.
 
-XRT DRIVERS FOR ALVEO
+XRT DRIVERS FOR XILINX ALVEO
 
 XRT Linux kernel driver *xmgmt* binds to management physical function of Alveo
 platform. The modular driver framework is organized into several platform drivers
@@ -35,8 +36,10 @@ which primarily handle the following functionality:
 4.  In-band sensors: temp, voltage, power, etc.
 5.  Device reset and rescan
 
-The platform drivers are packaged into *xrt-lib* helper module with a well
-defined interfaces the details of which can be found in Documentation/xrt.rst.
+The platform drivers are packaged into *xrt-lib* helper module with well
+defined interfaces. The module provides a pseudo-bus implementation for the
+platform drivers. More details on the driver model can be found in
+Documentation/xrt.rst.
 
 User physical function driver is not included in this patch series.
 
@@ -44,9 +47,8 @@ LIBFDT REQUIREMENT
 
 XRT driver infrastructure uses Device Tree as a metadata format to discover
 HW subsystems in the Alveo PCIe device. The Device Tree schema used by XRT
-is documented in Documentation/xrt.rst. This patch series includes a fdt patch
-to EXPORT_SYMBOL_GPL symbols which are used by XRT driver. This does introduce
-checkpatch warning that we are looking for suggestions to resolve.
+is documented in Documentation/xrt.rst. Unlike previous V1 and V2 version
+of patch series, V3 version does not require export of libfdt symbols.
 
 TESTING AND VALIDATION
 
@@ -68,15 +70,16 @@ Changes since v2:
 - Addressed kernel test robot errors
 - Added a selftest for basic driver framework
 - Documented device tree schema
+- Removed need to export libfdt symbols
 
 Changes since v1:
 - Updated the driver to use fpga_region and fpga_bridge for FPGA
   programming
-- Dropped subdev drivers not related to PR programming to focus on XRT
+- Dropped platform drivers not related to PR programming to focus on XRT
   core framework
 - Updated Documentation/fpga/xrt.rst with information on XRT core framework
 - Addressed checkpatch issues
-- Dropeped xrt- prefix from some header files
+- Dropped xrt- prefix from some header files
 
 For reference V1 version of patch series can be found here:
 
