@@ -271,7 +271,6 @@ table:
 #  Functionality         ioctl request code            data format
 == ===================== ============================ ==========================
 1  FPGA image download   XMGMT_IOCICAPDOWNLOAD_AXLF    xmgmt_ioc_bitstream_axlf
-2  CL frequency scaling  XMGMT_IOCFREQSCALE            xmgmt_ioc_freqscaling
 == ===================== ============================ ==========================
 
 User xclbin can be downloaded by using xbmgmt tool from XRT open source suite. See
@@ -504,7 +503,7 @@ defined by ``interfaces`` node and ``interface_uuid`` property::
     }
 
 
-Subsystem instantiations
+Subsystem Instantiations
 ^^^^^^^^^^^^^^^^^^^^^^^^
 Subsystem instantiations are captured as children of ``addressable_endpoints``
 node::
@@ -524,7 +523,7 @@ node::
 
 Subnode 'abc' and 'def' are the name of subsystem nodes
 
-Subsystem node
+Subsystem Node
 ^^^^^^^^^^^^^^
 Each subsystem node and its properties define a hardware instance::
 
