@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2021 Xilinx, Inc.
+ * Xilinx Alveo FPGA device helper functions
+ *
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
@@ -102,12 +104,12 @@ static ssize_t metadata_output(struct file *filp, struct kobject *kobj,
 	struct platform_device *pdev = to_platform_device(dev);
 	struct xrt_subdev_platdata *pdata = DEV_PDATA(pdev);
 	unsigned char *blob;
-	long  size;
+	unsigned long  size;
 	ssize_t ret = 0;
 
 	blob = pdata->xsp_dtb;
 	size = xrt_md_size(dev, blob);
-	if (size <= 0) {
+	if (size == XRT_MD_INVALID_LENGTH) {
 		ret = -EINVAL;
 		goto failed;
 	}
@@ -143,6 +145,10 @@ static const struct attribute_group xrt_subdev_attrgroup = {
 	.bin_attrs = xrt_subdev_bin_attrs,
 };
 
+/*
+ * Given the device metadata, parse it to get IO ranges and construct
+ * resource array.
+ */
 static int
 xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 		  char *dtb, struct resource **res, int *res_num)
@@ -160,26 +166,29 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 
 	pdata = DEV_PDATA(to_platform_device(parent));
 
+	/* go through metadata and count endpoints in it */
 	for (xrt_md_get_next_endpoint(parent, dtb, NULL, NULL, &ep_name, &regmap); ep_name;
 	     xrt_md_get_next_endpoint(parent, dtb, ep_name, regmap, &ep_name, &regmap)) {
 		ret = xrt_md_get_prop(parent, dtb, ep_name, regmap,
-				      PROP_IO_OFFSET, (const void **)&bar_range, NULL);
+				      XRT_MD_PROP_IO_OFFSET, (const void **)&bar_range, NULL);
 		if (!ret)
 			count1++;
 	}
 	if (!count1)
 		return 0;
 
+	/* allocate resource array for all endpoints been found in metadata */
 	*res = vzalloc(sizeof(**res) * count1);
 
+	/* go through all endpoints again and get IO range for each endpoint */
 	for (xrt_md_get_next_endpoint(parent, dtb, NULL, NULL, &ep_name, &regmap); ep_name;
 	     xrt_md_get_next_endpoint(parent, dtb, ep_name, regmap, &ep_name, &regmap)) {
 		ret = xrt_md_get_prop(parent, dtb, ep_name, regmap,
-				      PROP_IO_OFFSET, (const void **)&bar_range, NULL);
+				      XRT_MD_PROP_IO_OFFSET, (const void **)&bar_range, NULL);
 		if (ret)
 			continue;
 		xrt_md_get_prop(parent, dtb, ep_name, regmap,
-				PROP_BAR_IDX, (const void **)&bar_idx, NULL);
+				XRT_MD_PROP_BAR_IDX, (const void **)&bar_idx, NULL);
 		bar = bar_idx ? be32_to_cpu(*bar_idx) : 0;
 		xleaf_get_barres(to_platform_device(parent), &pci_res, bar);
 		(*res)[count2].start = pci_res->start +
@@ -201,8 +210,8 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 
 		(*res)[count2].parent = pci_res;
 
-		xrt_md_get_epname_pointer(parent, pdata->xsp_dtb, ep_name,
-					  regmap, &(*res)[count2].name);
+		xrt_md_find_endpoint(parent, pdata->xsp_dtb, ep_name,
+				     regmap, &(*res)[count2].name);
 
 		count2++;
 	}
@@ -238,7 +247,7 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 	struct xrt_subdev *sdev = NULL;
 	struct platform_device *pdev = NULL;
 	struct xrt_subdev_platdata *pdata = NULL;
-	long dtb_len = 0;
+	unsigned long dtb_len = 0;
 	size_t pdata_sz;
 	int inst = PLATFORM_DEVID_NONE;
 	struct resource *res = NULL;
@@ -254,7 +263,7 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 	if (dtb) {
 		xrt_md_pack(parent, dtb);
 		dtb_len = xrt_md_size(parent, dtb);
-		if (dtb_len <= 0) {
+		if (dtb_len == XRT_MD_INVALID_LENGTH) {
 			dev_err(parent, "invalid metadata len %ld", dtb_len);
 			goto fail;
 		}
@@ -275,7 +284,9 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 	} else {
 		struct platform_device *grp = to_platform_device(parent);
 		/* Leaf can only be created by group driver. */
-		WARN_ON(strcmp(xrt_drv_name(XRT_SUBDEV_GRP), platform_get_device_id(grp)->name));
+		WARN_ON(strncmp(xrt_drv_name(XRT_SUBDEV_GRP),
+				platform_get_device_id(grp)->name,
+				strlen(xrt_drv_name(XRT_SUBDEV_GRP)) + 1));
 		pdata->xsp_root_name = DEV_PDATA(grp)->xsp_root_name;
 	}
 
@@ -376,7 +387,7 @@ xleaf_get_leaf(struct platform_device *pdev, xrt_subdev_match_t match_cb, void *
 }
 EXPORT_SYMBOL_GPL(xleaf_get_leaf);
 
-bool xleaf_has_epname(struct platform_device *pdev, const char *ep_name)
+bool xleaf_has_endpoint(struct platform_device *pdev, const char *endpoint_name)
 {
 	struct resource	*res;
 	int		i;
@@ -384,13 +395,13 @@ bool xleaf_has_epname(struct platform_device *pdev, const char *ep_name)
 	for (i = 0, res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	    res;
 	    res = platform_get_resource(pdev, IORESOURCE_MEM, ++i)) {
-		if (!strncmp(res->name, ep_name, strlen(res->name) + 1))
+		if (!strncmp(res->name, endpoint_name, strlen(res->name) + 1))
 			return true;
 	}
 
 	return false;
 }
-EXPORT_SYMBOL_GPL(xleaf_has_epname);
+EXPORT_SYMBOL_GPL(xleaf_has_endpoint);
 
 int xleaf_put_leaf(struct platform_device *pdev, struct platform_device *leaf)
 {
@@ -589,7 +600,8 @@ int xrt_subdev_pool_add(struct xrt_subdev_pool *spool, enum xrt_subdev_id id,
 		ret = -EINVAL;
 	}
 
-	return ret ? ret : sdev->xs_pdev->id;
+	ret = ret ? ret : sdev->xs_pdev->id;
+	return ret;
 }
 
 int xrt_subdev_pool_del(struct xrt_subdev_pool *spool, enum xrt_subdev_id id, int instance)

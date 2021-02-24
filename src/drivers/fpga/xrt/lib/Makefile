@@ -29,7 +29,7 @@ xrt-lib-y := 			\
 	main.o			\
 	xroot.o			\
 	xclbin.o		\
-	metadata.o		\
+	../metadata/metadata.o		\
 	subdev.o		\
 	cdev.o			\
 	group.o			\
@@ -37,7 +37,7 @@ xrt-lib-y := 			\
 	xleaf/vsec-golden.o	\
 	xleaf/axigate.o	\
 	xleaf/qspi.o		\
-	xleaf/gpio.o		\
+	xleaf/devctl.o		\
 	xleaf/mailbox.o	\
 	xleaf/icap.o		\
 	xleaf/cmc.o		\

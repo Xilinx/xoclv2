@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
+ * Xilinx Alveo FPGA Root Functions
  *
- * Copyright (C) 2021 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
@@ -485,7 +486,7 @@ int xroot_add_vsec_node(void *root, char *dtb)
 		return -EINVAL;
 	}
 
-	ep.ep_name = NODE_VSEC;
+	ep.ep_name = XRT_MD_NODE_VSEC;
 	ret = xrt_md_add_endpoint(dev, dtb, &ep);
 	if (ret) {
 		xroot_err(xr, "add vsec metadata failed, ret %d", ret);
@@ -493,16 +494,16 @@ int xroot_add_vsec_node(void *root, char *dtb)
 	}
 
 	vsec_bar = cpu_to_be32(off_low & 0xf);
-	ret = xrt_md_set_prop(dev, dtb, NODE_VSEC, NULL,
-			      PROP_BAR_IDX, &vsec_bar, sizeof(vsec_bar));
+	ret = xrt_md_set_prop(dev, dtb, XRT_MD_NODE_VSEC, NULL,
+			      XRT_MD_PROP_BAR_IDX, &vsec_bar, sizeof(vsec_bar));
 	if (ret) {
 		xroot_err(xr, "add vsec bar idx failed, ret %d", ret);
 		goto failed;
 	}
 
 	vsec_off = cpu_to_be64(((u64)off_high << 32) | (off_low & ~0xfU));
-	ret = xrt_md_set_prop(dev, dtb, NODE_VSEC, NULL,
-			      PROP_OFFSET, &vsec_off, sizeof(vsec_off));
+	ret = xrt_md_set_prop(dev, dtb, XRT_MD_NODE_VSEC, NULL,
+			      XRT_MD_PROP_OFFSET, &vsec_off, sizeof(vsec_off));
 	if (ret) {
 		xroot_err(xr, "add vsec offset failed, ret %d", ret);
 		goto failed;

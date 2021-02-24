@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA memory calibration driver
  *
- * Copyright (C) 2021 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * memory calibration
  *
@@ -252,7 +252,7 @@ xrt_calib_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 static struct xrt_subdev_endpoints xrt_calib_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names[]) {
-			{ .ep_name = NODE_DDR_CALIB },
+			{ .ep_name = XRT_MD_NODE_DDR_CALIB },
 			{ NULL },
 		},
 		.xse_min_ep = 1,

@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA MGMT PF entry point driver
  *
- * Copyright (C) 2021 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *	Sonal Santan <sonals@xilinx.com>
@@ -16,7 +16,7 @@
 #include "xleaf.h"
 #include <linux/xrt/flash_xrt_data.h>
 #include <linux/xrt/xmgmt-ioctl.h>
-#include "xleaf/gpio.h"
+#include "xleaf/devctl.h"
 #include "xmgmt-main.h"
 #include "fmgr.h"
 #include "xleaf/icap.h"
@@ -31,7 +31,7 @@ struct xmgmt_main {
 	struct axlf *firmware_plp;
 	struct axlf *firmware_ulp;
 	bool flash_ready;
-	bool gpio_ready;
+	bool devctl_ready;
 	struct fpga_manager *fmgr;
 	void *mailbox_hdl;
 	struct mutex busy_mutex; /* busy lock */
@@ -69,22 +69,22 @@ char *xmgmt_get_vbnv(struct platform_device *pdev)
 static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 {
 	char uuid[16];
-	struct platform_device *gpio_leaf;
-	struct xrt_gpio_ioctl_rw gpio_arg = { 0 };
+	struct platform_device *devctl_leaf;
+	struct xrt_devctl_ioctl_rw devctl_arg = { 0 };
 	int err, i, count;
 
-	gpio_leaf = xleaf_get_leaf_by_epname(pdev, NODE_BLP_ROM);
-	if (!gpio_leaf) {
-		xrt_err(pdev, "can not get %s", NODE_BLP_ROM);
+	devctl_leaf = xleaf_get_leaf_by_epname(pdev, XRT_MD_NODE_BLP_ROM);
+	if (!devctl_leaf) {
+		xrt_err(pdev, "can not get %s", XRT_MD_NODE_BLP_ROM);
 		return -EINVAL;
 	}
 
-	gpio_arg.xgir_id = XRT_GPIO_ROM_UUID;
-	gpio_arg.xgir_buf = uuid;
-	gpio_arg.xgir_len = sizeof(uuid);
-	gpio_arg.xgir_offset = 0;
-	err = xleaf_ioctl(gpio_leaf, XRT_GPIO_READ, &gpio_arg);
-	xleaf_put_leaf(pdev, gpio_leaf);
+	devctl_arg.xgir_id = XRT_DEVCTL_ROM_UUID;
+	devctl_arg.xgir_buf = uuid;
+	devctl_arg.xgir_len = sizeof(uuid);
+	devctl_arg.xgir_offset = 0;
+	err = xleaf_ioctl(devctl_leaf, XRT_DEVCTL_READ, &devctl_arg);
+	xleaf_put_leaf(pdev, devctl_leaf);
 	if (err) {
 		xrt_err(pdev, "can not get uuid: %d", err);
 		return err;
@@ -149,15 +149,6 @@ static ssize_t logic_uuids_show(struct device *dev, struct device_attribute *da,
 }
 static DEVICE_ATTR_RO(logic_uuids);
 
-static inline void uuid2str(const uuid_t *uuid, char *uuidstr)
-{
-	int i, p;
-	u8 *u = (u8 *)uuid;
-
-	for (p = 0, i = sizeof(uuid_t) - 1; i >= 0; p++, i--)
-		(void)snprintf(&uuidstr[p * 2], 3, "%02x", u[i]);
-}
-
 static ssize_t interface_uuids_show(struct device *dev, struct device_attribute *da, char *buf)
 {
 	ssize_t ret = 0;
@@ -168,7 +159,7 @@ static ssize_t interface_uuids_show(struct device *dev, struct device_attribute 
 	for (i = 0; i < xmm->blp_intf_uuid_num; i++) {
 		char uuidstr[80];
 
-		uuid2str(&xmm->blp_intf_uuids[i], uuidstr);
+		xrt_md_trans_uuid2str(&xmm->blp_intf_uuids[i], uuidstr);
 		ret += sprintf(buf + ret, "%s\n", uuidstr);
 	}
 	return ret;
@@ -388,11 +379,11 @@ static const char *get_uuid_from_firmware(struct platform_device *pdev, const st
 	void *dtb = NULL;
 	int rc;
 
-	rc = xrt_xclbin_get_section(xclbin, PARTITION_METADATA, &dtb, NULL);
+	rc = xrt_xclbin_get_section(DEV(pdev), xclbin, PARTITION_METADATA, &dtb, NULL);
 	if (rc)
 		return NULL;
 
-	rc = xrt_md_get_prop(DEV(pdev), dtb, NULL, NULL, PROP_LOGIC_UUID, &uuid, NULL);
+	rc = xrt_md_get_prop(DEV(pdev), dtb, NULL, NULL, XRT_MD_PROP_LOGIC_UUID, &uuid, NULL);
 	if (!rc)
 		uuiddup = kstrdup(uuid, GFP_KERNEL);
 	vfree(dtb);
@@ -412,7 +403,7 @@ static bool is_valid_firmware(struct platform_device *pdev,
 	if (err)
 		return false;
 
-	if (memcmp(fw_buf, ICAP_XCLBIN_V2, sizeof(ICAP_XCLBIN_V2)) != 0) {
+	if (memcmp(fw_buf, XCLBIN_VERSION2, sizeof(XCLBIN_VERSION2)) != 0) {
 		xrt_err(pdev, "unknown fw format");
 		return false;
 	}
@@ -423,7 +414,7 @@ static bool is_valid_firmware(struct platform_device *pdev,
 	}
 
 	fw_uuid = get_uuid_from_firmware(pdev, xclbin);
-	if (!fw_uuid || strcmp(fw_uuid, dev_uuid) != 0) {
+	if (!fw_uuid || strncmp(fw_uuid, dev_uuid, sizeof(dev_uuid)) != 0) {
 		xrt_err(pdev, "bad fw UUID: %s, expect: %s",
 			fw_uuid ? fw_uuid : "<none>", dev_uuid);
 		kfree(fw_uuid);
@@ -451,7 +442,7 @@ int xmgmt_get_provider_uuid(struct platform_device *pdev, enum provider_kind kin
 	if (!fw_uuid)
 		goto done;
 
-	rc = xrt_md_uuid_strtoid(DEV(pdev), fw_uuid, uuid);
+	rc = xrt_md_trans_str2uuid(DEV(pdev), fw_uuid, uuid);
 	kfree(fw_uuid);
 
 done:
@@ -481,10 +472,11 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 			rc = 0;
 
 		WARN_ON(xmm->blp_intf_uuids);
-		xrt_md_get_intf_uuids(&pdev->dev, dtb, &xmm->blp_intf_uuid_num, NULL);
-		if (xmm->blp_intf_uuid_num > 0) {
+		rc = xrt_md_get_interface_uuids(&pdev->dev, dtb, 0, NULL);
+		if (rc > 0) {
+			xmm->blp_intf_uuid_num = rc;
 			xmm->blp_intf_uuids = vzalloc(sizeof(uuid_t) * xmm->blp_intf_uuid_num);
-			xrt_md_get_intf_uuids(&pdev->dev, dtb, &xmm->blp_intf_uuid_num,
+			xrt_md_get_interface_uuids(&pdev->dev, dtb, xmm->blp_intf_uuid_num,
 					      xmm->blp_intf_uuids);
 		}
 	}
@@ -526,10 +518,10 @@ static void xmgmt_main_event_cb(struct platform_device *pdev, void *arg)
 			break;
 		}
 
-		if (id == XRT_SUBDEV_GPIO && !xmm->gpio_ready) {
-			leaf = xleaf_get_leaf_by_epname(pdev, NODE_BLP_ROM);
+		if (id == XRT_SUBDEV_DEVCTL && !xmm->devctl_ready) {
+			leaf = xleaf_get_leaf_by_epname(pdev, XRT_MD_NODE_BLP_ROM);
 			if (leaf) {
-				xmm->gpio_ready = true;
+				xmm->devctl_ready = true;
 				xleaf_put_leaf(pdev, leaf);
 			}
 		} else if (id == XRT_SUBDEV_QSPI && !xmm->flash_ready) {
@@ -538,7 +530,7 @@ static void xmgmt_main_event_cb(struct platform_device *pdev, void *arg)
 			break;
 		}
 
-		if (xmm->gpio_ready && xmm->flash_ready)
+		if (xmm->devctl_ready && xmm->flash_ready)
 			(void)xmgmt_load_firmware(xmm);
 		break;
 	}
@@ -616,7 +608,8 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		if (!firmware) {
 			ret = -ENOENT;
 		} else {
-			ret = xrt_xclbin_get_section(firmware, get->xmmigas_section_kind,
+			ret = xrt_xclbin_get_section(DEV(pdev), firmware,
+						     get->xmmigas_section_kind,
 						     &get->xmmigas_section,
 						     &get->xmmigas_section_size);
 		}
@@ -722,11 +715,11 @@ static int bitstream_axlf_ioctl(struct xmgmt_main *xmm, const void __user *arg)
 		return -EFAULT;
 	if (copy_from_user((void *)&xclbin_obj, ioc_obj.xclbin, sizeof(xclbin_obj)))
 		return -EFAULT;
-	if (memcmp(xclbin_obj.m_magic, ICAP_XCLBIN_V2, sizeof(ICAP_XCLBIN_V2)))
+	if (memcmp(xclbin_obj.m_magic, XCLBIN_VERSION2, sizeof(XCLBIN_VERSION2)))
 		return -EINVAL;
 
 	copy_buffer_size = xclbin_obj.m_header.m_length;
-	if (copy_buffer_size > MAX_XCLBIN_SIZE)
+	if (copy_buffer_size > XCLBIN_MAX_SIZE)
 		return -EINVAL;
 	copy_buffer = vmalloc(copy_buffer_size);
 	if (!copy_buffer)
@@ -778,7 +771,7 @@ void *xmgmt_pdev2mailbox(struct platform_device *pdev)
 static struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
-			{ .ep_name = NODE_MGMT_MAIN },
+			{ .ep_name = XRT_MD_NODE_MGMT_MAIN },
 			{ NULL },
 		},
 		.xse_min_ep = 1,
