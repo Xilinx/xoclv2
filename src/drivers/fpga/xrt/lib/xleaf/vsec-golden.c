@@ -11,7 +11,7 @@
 #include <linux/platform_device.h>
 #include "metadata.h"
 #include "xleaf.h"
-#include "xleaf/gpio.h"
+#include "xleaf/devctl.h"
 
 #define XRT_VSEC_GOLDEN "xrt_vsec_golden"
 
@@ -29,7 +29,7 @@ static struct xrt_golden_endpoint {
 		.vendor = 0x10ee,
 		.device = 0xd020,
 		.ep = {
-			.ep_name = NODE_FLASH_VSEC,
+			.ep_name = XRT_MD_NODE_FLASH_VSEC,
 			.bar_off = 0x1f50000,
 			.size = 4096
 		},
@@ -39,7 +39,7 @@ static struct xrt_golden_endpoint {
 
 /* Version of golden image is read from same location for all Alveo cards. */
 static struct xrt_md_endpoint xrt_golden_ver_endpoint = {
-	.ep_name = NODE_GOLDEN_VER,
+	.ep_name = XRT_MD_NODE_GOLDEN_VER,
 	.bar_off = 0x131008,
 	.size = 4
 };
@@ -54,23 +54,23 @@ struct xrt_vsec {
 
 static int xrt_vsec_get_golden_ver(struct xrt_vsec *vsec)
 {
-	struct platform_device *gpio_leaf;
+	struct platform_device *devctl_leaf;
 	struct platform_device *pdev = vsec->pdev;
-	struct xrt_gpio_ioctl_rw gpio_arg = { 0 };
+	struct xrt_devctl_ioctl_rw devctl_arg = { 0 };
 	int err, ver;
 
-	gpio_leaf = xleaf_get_leaf_by_epname(pdev, NODE_GOLDEN_VER);
-	if (!gpio_leaf) {
-		xrt_err(pdev, "can not get %s", NODE_GOLDEN_VER);
+	devctl_leaf = xleaf_get_leaf_by_epname(pdev, XRT_MD_NODE_GOLDEN_VER);
+	if (!devctl_leaf) {
+		xrt_err(pdev, "can not get %s", XRT_MD_NODE_GOLDEN_VER);
 		return -EINVAL;
 	}
 
-	gpio_arg.xgir_id = XRT_GPIO_GOLDEN_VER;
-	gpio_arg.xgir_buf = &ver;
-	gpio_arg.xgir_len = sizeof(ver);
-	gpio_arg.xgir_offset = 0;
-	err = xleaf_ioctl(gpio_leaf, XRT_GPIO_READ, &gpio_arg);
-	xleaf_put_leaf(pdev, gpio_leaf);
+	devctl_arg.xgir_id = XRT_DEVCTL_GOLDEN_VER;
+	devctl_arg.xgir_buf = &ver;
+	devctl_arg.xgir_len = sizeof(ver);
+	devctl_arg.xgir_offset = 0;
+	err = xleaf_ioctl(devctl_leaf, XRT_DEVCTL_READ, &devctl_arg);
+	xleaf_put_leaf(pdev, devctl_leaf);
 	if (err) {
 		xrt_err(pdev, "can't get golden image version: %d", err);
 		return err;
@@ -209,7 +209,7 @@ failed:
 static struct xrt_subdev_endpoints xrt_vsec_golden_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
-			{ .ep_name = NODE_VSEC_GOLDEN },
+			{ .ep_name = XRT_MD_NODE_VSEC_GOLDEN },
 			{ NULL },
 		},
 		.xse_min_ep = 1,

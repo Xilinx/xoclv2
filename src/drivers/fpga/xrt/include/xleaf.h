@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2021 Xilinx, Inc.
+ * Header file for Xilinx Runtime (XRT) driver
+ *
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *    Cheng Zhen <maxz@xilinx.com>
@@ -50,11 +52,11 @@ enum xrt_xleaf_common_ioctl_cmd {
  * char device (un)registration.
  */
 enum xrt_subdev_file_mode {
-	// Infra create cdev, default file name
+	/* Infra create cdev, default file name */
 	XRT_SUBDEV_FILE_DEFAULT = 0,
-	// Infra create cdev, need to encode inst num in file name
+	/* Infra create cdev, need to encode inst num in file name */
 	XRT_SUBDEV_FILE_MULTI_INST,
-	// No auto creation of cdev by infra, leaf handles it by itself
+	/* No auto creation of cdev by infra, leaf handles it by itself */
 	XRT_SUBDEV_FILE_NO_AUTO,
 };
 
@@ -159,7 +161,7 @@ struct subdev_match_arg {
 	int instance;
 };
 
-bool xleaf_has_epname(struct platform_device *pdev, const char *nm);
+bool xleaf_has_endpoint(struct platform_device *pdev, const char *endpoint_name);
 struct platform_device *xleaf_get_leaf(struct platform_device *pdev,
 				       xrt_subdev_match_t cb, void *arg);
 
@@ -174,7 +176,7 @@ static inline bool subdev_match(enum xrt_subdev_id id, struct platform_device *p
 static inline bool xrt_subdev_match_epname(enum xrt_subdev_id id,
 					   struct platform_device *pdev, void *arg)
 {
-	return xleaf_has_epname(pdev, arg);
+	return xleaf_has_endpoint(pdev, arg);
 }
 
 static inline struct platform_device *
@@ -260,7 +262,7 @@ void xleaf_unregister_driver(enum xrt_subdev_id id);
 void group_leaf_init_fini(bool init);
 void vsec_leaf_init_fini(bool init);
 void vsec_golden_leaf_init_fini(bool init);
-void gpio_leaf_init_fini(bool init);
+void devctl_leaf_init_fini(bool init);
 void axigate_leaf_init_fini(bool init);
 void icap_leaf_init_fini(bool init);
 void calib_leaf_init_fini(bool init);

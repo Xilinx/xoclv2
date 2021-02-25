@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2021 Xilinx, Inc.
+ * Header file for Xilinx Alveo Management Function Driver
+ *
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *	Lizhi Hou <Lizhi.Hou@xilinx.com>

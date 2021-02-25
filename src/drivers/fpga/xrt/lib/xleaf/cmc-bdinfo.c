@@ -182,7 +182,7 @@ static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 	ret = xleaf_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_AXLF_SECTION, &gs);
 	if (ret == 0) {
 		bmcsect = (struct bmc *)gs.xmmigas_section;
-		memcpy(expbmc, bmcsect->m_version, sizeof(bmcsect->m_version));
+		memcpy(expbmc, bmcsect->version, sizeof(bmcsect->version));
 	} else {
 		/*
 		 * no SC section, SC should be fixed, expected SC should be

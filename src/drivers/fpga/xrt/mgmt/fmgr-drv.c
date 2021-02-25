@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Xilinx Alveo Management Function Driver
+ * FPGA Manager Support for Xilinx Alveo Management Function Driver
  *
- * Copyright (C) 2021 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors: Sonal.Santan@xilinx.com
  */
@@ -34,25 +34,33 @@ static int xmgmt_download_bitstream(struct platform_device *pdev,
 				    const struct axlf *xclbin)
 
 {
-	struct hw_icap_bit_header bit_header = { 0 };
+	struct xclbin_bit_head_info bit_header = { 0 };
 	struct platform_device *icap_leaf = NULL;
 	struct xrt_icap_ioctl_wr arg;
 	char *bitstream = NULL;
+	u64 bit_len;
 	int ret;
 
-	ret = xrt_xclbin_get_section(xclbin, BITSTREAM, (void **)&bitstream, NULL);
+	ret = xrt_xclbin_get_section(DEV(pdev), xclbin, BITSTREAM, (void **)&bitstream, &bit_len);
 	if (ret || !bitstream) {
 		xrt_err(pdev, "bitstream not found");
 		return -ENOENT;
 	}
-	ret = xrt_xclbin_parse_bitstream_header(bitstream,
-						DMA_HWICAP_BITFILE_BUFFER_SIZE,
+	ret = xrt_xclbin_parse_bitstream_header(DEV(pdev), bitstream,
+						XCLBIN_HWICAP_BITFILE_BUF_SZ,
 						&bit_header);
 	if (ret) {
 		ret = -EINVAL;
 		xrt_err(pdev, "invalid bitstream header");
 		goto done;
 	}
+	if (bit_header.header_length + bit_header.bitstream_length > bit_len) {
+		ret = -EINVAL;
+		xrt_err(pdev, "invalid bitstream length. header %d, bitstream %d, section len %lld",
+			bit_header.header_length, bit_header.bitstream_length, bit_len);
+		goto done;
+	}
+
 	icap_leaf = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_ICAP, PLATFORM_DEVID_NONE);
 	if (!icap_leaf) {
 		ret = -ENODEV;
@@ -92,11 +100,11 @@ static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 	if (count < sizeof(struct axlf))
 		return -EINVAL;
 
-	if (count > bin->m_header.m_length)
+	if (count > bin->header.length)
 		return -EINVAL;
 
 	xrt_info(obj->pdev, "Prepare download of xclbin %pUb of length %lld B",
-		 &bin->m_header.uuid, bin->m_header.m_length);
+		 &bin->header.uuid, bin->header.length);
 
 	return 0;
 }
@@ -113,7 +121,7 @@ static int xmgmt_pr_write(struct fpga_manager *mgr,
 	const struct axlf *bin = (const struct axlf *)buf;
 	struct xfpga_class *obj = mgr->priv;
 
-	if (bin->m_header.m_length != count)
+	if (bin->header.length != count)
 		return -EINVAL;
 
 	return xmgmt_download_bitstream((void *)obj->pdev, bin);
@@ -126,7 +134,7 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 	struct xfpga_class *obj = mgr->priv;
 
 	xrt_info(obj->pdev, "Finished download of xclbin %pUb",
-		 &bin->m_header.uuid);
+		 &bin->header.uuid);
 	return 0;
 }
 

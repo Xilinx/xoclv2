@@ -1277,7 +1277,7 @@ static struct xrt_subdev_endpoints xrt_qspi_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
 			{
-				.ep_name = NODE_FLASH_VSEC,
+				.ep_name = XRT_MD_NODE_FLASH_VSEC,
 			},
 			{ NULL },
 		},

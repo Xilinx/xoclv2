@@ -236,7 +236,7 @@ static int xrt_test_close(struct inode *inode, struct file *file)
 static struct xrt_subdev_endpoints xrt_test_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
-			{ .ep_name = NODE_TEST },
+			{ .ep_name = XRT_MD_NODE_TEST },
 			{ NULL },
 		},
 		.xse_min_ep = 1,

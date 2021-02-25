@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA VSEC Driver
  *
- * Copyright (C) 2021 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
@@ -72,25 +72,25 @@ struct vsec_device {
 static struct vsec_device vsec_devs[] = {
 	{
 		.type = VSEC_TYPE_UUID,
-		.ep_name = NODE_BLP_ROM,
+		.ep_name = XRT_MD_NODE_BLP_ROM,
 		.size = VSEC_UUID_LEN,
 		.regmap = "vsec-uuid",
 	},
 	{
 		.type = VSEC_TYPE_FLASH,
-		.ep_name = NODE_FLASH_VSEC,
+		.ep_name = XRT_MD_NODE_FLASH_VSEC,
 		.size = 4096,
 		.regmap = "vsec-flash",
 	},
 	{
 		.type = VSEC_TYPE_PLATINFO,
-		.ep_name = NODE_PLAT_INFO,
+		.ep_name = XRT_MD_NODE_PLAT_INFO,
 		.size = 4,
 		.regmap = "vsec-platinfo",
 	},
 	{
 		.type = VSEC_TYPE_MAILBOX,
-		.ep_name = NODE_MAILBOX_VSEC,
+		.ep_name = XRT_MD_NODE_MAILBOX_VSEC,
 		.size = 48,
 		.regmap = "vsec-mbx",
 	},
@@ -198,7 +198,19 @@ static int xrt_vsec_create_metadata(struct xrt_vsec *vsec)
 
 static int xrt_vsec_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	return 0;
+	int ret = 0;
+
+	switch (cmd) {
+	case XRT_XLEAF_EVENT:
+		/* Does not handle any event. */
+		break;
+	default:
+		ret = -EINVAL;
+		xrt_err(pdev, "should never been called");
+		break;
+	}
+
+	return ret;
 }
 
 static int xrt_vsec_mapio(struct xrt_vsec *vsec)
@@ -210,20 +222,20 @@ static int xrt_vsec_mapio(struct xrt_vsec *vsec)
 	ulong addr;
 	int ret;
 
-	if (!pdata || xrt_md_size(DEV(vsec->pdev), pdata->xsp_dtb) <= 0) {
+	if (!pdata || xrt_md_size(DEV(vsec->pdev), pdata->xsp_dtb) == XRT_MD_INVALID_LENGTH) {
 		xrt_err(vsec->pdev, "empty metadata");
 		return -EINVAL;
 	}
 
-	ret = xrt_md_get_prop(DEV(vsec->pdev), pdata->xsp_dtb, NODE_VSEC,
-			      NULL, PROP_BAR_IDX, (const void **)&bar, NULL);
+	ret = xrt_md_get_prop(DEV(vsec->pdev), pdata->xsp_dtb, XRT_MD_NODE_VSEC,
+			      NULL, XRT_MD_PROP_BAR_IDX, (const void **)&bar, NULL);
 	if (ret) {
 		xrt_err(vsec->pdev, "failed to get bar idx, ret %d", ret);
 		return -EINVAL;
 	}
 
-	ret = xrt_md_get_prop(DEV(vsec->pdev), pdata->xsp_dtb, NODE_VSEC,
-			      NULL, PROP_OFFSET, (const void **)&bar_off, NULL);
+	ret = xrt_md_get_prop(DEV(vsec->pdev), pdata->xsp_dtb, XRT_MD_NODE_VSEC,
+			      NULL, XRT_MD_PROP_OFFSET, (const void **)&bar_off, NULL);
 	if (ret) {
 		xrt_err(vsec->pdev, "failed to get bar off, ret %d", ret);
 		return -EINVAL;
@@ -310,7 +322,7 @@ failed:
 static struct xrt_subdev_endpoints xrt_vsec_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
-			{ .ep_name = NODE_VSEC },
+			{ .ep_name = XRT_MD_NODE_VSEC },
 			{ NULL },
 		},
 		.xse_min_ep = 1,

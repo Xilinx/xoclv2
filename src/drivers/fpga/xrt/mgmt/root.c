@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo Management Function Driver
  *
- * Copyright (C) 2021 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
@@ -47,8 +47,6 @@ struct xmgmt {
 	struct pci_dev *pdev;
 	void *root;
 
-	/* save config for pci reset */
-	u32 saved_config[8][16];
 	bool ready;
 };
 
@@ -85,14 +83,6 @@ static int xmgmt_config_pci(struct xmgmt *xm)
 	return 0;
 }
 
-static void xmgmt_save_config_space(struct pci_dev *pdev, u32 *saved_config)
-{
-	int i;
-
-	for (i = 0; i < 16; i++)
-		pci_read_config_dword(pdev, i * 4, &saved_config[i]);
-}
-
 static int xmgmt_match_slot_and_save(struct device *dev, void *data)
 {
 	struct xmgmt *xm = data;
@@ -101,7 +91,6 @@ static int xmgmt_match_slot_and_save(struct device *dev, void *data)
 	if (XMGMT_DEV_ID(pdev) == XMGMT_DEV_ID(xm->pdev)) {
 		pci_cfg_access_lock(pdev);
 		pci_save_state(pdev);
-		xmgmt_save_config_space(pdev, xm->saved_config[PCI_FUNC(pdev->devfn)]);
 	}
 
 	return 0;
@@ -112,31 +101,12 @@ static void xmgmt_pci_save_config_all(struct xmgmt *xm)
 	bus_for_each_dev(&pci_bus_type, NULL, xm, xmgmt_match_slot_and_save);
 }
 
-static void xmgmt_restore_config_space(struct pci_dev *pdev, u32 *config_saved)
-{
-	int i;
-	u32 val;
-
-	for (i = 0; i < 16; i++) {
-		pci_read_config_dword(pdev, i * 4, &val);
-		if (val == config_saved[i])
-			continue;
-
-		pci_write_config_dword(pdev, i * 4, config_saved[i]);
-		pci_read_config_dword(pdev, i * 4, &val);
-		if (val != config_saved[i])
-			dev_err(&pdev->dev, "restore config at %d failed", i * 4);
-	}
-}
-
 static int xmgmt_match_slot_and_restore(struct device *dev, void *data)
 {
 	struct xmgmt *xm = data;
 	struct pci_dev *pdev = to_pci_dev(dev);
 
 	if (XMGMT_DEV_ID(pdev) == XMGMT_DEV_ID(xm->pdev)) {
-		xmgmt_restore_config_space(pdev, xm->saved_config[PCI_FUNC(pdev->devfn)]);
-
 		pci_restore_state(pdev);
 		pci_cfg_access_unlock(pdev);
 	}
@@ -226,9 +196,9 @@ static int xmgmt_create_root_metadata(struct xmgmt *xm, char **root_dtb)
 		 * Try vsec-golden which will bring up all hard-coded leaves
 		 * at hard-coded offsets.
 		 */
-		ret = xroot_add_simple_node(xm->root, dtb, NODE_VSEC_GOLDEN);
+		ret = xroot_add_simple_node(xm->root, dtb, XRT_MD_NODE_VSEC_GOLDEN);
 	} else if (ret == 0) {
-		ret = xroot_add_simple_node(xm->root, dtb, NODE_MGMT_MAIN);
+		ret = xroot_add_simple_node(xm->root, dtb, XRT_MD_NODE_MGMT_MAIN);
 	}
 	if (ret)
 		goto failed;

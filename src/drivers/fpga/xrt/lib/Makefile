@@ -29,7 +29,6 @@ xrt-lib-y := 			\
 	main.o			\
 	xroot.o			\
 	xclbin.o		\
-	metadata.o		\
 	subdev.o		\
 	cdev.o			\
 	group.o			\
@@ -37,7 +36,7 @@ xrt-lib-y := 			\
 	xleaf/vsec-golden.o	\
 	xleaf/axigate.o	\
 	xleaf/qspi.o		\
-	xleaf/gpio.o		\
+	xleaf/devctl.o		\
 	xleaf/mailbox.o	\
 	xleaf/icap.o		\
 	xleaf/cmc.o		\
@@ -51,6 +50,7 @@ xrt-lib-y := 			\
 	xleaf/clkfreq.o	\
 	xleaf/ucs.o		\
 	xleaf/calib.o		\
+	../metadata/metadata.o	\
 	$(fdtobj)
 
 

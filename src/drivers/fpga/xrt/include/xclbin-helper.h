@@ -1,52 +1,50 @@
-/* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Xilinx Kernel Driver XCLBIN parser
+ * Header file for Xilinx Runtime (XRT) driver
  *
- * Copyright (C) 2021 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *    David Zhang <davidzha@xilinx.com>
  *    Sonal Santan <sonal.santan@xilinx.com>
  */
 
-#ifndef _XRT_XCLBIN_H
-#define _XRT_XCLBIN_H
+#ifndef _XCLBIN_HELPER_H_
+#define _XCLBIN_HELPER_H_
 
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/xrt/xclbin.h>
 
-#define ICAP_XCLBIN_V2	"xclbin2"
-#define DMA_HWICAP_BITFILE_BUFFER_SIZE 1024
-#define MAX_XCLBIN_SIZE (1024 * 1024 * 1024) /* Assuming xclbin <= 1G, always */
+#define XCLBIN_VERSION2	"xclbin2"
+#define XCLBIN_HWICAP_BITFILE_BUF_SZ 1024
+#define XCLBIN_MAX_SIZE (1024 * 1024 * 1024) /* Assuming xclbin <= 1G, always */
 
 enum axlf_section_kind;
 struct axlf;
 
 /**
  * Bitstream header information as defined by Xilinx tools.
- * Please note that this struct definition is not owned by the driver and
- * hence it does not use Linux coding style.
+ * Please note that this struct definition is not owned by the driver.
  */
-struct hw_icap_bit_header {
-	unsigned int header_length;     /* Length of header in 32 bit words */
-	unsigned int bitstream_length;  /* Length of bitstream to read in bytes*/
-	unsigned char *design_name;     /* Design name get from bitstream */
-	unsigned char *part_name;       /* Part name read from bitstream */
-	unsigned char *date;           /* Date read from bitstream header */
-	unsigned char *time;           /* Bitstream creation time*/
-	unsigned int magic_length;      /* Length of the magic numbers*/
+struct xclbin_bit_head_info {
+	u32 header_length;		/* Length of header in 32 bit words */
+	u32 bitstream_length;		/* Length of bitstream to read in bytes */
+	const unchar *design_name;	/* Design name get from bitstream */
+	const unchar *part_name;	/* Part name read from bitstream */
+	const unchar *date;		/* Date read from bitstream header */
+	const unchar *time;		/* Bitstream creation time */
+	u32 magic_length;		/* Length of the magic numbers */
+	const unchar *version;		/* Version string */
 };
 
-const char *xrt_xclbin_kind_to_string(enum axlf_section_kind kind);
-int xrt_xclbin_get_section(const struct axlf *xclbin,
+/* caller must free the allocated memory for **data */
+int xrt_xclbin_get_section(struct device *dev,  const struct axlf *xclbin,
 			   enum axlf_section_kind kind, void **data,
 			   uint64_t *len);
 int xrt_xclbin_get_metadata(struct device *dev, const struct axlf *xclbin, char **dtb);
-int xrt_xclbin_parse_bitstream_header(const unsigned char *data,
-				      unsigned int size,
-				      struct hw_icap_bit_header *header);
-void xrt_xclbin_free_header(struct hw_icap_bit_header *header);
+int xrt_xclbin_parse_bitstream_header(struct device *dev, const unchar *data,
+				      u32 size, struct xclbin_bit_head_info *head_info);
 const char *xrt_clock_type2epname(enum CLOCK_TYPE type);
 
-#endif /* _XRT_XCLBIN_H */
+#endif /* _XCLBIN_HELPER_H_ */

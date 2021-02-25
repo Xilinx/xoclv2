@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA Group Driver
  *
- * Copyright (C) 2021 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
@@ -58,7 +58,7 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 	enum xrt_subdev_id did;
 	struct xrt_subdev_endpoints *eps = NULL;
 	int ep_count = 0, i, ret = 0, failed = 0;
-	long mlen;
+	unsigned long mlen;
 	char *dtb, *grp_dtb = NULL;
 	const char *ep_name;
 
@@ -76,7 +76,7 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 		goto bail;
 
 	mlen = xrt_md_size(DEV(xg->pdev), pdata->xsp_dtb);
-	if (mlen <= 0) {
+	if (mlen == XRT_MD_INVALID_LENGTH) {
 		xrt_err(xg->pdev, "invalid dtb, len %ld", mlen);
 		goto bail;
 	}
@@ -104,10 +104,10 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 		     eps->xse_names[i].regmap_name; i++) {
 			ep_name = (char *)eps->xse_names[i].ep_name;
 			if (!ep_name) {
-				xrt_md_get_compatible_epname(DEV(xg->pdev),
-							     grp_dtb,
-							     eps->xse_names[i].regmap_name,
-							     &ep_name);
+				xrt_md_get_compatible_endpoint(DEV(xg->pdev),
+							       grp_dtb,
+							       eps->xse_names[i].regmap_name,
+							       &ep_name);
 			}
 			if (!ep_name)
 				continue;
@@ -132,7 +132,9 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 					xrt_drv_name(did), ret);
 			}
 		} else if (ep_count > 0) {
-			xrt_md_copy_all_eps(DEV(xg->pdev), grp_dtb, dtb);
+			/* copy all endpoints */
+			xrt_md_copy_endpoint(DEV(xg->pdev), grp_dtb, dtb,
+					     XRT_MD_NODE_ENDPOINTS, NULL, NULL);
 		}
 		vfree(dtb);
 		ep_count = 0;

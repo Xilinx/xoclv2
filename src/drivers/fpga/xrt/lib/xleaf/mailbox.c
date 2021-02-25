@@ -1817,7 +1817,7 @@ failed:
 static struct xrt_subdev_endpoints xrt_mailbox_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
-			{ .ep_name = NODE_MAILBOX_VSEC},
+			{ .ep_name = XRT_MD_NODE_MAILBOX_VSEC},
 			{ NULL },
 		},
 		.xse_min_ep = 1,

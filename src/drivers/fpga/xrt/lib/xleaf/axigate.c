@@ -2,7 +2,7 @@
 /*
  * Xilinx Alveo FPGA AXI Gate Driver
  *
- * Copyright (C) 2021 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
@@ -38,8 +38,8 @@ struct xrt_axigate {
 
 /* the ep names are in the order of hardware layers */
 static const char * const xrt_axigate_epnames[] = {
-	NODE_GATE_PLP,
-	NODE_GATE_ULP,
+	XRT_MD_NODE_GATE_PLP,
+	XRT_MD_NODE_GATE_ULP,
 	NULL
 };
 
@@ -84,7 +84,8 @@ static int xrt_axigate_epname_idx(struct platform_device *pdev)
 			break;
 	}
 
-	return (xrt_axigate_epnames[i]) ? i : -EINVAL;
+	ret = (xrt_axigate_epnames[i]) ? i : -EINVAL;
+	return ret;
 }
 
 static void xrt_axigate_freeze(struct platform_device *pdev)

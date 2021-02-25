@@ -2,10 +2,12 @@
 /*
  * Xilinx Alveo FPGA Clock Wizard Driver
  *
- * Copyright (C) 2021 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
+ *      Sonal Santan <sonals@xilinx.com>
+ *      David Zhang <davidzha@xilinx.com>
  */
 
 #include <linux/mod_devicetable.h>
@@ -260,7 +262,7 @@ static inline int clock_wiz_busy(struct clock *clock, int cycle, int interval)
 static int get_freq(struct clock *clock, u16 *freq)
 {
 #define XCL_INPUT_FREQ 100
-	const u64 input = XCL_INPUT_FREQ;
+	u64 input = XCL_INPUT_FREQ;
 	u32 val;
 	u32 mul0, div0;
 	u32 mul_frac0 = 0;
@@ -315,7 +317,9 @@ static int get_freq(struct clock *clock, u16 *freq)
 		return 0;
 	}
 
-	*freq = (u16)((input * mul0) / div0);
+	input *= mul0;
+	do_div(input, div0);
+	*freq = (u16)input;
 
 	return 0;
 }
@@ -375,7 +379,7 @@ static int get_freq_counter(struct clock *clock, u32 *freq)
 	struct platform_device *pdev = clock->pdev;
 	struct xrt_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
 	int err = xrt_md_get_prop(DEV(pdev), pdata->xsp_dtb,
-		clock->clock_ep_name, NULL, PROP_CLK_CNT, &cnter, NULL);
+		clock->clock_ep_name, NULL, XRT_MD_PROP_CLK_CNT, &cnter, NULL);
 
 	WARN_ON(!mutex_is_locked(&clock->clock_lock));
 
@@ -470,7 +474,7 @@ static int clock_init(struct clock *clock)
 	const u16 *freq;
 
 	err = xrt_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
-			      clock->clock_ep_name, NULL, PROP_CLK_FREQ,
+			      clock->clock_ep_name, NULL, XRT_MD_PROP_CLK_FREQ,
 		(const void **)&freq, NULL);
 	if (err) {
 		xrt_info(clock->pdev, "no default freq");

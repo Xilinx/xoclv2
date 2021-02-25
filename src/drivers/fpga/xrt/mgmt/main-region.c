@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Xilinx Alveo Management Function Driver
+ * FPGA Region Support for Xilinx Alveo Management Function Driver
  *
- * Copyright (C) 2021 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
+ * Bulk of the code borrowed from XRT mgmt driver file, fmgr.c
  *
  * Authors: Lizhi.Hou@xilinx.com
  */
@@ -98,13 +99,13 @@ static struct fpga_bridge *xmgmt_create_bridge(struct platform_device *pdev,
 		return NULL;
 	br_data->pdev = pdev;
 
-	br_data->axigate_name = NODE_GATE_ULP;
-	rc = xrt_md_get_epname_pointer(&pdev->dev, dtb, NODE_GATE_ULP,
-				       NULL, &gate);
+	br_data->axigate_name = XRT_MD_NODE_GATE_ULP;
+	rc = xrt_md_find_endpoint(&pdev->dev, dtb, XRT_MD_NODE_GATE_ULP,
+				  NULL, &gate);
 	if (rc) {
-		br_data->axigate_name = NODE_GATE_PLP;
-		rc = xrt_md_get_epname_pointer(&pdev->dev, dtb, NODE_GATE_PLP,
-					       NULL, &gate);
+		br_data->axigate_name = XRT_MD_NODE_GATE_PLP;
+		rc = xrt_md_find_endpoint(&pdev->dev, dtb, XRT_MD_NODE_GATE_PLP,
+					  NULL, &gate);
 	}
 	if (rc) {
 		xrt_err(pdev, "failed to get axigate, rc %d", rc);
@@ -303,7 +304,7 @@ static int xmgmt_region_program(struct fpga_region *re, const void *xclbin, char
 		return -ENOMEM;
 
 	info->buf = xclbin;
-	info->count = xclbin_obj->m_header.m_length;
+	info->count = xclbin_obj->header.length;
 	info->flags |= FPGA_MGR_PARTIAL_RECONFIG;
 	re->info = info;
 	rc = fpga_region_program_fpga(re);
@@ -368,12 +369,13 @@ int xmgmt_process_xclbin(struct platform_device *pdev,
 		goto failed;
 	}
 
-	xrt_md_get_intf_uuids(DEV(pdev), dtb, &arg.uuid_num, NULL);
-	if (arg.uuid_num == 0) {
+	rc = xrt_md_get_interface_uuids(DEV(pdev), dtb, 0, NULL);
+	if (arg.uuid_num < 0) {
 		xrt_err(pdev, "failed to get intf uuid");
 		rc = -EINVAL;
 		goto failed;
 	}
+	arg.uuid_num = rc;
 	arg.uuids = vzalloc(sizeof(uuid_t) * arg.uuid_num);
 	if (!arg.uuids) {
 		rc = -ENOMEM;
@@ -381,7 +383,7 @@ int xmgmt_process_xclbin(struct platform_device *pdev,
 	}
 	arg.pdev = pdev;
 
-	xrt_md_get_intf_uuids(DEV(pdev), dtb, &arg.uuid_num, arg.uuids);
+	xrt_md_get_interface_uuids(DEV(pdev), dtb, arg.uuid_num, arg.uuids);
 
 	/* if this is not base firmware, search for a compatible region */
 	if (kind != XMGMT_BLP) {

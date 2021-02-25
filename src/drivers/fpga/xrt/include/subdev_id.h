@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2021 Xilinx, Inc.
+ * Header file for Xilinx Runtime (XRT) driver
+ *
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
@@ -21,7 +23,7 @@ enum xrt_subdev_id {
 	XRT_SUBDEV_GRP = 0,
 	XRT_SUBDEV_VSEC = 1,
 	XRT_SUBDEV_VSEC_GOLDEN = 2,
-	XRT_SUBDEV_GPIO = 3,
+	XRT_SUBDEV_DEVCTL = 3,
 	XRT_SUBDEV_AXIGATE = 4,
 	XRT_SUBDEV_ICAP = 5,
 	XRT_SUBDEV_TEST = 6,

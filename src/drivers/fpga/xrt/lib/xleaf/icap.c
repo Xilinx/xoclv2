@@ -2,10 +2,12 @@
 /*
  * Xilinx Alveo FPGA ICAP Driver
  *
- * Copyright (C) 2021 Xilinx, Inc.
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
+ *      Sonal Santan <sonals@xilinx.com>
+ *      Max Zhen <maxz@xilinx.com>
  */
 
 #include <linux/mod_devicetable.h>
@@ -147,15 +149,15 @@ static int bitstream_helper(struct icap *icap, const u32 *word_buffer,
 static int icap_download(struct icap *icap, const char *buffer,
 			 unsigned long length)
 {
-	u32	num_chars_read = DMA_HWICAP_BITFILE_BUFFER_SIZE;
+	u32	num_chars_read = XCLBIN_HWICAP_BITFILE_BUF_SZ;
 	u32	byte_read;
 	int	err = 0;
 
 	mutex_lock(&icap->icap_lock);
 	for (byte_read = 0; byte_read < length; byte_read += num_chars_read) {
 		num_chars_read = length - byte_read;
-		if (num_chars_read > DMA_HWICAP_BITFILE_BUFFER_SIZE)
-			num_chars_read = DMA_HWICAP_BITFILE_BUFFER_SIZE;
+		if (num_chars_read > XCLBIN_HWICAP_BITFILE_BUF_SZ)
+			num_chars_read = XCLBIN_HWICAP_BITFILE_BUF_SZ;
 
 		err = bitstream_helper(icap, (u32 *)buffer, num_chars_read / sizeof(u32));
 		if (err)
@@ -278,7 +280,7 @@ failed:
 static struct xrt_subdev_endpoints xrt_icap_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names[]) {
-			{ .ep_name = NODE_FPGA_CONFIG },
+			{ .ep_name = XRT_MD_NODE_FPGA_CONFIG },
 			{ NULL },
 		},
 		.xse_min_ep = 1,

@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2021 Xilinx, Inc.
+ * Driver for Xilinx Alveo FPGA Support
+ *
+ * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
 #include <linux/module.h>
+#include <linux/vmalloc.h>
 #include "xleaf.h"
 #include "xroot.h"
 #include "main.h"
@@ -206,8 +209,10 @@ void xrt_drv_put_instance(enum xrt_subdev_id id, int instance)
 struct xrt_subdev_endpoints *xrt_drv_get_endpoints(enum xrt_subdev_id id)
 {
 	struct xrt_drv_map *map = xrt_drv_find_map_by_id(id);
+	struct xrt_subdev_endpoints *eps;
 
-	return map ? map->eps : NULL;
+	eps = map ? map->eps : NULL;
+	return eps;
 }
 
 /* Leaf driver's module init/fini callbacks. */
@@ -215,7 +220,7 @@ static void (*leaf_init_fini_cbs[])(bool) = {
 	group_leaf_init_fini,
 	vsec_leaf_init_fini,
 	vsec_golden_leaf_init_fini,
-	gpio_leaf_init_fini,
+	devctl_leaf_init_fini,
 	axigate_leaf_init_fini,
 	icap_leaf_init_fini,
 	calib_leaf_init_fini,
