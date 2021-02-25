@@ -211,6 +211,24 @@ failed:
 }
 EXPORT_SYMBOL_GPL(xrt_md_create);
 
+char *xrt_md_dup(struct device *dev, const char *blob)
+{
+	int ret;
+	char *dup_blob;
+
+	ret = xrt_md_create(dev, &dup_blob);
+	if (ret)
+		return NULL;
+	ret = xrt_md_overlay(dev, dup_blob, -1, blob, -1, 0);
+	if (ret) {
+		vfree(dup_blob);
+		return NULL;
+	}
+
+	return dup_blob;
+}
+EXPORT_SYMBOL_GPL(xrt_md_dup);
+
 int xrt_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
 			char *regmap_name)
 {
@@ -347,18 +365,18 @@ int xrt_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
 	int offset;
 	int ret;
 
-	if (*val) {
+	if (!val) {
 		dev_err(dev, "val is null");
 		return -EINVAL;
 	}
 
-	**val = NULL;
+	*val = NULL;
 	ret = xrt_md_get_node(dev, blob, ep_name, regmap_name, &offset);
 	if (ret)
 		return ret;
 
-	**val = fdt_getprop(blob, offset, prop, size);
-	if (!**val) {
+	*val = fdt_getprop(blob, offset, prop, size);
+	if (!*val) {
 		dev_dbg(dev, "get ep %s, prop %s failed", ep_name, prop);
 		return -EINVAL;
 	}
