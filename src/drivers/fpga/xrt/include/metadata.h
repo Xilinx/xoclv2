@@ -164,6 +164,7 @@ xrt_md_res_id2name(const struct xrt_iores_map *res_map, int entry_num, int id)
 
 unsigned long xrt_md_size(struct device *dev, const char *blob);
 int xrt_md_create(struct device *dev, char **blob);
+char *xrt_md_dup(struct device *dev, const char *blob);
 int xrt_md_add_endpoint(struct device *dev, char *blob,
 			struct xrt_md_endpoint *ep);
 int xrt_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,

@@ -49,9 +49,9 @@ char *xmgmt_get_vbnv(struct platform_device *pdev)
 	int i;
 
 	if (xmm->firmware_plp)
-		vbnv = xmm->firmware_plp->m_header.m_platform_vbnv;
+		vbnv = xmm->firmware_plp->header.platform_vbnv;
 	else if (xmm->firmware_blp)
-		vbnv = xmm->firmware_blp->m_header.m_platform_vbnv;
+		vbnv = xmm->firmware_blp->header.platform_vbnv;
 	else
 		return NULL;
 
@@ -195,14 +195,14 @@ static ssize_t ulp_image_write(struct file *filp, struct kobject *kobj,
 			xmm->firmware_ulp = NULL;
 		}
 		xclbin = (struct axlf *)buffer;
-		xmm->firmware_ulp = vmalloc(xclbin->m_header.m_length);
+		xmm->firmware_ulp = vmalloc(xclbin->header.length);
 		if (!xmm->firmware_ulp)
 			return -ENOMEM;
 	} else {
 		xclbin = xmm->firmware_ulp;
 	}
 
-	len = xclbin->m_header.m_length;
+	len = xclbin->header.length;
 	if (off + count >= len && off < len) {
 		memcpy(xmm->firmware_ulp + off, buffer, len - off);
 		xmgmt_process_xclbin(xmm->pdev, xmm->fmgr, xmm->firmware_ulp, XMGMT_ULP);
@@ -394,7 +394,7 @@ static bool is_valid_firmware(struct platform_device *pdev,
 			      const struct axlf *xclbin, size_t fw_len)
 {
 	const char *fw_buf = (const char *)xclbin;
-	size_t axlflen = xclbin->m_header.m_length;
+	size_t axlflen = xclbin->header.length;
 	const char *fw_uuid;
 	char dev_uuid[80];
 	int err;
@@ -477,7 +477,7 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 			xmm->blp_intf_uuid_num = rc;
 			xmm->blp_intf_uuids = vzalloc(sizeof(uuid_t) * xmm->blp_intf_uuid_num);
 			xrt_md_get_interface_uuids(&pdev->dev, dtb, xmm->blp_intf_uuid_num,
-					      xmm->blp_intf_uuids);
+						   xmm->blp_intf_uuids);
 		}
 	}
 
@@ -684,11 +684,11 @@ int bitstream_axlf_mailbox(struct platform_device *pdev, const void *axlf)
 	const struct axlf *xclbin_obj = axlf;
 	int ret = 0;
 
-	if (memcmp(xclbin_obj->m_magic, ICAP_XCLBIN_V2, sizeof(ICAP_XCLBIN_V2)))
+	if (memcmp(xclbin_obj->magic, XCLBIN_VERSION2, sizeof(XCLBIN_VERSION2)))
 		return -EINVAL;
 
-	copy_buffer_size = xclbin_obj->m_header.m_length;
-	if (copy_buffer_size > MAX_XCLBIN_SIZE)
+	copy_buffer_size = xclbin_obj->header.length;
+	if (copy_buffer_size > XCLBIN_MAX_SIZE)
 		return -EINVAL;
 	copy_buffer = vmalloc(copy_buffer_size);
 	if (!copy_buffer)
@@ -715,10 +715,10 @@ static int bitstream_axlf_ioctl(struct xmgmt_main *xmm, const void __user *arg)
 		return -EFAULT;
 	if (copy_from_user((void *)&xclbin_obj, ioc_obj.xclbin, sizeof(xclbin_obj)))
 		return -EFAULT;
-	if (memcmp(xclbin_obj.m_magic, XCLBIN_VERSION2, sizeof(XCLBIN_VERSION2)))
+	if (memcmp(xclbin_obj.magic, XCLBIN_VERSION2, sizeof(XCLBIN_VERSION2)))
 		return -EINVAL;
 
-	copy_buffer_size = xclbin_obj.m_header.m_length;
+	copy_buffer_size = xclbin_obj.header.length;
 	if (copy_buffer_size > XCLBIN_MAX_SIZE)
 		return -EINVAL;
 	copy_buffer = vmalloc(copy_buffer_size);

@@ -14,7 +14,7 @@
 #include "xclbin-helper.h"
 #include "metadata.h"
 #include "xleaf/flash.h"
-#include "xleaf/gpio.h"
+#include "xleaf/devctl.h"
 #include "xleaf/test.h"
 #include "xmgmt-main.h"
 #include "main-impl.h"
@@ -241,7 +241,7 @@ static int selftest1_main_close(struct inode *inode, struct file *file)
 static struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names []){
-			{ .ep_name = NODE_MGMT_MAIN },
+			{ .ep_name = XRT_MD_NODE_MGMT_MAIN },
 			{ NULL },
 		},
 		.xse_min_ep = 1,

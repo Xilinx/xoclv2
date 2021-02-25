@@ -153,17 +153,17 @@ static int selftest1_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		goto failed;
 
-	ret = selftest1_create_group(xm, NODE_TEST);
+	ret = selftest1_create_group(xm, XRT_MD_NODE_TEST);
 
 	if (ret)
 		goto failed_metadata;
 
-	ret = selftest1_create_group(xm, NODE_TEST);
+	ret = selftest1_create_group(xm, XRT_MD_NODE_TEST);
 
 	if (ret)
 		goto failed_metadata;
 
-	ret = selftest1_create_group(xm, NODE_MGMT_MAIN);
+	ret = selftest1_create_group(xm, XRT_MD_NODE_MGMT_MAIN);
 
 	if (ret)
 		goto failed_metadata;

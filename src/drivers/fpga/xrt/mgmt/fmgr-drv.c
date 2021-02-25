@@ -100,11 +100,11 @@ static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 	if (count < sizeof(struct axlf))
 		return -EINVAL;
 
-	if (count > bin->m_header.m_length)
+	if (count > bin->header.length)
 		return -EINVAL;
 
 	xrt_info(obj->pdev, "Prepare download of xclbin %pUb of length %lld B",
-		 &bin->m_header.uuid, bin->m_header.m_length);
+		 &bin->header.uuid, bin->header.length);
 
 	return 0;
 }
@@ -121,7 +121,7 @@ static int xmgmt_pr_write(struct fpga_manager *mgr,
 	const struct axlf *bin = (const struct axlf *)buf;
 	struct xfpga_class *obj = mgr->priv;
 
-	if (bin->m_header.m_length != count)
+	if (bin->header.length != count)
 		return -EINVAL;
 
 	return xmgmt_download_bitstream((void *)obj->pdev, bin);
@@ -134,7 +134,7 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 	struct xfpga_class *obj = mgr->priv;
 
 	xrt_info(obj->pdev, "Finished download of xclbin %pUb",
-		 &bin->m_header.uuid);
+		 &bin->header.uuid);
 	return 0;
 }
 

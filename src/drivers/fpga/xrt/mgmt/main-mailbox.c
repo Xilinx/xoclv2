@@ -150,7 +150,8 @@ static int xmgmt_mailbox_dtb_add_vbnv(struct platform_device *pdev, char *dtb)
 		xrt_err(pdev, "failed to get VBNV");
 		return -ENOENT;
 	}
-	rc = xmgmt_mailbox_dtb_add_prop(pdev, dtb, NULL, NULL, PROP_VBNV, vbnv, strlen(vbnv) + 1);
+	rc = xmgmt_mailbox_dtb_add_prop(pdev, dtb, NULL, NULL, XRT_MD_PROP_VBNV,
+					vbnv, strlen(vbnv) + 1);
 	kfree(vbnv);
 	return rc;
 }
@@ -160,13 +161,14 @@ static int xmgmt_mailbox_dtb_copy_logic_uuid(struct platform_device *pdev,
 {
 	const void *val;
 	int sz;
-	int rc = xrt_md_get_prop(DEV(pdev), src_dtb, NULL, NULL, PROP_LOGIC_UUID, &val, &sz);
+	int rc = xrt_md_get_prop(DEV(pdev), src_dtb, NULL, NULL, XRT_MD_PROP_LOGIC_UUID, &val, &sz);
 
 	if (rc) {
-		xrt_err(pdev, "failed to get %s: %d", PROP_LOGIC_UUID, rc);
+		xrt_err(pdev, "failed to get %s: %d", XRT_MD_PROP_LOGIC_UUID, rc);
 		return rc;
 	}
-	return xmgmt_mailbox_dtb_add_prop(pdev, dst_dtb, NULL, NULL, PROP_LOGIC_UUID, val, sz);
+	return xmgmt_mailbox_dtb_add_prop(pdev, dst_dtb, NULL, NULL,
+					  XRT_MD_PROP_LOGIC_UUID, val, sz);
 }
 
 static int xmgmt_mailbox_dtb_add_vrom(struct platform_device *pdev,
@@ -216,15 +218,17 @@ static int xmgmt_mailbox_dtb_add_vrom(struct platform_device *pdev,
 	kfree(vbnv);
 
 	header.feature_bitmap = UNIFIED_PLATFORM;
-	rc = xrt_md_get_prop(DEV(pdev), src_dtb, NODE_CMC_FW_MEM, NULL, PROP_IO_OFFSET, NULL, NULL);
+	rc = xrt_md_get_prop(DEV(pdev), src_dtb, XRT_MD_NODE_CMC_FW_MEM, NULL,
+			     XRT_MD_PROP_IO_OFFSET, NULL, NULL);
 	if (rc == 0)
 		header.feature_bitmap |= BOARD_MGMT_ENBLD;
-	rc = xrt_md_get_prop(DEV(pdev), src_dtb, NODE_ERT_FW_MEM, NULL, PROP_IO_OFFSET, NULL, NULL);
+	rc = xrt_md_get_prop(DEV(pdev), src_dtb, XRT_MD_NODE_ERT_FW_MEM, NULL,
+			     XRT_MD_PROP_IO_OFFSET, NULL, NULL);
 	if (rc == 0)
 		header.feature_bitmap |= MB_SCHEDULER;
 
 	return xmgmt_mailbox_dtb_add_prop(pdev, dst_dtb, NULL, NULL,
-					  PROP_VROM, &header, sizeof(header));
+					  XRT_MD_PROP_VROM, &header, sizeof(header));
 }
 
 static u32 xmgmt_mailbox_dtb_user_pf(struct platform_device *pdev,
@@ -232,7 +236,7 @@ static u32 xmgmt_mailbox_dtb_user_pf(struct platform_device *pdev,
 {
 	const u32 *pfnump;
 	int rc = xrt_md_get_prop(DEV(pdev), dtb, epname, regmap,
-				 PROP_PF_NUM, (const void **)&pfnump, NULL);
+				 XRT_MD_PROP_PF_NUM, (const void **)&pfnump, NULL);
 
 	if (rc)
 		return -1;
@@ -244,7 +248,7 @@ static int xmgmt_mailbox_dtb_copy_user_endpoints(struct platform_device *pdev,
 {
 	int rc = 0;
 	char *epname = NULL, *regmap = NULL;
-	u32 pfnum = xmgmt_mailbox_dtb_user_pf(pdev, src, NODE_MAILBOX_USER, NULL);
+	u32 pfnum = xmgmt_mailbox_dtb_user_pf(pdev, src, XRT_MD_NODE_MAILBOX_USER, NULL);
 	const u32 level = cpu_to_be32(1);
 	struct device *dev = DEV(pdev);
 
@@ -264,7 +268,7 @@ static int xmgmt_mailbox_dtb_copy_user_endpoints(struct platform_device *pdev,
 			xrt_err(pdev, "failed to copy (%s, %s): %d", epname, regmap, rc);
 		} else {
 			rc = xrt_md_set_prop(dev, dst, epname, regmap,
-					     PROP_PARTITION_LEVEL, &level, sizeof(level));
+					     XRT_MD_PROP_PARTITION_LEVEL, &level, sizeof(level));
 			if (rc) {
 				xrt_err(pdev, "can't set level for (%s, %s): %d",
 					epname, regmap, rc);
@@ -302,12 +306,12 @@ static char *xmgmt_mailbox_user_dtb(struct platform_device *pdev)
 	if (rc)
 		goto fail;
 
-	rc = xrt_md_copy_endpoint(dev, dst, src, NODE_PARTITION_INFO,
-				  NULL, NODE_PARTITION_INFO_BLP);
+	rc = xrt_md_copy_endpoint(dev, dst, src, XRT_MD_NODE_PARTITION_INFO,
+				  NULL, XRT_MD_NODE_PARTITION_INFO_BLP);
 	if (rc)
 		goto fail;
 
-	rc = xrt_md_copy_endpoint(dev, dst, src, NODE_INTERFACES, NULL, NULL);
+	rc = xrt_md_copy_endpoint(dev, dst, src, XRT_MD_NODE_INTERFACES, NULL, NULL);
 	if (rc)
 		goto fail;
 

@@ -347,18 +347,18 @@ int xrt_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
 	int offset;
 	int ret;
 
-	if (val) {
+	if (*val) {
 		dev_err(dev, "val is null");
 		return -EINVAL;
 	}
 
-	*val = NULL;
+	**val = NULL;
 	ret = xrt_md_get_node(dev, blob, ep_name, regmap_name, &offset);
 	if (ret)
 		return ret;
 
-	*val = fdt_getprop(blob, offset, prop, size);
-	if (!*val) {
+	**val = fdt_getprop(blob, offset, prop, size);
+	if (!**val) {
 		dev_dbg(dev, "get ep %s, prop %s failed", ep_name, prop);
 		return -EINVAL;
 	}
@@ -479,9 +479,6 @@ int xrt_md_pack(struct device *dev, char *blob)
 }
 EXPORT_SYMBOL_GPL(xrt_md_pack);
 
-/*
- * 
- */
 int xrt_md_get_interface_uuids(struct device *dev, const char *blob,
 			       u32 num_uuids, uuid_t *interface_uuids)
 {

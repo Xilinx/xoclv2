@@ -304,7 +304,7 @@ static int xmgmt_region_program(struct fpga_region *re, const void *xclbin, char
 		return -ENOMEM;
 
 	info->buf = xclbin;
-	info->count = xclbin_obj->m_header.m_length;
+	info->count = xclbin_obj->header.length;
 	info->flags |= FPGA_MGR_PARTIAL_RECONFIG;
 	re->info = info;
 	rc = fpga_region_program_fpga(re);
