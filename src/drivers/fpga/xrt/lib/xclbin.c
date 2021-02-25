@@ -17,14 +17,6 @@
 #define BITSTREAM_EVEN_MAGIC_BYTE	0x0f
 #define BITSTREAM_ODD_MAGIC_BYTE	0xf0
 
-#define XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size)		\
-	({							\
-		typeof(offset) _offset = offset++;		\
-		if (_offset >= size)				\
-			return -EINVAL;				\
-		tmp = data[_offset];				\
-	})
-
 static const struct axlf_section_header *
 xrt_xclbin_get_section_hdr(const struct axlf *xclbin,
 			   enum axlf_section_kind kind)
@@ -33,15 +25,17 @@ xrt_xclbin_get_section_hdr(const struct axlf *xclbin,
 	u64 xclbin_len;
 	int i = 0;
 
-	for (i = 0; i < xclbin->m_header.m_numSections; i++) {
-		if (xclbin->m_sections[i].m_sectionKind == kind)
-			header = &xclbin->m_sections[i];
+	for (i = 0; i < xclbin->header.num_sections; i++) {
+		if (xclbin->sections[i].section_kind == kind) {
+			header = &xclbin->sections[i];
+			break;
+		}
 	}
 
 	if (!header)
 		return NULL;
 
-	xclbin_len = xclbin->m_header.m_length;
+	xclbin_len = xclbin->header.length;
 	if (xclbin_len > XCLBIN_MAX_SIZE)
 		return NULL;
 
@@ -79,8 +73,8 @@ int xrt_xclbin_get_section(struct device *dev,
 	u64 size = 0;
 	int err = 0;
 
-	if (!data || !len) {
-		dev_err(dev, "invalid data or len pointer");
+	if (!data) {
+		dev_err(dev, "invalid data pointer");
 		return -EINVAL;
 	}
 
@@ -90,34 +84,39 @@ int xrt_xclbin_get_section(struct device *dev,
 		return err;
 	}
 
-	section = vmalloc(size);
+	section = vzalloc(size);
 	if (!section)
 		return -ENOMEM;
 
 	memcpy(section, ((const char *)xclbin) + offset, size);
 
 	*data = section;
-	*len = size;
+	if (len)
+		*len = size;
 
 	return 0;
 }
 EXPORT_SYMBOL_GPL(xrt_xclbin_get_section);
 
-static inline int xclbin_bit_get_string(const unchar *data, u32 size, u32 offset, unchar prefix, const unchar **str)
+static inline int xclbin_bit_get_string(const unchar *data, u32 size,
+					u32 offset, unchar prefix,
+					const unchar **str)
 {
 	int len;
 	u32 tmp;
 
+	/* prefix and length will be 3 bytes */
+	if (offset + 3  > size)
+		return -EINVAL;
+
 	/* Read prefix */
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
+	tmp = data[offset++];
 	if (tmp != prefix)
 		return -EINVAL;
 
 	/* Get string length */
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-	len = tmp;
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-	len = (len << 8) | tmp;
+	len = data[offset++];
+	len = (len << 8) | data[offset++];
 
 	if (offset + len > size)
 		return -EINVAL;
@@ -127,7 +126,7 @@ static inline int xclbin_bit_get_string(const unchar *data, u32 size, u32 offset
 
 	*str = data + offset;
 
-	return len;
+	return len + 3;
 }
 
 /* parse bitstream header */
@@ -137,46 +136,54 @@ int xrt_xclbin_parse_bitstream_header(struct device *dev, const unchar *data,
 	u32 offset = 0;
 	int len, i;
 	u16 magic;
-	unchar tmp;
 
 	memset(head_info, 0, sizeof(*head_info));
 
-	/* Get "Magic" length, XCLBIN_BIT_NEXT_BYTE increase offset by 1 */
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-	head_info->magic_length = tmp;
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-	head_info->magic_length = (head_info->magic_length << 8) | tmp;
+	/* Get "Magic" length */
+	if (size < sizeof(u16)) {
+		dev_err(dev, "invalid size");
+		return -EINVAL;
+	}
+
+	len = data[offset++];
+	len = (len << 8) | data[offset++];
+
+	if (offset + len > size) {
+		dev_err(dev, "invalid magic len");
+		return -EINVAL;
+	}
+	head_info->magic_length = len;
 
 	for (i = 0; i < head_info->magic_length - 1; i++) {
-		XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-		if (!(i % 2) && tmp != BITSTREAM_EVEN_MAGIC_BYTE) {
+		magic = data[offset++];
+		if (!(i % 2) && magic != BITSTREAM_EVEN_MAGIC_BYTE) {
 			dev_err(dev, "invalid magic even byte at %d", offset);
 			return -EINVAL;
 		}
 
-		XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-		if ((i % 2) && tmp != BITSTREAM_ODD_MAGIC_BYTE) {
+		if ((i % 2) && magic != BITSTREAM_ODD_MAGIC_BYTE) {
 			dev_err(dev, "invalid magic odd byte at %d", offset);
 			return -EINVAL;
 		}
 	}
 
+	if (offset + 3 > size) {
+		dev_err(dev, "invalid length of magic end");
+		return -EINVAL;
+	}
 	/* Read null end of magic data. */
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-	if (tmp) {
+	if (data[offset++]) {
 		dev_err(dev, "invalid magic end");
 		return -EINVAL;
 	}
 
 	/* Read 0x01 (short) */
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-	magic = tmp;
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-	magic = (magic << 8) | tmp;
+	magic = data[offset++];
+	magic = (magic << 8) | data[offset++];
 
 	/* Check the "0x01" half word */
 	if (magic != 0x01) {
-		dev_err(dev, "invalid magic");
+		dev_err(dev, "invalid magic end");
 		return -EINVAL;
 	}
 
@@ -198,34 +205,34 @@ int xrt_xclbin_parse_bitstream_header(struct device *dev, const unchar *data,
 
 	len = xclbin_bit_get_string(data, size, offset, 'c', &head_info->date);
 	if (len < 0) {
-		dev_err(dev, "get part name failed");
+		dev_err(dev, "get data failed");
 		return -EINVAL;
 	}
 	offset += len;
 
 	len = xclbin_bit_get_string(data, size, offset, 'd', &head_info->time);
 	if (len < 0) {
-		dev_err(dev, "get part name failed");
+		dev_err(dev, "get time failed");
 		return -EINVAL;
 	}
 	offset += len;
 
+	if (offset + 5 >= size) {
+		dev_err(dev, "can not get bitstream length");
+		return -EINVAL;
+	}
+
 	/* Read 'e' */
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-	if (tmp != 'e') {
+	if (data[offset++] != 'e') {
 		dev_err(dev, "invalid prefix of bitstream length");
 		return -EINVAL;
 	}
 
 	/* Get byte length of bitstream */
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-	head_info->bitstream_length = tmp;
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-	head_info->bitstream_length = (head_info->bitstream_length << 8) | tmp;
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-	head_info->bitstream_length = (head_info->bitstream_length << 8) | tmp;
-	XCLBIN_BIT_NEXT_BYTE(tmp, offset, data, size);
-	head_info->bitstream_length = (head_info->bitstream_length << 8) | tmp;
+	head_info->bitstream_length = data[offset++];
+	head_info->bitstream_length = (head_info->bitstream_length << 8) | data[offset++];
+	head_info->bitstream_length = (head_info->bitstream_length << 8) | data[offset++];
+	head_info->bitstream_length = (head_info->bitstream_length << 8) | data[offset++];
 
 	head_info->header_length = offset;
 
@@ -291,15 +298,15 @@ static int xrt_xclbin_add_clock_metadata(struct device *dev,
 	if (rc)
 		return 0;
 
-	for (i = 0; i < clock_topo->m_count; i++) {
-		u8 type = clock_topo->m_clock_freq[i].m_type;
+	for (i = 0; i < clock_topo->count; i++) {
+		u8 type = clock_topo->clock_freq[i].type;
 		const char *ep_name = xrt_clock_type2epname(type);
 		const char *counter_name = clock_type2clkfreq_name(type);
 
 		if (!ep_name || !counter_name)
 			continue;
 
-		freq = cpu_to_be16(clock_topo->m_clock_freq[i].m_freq_MHZ);
+		freq = cpu_to_be16(clock_topo->clock_freq[i].freq_MHZ);
 		rc = xrt_md_set_prop(dev, dtb, ep_name, NULL, XRT_MD_PROP_CLK_FREQ,
 				     &freq, sizeof(freq));
 		if (rc)
@@ -334,12 +341,12 @@ int xrt_xclbin_get_metadata(struct device *dev, const struct axlf *xclbin, char 
 		goto done;
 	}
 
-	newmd = vzalloc(md_len);
+	/* use dup function here to convert incoming metadata to writable */
+	newmd = xrt_md_dup(dev, md);
 	if (!newmd) {
-		rc = -ENOMEM;
+		rc = -EFAULT;
 		goto done;
 	}
-	memcpy(newmd, md, md_len);
 
 	/* Convert various needed xclbin sections into dtb. */
 	rc = xrt_xclbin_add_clock_metadata(dev, xclbin, newmd);

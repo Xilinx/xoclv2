@@ -284,7 +284,7 @@ static int xrt_srsr_remove(struct platform_device *pdev)
 struct xrt_subdev_endpoints xrt_srsr_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names[]) {
-			{ .regmap_name = REGMAP_DDR_SRSR },
+			{ .regmap_name = XRT_MD_REGMAP_DDR_SRSR },
 			{ NULL },
 		},
 		.xse_min_ep = 1,
