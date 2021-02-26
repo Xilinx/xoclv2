@@ -56,7 +56,7 @@ static inline void xmgmt_mailbox_prt_req(struct xmgmt_mailbox *xmbx, bool send,
 	xmgmt_mailbox_prt_req(xmbx, false, req, sw_ch)
 
 static inline void xmgmt_mailbox_prt_resp(struct xmgmt_mailbox *xmbx,
-					  struct xrt_mailbox_ioctl_post *resp)
+					  struct xrt_mailbox_post *resp)
 {
 	xrt_info(xmbx->pdev, "respond %zu bytes >>>>>%s", resp->xmip_data_size,
 		 mailbox_chan2name((resp)->xmip_sw_ch));
@@ -70,7 +70,7 @@ static inline struct xmgmt_mailbox *pdev2mbx(struct platform_device *pdev)
 static void xmgmt_mailbox_post(struct xmgmt_mailbox *xmbx,
 			       u64 msgid, bool sw_ch, void *buf, size_t len)
 {
-	struct xrt_mailbox_ioctl_post post = {
+	struct xrt_mailbox_post post = {
 		.xmip_req_id = msgid,
 		.xmip_sw_ch = sw_ch,
 		.xmip_data = buf,
@@ -90,7 +90,7 @@ static void xmgmt_mailbox_post(struct xmgmt_mailbox *xmbx,
 	else
 		xmgmt_mailbox_prt_resp(xmbx, &post);
 
-	rc = xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_POST, &post);
+	rc = xleaf_call(xmbx->mailbox, XRT_MAILBOX_POST, &post);
 	if (rc && rc != -ESHUTDOWN)
 		xrt_err(xmbx->pdev, "failed to post msg: %d", rc);
 }
@@ -377,7 +377,7 @@ static void xmgmt_mailbox_resp_sensor(struct xmgmt_mailbox *xmbx,
 	int rc;
 
 	if (cmcpdev) {
-		rc = xleaf_ioctl(cmcpdev, XRT_CMC_READ_SENSORS, &sensors);
+		rc = xleaf_call(cmcpdev, XRT_CMC_READ_SENSORS, &sensors);
 		xleaf_put_leaf(pdev, cmcpdev);
 		if (rc)
 			xrt_err(pdev, "can't read sensors: %d", rc);
@@ -396,14 +396,14 @@ static int xmgmt_mailbox_get_freq(struct xmgmt_mailbox *xmbx,
 	struct platform_device *clkpdev =
 		xleaf_get_leaf_by_epname(pdev, clkname);
 	int rc;
-	struct xrt_clock_ioctl_get getfreq = { 0 };
+	struct xrt_clock_get getfreq = { 0 };
 
 	if (!clkpdev) {
 		xrt_info(pdev, "%s clock is not available", clkname);
 		return -ENOENT;
 	}
 
-	rc = xleaf_ioctl(clkpdev, XRT_CLOCK_GET, &getfreq);
+	rc = xleaf_call(clkpdev, XRT_CLOCK_GET, &getfreq);
 	xleaf_put_leaf(pdev, clkpdev);
 	if (rc) {
 		xrt_err(pdev, "can't get %s clock frequency: %d", clkname, rc);
@@ -429,7 +429,7 @@ static int xmgmt_mailbox_get_icap_idcode(struct xmgmt_mailbox *xmbx, u64 *id)
 		return -ENOENT;
 	}
 
-	rc = xleaf_ioctl(icappdev, XRT_ICAP_IDCODE, id);
+	rc = xleaf_call(icappdev, XRT_ICAP_IDCODE, id);
 	xleaf_put_leaf(pdev, icappdev);
 	if (rc)
 		xrt_err(pdev, "can't get icap idcode: %d", rc);
@@ -449,7 +449,7 @@ static int xmgmt_mailbox_get_mig_calib(struct xmgmt_mailbox *xmbx, u64 *calib)
 		return -ENOENT;
 	}
 
-	rc = xleaf_ioctl(calibpdev, XRT_CALIB_RESULT, &res);
+	rc = xleaf_call(calibpdev, XRT_CALIB_RESULT, &res);
 	xleaf_put_leaf(pdev, calibpdev);
 	if (rc) {
 		xrt_err(pdev, "can't get mig calibration result: %d", rc);
@@ -492,7 +492,7 @@ static void xmgmt_mailbox_resp_bdinfo(struct xmgmt_mailbox *xmbx,
 
 	cmcpdev = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_CMC, PLATFORM_DEVID_NONE);
 	if (cmcpdev) {
-		rc = xleaf_ioctl(cmcpdev, XRT_CMC_READ_BOARD_INFO, info);
+		rc = xleaf_call(cmcpdev, XRT_CMC_READ_BOARD_INFO, info);
 		xleaf_put_leaf(pdev, cmcpdev);
 		if (rc)
 			xrt_err(pdev, "can't read board info: %d", rc);
@@ -666,21 +666,21 @@ static void xmgmt_mailbox_listener(void *arg, void *data, size_t len,
 
 static void xmgmt_mailbox_reg_listener(struct xmgmt_mailbox *xmbx)
 {
-	struct xrt_mailbox_ioctl_listen listen = { xmgmt_mailbox_listener, xmbx };
+	struct xrt_mailbox_listen listen = { xmgmt_mailbox_listener, xmbx };
 
 	WARN_ON(!mutex_is_locked(&xmbx->lock));
 	if (!xmbx->mailbox)
 		return;
-	xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
+	xleaf_call(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
 }
 
 static void xmgmt_mailbox_unreg_listener(struct xmgmt_mailbox *xmbx)
 {
-	struct xrt_mailbox_ioctl_listen listen = { 0 };
+	struct xrt_mailbox_listen listen = { 0 };
 
 	WARN_ON(!mutex_is_locked(&xmbx->lock));
 	WARN_ON(!xmbx->mailbox);
-	xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
+	xleaf_call(xmbx->mailbox, XRT_MAILBOX_LISTEN, &listen);
 }
 
 void xmgmt_mailbox_event_cb(struct platform_device *pdev, void *arg)
@@ -768,7 +768,7 @@ static int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
 	int rc;
 	struct platform_device *pdev = xmbx->pdev;
 	struct xcl_mailbox_req req = { 0, XCL_MAILBOX_REQ_TEST_READ, };
-	struct xrt_mailbox_ioctl_request leaf_req = {
+	struct xrt_mailbox_request leaf_req = {
 		.xmir_sw_ch = sw_ch,
 		.xmir_resp_ttl = 1,
 		.xmir_req = &req,
@@ -785,7 +785,7 @@ static int xmgmt_mailbox_get_test_msg(struct xmgmt_mailbox *xmbx, bool sw_ch,
 		 * either notification or response. here is the only exception
 		 * for debugging purpose.
 		 */
-		rc = xleaf_ioctl(xmbx->mailbox, XRT_MAILBOX_REQUEST, &leaf_req);
+		rc = xleaf_call(xmbx->mailbox, XRT_MAILBOX_REQUEST, &leaf_req);
 	} else {
 		rc = -ENODEV;
 		xrt_err(pdev, "mailbox not available");

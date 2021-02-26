@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Header file for XRT UCS Leaf Driver
- *
  * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
@@ -14,9 +12,9 @@
 #include "xleaf.h"
 
 /*
- * UCS driver IOCTL calls.
+ * UCS driver leaf calls.
  */
-enum xrt_ucs_ioctl_cmd {
+enum xrt_ucs_leaf_cmd {
 	XRT_UCS_CHECK = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	XRT_UCS_ENABLE,
 };

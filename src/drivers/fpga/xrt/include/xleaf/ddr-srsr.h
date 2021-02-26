@@ -12,15 +12,15 @@
 #include "xleaf.h"
 
 /*
- * ddr-srsr driver IOCTL calls.
+ * ddr-srsr driver leaf calls.
  */
-enum xrt_ddr_srsr_ioctl_cmd {
+enum xrt_ddr_srsr_leaf_cmd {
 	XRT_SRSR_FAST_CALIB = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	XRT_SRSR_CALIB,
 	XRT_SRSR_EP_NAME,
 };
 
-struct xrt_srsr_ioctl_calib {
+struct xrt_srsr_calib {
 	void	*xsic_buf;
 	u32	xsic_size;
 	bool	xsic_retention;

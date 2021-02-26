@@ -152,7 +152,7 @@ xroot_group_trigger_event(struct xroot *xr, int inst, enum xrt_events e)
 		return;
 
 	/* Triggers event for children, first. */
-	(void)xleaf_ioctl(pdev, XRT_GROUP_TRIGGER_EVENT, (void *)(uintptr_t)e);
+	(void)xleaf_call(pdev, XRT_GROUP_TRIGGER_EVENT, (void *)(uintptr_t)e);
 
 	/* Triggers event for itself. */
 	evt.xe_evt = e;
@@ -195,7 +195,7 @@ static int xroot_destroy_single_group(struct xroot *xr, int instance)
 	xroot_group_trigger_event(xr, instance, XRT_EVENT_PRE_REMOVAL);
 
 	/* Now tear down all children in this group. */
-	ret = xleaf_ioctl(pdev, XRT_GROUP_FINI_CHILDREN, NULL);
+	ret = xleaf_call(pdev, XRT_GROUP_FINI_CHILDREN, NULL);
 	(void)xroot_put_group(xr, pdev);
 	if (!ret) {
 		ret = xrt_subdev_pool_del(&xr->grps.pool, XRT_SUBDEV_GRP,
@@ -241,7 +241,7 @@ static int xroot_destroy_group(struct xroot *xr, int instance)
 }
 
 static int xroot_lookup_group(struct xroot *xr,
-			      struct xrt_root_ioctl_lookup_group *arg)
+			      struct xrt_root_lookup_group *arg)
 {
 	int rc = -ENOENT;
 	struct platform_device *grp = NULL;
@@ -293,31 +293,31 @@ static void xroot_event_fini(struct xroot *xr)
 	WARN_ON(!list_empty(&xr->events.evt_list));
 }
 
-static int xroot_get_leaf(struct xroot *xr, struct xrt_root_ioctl_get_leaf *arg)
+static int xroot_get_leaf(struct xroot *xr, struct xrt_root_get_leaf *arg)
 {
 	int rc = -ENOENT;
 	struct platform_device *grp = NULL;
 
 	while (rc && xroot_get_group(xr, XROOT_GRP_LAST, &grp) != -ENOENT) {
-		rc = xleaf_ioctl(grp, XRT_GROUP_GET_LEAF, arg);
+		rc = xleaf_call(grp, XRT_GROUP_GET_LEAF, arg);
 		xroot_put_group(xr, grp);
 	}
 	return rc;
 }
 
-static int xroot_put_leaf(struct xroot *xr, struct xrt_root_ioctl_put_leaf *arg)
+static int xroot_put_leaf(struct xroot *xr, struct xrt_root_put_leaf *arg)
 {
 	int rc = -ENOENT;
 	struct platform_device *grp = NULL;
 
 	while (rc && xroot_get_group(xr, XROOT_GRP_LAST, &grp) != -ENOENT) {
-		rc = xleaf_ioctl(grp, XRT_GROUP_PUT_LEAF, arg);
+		rc = xleaf_call(grp, XRT_GROUP_PUT_LEAF, arg);
 		xroot_put_group(xr, grp);
 	}
 	return rc;
 }
 
-static int xroot_root_cb(struct device *dev, void *parg, u32 cmd, void *arg)
+static int xroot_root_cb(struct device *dev, void *parg, enum xrt_root_cmd cmd, void *arg)
 {
 	struct xroot *xr = (struct xroot *)parg;
 	int rc = 0;
@@ -325,20 +325,20 @@ static int xroot_root_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 	switch (cmd) {
 	/* Leaf actions. */
 	case XRT_ROOT_GET_LEAF: {
-		struct xrt_root_ioctl_get_leaf *getleaf =
-			(struct xrt_root_ioctl_get_leaf *)arg;
+		struct xrt_root_get_leaf *getleaf =
+			(struct xrt_root_get_leaf *)arg;
 		rc = xroot_get_leaf(xr, getleaf);
 		break;
 	}
 	case XRT_ROOT_PUT_LEAF: {
-		struct xrt_root_ioctl_put_leaf *putleaf =
-			(struct xrt_root_ioctl_put_leaf *)arg;
+		struct xrt_root_put_leaf *putleaf =
+			(struct xrt_root_put_leaf *)arg;
 		rc = xroot_put_leaf(xr, putleaf);
 		break;
 	}
 	case XRT_ROOT_GET_LEAF_HOLDERS: {
-		struct xrt_root_ioctl_get_holders *holders =
-			(struct xrt_root_ioctl_get_holders *)arg;
+		struct xrt_root_get_holders *holders =
+			(struct xrt_root_get_holders *)arg;
 		rc = xrt_subdev_pool_get_holders(&xr->grps.pool,
 						 holders->xpigh_pdev,
 						 holders->xpigh_holder_buf,
@@ -354,8 +354,8 @@ static int xroot_root_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		rc = xroot_destroy_group(xr, (int)(uintptr_t)arg);
 		break;
 	case XRT_ROOT_LOOKUP_GROUP: {
-		struct xrt_root_ioctl_lookup_group *getgrp =
-			(struct xrt_root_ioctl_lookup_group *)arg;
+		struct xrt_root_lookup_group *getgrp =
+			(struct xrt_root_lookup_group *)arg;
 		rc = xroot_lookup_group(xr, getgrp);
 		break;
 	}
@@ -375,14 +375,14 @@ static int xroot_root_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 
 	/* Device info. */
 	case XRT_ROOT_GET_RESOURCE: {
-		struct xrt_root_ioctl_get_res *res =
-			(struct xrt_root_ioctl_get_res *)arg;
+		struct xrt_root_get_res *res =
+			(struct xrt_root_get_res *)arg;
 		res->xpigr_res = xr->pdev->resource;
 		break;
 	}
 	case XRT_ROOT_GET_ID: {
-		struct xrt_root_ioctl_get_id *id =
-			(struct xrt_root_ioctl_get_id *)arg;
+		struct xrt_root_get_id *id =
+			(struct xrt_root_get_id *)arg;
 
 		id->xpigi_vendor_id = xr->pdev->vendor;
 		id->xpigi_device_id = xr->pdev->device;
@@ -397,8 +397,8 @@ static int xroot_root_cb(struct device *dev, void *parg, u32 cmd, void *arg)
 		break;
 	}
 	case XRT_ROOT_HWMON: {
-		struct xrt_root_ioctl_hwmon *hwmon =
-			(struct xrt_root_ioctl_hwmon *)arg;
+		struct xrt_root_hwmon *hwmon =
+			(struct xrt_root_hwmon *)arg;
 
 		if (hwmon->xpih_register) {
 			hwmon->xpih_hwmon_dev =
@@ -431,7 +431,7 @@ static void xroot_bringup_group_work(struct work_struct *work)
 		int r, i;
 
 		i = pdev->id;
-		r = xleaf_ioctl(pdev, XRT_GROUP_INIT_CHILDREN, NULL);
+		r = xleaf_call(pdev, XRT_GROUP_INIT_CHILDREN, NULL);
 		(void)xroot_put_group(xr, pdev);
 		if (r == -EEXIST)
 			continue; /* Already brough up, nothing to do. */

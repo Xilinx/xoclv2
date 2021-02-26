@@ -89,7 +89,7 @@ static void xrt_test_event_cb(struct platform_device *pdev, void *arg)
 
 	leaf = xleaf_get_leaf_by_id(pdev, id, instance);
 	if (leaf) {
-		(void)xleaf_ioctl(leaf, 1, NULL);
+		(void)xleaf_call(leaf, 1, NULL);
 		(void)xleaf_put_leaf(pdev, leaf);
 	}
 
@@ -100,21 +100,21 @@ static void xrt_test_event_cb(struct platform_device *pdev, void *arg)
 		id, instance);
 }
 
-static int xrt_test_ioctl_cb_a(struct platform_device *pdev, void *arg)
+static int xrt_test_cb_a(struct platform_device *pdev, void *arg)
 {
 	struct xrt_xleaf_test_payload *payload = (struct xrt_xleaf_test_payload *)arg;
 	const struct xrt_test *xt = platform_get_drvdata(pdev);
 
 	uuid_copy(&payload->dummy1, &uuid_null);
 	strcpy(payload->dummy2, "alveo");
-	xrt_dbg(pdev, "processed ioctl cmd XRT_XLEAF_TEST_A on leaf %p", xt->pdev);
+	xrt_dbg(pdev, "processed xleaf cmd XRT_XLEAF_TEST_A on leaf %p", xt->pdev);
 	return 0;
 }
 
 /*
- * Forward the ioctl call to peer after flipping the cmd from _B to _A.
+ * Forward the xleaf call to peer after flipping the cmd from _B to _A.
  */
-static int xrt_test_ioctl_cb_b(struct platform_device *pdev, void *arg)
+static int xrt_test_cb_b(struct platform_device *pdev, void *arg)
 {
 	int ret;
 	int peer_instance = (pdev->id == 0) ? 1 : 0;
@@ -123,9 +123,9 @@ static int xrt_test_ioctl_cb_b(struct platform_device *pdev, void *arg)
 
 	if (!peer)
 		return -ENODEV;
-	ret = xleaf_ioctl(peer, XRT_XLEAF_TEST_A, arg);
+	ret = xleaf_call(peer, XRT_XLEAF_TEST_A, arg);
 	xleaf_put_leaf(pdev, peer);
-	xrt_dbg(pdev, "processed ioctl cmd XRT_XLEAF_TEST_B on leaf %p", xt->pdev);
+	xrt_dbg(pdev, "processed xleaf cmd XRT_XLEAF_TEST_B on leaf %p", xt->pdev);
 	return ret;
 }
 
@@ -162,7 +162,7 @@ static int xrt_test_remove(struct platform_device *pdev)
 }
 
 static int
-xrt_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_test_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	int ret = 0;
 
@@ -171,10 +171,10 @@ xrt_test_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		xrt_test_event_cb(pdev, arg);
 		break;
 	case XRT_XLEAF_TEST_A:
-		ret = xrt_test_ioctl_cb_a(pdev, arg);
+		ret = xrt_test_cb_a(pdev, arg);
 		break;
 	case XRT_XLEAF_TEST_B:
-		ret = xrt_test_ioctl_cb_b(pdev, arg);
+		ret = xrt_test_cb_b(pdev, arg);
 		break;
 	default:
 		ret = -ENOTTY;
@@ -249,7 +249,7 @@ static struct xrt_subdev_endpoints xrt_test_endpoints[] = {
  */
 static struct xrt_subdev_drvdata xrt_test_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xrt_test_leaf_ioctl,
+		.xsd_leaf_call = xrt_test_leaf_call,
 	},
 	.xsd_file_ops = {
 		.xsf_ops = {

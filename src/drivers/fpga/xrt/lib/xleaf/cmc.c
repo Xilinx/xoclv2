@@ -163,7 +163,7 @@ done:
 }
 
 static int
-xrt_cmc_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_cmc_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
 	int ret = -ENOENT;
@@ -222,7 +222,7 @@ static struct xrt_subdev_drvdata xrt_cmc_data = {
 		.xsf_dev_name = "cmc",
 	},
 	.xsd_dev_ops = {
-		.xsd_ioctl = xrt_cmc_leaf_ioctl,
+		.xsd_leaf_call = xrt_cmc_leaf_call,
 	},
 };
 

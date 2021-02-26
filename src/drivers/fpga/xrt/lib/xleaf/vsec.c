@@ -196,7 +196,7 @@ static int xrt_vsec_create_metadata(struct xrt_vsec *vsec)
 	return 0;
 }
 
-static int xrt_vsec_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+static int xrt_vsec_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	int ret = 0;
 
@@ -332,7 +332,7 @@ static struct xrt_subdev_endpoints xrt_vsec_endpoints[] = {
 
 static struct xrt_subdev_drvdata xrt_vsec_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xrt_vsec_ioctl,
+		.xsd_leaf_call = xrt_vsec_leaf_call,
 	},
 };
 

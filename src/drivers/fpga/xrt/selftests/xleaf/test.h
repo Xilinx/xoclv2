@@ -12,9 +12,9 @@
 #include "xleaf.h"
 
 /*
- * XLEAF TEST driver IOCTL calls.
+ * XLEAF TEST driver leaf calls.
  */
-enum xrt_xleaf_test_ioctl_cmd {
+enum xrt_xleaf_test_leaf_cmd {
 	XRT_XLEAF_TEST_A = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	XRT_XLEAF_TEST_B,
 };

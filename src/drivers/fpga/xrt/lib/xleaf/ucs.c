@@ -82,7 +82,7 @@ static void xrt_ucs_event_cb(struct platform_device *pdev, void *arg)
 		return;
 	}
 
-	xleaf_ioctl(leaf, XRT_CLOCK_VERIFY, NULL);
+	xleaf_call(leaf, XRT_CLOCK_VERIFY, NULL);
 	xleaf_put_leaf(pdev, leaf);
 }
 
@@ -120,7 +120,7 @@ static void ucs_enable(struct xrt_ucs *ucs)
 }
 
 static int
-xrt_ucs_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_ucs_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct xrt_ucs		*ucs;
 	int			ret = 0;
@@ -208,7 +208,7 @@ static struct xrt_subdev_endpoints xrt_ucs_endpoints[] = {
 
 static struct xrt_subdev_drvdata xrt_ucs_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xrt_ucs_leaf_ioctl,
+		.xsd_leaf_call = xrt_ucs_leaf_call,
 	},
 };
 

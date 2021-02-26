@@ -394,7 +394,7 @@ static int get_freq_counter(struct clock *clock, u32 *freq)
 		return -ENOENT;
 	}
 
-	err = xleaf_ioctl(cnter_leaf, XRT_CLKFREQ_READ, freq);
+	err = xleaf_call(cnter_leaf, XRT_CLKFREQ_READ, freq);
 	if (err)
 		xrt_err(pdev, "can't read counter");
 	xleaf_put_leaf(clock->pdev, cnter_leaf);
@@ -514,7 +514,7 @@ static struct attribute_group clock_attr_group = {
 };
 
 static int
-xrt_clock_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_clock_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct clock		*clock;
 	int			ret = 0;
@@ -536,8 +536,8 @@ xrt_clock_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	case XRT_CLOCK_GET: {
-		struct xrt_clock_ioctl_get *get =
-			(struct xrt_clock_ioctl_get *)arg;
+		struct xrt_clock_get *get =
+			(struct xrt_clock_get *)arg;
 
 		ret = clock_get_freq(clock, &get->freq, &get->freq_cnter);
 		break;
@@ -623,7 +623,7 @@ static struct xrt_subdev_endpoints xrt_clock_endpoints[] = {
 
 static struct xrt_subdev_drvdata xrt_clock_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xrt_clock_leaf_ioctl,
+		.xsd_leaf_call = xrt_clock_leaf_call,
 	},
 };
 

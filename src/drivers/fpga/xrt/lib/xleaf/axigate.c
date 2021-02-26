@@ -169,13 +169,13 @@ static void xrt_axigate_event_cb(struct platform_device *pdev, void *arg)
 	if (xrt_axigate_epname_idx(leaf) > xrt_axigate_epname_idx(pdev))
 		xrt_axigate_free(pdev);
 	else
-		xleaf_ioctl(leaf, XRT_AXIGATE_FREE, NULL);
+		xleaf_call(leaf, XRT_AXIGATE_FREE, NULL);
 
 	(void)xleaf_put_leaf(pdev, leaf);
 }
 
 static int
-xrt_axigate_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_axigate_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
@@ -269,7 +269,7 @@ static struct xrt_subdev_endpoints xrt_axigate_endpoints[] = {
 
 static struct xrt_subdev_drvdata xrt_axigate_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xrt_axigate_leaf_ioctl,
+		.xsd_leaf_call = xrt_axigate_leaf_call,
 	},
 };
 

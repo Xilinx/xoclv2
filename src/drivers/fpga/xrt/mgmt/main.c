@@ -70,7 +70,7 @@ static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 {
 	char uuid[16];
 	struct platform_device *devctl_leaf;
-	struct xrt_devctl_ioctl_rw devctl_arg = { 0 };
+	struct xrt_devctl_rw devctl_arg = { 0 };
 	int err, i, count;
 
 	devctl_leaf = xleaf_get_leaf_by_epname(pdev, XRT_MD_NODE_BLP_ROM);
@@ -83,7 +83,7 @@ static int get_dev_uuid(struct platform_device *pdev, char *uuidstr, size_t len)
 	devctl_arg.xgir_buf = uuid;
 	devctl_arg.xgir_len = sizeof(uuid);
 	devctl_arg.xgir_offset = 0;
-	err = xleaf_ioctl(devctl_leaf, XRT_DEVCTL_READ, &devctl_arg);
+	err = xleaf_call(devctl_leaf, XRT_DEVCTL_READ, &devctl_arg);
 	xleaf_put_leaf(pdev, devctl_leaf);
 	if (err) {
 		xrt_err(pdev, "can not get uuid: %d", err);
@@ -241,7 +241,7 @@ static int load_firmware_from_flash(struct platform_device *pdev, struct axlf **
 	int ret = 0;
 	char *buf = NULL;
 	struct flash_data_ident id = { 0 };
-	struct xrt_flash_ioctl_read frd = { 0 };
+	struct xrt_flash_read frd = { 0 };
 
 	xrt_info(pdev, "try loading fw from flash");
 
@@ -251,7 +251,7 @@ static int load_firmware_from_flash(struct platform_device *pdev, struct axlf **
 		return -ENODEV;
 	}
 
-	xleaf_ioctl(flash_leaf, XRT_FLASH_GET_SIZE, &flash_size);
+	xleaf_call(flash_leaf, XRT_FLASH_GET_SIZE, &flash_size);
 	if (flash_size == 0) {
 		xrt_err(pdev, "failed to get flash size");
 		ret = -EINVAL;
@@ -261,7 +261,7 @@ static int load_firmware_from_flash(struct platform_device *pdev, struct axlf **
 	frd.xfir_buf = (char *)&header;
 	frd.xfir_size = sizeof(header);
 	frd.xfir_offset = flash_size - sizeof(header);
-	ret = xleaf_ioctl(flash_leaf, XRT_FLASH_READ, &frd);
+	ret = xleaf_call(flash_leaf, XRT_FLASH_READ, &frd);
 	if (ret) {
 		xrt_err(pdev, "failed to read header from flash: %d", ret);
 		goto done;
@@ -292,7 +292,7 @@ static int load_firmware_from_flash(struct platform_device *pdev, struct axlf **
 	frd.xfir_buf = buf;
 	frd.xfir_size = header.fdh_data_len;
 	frd.xfir_offset = header.fdh_data_offset;
-	ret = xleaf_ioctl(flash_leaf, XRT_FLASH_READ, &frd);
+	ret = xleaf_call(flash_leaf, XRT_FLASH_READ, &frd);
 	if (ret) {
 		xrt_err(pdev, "failed to read meta data from flash: %d", ret);
 		goto done;
@@ -590,7 +590,7 @@ static int xmgmt_main_remove(struct platform_device *pdev)
 }
 
 static int
-xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xmgmt_mainleaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct xmgmt_main *xmm = platform_get_drvdata(pdev);
 	int ret = 0;
@@ -601,8 +601,8 @@ xmgmt_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		xmgmt_main_event_cb(pdev, arg);
 		break;
 	case XRT_MGMT_MAIN_GET_AXLF_SECTION: {
-		struct xrt_mgmt_main_ioctl_get_axlf_section *get =
-			(struct xrt_mgmt_main_ioctl_get_axlf_section *)arg;
+		struct xrt_mgmt_main_get_axlf_section *get =
+			(struct xrt_mgmt_main_get_axlf_section *)arg;
 		const struct axlf *firmware = xmgmt_get_axlf_firmware(xmm, get->xmmigas_axlf_kind);
 
 		if (!firmware) {
@@ -781,7 +781,7 @@ static struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 
 static struct xrt_subdev_drvdata xmgmt_main_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xmgmt_main_leaf_ioctl,
+		.xsd_leaf_call = xmgmt_mainleaf_call,
 	},
 	.xsd_file_ops = {
 		.xsf_ops = {

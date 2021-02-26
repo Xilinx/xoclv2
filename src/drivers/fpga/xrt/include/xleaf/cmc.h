@@ -13,9 +13,9 @@
 #include <linux/xrt/xclbin.h>
 
 /*
- * CMC driver IOCTL calls.
+ * CMC driver leaf calls.
  */
-enum xrt_cmc_ioctl_cmd {
+enum xrt_cmc_leaf_cmd {
 	XRT_CMC_READ_BOARD_INFO = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	XRT_CMC_READ_SENSORS,
 };

@@ -1452,7 +1452,7 @@ static int mailbox_listen(struct platform_device *pdev, mailbox_msg_cb_t cb, voi
 	return 0;
 }
 
-static int mailbox_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+static int mailbox_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct mailbox *mbx = platform_get_drvdata(pdev);
 	int ret = 0;
@@ -1462,14 +1462,14 @@ static int mailbox_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		/* Does not handle any event. */
 		break;
 	case XRT_MAILBOX_POST: {
-		struct xrt_mailbox_ioctl_post *post = (struct xrt_mailbox_ioctl_post *)arg;
+		struct xrt_mailbox_post *post = (struct xrt_mailbox_post *)arg;
 
 		ret = mailbox_post(pdev, post->xmip_req_id, post->xmip_data,
 				   post->xmip_data_size, post->xmip_sw_ch);
 		break;
 	}
 	case XRT_MAILBOX_REQUEST: {
-		struct xrt_mailbox_ioctl_request *req = (struct xrt_mailbox_ioctl_request *)arg;
+		struct xrt_mailbox_request *req = (struct xrt_mailbox_request *)arg;
 
 		ret = mailbox_request(pdev, req->xmir_req, req->xmir_req_size,
 				      req->xmir_resp, &req->xmir_resp_size, req->xmir_sw_ch,
@@ -1477,7 +1477,7 @@ static int mailbox_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	case XRT_MAILBOX_LISTEN: {
-		struct xrt_mailbox_ioctl_listen *listen = (struct xrt_mailbox_ioctl_listen *)arg;
+		struct xrt_mailbox_listen *listen = (struct xrt_mailbox_listen *)arg;
 
 		ret = mailbox_listen(pdev, listen->xmil_cb, listen->xmil_cb_arg);
 		break;
@@ -1827,7 +1827,7 @@ static struct xrt_subdev_endpoints xrt_mailbox_endpoints[] = {
 
 static struct xrt_subdev_drvdata mailbox_drvdata = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = mailbox_leaf_ioctl,
+		.xsd_leaf_call = mailbox_leaf_call,
 	},
 	.xsd_file_ops = {
 		.xsf_ops = {

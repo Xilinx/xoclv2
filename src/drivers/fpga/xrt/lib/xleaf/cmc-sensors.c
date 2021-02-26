@@ -349,7 +349,7 @@ static const char *cmc_get_vbnv(struct xrt_cmc_sensor *cmc_sensor)
 	if (!mgmt_leaf)
 		return NULL;
 
-	ret = xleaf_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_VBNV, &vbnv);
+	ret = xleaf_call(mgmt_leaf, XRT_MGMT_MAIN_GET_VBNV, &vbnv);
 	xleaf_put_leaf(cmc_sensor->pdev, mgmt_leaf);
 	if (ret)
 		return NULL;

@@ -174,14 +174,14 @@ static int cmc_fetch_firmware(struct xrt_cmc_ctrl *cmc_ctrl)
 	struct platform_device *pdev = cmc_ctrl->pdev;
 	struct platform_device *mgmt_leaf = xleaf_get_leaf_by_id(pdev,
 		XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
-	struct xrt_mgmt_main_ioctl_get_axlf_section gs = {
+	struct xrt_mgmt_main_get_axlf_section gs = {
 		XMGMT_BLP, FIRMWARE,
 	};
 
 	if (!mgmt_leaf)
 		return -ENOENT;
 
-	ret = xleaf_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_AXLF_SECTION, &gs);
+	ret = xleaf_call(mgmt_leaf, XRT_MGMT_MAIN_GET_AXLF_SECTION, &gs);
 	if (ret == 0) {
 		cmc_ctrl->firmware = vmalloc(gs.xmmigas_section_size);
 		if (!cmc_ctrl->firmware) {

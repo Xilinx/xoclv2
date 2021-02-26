@@ -101,7 +101,7 @@ static struct attribute_group clkfreq_attr_group = {
 };
 
 static int
-xrt_clkfreq_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_clkfreq_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct clkfreq		*clkfreq;
 	int			ret = 0;
@@ -192,7 +192,7 @@ static struct xrt_subdev_endpoints xrt_clkfreq_endpoints[] = {
 
 static struct xrt_subdev_drvdata xrt_clkfreq_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xrt_clkfreq_leaf_ioctl,
+		.xsd_leaf_call = xrt_clkfreq_leaf_call,
 	},
 };
 

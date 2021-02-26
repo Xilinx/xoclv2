@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Header file for XRT Clock Leaf Driver
- *
  * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
@@ -15,15 +13,15 @@
 #include <linux/xrt/xclbin.h>
 
 /*
- * CLOCK driver IOCTL calls.
+ * CLOCK driver leaf calls.
  */
-enum xrt_clock_ioctl_cmd {
+enum xrt_clock_leaf_cmd {
 	XRT_CLOCK_SET = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	XRT_CLOCK_GET,
 	XRT_CLOCK_VERIFY,
 };
 
-struct xrt_clock_ioctl_get {
+struct xrt_clock_get {
 	u16 freq;
 	u32 freq_cnter;
 };

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Header file for Xilinx Runtime (XRT) driver
- *
  * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
@@ -39,11 +37,14 @@
 #define xrt_info(pdev, fmt, args...) FMT_PRT(dev_info, pdev, fmt, ##args)
 #define xrt_dbg(pdev, fmt, args...) FMT_PRT(dev_dbg, pdev, fmt, ##args)
 
-/* Starting IOCTL for common IOCTLs implemented by all leaves. */
-#define XRT_XLEAF_COMMON_BASE	0
-/* Starting IOCTL for leaves' specific IOCTLs. */
-#define XRT_XLEAF_CUSTOM_BASE	64
-enum xrt_xleaf_common_ioctl_cmd {
+enum {
+	/* Starting cmd for common leaf cmd implemented by all leaves. */
+	XRT_XLEAF_COMMON_BASE = 0,
+	/* Starting cmd for leaves' specific leaf cmds. */
+	XRT_XLEAF_CUSTOM_BASE = 64,
+};
+
+enum xrt_xleaf_common_leaf_cmd {
 	XRT_XLEAF_EVENT = XRT_XLEAF_COMMON_BASE,
 };
 
@@ -74,9 +75,9 @@ struct xrt_subdev_drv_ops {
 	/*
 	 * Per driver instance callback. The pdev points to the instance.
 	 * If defined these are called by other leaf drivers.
-	 * Note that root driver may call into xsd_ioctl of a group driver.
+	 * Note that root driver may call into xsd_leaf_call of a group driver.
 	 */
-	int (*xsd_ioctl)(struct platform_device *pdev, u32 cmd, void *arg);
+	int (*xsd_leaf_call)(struct platform_device *pdev, u32 cmd, void *arg);
 };
 
 /*
@@ -194,11 +195,11 @@ xleaf_get_leaf_by_epname(struct platform_device *pdev, const char *name)
 	return xleaf_get_leaf(pdev, xrt_subdev_match_epname, (void *)name);
 }
 
-static inline int xleaf_ioctl(struct platform_device *tgt, u32 cmd, void *arg)
+static inline int xleaf_call(struct platform_device *tgt, u32 cmd, void *arg)
 {
 	struct xrt_subdev_drvdata *drvdata = DEV_DRVDATA(tgt);
 
-	return (*drvdata->xsd_dev_ops.xsd_ioctl)(tgt, cmd, arg);
+	return (*drvdata->xsd_dev_ops.xsd_leaf_call)(tgt, cmd, arg);
 }
 
 int xleaf_put_leaf(struct platform_device *pdev,

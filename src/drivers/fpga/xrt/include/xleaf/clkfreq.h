@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Header file for XRT Clock Counter Leaf Driver
- *
  * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
@@ -14,9 +12,9 @@
 #include "xleaf.h"
 
 /*
- * CLKFREQ driver IOCTL calls.
+ * CLKFREQ driver leaf calls.
  */
-enum xrt_clkfreq_ioctl_cmd {
+enum xrt_clkfreq_leaf_cmd {
 	XRT_CLKFREQ_READ = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 };
 

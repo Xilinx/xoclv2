@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Header file for XRT Axigate Leaf Driver
- *
  * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
@@ -15,9 +13,9 @@
 #include "metadata.h"
 
 /*
- * AXIGATE driver IOCTL calls.
+ * AXIGATE driver leaf calls.
  */
-enum xrt_axigate_ioctl_cmd {
+enum xrt_axigate_leaf_cmd {
 	XRT_AXIGATE_FREEZE = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	XRT_AXIGATE_FREE,
 };

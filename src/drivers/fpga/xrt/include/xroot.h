@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Header file for Xilinx Runtime (XRT) driver
- *
  * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
@@ -21,9 +19,9 @@ typedef bool (*xrt_subdev_match_t)(enum xrt_subdev_id,
 #define XRT_SUBDEV_MATCH_NEXT	((xrt_subdev_match_t)-2)
 
 /*
- * Root IOCTL calls.
+ * Root calls.
  */
-enum xrt_root_ioctl_cmd {
+enum xrt_root_cmd {
 	/* Leaf actions. */
 	XRT_ROOT_GET_LEAF = 0,
 	XRT_ROOT_PUT_LEAF,
@@ -48,43 +46,43 @@ enum xrt_root_ioctl_cmd {
 	XRT_ROOT_HWMON,
 };
 
-struct xrt_root_ioctl_get_leaf {
+struct xrt_root_get_leaf {
 	struct platform_device *xpigl_pdev; /* caller's pdev */
 	xrt_subdev_match_t xpigl_match_cb;
 	void *xpigl_match_arg;
 	struct platform_device *xpigl_leaf; /* target leaf pdev */
 };
 
-struct xrt_root_ioctl_put_leaf {
+struct xrt_root_put_leaf {
 	struct platform_device *xpipl_pdev; /* caller's pdev */
 	struct platform_device *xpipl_leaf; /* target's pdev */
 };
 
-struct xrt_root_ioctl_lookup_group {
+struct xrt_root_lookup_group {
 	struct platform_device *xpilp_pdev; /* caller's pdev */
 	xrt_subdev_match_t xpilp_match_cb;
 	void *xpilp_match_arg;
 	int xpilp_grp_inst;
 };
 
-struct xrt_root_ioctl_get_holders {
+struct xrt_root_get_holders {
 	struct platform_device *xpigh_pdev; /* caller's pdev */
 	char *xpigh_holder_buf;
 	size_t xpigh_holder_buf_len;
 };
 
-struct xrt_root_ioctl_get_res {
+struct xrt_root_get_res {
 	struct resource *xpigr_res;
 };
 
-struct xrt_root_ioctl_get_id {
+struct xrt_root_get_id {
 	unsigned short  xpigi_vendor_id;
 	unsigned short  xpigi_device_id;
 	unsigned short  xpigi_sub_vendor_id;
 	unsigned short  xpigi_sub_device_id;
 };
 
-struct xrt_root_ioctl_hwmon {
+struct xrt_root_hwmon {
 	bool xpih_register;
 	const char *xpih_name;
 	void *xpih_drvdata;

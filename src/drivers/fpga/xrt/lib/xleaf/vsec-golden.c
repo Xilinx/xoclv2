@@ -56,7 +56,7 @@ static int xrt_vsec_get_golden_ver(struct xrt_vsec *vsec)
 {
 	struct platform_device *devctl_leaf;
 	struct platform_device *pdev = vsec->pdev;
-	struct xrt_devctl_ioctl_rw devctl_arg = { 0 };
+	struct xrt_devctl_rw devctl_arg = { 0 };
 	int err, ver;
 
 	devctl_leaf = xleaf_get_leaf_by_epname(pdev, XRT_MD_NODE_GOLDEN_VER);
@@ -69,7 +69,7 @@ static int xrt_vsec_get_golden_ver(struct xrt_vsec *vsec)
 	devctl_arg.xgir_buf = &ver;
 	devctl_arg.xgir_len = sizeof(ver);
 	devctl_arg.xgir_offset = 0;
-	err = xleaf_ioctl(devctl_leaf, XRT_DEVCTL_READ, &devctl_arg);
+	err = xleaf_call(devctl_leaf, XRT_DEVCTL_READ, &devctl_arg);
 	xleaf_put_leaf(pdev, devctl_leaf);
 	if (err) {
 		xrt_err(pdev, "can't get golden image version: %d", err);

@@ -1245,7 +1245,7 @@ static size_t qspi_get_size(struct platform_device *pdev)
 }
 
 static int
-qspi_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+qspi_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct xrt_qspi *flash = platform_get_drvdata(pdev);
 	int ret = 0;
@@ -1260,7 +1260,7 @@ qspi_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	case XRT_FLASH_READ: {
-		struct xrt_flash_ioctl_read *rd = (struct xrt_flash_ioctl_read *)arg;
+		struct xrt_flash_read *rd = (struct xrt_flash_read *)arg;
 
 		ret = qspi_kernel_read(pdev, rd->xfir_buf, rd->xfir_size, rd->xfir_offset);
 		break;
@@ -1288,7 +1288,7 @@ static struct xrt_subdev_endpoints xrt_qspi_endpoints[] = {
 
 static struct xrt_subdev_drvdata qspi_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = qspi_leaf_ioctl,
+		.xsd_leaf_call = qspi_leaf_call,
 	},
 	.xsd_file_ops = {
 		.xsf_ops = {

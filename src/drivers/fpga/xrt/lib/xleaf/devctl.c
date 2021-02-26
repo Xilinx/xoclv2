@@ -48,7 +48,7 @@ static int xrt_devctl_name2id(struct xrt_devctl *devctl, const char *name)
 }
 
 static int
-xrt_devctl_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_devctl_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct xrt_devctl	*devctl;
 	int			ret = 0;
@@ -60,7 +60,7 @@ xrt_devctl_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
 		/* Does not handle any event. */
 		break;
 	case XRT_DEVCTL_READ: {
-		struct xrt_devctl_ioctl_rw	*rw_arg = arg;
+		struct xrt_devctl_rw	*rw_arg = arg;
 		u32				*p_src, *p_dst, i;
 
 		if (rw_arg->xgir_len & 0x3) {
@@ -179,7 +179,7 @@ static struct xrt_subdev_endpoints xrt_devctl_endpoints[] = {
 
 static struct xrt_subdev_drvdata xrt_devctl_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xrt_devctl_leaf_ioctl,
+		.xsd_leaf_call = xrt_devctl_leaf_call,
 	},
 };
 

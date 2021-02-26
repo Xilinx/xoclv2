@@ -52,9 +52,9 @@ static int xmgmt_br_enable_set(struct fpga_bridge *bridge, bool enable)
 	}
 
 	if (enable)
-		rc = xleaf_ioctl(axigate_leaf, XRT_AXIGATE_FREE, NULL);
+		rc = xleaf_call(axigate_leaf, XRT_AXIGATE_FREE, NULL);
 	else
-		rc = xleaf_ioctl(axigate_leaf, XRT_AXIGATE_FREEZE, NULL);
+		rc = xleaf_call(axigate_leaf, XRT_AXIGATE_FREEZE, NULL);
 
 	if (rc) {
 		xrt_err(br_data->pdev, "failed to %s gate %s, rc %d",

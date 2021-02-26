@@ -11,22 +11,22 @@
 
 #include "xleaf.h"
 /*
- * Mailbox IP driver IOCTL calls.
+ * Mailbox IP driver leaf calls.
  */
-enum xrt_mailbox_ioctl_cmd {
+enum xrt_mailbox_leaf_cmd {
 	XRT_MAILBOX_POST = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	XRT_MAILBOX_REQUEST,
 	XRT_MAILBOX_LISTEN,
 };
 
-struct xrt_mailbox_ioctl_post {
+struct xrt_mailbox_post {
 	u64 xmip_req_id; /* 0 means response */
 	bool xmip_sw_ch;
 	void *xmip_data;
 	size_t xmip_data_size;
 };
 
-struct xrt_mailbox_ioctl_request {
+struct xrt_mailbox_request {
 	bool xmir_sw_ch;
 	u32 xmir_resp_ttl;
 	void *xmir_req;
@@ -37,7 +37,7 @@ struct xrt_mailbox_ioctl_request {
 
 typedef	void (*mailbox_msg_cb_t)(void *arg, void *data, size_t len,
 	u64 msgid, int err, bool sw_ch);
-struct xrt_mailbox_ioctl_listen {
+struct xrt_mailbox_listen {
 	mailbox_msg_cb_t xmil_cb;
 	void *xmil_cb_arg;
 };

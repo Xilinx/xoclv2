@@ -12,14 +12,14 @@
 #include "xleaf.h"
 
 /*
- * Flash controller driver IOCTL calls.
+ * Flash controller driver leaf calls.
  */
-enum xrt_flash_ioctl_cmd {
+enum xrt_flash_leaf_cmd {
 	XRT_FLASH_GET_SIZE = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	XRT_FLASH_READ,
 };
 
-struct xrt_flash_ioctl_read {
+struct xrt_flash_read {
 	char *xfir_buf;
 	size_t xfir_size;
 	loff_t xfir_offset;

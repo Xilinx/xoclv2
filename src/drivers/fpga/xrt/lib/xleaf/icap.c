@@ -208,9 +208,9 @@ static void icap_probe_chip(struct icap *icap)
 }
 
 static int
-xrt_icap_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_icap_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	struct xrt_icap_ioctl_wr	*wr_arg = arg;
+	struct xrt_icap_wr	*wr_arg = arg;
 	struct icap			*icap;
 	int				ret = 0;
 
@@ -290,7 +290,7 @@ static struct xrt_subdev_endpoints xrt_icap_endpoints[] = {
 
 static struct xrt_subdev_drvdata xrt_icap_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xrt_icap_leaf_ioctl,
+		.xsd_leaf_call = xrt_icap_leaf_call,
 	},
 };
 

@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Xilinx Alveo FPGA device helper functions
- *
  * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
@@ -82,7 +80,7 @@ static ssize_t holders_show(struct device *dev, struct device_attribute *attr, c
 {
 	ssize_t len;
 	struct platform_device *pdev = to_platform_device(dev);
-	struct xrt_root_ioctl_get_holders holders = { pdev, buf, 1024 };
+	struct xrt_root_get_holders holders = { pdev, buf, 1024 };
 
 	len = xrt_subdev_root_request(pdev, XRT_ROOT_GET_LEAF_HOLDERS, &holders);
 	if (len >= holders.xpigh_holder_buf_len)
@@ -377,7 +375,7 @@ struct platform_device *
 xleaf_get_leaf(struct platform_device *pdev, xrt_subdev_match_t match_cb, void *match_arg)
 {
 	int rc;
-	struct xrt_root_ioctl_get_leaf get_leaf = {
+	struct xrt_root_get_leaf get_leaf = {
 		pdev, match_cb, match_arg, };
 
 	rc = xrt_subdev_root_request(pdev, XRT_ROOT_GET_LEAF, &get_leaf);
@@ -405,7 +403,7 @@ EXPORT_SYMBOL_GPL(xleaf_has_endpoint);
 
 int xleaf_put_leaf(struct platform_device *pdev, struct platform_device *leaf)
 {
-	struct xrt_root_ioctl_put_leaf put_leaf = { pdev, leaf };
+	struct xrt_root_put_leaf put_leaf = { pdev, leaf };
 
 	return xrt_subdev_root_request(pdev, XRT_ROOT_PUT_LEAF, &put_leaf);
 }
@@ -780,7 +778,7 @@ void xrt_subdev_pool_handle_event(struct xrt_subdev_pool *spool, struct xrt_even
 	while (!xrt_subdev_pool_get_impl(spool, XRT_SUBDEV_MATCH_NEXT,
 					 tgt, spool->xsp_owner, &sdev)) {
 		tgt = sdev->xs_pdev;
-		xleaf_ioctl(tgt, XRT_XLEAF_EVENT, evt);
+		xleaf_call(tgt, XRT_XLEAF_EVENT, evt);
 		xrt_subdev_pool_put_impl(spool, tgt, spool->xsp_owner);
 	}
 }
@@ -811,7 +809,7 @@ EXPORT_SYMBOL_GPL(xrt_subdev_pool_get_holders);
 int xleaf_broadcast_event(struct platform_device *pdev, enum xrt_events evt, bool async)
 {
 	struct xrt_event e = { evt, };
-	u32 cmd = async ? XRT_ROOT_EVENT_ASYNC : XRT_ROOT_EVENT;
+	enum xrt_root_cmd cmd = async ? XRT_ROOT_EVENT_ASYNC : XRT_ROOT_EVENT;
 
 	WARN_ON(evt == XRT_EVENT_POST_CREATION || evt == XRT_EVENT_PRE_REMOVAL);
 	return xrt_subdev_root_request(pdev, cmd, &e);
@@ -826,7 +824,7 @@ EXPORT_SYMBOL_GPL(xleaf_hot_reset);
 
 void xleaf_get_barres(struct platform_device *pdev, struct resource **res, uint bar_idx)
 {
-	struct xrt_root_ioctl_get_res arg = { 0 };
+	struct xrt_root_get_res arg = { 0 };
 
 	if (bar_idx > PCI_STD_RESOURCE_END) {
 		xrt_err(pdev, "Invalid bar idx %d", bar_idx);
@@ -842,7 +840,7 @@ void xleaf_get_barres(struct platform_device *pdev, struct resource **res, uint 
 void xleaf_get_root_id(struct platform_device *pdev, unsigned short *vendor, unsigned short *device,
 		       unsigned short *subvendor, unsigned short *subdevice)
 {
-	struct xrt_root_ioctl_get_id id = { 0 };
+	struct xrt_root_get_id id = { 0 };
 
 	xrt_subdev_root_request(pdev, XRT_ROOT_GET_ID, (void *)&id);
 	if (vendor)
@@ -858,7 +856,7 @@ void xleaf_get_root_id(struct platform_device *pdev, unsigned short *vendor, uns
 struct device *xleaf_register_hwmon(struct platform_device *pdev, const char *name, void *drvdata,
 				    const struct attribute_group **grps)
 {
-	struct xrt_root_ioctl_hwmon hm = { true, name, drvdata, grps, };
+	struct xrt_root_hwmon hm = { true, name, drvdata, grps, };
 
 	xrt_subdev_root_request(pdev, XRT_ROOT_HWMON, (void *)&hm);
 	return hm.xpih_hwmon_dev;
@@ -866,7 +864,7 @@ struct device *xleaf_register_hwmon(struct platform_device *pdev, const char *na
 
 void xleaf_unregister_hwmon(struct platform_device *pdev, struct device *hwmon)
 {
-	struct xrt_root_ioctl_hwmon hm = { false, };
+	struct xrt_root_hwmon hm = { false, };
 
 	hm.xpih_hwmon_dev = hwmon;
 	xrt_subdev_root_request(pdev, XRT_ROOT_HWMON, (void *)&hm);
