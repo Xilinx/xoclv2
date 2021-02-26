@@ -169,7 +169,7 @@ static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 	struct platform_device *pdev = cmc_bdi->pdev;
 	struct platform_device *mgmt_leaf =
 		xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
-	struct xrt_mgmt_main_ioctl_get_axlf_section gs = { XMGMT_BLP, BMC, };
+	struct xrt_mgmt_main_get_axlf_section gs = { XMGMT_BLP, BMC, };
 	struct bmc *bmcsect;
 
 	(void)sprintf(expbmc, "%s", NONE_BMC_VERSION);
@@ -179,7 +179,7 @@ static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 		return;
 	}
 
-	ret = xleaf_ioctl(mgmt_leaf, XRT_MGMT_MAIN_GET_AXLF_SECTION, &gs);
+	ret = xleaf_call(mgmt_leaf, XRT_MGMT_MAIN_GET_AXLF_SECTION, &gs);
 	if (ret == 0) {
 		bmcsect = (struct bmc *)gs.xmmigas_section;
 		memcpy(expbmc, bmcsect->version, sizeof(bmcsect->version));

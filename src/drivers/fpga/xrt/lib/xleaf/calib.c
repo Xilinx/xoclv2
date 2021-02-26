@@ -60,10 +60,9 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 	const char		*ep_name;
 	int			ret;
 	struct calib_cache	*cache = NULL, *temp;
-	struct xrt_srsr_ioctl_calib req = { 0 };
+	struct xrt_srsr_calib req = { 0 };
 
-	ret = xleaf_ioctl(srsr_leaf, XRT_SRSR_EP_NAME,
-			  (void *)&ep_name);
+	ret = xleaf_call(srsr_leaf, XRT_SRSR_EP_NAME, (void *)&ep_name);
 	if (ret) {
 		xrt_err(calib->pdev, "failed to get SRSR name %d", ret);
 		goto done;
@@ -75,11 +74,9 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 		if (!strncmp(ep_name, cache->ep_name, strlen(ep_name) + 1)) {
 			req.xsic_buf = cache->data;
 			req.xsic_size = cache->data_size;
-			ret = xleaf_ioctl(srsr_leaf,
-					  XRT_SRSR_FAST_CALIB, &req);
+			ret = xleaf_call(srsr_leaf, XRT_SRSR_FAST_CALIB, &req);
 			if (ret) {
-				xrt_err(calib->pdev, "Fast calib failed %d",
-					ret);
+				xrt_err(calib->pdev, "Fast calib failed %d", ret);
 				break;
 			}
 			goto done;
@@ -103,7 +100,7 @@ static int calib_srsr(struct calib *calib, struct platform_device *srsr_leaf)
 	}
 
 	req.xsic_buf = &cache->data;
-	ret = xleaf_ioctl(srsr_leaf, XRT_SRSR_CALIB, &req);
+	ret = xleaf_call(srsr_leaf, XRT_SRSR_CALIB, &req);
 	if (ret) {
 		xrt_err(calib->pdev, "Full calib failed %d", ret);
 		list_del(&cache->link);
@@ -228,7 +225,7 @@ failed:
 }
 
 static int
-xrt_calib_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_calibleaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct calib *calib = platform_get_drvdata(pdev);
 	int ret = 0;
@@ -262,7 +259,7 @@ static struct xrt_subdev_endpoints xrt_calib_endpoints[] = {
 
 static struct xrt_subdev_drvdata xrt_calib_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xrt_calib_leaf_ioctl,
+		.xsd_leaf_call = xrt_calibleaf_call,
 	},
 };
 

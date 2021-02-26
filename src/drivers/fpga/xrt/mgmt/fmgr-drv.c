@@ -36,7 +36,7 @@ static int xmgmt_download_bitstream(struct platform_device *pdev,
 {
 	struct xclbin_bit_head_info bit_header = { 0 };
 	struct platform_device *icap_leaf = NULL;
-	struct xrt_icap_ioctl_wr arg;
+	struct xrt_icap_wr arg;
 	char *bitstream = NULL;
 	u64 bit_len;
 	int ret;
@@ -69,7 +69,7 @@ static int xmgmt_download_bitstream(struct platform_device *pdev,
 	}
 	arg.xiiw_bit_data = bitstream + bit_header.header_length;
 	arg.xiiw_data_len = bit_header.bitstream_length;
-	ret = xleaf_ioctl(icap_leaf, XRT_ICAP_WRITE, &arg);
+	ret = xleaf_call(icap_leaf, XRT_ICAP_WRITE, &arg);
 	if (ret)
 		xrt_err(pdev, "write bitstream failed, ret = %d", ret);
 

@@ -111,14 +111,14 @@ finally:
 	return NULL;
 }
 
-/* Basic test for XRT core which validates inter xleaf ioctl calls. Perform the
+/* Basic test for XRT core which validates inter xleaf calls. Perform the
  * following operations:
  *
  * group2.xmgmt_main() {
- *     ioctl(group0.test, XRT_XLEAF_TEST_A, arg);
- *     ioctl(group1.test, XRT_XLEAF_TEST_B, arg) {
+ *     xleaf_call(group0.test, XRT_XLEAF_TEST_A, arg);
+ *     xleaf_call(group1.test, XRT_XLEAF_TEST_B, arg) {
  *         lookup(group0.test);
- *         ioctl(group0.test, XRT_XLEAF_TEST_A, arg);
+ *         xleaf_call(group0.test, XRT_XLEAF_TEST_A, arg);
  *     }
  * }
  */
@@ -134,16 +134,16 @@ static int selftest1_validate_fini(struct selftest1_main_client_data *xdd)
 	generate_random_uuid(arg_a.dummy1.b);
 	generate_random_uuid(arg_b.dummy1.b);
 
-	ret = xleaf_ioctl(xdd->leaf0, XRT_XLEAF_TEST_A, &arg_a);
+	ret = xleaf_call(xdd->leaf0, XRT_XLEAF_TEST_A, &arg_a);
 	if (ret || !uuid_is_null(&arg_a.dummy1) || strcmp(arg_a.dummy2, "alveo")) {
-		xrt_err(xdd->pdev, "xleaf test instance[0] %p ioctl %d failed",
+		xrt_err(xdd->pdev, "xleaf test instance[0] %p cmd %d failed",
 			xdd->leaf1, XRT_XLEAF_TEST_A);
 		ret = -EDOM;
 		goto finally;
 	}
-	ret = xleaf_ioctl(xdd->leaf1, XRT_XLEAF_TEST_B, &arg_b);
+	ret = xleaf_call(xdd->leaf1, XRT_XLEAF_TEST_B, &arg_b);
 	if (ret || !uuid_is_null(&arg_b.dummy1) || strcmp(arg_b.dummy2, "alveo")) {
-		xrt_err(xdd->pdev, "xleaf test instance[1] %p ioctl %d failed",
+		xrt_err(xdd->pdev, "xleaf test instance[1] %p cmd %d failed",
 			xdd->leaf1, XRT_XLEAF_TEST_B);
 		ret = -EDOM;
 		goto finally;
@@ -156,12 +156,12 @@ finally:
 	return ret;
 }
 
-static int selftest1_main_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+static int selftest1_mainleaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct selftest1_main *xmm = platform_get_drvdata(pdev);
 	int ret = 0;
 
-	xrt_info(pdev, "%p.ioctl(%d, %p)", xmm, cmd, arg);
+	xrt_info(pdev, "%p.leaf_call(%d, %p)", xmm, cmd, arg);
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
 		selftest1_main_event_cb(pdev, arg);
@@ -223,7 +223,7 @@ static int selftest1_main_close(struct inode *inode, struct file *file)
 {
 	struct selftest1_main_client_data *xdd = file->private_data;
 	struct platform_device *pdev = xdd->pdev;
-	/* Perform inter xleaf ioctls and then release test node handles */
+	/* Perform inter xleaf calls and then release test node handles */
 	int ret = selftest1_validate_fini(xdd);
 
 	file->private_data = NULL;
@@ -251,7 +251,7 @@ static struct xrt_subdev_endpoints xrt_mgmt_main_endpoints[] = {
 
 static struct xrt_subdev_drvdata selftest1_main_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = selftest1_main_leaf_ioctl,
+		.xsd_leaf_call = selftest1_mainleaf_call,
 	},
 	.xsd_file_ops = {
 		.xsf_ops = {

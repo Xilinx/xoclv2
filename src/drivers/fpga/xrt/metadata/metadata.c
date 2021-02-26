@@ -230,7 +230,7 @@ char *xrt_md_dup(struct device *dev, const char *blob)
 EXPORT_SYMBOL_GPL(xrt_md_dup);
 
 int xrt_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
-			char *regmap_name)
+			const char *regmap_name)
 {
 	int ret;
 	int ep_offset;

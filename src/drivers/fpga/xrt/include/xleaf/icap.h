@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Header file for XRT ICAP Leaf Driver
- *
  * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:
@@ -14,14 +12,14 @@
 #include "xleaf.h"
 
 /*
- * ICAP driver IOCTL calls.
+ * ICAP driver leaf calls.
  */
-enum xrt_icap_ioctl_cmd {
+enum xrt_icap_leaf_cmd {
 	XRT_ICAP_WRITE = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
 	XRT_ICAP_IDCODE,
 };
 
-struct xrt_icap_ioctl_wr {
+struct xrt_icap_wr {
 	void	*xiiw_bit_data;
 	u32	xiiw_data_len;
 };

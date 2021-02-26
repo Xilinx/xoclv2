@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Driver for Xilinx Alveo FPGA Support
- *
  * Copyright (C) 2020-2021 Xilinx, Inc.
  *
  * Authors:

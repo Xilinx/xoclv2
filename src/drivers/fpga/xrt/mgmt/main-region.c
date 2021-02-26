@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * FPGA Region Support for Xilinx Alveo Management Function Driver
- *
  * Copyright (C) 2020-2021 Xilinx, Inc.
  * Bulk of the code borrowed from XRT mgmt driver file, fmgr.c
  *
@@ -52,9 +50,9 @@ static int xmgmt_br_enable_set(struct fpga_bridge *bridge, bool enable)
 	}
 
 	if (enable)
-		rc = xleaf_ioctl(axigate_leaf, XRT_AXIGATE_FREE, NULL);
+		rc = xleaf_call(axigate_leaf, XRT_AXIGATE_FREE, NULL);
 	else
-		rc = xleaf_ioctl(axigate_leaf, XRT_AXIGATE_FREEZE, NULL);
+		rc = xleaf_call(axigate_leaf, XRT_AXIGATE_FREEZE, NULL);
 
 	if (rc) {
 		xrt_err(br_data->pdev, "failed to %s gate %s, rc %d",

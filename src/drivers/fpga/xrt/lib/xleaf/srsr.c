@@ -197,10 +197,10 @@ static int srsr_fast_calib(struct xrt_ddr_srsr *srsr, char *data, u32 data_size,
 	return err;
 }
 
-static int xrt_srsr_leaf_ioctl(struct platform_device *pdev, u32 cmd, void *arg)
+static int xrt_srsrleaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct xrt_ddr_srsr *srsr = platform_get_drvdata(pdev);
-	struct xrt_srsr_ioctl_calib *req = arg;
+	struct xrt_srsr_calib *req = arg;
 	int ret = 0;
 
 	switch (cmd) {
@@ -294,7 +294,7 @@ struct xrt_subdev_endpoints xrt_srsr_endpoints[] = {
 
 static struct xrt_subdev_drvdata xrt_srsr_data = {
 	.xsd_dev_ops = {
-		.xsd_ioctl = xrt_srsr_leaf_ioctl,
+		.xsd_leaf_call = xrt_srsrleaf_call,
 	},
 };
 
