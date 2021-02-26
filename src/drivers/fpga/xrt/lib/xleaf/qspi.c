@@ -1245,7 +1245,7 @@ static size_t qspi_get_size(struct platform_device *pdev)
 }
 
 static int
-qspileaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+qspi_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct xrt_qspi *flash = platform_get_drvdata(pdev);
 	int ret = 0;
@@ -1288,7 +1288,7 @@ static struct xrt_subdev_endpoints xrt_qspi_endpoints[] = {
 
 static struct xrt_subdev_drvdata qspi_data = {
 	.xsd_dev_ops = {
-		.xsd_leaf_call = qspileaf_call,
+		.xsd_leaf_call = qspi_leaf_call,
 	},
 	.xsd_file_ops = {
 		.xsf_ops = {

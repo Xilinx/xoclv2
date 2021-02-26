@@ -48,7 +48,7 @@ static int xrt_devctl_name2id(struct xrt_devctl *devctl, const char *name)
 }
 
 static int
-xrt_devctlleaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_devctl_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct xrt_devctl	*devctl;
 	int			ret = 0;
@@ -179,7 +179,7 @@ static struct xrt_subdev_endpoints xrt_devctl_endpoints[] = {
 
 static struct xrt_subdev_drvdata xrt_devctl_data = {
 	.xsd_dev_ops = {
-		.xsd_leaf_call = xrt_devctlleaf_call,
+		.xsd_leaf_call = xrt_devctl_leaf_call,
 	},
 };
 

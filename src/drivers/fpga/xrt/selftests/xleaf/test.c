@@ -162,7 +162,7 @@ static int xrt_test_remove(struct platform_device *pdev)
 }
 
 static int
-xrt_testleaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_test_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	int ret = 0;
 
@@ -249,7 +249,7 @@ static struct xrt_subdev_endpoints xrt_test_endpoints[] = {
  */
 static struct xrt_subdev_drvdata xrt_test_data = {
 	.xsd_dev_ops = {
-		.xsd_leaf_call = xrt_testleaf_call,
+		.xsd_leaf_call = xrt_test_leaf_call,
 	},
 	.xsd_file_ops = {
 		.xsf_ops = {

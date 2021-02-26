@@ -514,7 +514,7 @@ static struct attribute_group clock_attr_group = {
 };
 
 static int
-xrt_clockleaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_clock_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct clock		*clock;
 	int			ret = 0;
@@ -623,7 +623,7 @@ static struct xrt_subdev_endpoints xrt_clock_endpoints[] = {
 
 static struct xrt_subdev_drvdata xrt_clock_data = {
 	.xsd_dev_ops = {
-		.xsd_leaf_call = xrt_clockleaf_call,
+		.xsd_leaf_call = xrt_clock_leaf_call,
 	},
 };
 

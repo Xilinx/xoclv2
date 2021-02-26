@@ -1452,7 +1452,7 @@ static int mailbox_listen(struct platform_device *pdev, mailbox_msg_cb_t cb, voi
 	return 0;
 }
 
-static int mailboxleaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+static int mailbox_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct mailbox *mbx = platform_get_drvdata(pdev);
 	int ret = 0;
@@ -1827,7 +1827,7 @@ static struct xrt_subdev_endpoints xrt_mailbox_endpoints[] = {
 
 static struct xrt_subdev_drvdata mailbox_drvdata = {
 	.xsd_dev_ops = {
-		.xsd_leaf_call = mailboxleaf_call,
+		.xsd_leaf_call = mailbox_leaf_call,
 	},
 	.xsd_file_ops = {
 		.xsf_ops = {

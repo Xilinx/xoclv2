@@ -120,7 +120,7 @@ static void ucs_enable(struct xrt_ucs *ucs)
 }
 
 static int
-xrt_ucsleaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_ucs_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
 	struct xrt_ucs		*ucs;
 	int			ret = 0;
@@ -208,7 +208,7 @@ static struct xrt_subdev_endpoints xrt_ucs_endpoints[] = {
 
 static struct xrt_subdev_drvdata xrt_ucs_data = {
 	.xsd_dev_ops = {
-		.xsd_leaf_call = xrt_ucsleaf_call,
+		.xsd_leaf_call = xrt_ucs_leaf_call,
 	},
 };
 
