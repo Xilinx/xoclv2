@@ -34,26 +34,21 @@
 /*
  * AXI-HWICAP IP register layout
  */
-struct icap_reg {
-	u32	ir_rsvd1[7];
-	u32	ir_gier;
-	u32	ir_isr;
-	u32	ir_rsvd2;
-	u32	ir_ier;
-	u32	ir_rsvd3[53];
-	u32	ir_wf;
-	u32	ir_rf;
-	u32	ir_sz;
-	u32	ir_cr;
-	u32	ir_sr;
-	u32	ir_wfv;
-	u32	ir_rfo;
-	u32	ir_asr;
-} __packed;
+#define ICAP_REG_GIER(base)	((base) + 0x1C)
+#define ICAP_REG_ISR(base)	((base) + 0x20)
+#define ICAP_REG_IER(base)	((base) + 0x28)
+#define ICAP_REG_WF(base)	((base) + 0x100)
+#define ICAP_REG_RF(base)	((base) + 0x104)
+#define ICAP_REG_SZ(base)	((base) + 0x108)
+#define ICAP_REG_CR(base)	((base) + 0x10C)
+#define ICAP_REG_SR(base)	((base) + 0x110)
+#define ICAP_REG_WFV(base)	((base) + 0x114)
+#define ICAP_REG_RFO(base)	((base) + 0x118)
+#define ICAP_REG_ASR(base)	((base) + 0x11C)
 
 struct icap {
 	struct platform_device	*pdev;
-	struct icap_reg		*icap_regs;
+	void __iomem		*reg_base;
 	struct mutex		icap_lock; /* icap dev lock */
 
 	unsigned int		idcode;
@@ -64,7 +59,7 @@ static inline u32 reg_rd(void __iomem *reg)
 	if (!reg)
 		return -1;
 
-	return ioread32(reg);
+	return readl(reg);
 }
 
 static inline void reg_wr(void __iomem *reg, u32 val)
@@ -72,18 +67,18 @@ static inline void reg_wr(void __iomem *reg, u32 val)
 	if (!reg)
 		return;
 
-	iowrite32(val, reg);
+	writel(val, reg);
 }
 
 static int wait_for_done(struct icap *icap)
 {
-	u32	w;
 	int	i = 0;
+	u32	w;
 
 	WARN_ON(!mutex_is_locked(&icap->icap_lock));
 	for (i = 0; i < 10; i++) {
 		udelay(5);
-		w = reg_rd(&icap->icap_regs->ir_sr);
+		w = reg_rd(ICAP_REG_SR(icap->reg_base));
 		ICAP_INFO(icap, "XHWICAP_SR: %x", w);
 		if (w & 0x5)
 			return 0;
@@ -95,18 +90,18 @@ static int wait_for_done(struct icap *icap)
 
 static int icap_write(struct icap *icap, const u32 *word_buf, int size)
 {
-	int i;
 	u32 value = 0;
+	int i;
 
 	for (i = 0; i < size; i++) {
 		value = be32_to_cpu(word_buf[i]);
-		reg_wr(&icap->icap_regs->ir_wf, value);
+		reg_wr(ICAP_REG_WF(icap->reg_base), value);
 	}
 
-	reg_wr(&icap->icap_regs->ir_cr, 0x1);
+	reg_wr(ICAP_REG_CR(icap->reg_base), 0x1);
 
 	for (i = 0; i < 20; i++) {
-		value = reg_rd(&icap->icap_regs->ir_cr);
+		value = reg_rd(ICAP_REG_CR(icap->reg_base));
 		if ((value & 0x1) == 0)
 			return 0;
 		ndelay(50);
@@ -119,15 +114,15 @@ static int icap_write(struct icap *icap, const u32 *word_buf, int size)
 static int bitstream_helper(struct icap *icap, const u32 *word_buffer,
 			    u32 word_count)
 {
-	u32 remain_word;
-	u32 word_written = 0;
 	int wr_fifo_vacancy = 0;
+	u32 word_written = 0;
+	u32 remain_word;
 	int err = 0;
 
 	WARN_ON(!mutex_is_locked(&icap->icap_lock));
 	for (remain_word = word_count; remain_word > 0;
 		remain_word -= word_written, word_buffer += word_written) {
-		wr_fifo_vacancy = reg_rd(&icap->icap_regs->ir_wfv);
+		wr_fifo_vacancy = reg_rd(ICAP_REG_WFV(icap->reg_base));
 		if (wr_fifo_vacancy <= 0) {
 			ICAP_ERR(icap, "no vacancy: %d", wr_fifo_vacancy);
 			err = -EIO;
@@ -178,41 +173,38 @@ failed:
  */
 static void icap_probe_chip(struct icap *icap)
 {
-	u32 w;
-
-	w = reg_rd(&icap->icap_regs->ir_sr);
-	w = reg_rd(&icap->icap_regs->ir_sr);
-	reg_wr(&icap->icap_regs->ir_gier, 0x0);
-	w = reg_rd(&icap->icap_regs->ir_wfv);
-	reg_wr(&icap->icap_regs->ir_wf, 0xffffffff);
-	reg_wr(&icap->icap_regs->ir_wf, 0xaa995566);
-	reg_wr(&icap->icap_regs->ir_wf, 0x20000000);
-	reg_wr(&icap->icap_regs->ir_wf, 0x20000000);
-	reg_wr(&icap->icap_regs->ir_wf, 0x28018001);
-	reg_wr(&icap->icap_regs->ir_wf, 0x20000000);
-	reg_wr(&icap->icap_regs->ir_wf, 0x20000000);
-	w = reg_rd(&icap->icap_regs->ir_cr);
-	reg_wr(&icap->icap_regs->ir_cr, 0x1);
-	w = reg_rd(&icap->icap_regs->ir_cr);
-	w = reg_rd(&icap->icap_regs->ir_cr);
-	w = reg_rd(&icap->icap_regs->ir_sr);
-	w = reg_rd(&icap->icap_regs->ir_cr);
-	w = reg_rd(&icap->icap_regs->ir_sr);
-	reg_wr(&icap->icap_regs->ir_sz, 0x1);
-	w = reg_rd(&icap->icap_regs->ir_cr);
-	reg_wr(&icap->icap_regs->ir_cr, 0x2);
-	w = reg_rd(&icap->icap_regs->ir_rfo);
-	icap->idcode = reg_rd(&icap->icap_regs->ir_rf);
-	w = reg_rd(&icap->icap_regs->ir_cr);
-	(void)w;
+	reg_rd(ICAP_REG_SR(icap->reg_base));
+	reg_rd(ICAP_REG_SR(icap->reg_base));
+	reg_wr(ICAP_REG_GIER(icap->reg_base), 0x0);
+	reg_rd(ICAP_REG_WFV(icap->reg_base));
+	reg_wr(ICAP_REG_WF(icap->reg_base), 0xffffffff);
+	reg_wr(ICAP_REG_WF(icap->reg_base), 0xaa995566);
+	reg_wr(ICAP_REG_WF(icap->reg_base), 0x20000000);
+	reg_wr(ICAP_REG_WF(icap->reg_base), 0x20000000);
+	reg_wr(ICAP_REG_WF(icap->reg_base), 0x28018001);
+	reg_wr(ICAP_REG_WF(icap->reg_base), 0x20000000);
+	reg_wr(ICAP_REG_WF(icap->reg_base), 0x20000000);
+	reg_rd(ICAP_REG_CR(icap->reg_base));
+	reg_wr(ICAP_REG_CR(icap->reg_base), 0x1);
+	reg_rd(ICAP_REG_CR(icap->reg_base));
+	reg_rd(ICAP_REG_CR(icap->reg_base));
+	reg_rd(ICAP_REG_SR(icap->reg_base));
+	reg_rd(ICAP_REG_CR(icap->reg_base));
+	reg_rd(ICAP_REG_SR(icap->reg_base));
+	reg_wr(ICAP_REG_SZ(icap->reg_base), 0x1);
+	reg_rd(ICAP_REG_CR(icap->reg_base));
+	reg_wr(ICAP_REG_CR(icap->reg_base), 0x2);
+	reg_rd(ICAP_REG_RFO(icap->reg_base));
+	icap->idcode = reg_rd(ICAP_REG_RF(icap->reg_base));
+	reg_rd(ICAP_REG_CR(icap->reg_base));
 }
 
 static int
 xrt_icap_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	struct xrt_icap_wr	*wr_arg = arg;
-	struct icap			*icap;
-	int				ret = 0;
+	struct xrt_icap_wr *wr_arg = arg;
+	struct icap *icap;
+	int ret = 0;
 
 	icap = platform_get_drvdata(pdev);
 
@@ -237,7 +229,7 @@ xrt_icap_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 
 static int xrt_icap_remove(struct platform_device *pdev)
 {
-	struct icap	*icap;
+	struct icap *icap;
 
 	icap = platform_get_drvdata(pdev);
 
@@ -249,9 +241,9 @@ static int xrt_icap_remove(struct platform_device *pdev)
 
 static int xrt_icap_probe(struct platform_device *pdev)
 {
-	struct icap	*icap;
-	int			ret = 0;
-	struct resource		*res;
+	struct resource *res;
+	struct icap *icap;
+	int ret = 0;
 
 	icap = devm_kzalloc(&pdev->dev, sizeof(*icap), GFP_KERNEL);
 	if (!icap)
@@ -264,8 +256,8 @@ static int xrt_icap_probe(struct platform_device *pdev)
 	xrt_info(pdev, "probing");
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res) {
-		icap->icap_regs = ioremap(res->start, res->end - res->start + 1);
-		if (!icap->icap_regs) {
+		icap->reg_base = ioremap(res->start, res->end - res->start + 1);
+		if (!icap->reg_base) {
 			xrt_err(pdev, "map base failed %pR", res);
 			ret = -EIO;
 			goto failed;
