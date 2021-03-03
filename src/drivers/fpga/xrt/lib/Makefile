@@ -26,7 +26,7 @@ fdtobj := 				\
 endif
 
 xrt-lib-y := 			\
-	main.o			\
+	lib-drv.o		\
 	xroot.o			\
 	xclbin.o		\
 	subdev.o		\
