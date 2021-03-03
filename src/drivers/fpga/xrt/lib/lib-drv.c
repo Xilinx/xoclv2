@@ -10,7 +10,7 @@
 #include <linux/vmalloc.h>
 #include "xleaf.h"
 #include "xroot.h"
-#include "main.h"
+#include "lib-drv.h"
 
 #define XRT_IPLIB_MODULE_NAME		"xrt-lib"
 #define XRT_IPLIB_MODULE_VERSION	"4.0.0"
@@ -18,7 +18,7 @@
 #define XRT_DRVNAME(drv)		((drv)->driver.name)
 
 /*
- * Subdev driver is known by ID to others. We map the ID to it's
+ * Subdev driver is known by it's ID to others. We map the ID to it's
  * struct platform_driver, which contains it's binding name and driver/file ops.
  * We also map it to the endpoint name in DTB as well, if it's different
  * than the driver's binding name.
@@ -42,13 +42,11 @@ xrt_drv_map2drvdata(struct xrt_drv_map *map)
 }
 
 static struct xrt_drv_map *
-xrt_drv_find_map_by_id_nolock(enum xrt_subdev_id id)
+__xrt_drv_find_map_by_id(enum xrt_subdev_id id)
 {
-	const struct list_head *ptr;
+	struct xrt_drv_map *tmap;
 
-	list_for_each(ptr, &xrt_drv_maps) {
-		struct xrt_drv_map *tmap = list_entry(ptr, struct xrt_drv_map, list);
-
+	list_for_each_entry(tmap, &xrt_drv_maps, list) {
 		if (tmap->id == id)
 			return tmap;
 	}
@@ -61,10 +59,10 @@ xrt_drv_find_map_by_id(enum xrt_subdev_id id)
 	struct xrt_drv_map *map;
 
 	mutex_lock(&xrt_lib_lock);
-	map = xrt_drv_find_map_by_id_nolock(id);
+	map = __xrt_drv_find_map_by_id(id);
 	mutex_unlock(&xrt_lib_lock);
 	/*
-	 * map should remain valid even after lock is dropped since a registered
+	 * map should remain valid even after the lock is dropped since a registered
 	 * driver should only be unregistered when driver module is being unloaded,
 	 * which means that the driver should not be used by then.
 	 */
@@ -129,10 +127,11 @@ int xleaf_register_driver(enum xrt_subdev_id id,
 			  struct xrt_subdev_endpoints *eps)
 {
 	struct xrt_drv_map *map;
+	int rc;
 
 	mutex_lock(&xrt_lib_lock);
 
-	map = xrt_drv_find_map_by_id_nolock(id);
+	map = __xrt_drv_find_map_by_id(id);
 	if (map) {
 		mutex_unlock(&xrt_lib_lock);
 		pr_err("Id %d already has a registered driver, 0x%p\n",
@@ -140,7 +139,7 @@ int xleaf_register_driver(enum xrt_subdev_id id,
 		return -EEXIST;
 	}
 
-	map = vzalloc(sizeof(*map));
+	map = kzalloc(sizeof(*map), GFP_KERNEL);
 	if (!map) {
 		mutex_unlock(&xrt_lib_lock);
 		return -ENOMEM;
@@ -149,7 +148,12 @@ int xleaf_register_driver(enum xrt_subdev_id id,
 	map->drv = drv;
 	map->eps = eps;
 
-	xrt_drv_register_driver(map);
+	rc = xrt_drv_register_driver(map);
+	if (rc) {
+		kfree(map);
+		mutex_unlock(&xrt_lib_lock);
+		return rc;
+	}
 
 	list_add(&map->list, &xrt_drv_maps);
 
@@ -165,7 +169,7 @@ void xleaf_unregister_driver(enum xrt_subdev_id id)
 
 	mutex_lock(&xrt_lib_lock);
 
-	map = xrt_drv_find_map_by_id_nolock(id);
+	map = __xrt_drv_find_map_by_id(id);
 	if (!map) {
 		mutex_unlock(&xrt_lib_lock);
 		pr_err("Id %d has no registered driver\n", id);
@@ -177,7 +181,7 @@ void xleaf_unregister_driver(enum xrt_subdev_id id)
 	mutex_unlock(&xrt_lib_lock);
 
 	xrt_drv_unregister_driver(map);
-	vfree(map);
+	kfree(map);
 }
 EXPORT_SYMBOL_GPL(xleaf_unregister_driver);
 
@@ -259,7 +263,7 @@ static __exit void xrt_lib_fini(void)
 		list_del(&map->list);
 		mutex_unlock(&xrt_lib_lock);
 		xrt_drv_unregister_driver(map);
-		vfree(map);
+		kfree(map);
 		mutex_lock(&xrt_lib_lock);
 	}
 
