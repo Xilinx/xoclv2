@@ -11,7 +11,7 @@
 #include <linux/vmalloc.h>
 #include "xleaf.h"
 #include "subdev_pool.h"
-#include "main.h"
+#include "lib-drv.h"
 #include "metadata.h"
 
 #define DEV_IS_PCI(dev) ((dev)->bus == &pci_bus_type)
