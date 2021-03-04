@@ -14,7 +14,7 @@
 #include "subdev_pool.h"
 #include "group.h"
 #include "metadata.h"
-#include "main.h"
+#include "lib-drv.h"
 
 #define XRT_GRP "xrt_group"
 
