@@ -118,6 +118,7 @@ void xleaf_devnode_close(struct inode *inode)
 
 	mutex_lock(&pdata->xsp_devnode_lock);
 
+	WARN_ON(pdata->xsp_devnode_ref == 0);
 	pdata->xsp_devnode_ref--;
 	if (pdata->xsp_devnode_ref == 0) {
 		pdata->xsp_devnode_excl = false;
@@ -194,7 +195,7 @@ int xleaf_devnode_create(struct platform_device *pdev, const char *file_name,
 	if (IS_ERR(sysdev)) {
 		ret = PTR_ERR(sysdev);
 		xrt_err(pdev, "failed to create device node: %d", ret);
-		goto failed;
+		goto failed_cdev_add;
 	}
 	pdata->xsp_sysdev = sysdev;
 
@@ -204,9 +205,9 @@ int xleaf_devnode_create(struct platform_device *pdev, const char *file_name,
 		 MAJOR(cdevp->dev), pdev->id, fname);
 	return 0;
 
-failed:
-	device_destroy(xrt_class, cdevp->dev);
+failed_cdev_add:
 	cdev_del(cdevp);
+failed:
 	cdevp->owner = NULL;
 	return ret;
 }

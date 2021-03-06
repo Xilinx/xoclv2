@@ -9,6 +9,7 @@
 #ifndef _XRT_ROOT_H_
 #define _XRT_ROOT_H_
 
+#include <linux/platform_device.h>
 #include <linux/pci.h>
 #include "subdev_id.h"
 #include "events.h"
@@ -97,11 +98,11 @@ int xrt_subdev_root_request(struct platform_device *self, u32 cmd, void *arg);
  * Defines physical function (MPF / UPF) specific operations
  * needed in common root driver.
  */
-struct xroot_pf_cb {
+struct xroot_physical_function_callback {
 	void (*xpc_hot_reset)(struct pci_dev *pdev);
 };
 
-int xroot_probe(struct pci_dev *pdev, struct xroot_pf_cb *cb, void **root);
+int xroot_probe(struct pci_dev *pdev, struct xroot_physical_function_callback *cb, void **root);
 void xroot_remove(void *root);
 bool xroot_wait_for_bringup(void *root);
 int xroot_add_vsec_node(void *root, char *dtb);
