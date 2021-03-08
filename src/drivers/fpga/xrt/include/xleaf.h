@@ -10,13 +10,9 @@
 #ifndef _XRT_XLEAF_H_
 #define _XRT_XLEAF_H_
 
-#include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
-#include <linux/pci.h>
-#include <linux/libfdt_env.h>
-#include "libfdt.h"
 #include "subdev_id.h"
 #include "xroot.h"
 #include "events.h"
@@ -74,7 +70,7 @@ struct xrt_subdev_file_ops {
 struct xrt_subdev_drv_ops {
 	/*
 	 * Per driver instance callback. The pdev points to the instance.
-	 * If defined these are called by other leaf drivers.
+	 * If defined, these are called by other leaf drivers.
 	 * Note that root driver may call into xsd_leaf_call of a group driver.
 	 */
 	int (*xsd_leaf_call)(struct platform_device *pdev, u32 cmd, void *arg);
@@ -140,7 +136,8 @@ struct xrt_subdev_platdata {
 	 * the subdev driver to handle. Should always be last one since it's
 	 * of variable length.
 	 */
-	char xsp_dtb[sizeof(struct fdt_header)];
+	bool xsp_dtb_valid;
+	char xsp_dtb[0];
 };
 
 /*
@@ -169,9 +166,13 @@ struct platform_device *xleaf_get_leaf(struct platform_device *pdev,
 static inline bool subdev_match(enum xrt_subdev_id id, struct platform_device *pdev, void *arg)
 {
 	const struct subdev_match_arg *a = (struct subdev_match_arg *)arg;
-	bool ret = (id == a->id && (pdev->id == a->instance || PLATFORM_DEVID_NONE == a->instance));
+	int instance = a->instance;
 
-	return ret;
+	if (id != a->id)
+		return false;
+	if (instance != pdev->id && instance != PLATFORM_DEVID_NONE)
+		return false;
+	return true;
 }
 
 static inline bool xrt_subdev_match_epname(enum xrt_subdev_id id,
@@ -202,23 +203,18 @@ static inline int xleaf_call(struct platform_device *tgt, u32 cmd, void *arg)
 	return (*drvdata->xsd_dev_ops.xsd_leaf_call)(tgt, cmd, arg);
 }
 
-int xleaf_put_leaf(struct platform_device *pdev,
-		   struct platform_device *leaf);
+int xleaf_broadcast_event(struct platform_device *pdev, enum xrt_events evt, bool async);
 int xleaf_create_group(struct platform_device *pdev, char *dtb);
 int xleaf_destroy_group(struct platform_device *pdev, int instance);
-int xleaf_wait_for_group_bringup(struct platform_device *pdev);
-void xleaf_hot_reset(struct platform_device *pdev);
-int xleaf_broadcast_event(struct platform_device *pdev,
-			  enum xrt_events evt, bool async);
-void xleaf_get_barres(struct platform_device *pdev,
-		      struct resource **res, uint bar_idx);
-void xleaf_get_root_id(struct platform_device *pdev,
-		       unsigned short *vendor, unsigned short *device,
+void xleaf_get_barres(struct platform_device *pdev, struct resource **res, uint bar_idx);
+void xleaf_get_root_id(struct platform_device *pdev, unsigned short *vendor, unsigned short *device,
 		       unsigned short *subvendor, unsigned short *subdevice);
-struct device *xleaf_register_hwmon(struct platform_device *pdev,
-				    const char *name, void *drvdata,
+void xleaf_hot_reset(struct platform_device *pdev);
+int xleaf_put_leaf(struct platform_device *pdev, struct platform_device *leaf);
+struct device *xleaf_register_hwmon(struct platform_device *pdev, const char *name, void *drvdata,
 				    const struct attribute_group **grps);
 void xleaf_unregister_hwmon(struct platform_device *pdev, struct device *hwmon);
+int xleaf_wait_for_group_bringup(struct platform_device *pdev);
 
 /*
  * Character device helper APIs for use by leaf drivers

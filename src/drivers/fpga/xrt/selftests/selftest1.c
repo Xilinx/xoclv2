@@ -99,7 +99,7 @@ static struct attribute_group selftest1_root_attr_group = {
 	.attrs = selftest1_root_attrs,
 };
 
-static struct xroot_pf_cb selftest1_xroot_pf_cb = {
+static struct xroot_physical_function_callback selftest1_xroot_pf_cb = {
 	.xpc_hot_reset = selftest1_root_hot_reset,
 };
 

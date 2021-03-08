@@ -231,7 +231,7 @@ static struct attribute_group xmgmt_root_attr_group = {
 	.attrs = xmgmt_root_attrs,
 };
 
-static struct xroot_pf_cb xmgmt_xroot_pf_cb = {
+static struct xroot_physical_function_callback xmgmt_xroot_pf_cb = {
 	.xpc_hot_reset = xmgmt_root_hot_reset,
 };
 

@@ -10,12 +10,9 @@
 #define _XRT_SUBDEV_ID_H_
 
 /*
- * Every subdev driver should have an ID for others to refer to it.
- * There can be unlimited number of instances of a subdev driver. A
- * <subdev_id, subdev_instance> tuple should be a unique identification of
- * a specific instance of a subdev driver.
- * NOTE: PLEASE do not change the order of IDs. Sub devices in the same
- * group are initialized by this order.
+ * Every subdev driver has an ID for others to refer to it. There can be multiple number of
+ * instances of a subdev driver. A <subdev_id, subdev_instance> tuple is a unique identification
+ * of a specific instance of a subdev driver.
  */
 enum xrt_subdev_id {
 	XRT_SUBDEV_GRP = 0,
