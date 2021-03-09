@@ -36,13 +36,13 @@ struct xclbin_bit_head_info {
 	const unchar *version;		/* Version string */
 };
 
-/* caller must free the allocated memory for **data */
+/* caller must free the allocated memory for **data. len could be NULL. */
 int xrt_xclbin_get_section(struct device *dev,  const struct axlf *xclbin,
 			   enum axlf_section_kind kind, void **data,
 			   uint64_t *len);
 int xrt_xclbin_get_metadata(struct device *dev, const struct axlf *xclbin, char **dtb);
 int xrt_xclbin_parse_bitstream_header(struct device *dev, const unchar *data,
 				      u32 size, struct xclbin_bit_head_info *head_info);
-const char *xrt_clock_type2epname(enum CLOCK_TYPE type);
+const char *xrt_clock_type2epname(enum XCLBIN_CLOCK_TYPE type);
 
 #endif /* _XCLBIN_HELPER_H_ */

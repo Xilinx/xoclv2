@@ -22,21 +22,16 @@
 
 #define VSEC_UUID_LEN		16
 
+#define VSEC_REG_FORMAT		0x0
+#define VSEC_REG_LENGTH		0x4
+#define VSEC_REG_ENTRY		0x8
+
 struct xrt_vsec_header {
 	u32		format;
 	u32		length;
 	u32		entry_sz;
 	u32		rsvd;
 } __packed;
-
-#define head_rd(g, r)			\
-	ioread32((void *)(g)->base + offsetof(struct xrt_vsec_header, r))
-
-#define GET_BAR(entry)	(((entry)->bar_rev >> 4) & 0xf)
-#define GET_BAR_OFF(_entry)				\
-	({ typeof(_entry) entry = (_entry);		\
-	 ((entry)->off_lo | ((u64)(entry)->off_hi << 16)); })
-#define GET_REV(entry)	((entry)->bar_rev & 0xf)
 
 struct xrt_vsec_entry {
 	u8		type;
@@ -49,18 +44,6 @@ struct xrt_vsec_entry {
 	u8		rsvd0;
 	u32		rsvd1;
 } __packed;
-
-#define read_entry(g, i, e)					\
-	do {							\
-		u32 *p = (u32 *)((g)->base +			\
-			sizeof(struct xrt_vsec_header) +	\
-			(i) * sizeof(struct xrt_vsec_entry));	\
-		u32 off;					\
-		for (off = 0;					\
-		    off < sizeof(struct xrt_vsec_entry) / 4;	\
-		    off++)					\
-			*((u32 *)(e) + off) = ioread32(p + off);\
-	} while (0)
 
 struct vsec_device {
 	u8		type;
@@ -104,6 +87,36 @@ struct xrt_vsec {
 	char			*metadata;
 	char			uuid[VSEC_UUID_LEN];
 };
+
+static inline u32 vsec_read_header(struct xrt_vsec *vsec, u32 reg)
+{
+	return readl(vsec->base + reg);
+}
+
+static inline void vsec_read_entry(struct xrt_vsec *vsec, u32 index, struct xrt_vsec_entry *entry)
+{
+	u32 *p_entry = (u32 *)(vsec->base + sizeof(struct xrt_vsec_header) +
+			       index * sizeof(struct xrt_vsec_entry));
+	u32 off;
+
+	for (off = 0; off < sizeof(struct xrt_vsec_entry) / 4; off++)
+		*((u32 *)entry + off) = readl(p_entry + off);
+}
+
+static inline u32 vsec_get_bar(struct xrt_vsec_entry *entry)
+{
+	return ((entry)->bar_rev >> 4) & 0xf;
+}
+
+static inline u64 vsec_get_bar_off(struct xrt_vsec_entry *entry)
+{
+	return (entry)->off_lo | ((u64)(entry)->off_hi << 16);
+}
+
+static inline u32 vsec_get_rev(struct xrt_vsec_entry *entry)
+{
+	return (entry)->bar_rev & 0xf;
+}
 
 static char *type2epname(u32 type)
 {
@@ -159,20 +172,17 @@ static int xrt_vsec_add_node(struct xrt_vsec *vsec,
 
 	snprintf(regmap_ver, sizeof(regmap_ver) - 1, "%d-%d.%d.%d",
 		 p_entry->ver_type, p_entry->major, p_entry->minor,
-		 GET_REV(p_entry));
+		 vsec_get_rev(p_entry));
 	ep.ep_name = type2epname(p_entry->type);
-	ep.bar = GET_BAR(p_entry);
-	ep.bar_off = GET_BAR_OFF(p_entry);
+	ep.bar = vsec_get_bar(p_entry);
+	ep.bar_off = vsec_get_bar_off(p_entry);
 	ep.size = type2size(p_entry->type);
 	ep.regmap = type2regmap(p_entry->type);
 	ep.regmap_ver = regmap_ver;
 	ret = xrt_md_add_endpoint(DEV(vsec->pdev), vsec->metadata, &ep);
-	if (ret) {
+	if (ret)
 		xrt_err(vsec->pdev, "add ep failed, ret %d", ret);
-		goto failed;
-	}
 
-failed:
 	return ret;
 }
 
@@ -189,11 +199,20 @@ static int xrt_vsec_create_metadata(struct xrt_vsec *vsec)
 
 	for (i = 0; i * sizeof(entry) < vsec->length -
 	    sizeof(struct xrt_vsec_header); i++) {
-		read_entry(vsec, i, &entry);
-		xrt_vsec_add_node(vsec, vsec->metadata, &entry);
+		vsec_read_entry(vsec, i, &entry);
+		if (entry.type == VSEC_TYPE_END)
+			break;
+		ret = xrt_vsec_add_node(vsec, vsec->metadata, &entry);
+		if (ret)
+			goto fail;
 	}
 
 	return 0;
+
+fail:
+	vfree(vsec->metadata);
+	vsec->metadata = NULL;
+	return ret;
 }
 
 static int xrt_vsec_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
@@ -216,10 +235,10 @@ static int xrt_vsec_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 static int xrt_vsec_mapio(struct xrt_vsec *vsec)
 {
 	struct xrt_subdev_platdata *pdata = DEV_PDATA(vsec->pdev);
-	const u32 *bar;
-	const u64 *bar_off;
 	struct resource *res = NULL;
-	ulong addr;
+	const u64 *bar_off;
+	const u32 *bar;
+	u64 addr;
 	int ret;
 
 	if (!pdata || xrt_md_size(DEV(vsec->pdev), pdata->xsp_dtb) == XRT_MD_INVALID_LENGTH) {
@@ -250,7 +269,7 @@ static int xrt_vsec_mapio(struct xrt_vsec *vsec)
 		return -EINVAL;
 	}
 
-	addr = res->start + (ulong)be64_to_cpu(*bar_off);
+	addr = res->start + be64_to_cpu(*bar_off);
 
 	vsec->base = ioremap(addr, sizeof(struct xrt_vsec_header));
 	if (!vsec->base) {
@@ -258,7 +277,7 @@ static int xrt_vsec_mapio(struct xrt_vsec *vsec)
 		return -EIO;
 	}
 
-	vsec->length = head_rd(vsec, length);
+	vsec->length = vsec_read_header(vsec, VSEC_REG_LENGTH);
 	iounmap(vsec->base);
 	vsec->base = ioremap(addr, vsec->length);
 	if (!vsec->base) {
@@ -288,7 +307,7 @@ static int xrt_vsec_remove(struct platform_device *pdev)
 static int xrt_vsec_probe(struct platform_device *pdev)
 {
 	struct xrt_vsec	*vsec;
-	int			ret = 0;
+	int ret = 0;
 
 	vsec = devm_kzalloc(&pdev->dev, sizeof(*vsec), GFP_KERNEL);
 	if (!vsec)
@@ -307,14 +326,15 @@ static int xrt_vsec_probe(struct platform_device *pdev)
 		goto failed;
 	}
 	ret = xleaf_create_group(pdev, vsec->metadata);
-	if (ret < 0)
+	if (ret < 0) {
 		xrt_err(pdev, "create group failed, ret %d", ret);
-	else
-		ret = 0;
+		goto failed;
+	}
+
+	return 0;
 
 failed:
-	if (ret)
-		xrt_vsec_remove(pdev);
+	xrt_vsec_remove(pdev);
 
 	return ret;
 }

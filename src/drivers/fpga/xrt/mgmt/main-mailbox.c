@@ -387,7 +387,7 @@ static void xmgmt_mailbox_resp_sensor(struct xmgmt_mailbox *xmbx,
 }
 
 static int xmgmt_mailbox_get_freq(struct xmgmt_mailbox *xmbx,
-				  enum CLOCK_TYPE type, u64 *freq, u64 *freq_cnter)
+				  enum XCLBIN_CLOCK_TYPE type, u64 *freq, u64 *freq_cnter)
 {
 	struct platform_device *pdev = xmbx->pdev;
 	const char *clkname =
