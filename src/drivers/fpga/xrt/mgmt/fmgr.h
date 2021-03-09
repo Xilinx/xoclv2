@@ -13,13 +13,6 @@
 
 #include <linux/xrt/xclbin.h>
 
-enum xfpga_sec_level {
-	XFPGA_SEC_NONE = 0,
-	XFPGA_SEC_DEDICATE,
-	XFPGA_SEC_SYSTEM,
-	XFPGA_SEC_MAX = XFPGA_SEC_SYSTEM,
-};
-
 struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev);
 int xmgmt_fmgr_remove(struct fpga_manager *fmgr);
 

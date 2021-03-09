@@ -17,32 +17,32 @@
 #define BITSTREAM_EVEN_MAGIC_BYTE	0x0f
 #define BITSTREAM_ODD_MAGIC_BYTE	0xf0
 
-static const struct axlf_section_header *
-xrt_xclbin_get_section_hdr(const struct axlf *xclbin,
-			   enum axlf_section_kind kind)
+static int xrt_xclbin_get_section_hdr(const struct axlf *xclbin,
+				      enum axlf_section_kind kind,
+				      const struct axlf_section_header **header)
 {
-	const struct axlf_section_header *header = 0;
+	const struct axlf_section_header *phead = NULL;
 	u64 xclbin_len;
-	int i = 0;
+	int i;
 
+	*header = NULL;
 	for (i = 0; i < xclbin->header.num_sections; i++) {
 		if (xclbin->sections[i].section_kind == kind) {
-			header = &xclbin->sections[i];
+			phead = &xclbin->sections[i];
 			break;
 		}
 	}
 
-	if (!header)
-		return NULL;
+	if (!phead)
+		return -ENOENT;
 
 	xclbin_len = xclbin->header.length;
-	if (xclbin_len > XCLBIN_MAX_SIZE)
-		return NULL;
+	if (xclbin_len > XCLBIN_MAX_SIZE ||
+	    phead->section_offset + phead->section_size > xclbin_len)
+		return -EINVAL;
 
-	if (header->section_offset + header->section_size > xclbin_len)
-		return NULL;
-
-	return header;
+	*header = phead;
+	return 0;
 }
 
 static int xrt_xclbin_section_info(const struct axlf *xclbin,
@@ -50,10 +50,11 @@ static int xrt_xclbin_section_info(const struct axlf *xclbin,
 				   u64 *offset, u64 *size)
 {
 	const struct axlf_section_header *mem_header = NULL;
+	int rc;
 
-	mem_header = xrt_xclbin_get_section_hdr(xclbin, kind);
-	if (!mem_header)
-		return -EINVAL;
+	rc = xrt_xclbin_get_section_hdr(xclbin, kind, &mem_header);
+	if (rc)
+		return rc;
 
 	*offset = mem_header->section_offset;
 	*size = mem_header->section_size;
@@ -80,7 +81,7 @@ int xrt_xclbin_get_section(struct device *dev,
 
 	err = xrt_xclbin_section_info(xclbin, kind, &offset, &size);
 	if (err) {
-		dev_err(dev, "parsing section failed. err = %d", err);
+		dev_dbg(dev, "parsing section failed. kind %d, err = %d", kind, err);
 		return err;
 	}
 
@@ -262,7 +263,7 @@ struct xrt_clock_desc {
 	},
 };
 
-const char *xrt_clock_type2epname(enum CLOCK_TYPE type)
+const char *xrt_clock_type2epname(enum XCLBIN_CLOCK_TYPE type)
 {
 	int i;
 
@@ -274,7 +275,7 @@ const char *xrt_clock_type2epname(enum CLOCK_TYPE type)
 }
 EXPORT_SYMBOL_GPL(xrt_clock_type2epname);
 
-static const char *clock_type2clkfreq_name(u32 type)
+static const char *clock_type2clkfreq_name(enum XCLBIN_CLOCK_TYPE type)
 {
 	int i;
 
@@ -289,14 +290,18 @@ static int xrt_xclbin_add_clock_metadata(struct device *dev,
 					 const struct axlf *xclbin,
 					 char *dtb)
 {
-	int i;
-	u16 freq;
 	struct clock_freq_topology *clock_topo;
-	int rc = xrt_xclbin_get_section(dev, xclbin, CLOCK_FREQ_TOPOLOGY,
-					(void **)&clock_topo, NULL);
+	u16 freq;
+	int rc;
+	int i;
 
-	if (rc)
+	/* if clock section does not exist, add nothing and return success */
+	rc = xrt_xclbin_get_section(dev, xclbin, CLOCK_FREQ_TOPOLOGY,
+				    (void **)&clock_topo, NULL);
+	if (rc == -ENOENT)
 		return 0;
+	else if (rc)
+		return rc;
 
 	for (i = 0; i < clock_topo->count; i++) {
 		u8 type = clock_topo->clock_freq[i].type;
@@ -327,9 +332,11 @@ int xrt_xclbin_get_metadata(struct device *dev, const struct axlf *xclbin, char 
 {
 	char *md = NULL, *newmd = NULL;
 	u64 len, md_len;
-	int rc = xrt_xclbin_get_section(dev, xclbin, PARTITION_METADATA,
-					(void **)&md, &len);
+	int rc;
 
+	*dtb = NULL;
+
+	rc = xrt_xclbin_get_section(dev, xclbin, PARTITION_METADATA, (void **)&md, &len);
 	if (rc)
 		goto done;
 
@@ -351,11 +358,11 @@ int xrt_xclbin_get_metadata(struct device *dev, const struct axlf *xclbin, char 
 	/* Convert various needed xclbin sections into dtb. */
 	rc = xrt_xclbin_add_clock_metadata(dev, xclbin, newmd);
 
-done:
-	if (rc == 0)
+	if (!rc)
 		*dtb = newmd;
 	else
 		vfree(newmd);
+done:
 	vfree(md);
 	return rc;
 }

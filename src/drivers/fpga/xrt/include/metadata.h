@@ -100,7 +100,7 @@
 #define XRT_MD_NODE_DDR_SRSR "drv_ep_ddr_srsr"
 #define XRT_MD_NODE_FLASH_VSEC "drv_ep_card_flash_program_00"
 #define XRT_MD_NODE_GOLDEN_VER "drv_ep_golden_ver_00"
-#define XRT_MD_NODE_MAILBOX_VSEC "ep_mailbox_vsec_00"
+#define XRT_MD_NODE_MAILBOX_VSEC "drv_ep_mailbox_vsec_00"
 #define XRT_MD_NODE_MGMT_MAIN "drv_ep_mgmt_main_00"
 #define XRT_MD_NODE_PLAT_INFO "drv_ep_platform_info_mgmt_00"
 #define XRT_MD_NODE_PARTITION_INFO_BLP "partition_info_0"
@@ -122,7 +122,7 @@
 struct xrt_md_endpoint {
 	const char	*ep_name;
 	u32		bar;
-	long		bar_off;
+	u64		bar_off;
 	ulong		size;
 	char		*regmap;
 	char		*regmap_ver;

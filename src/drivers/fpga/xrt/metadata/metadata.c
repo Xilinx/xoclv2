@@ -43,8 +43,8 @@ static int xrt_md_get_endpoint(struct device *dev, const char *blob,
 			       const char *ep_name, const char *regmap_name,
 			       int *ep_offset)
 {
-	int offset;
 	const char *name;
+	int offset;
 
 	for (offset = fdt_next_node(blob, -1, NULL);
 	    offset >= 0;
@@ -97,9 +97,7 @@ static int xrt_md_overlay(struct device *dev, char *blob, int target,
 	int	property, subnode;
 	int	ret;
 
-	WARN_ON(!blob || !overlay_blob);
-
-	if (!blob) {
+	if (!blob || !overlay_blob) {
 		dev_err(dev, "blob is NULL");
 		return -EINVAL;
 	}
@@ -168,7 +166,9 @@ unsigned long xrt_md_size(struct device *dev, const char *blob)
 {
 	unsigned long len = (long)fdt_totalsize(blob);
 
-	len = (len > MAX_BLOB_SIZE) ? XRT_MD_INVALID_LENGTH : len;
+	if (len > MAX_BLOB_SIZE)
+		return XRT_MD_INVALID_LENGTH;
+
 	return len;
 }
 EXPORT_SYMBOL_GPL(xrt_md_size);
@@ -177,7 +177,10 @@ int xrt_md_create(struct device *dev, char **blob)
 {
 	int ret = 0;
 
-	WARN_ON(!blob);
+	if (!blob) {
+		dev_err(dev, "blob is NULL");
+		return -EINVAL;
+	}
 
 	*blob = vzalloc(MAX_BLOB_SIZE);
 	if (!*blob)
@@ -213,8 +216,8 @@ EXPORT_SYMBOL_GPL(xrt_md_create);
 
 char *xrt_md_dup(struct device *dev, const char *blob)
 {
-	int ret;
 	char *dup_blob;
+	int ret;
 
 	ret = xrt_md_create(dev, &dup_blob);
 	if (ret)
@@ -232,8 +235,8 @@ EXPORT_SYMBOL_GPL(xrt_md_dup);
 int xrt_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
 			const char *regmap_name)
 {
-	int ret;
 	int ep_offset;
+	int ret;
 
 	ret = xrt_md_get_endpoint(dev, blob, ep_name, regmap_name, &ep_offset);
 	if (ret) {
@@ -253,11 +256,12 @@ static int __xrt_md_add_endpoint(struct device *dev, char *blob,
 				 struct xrt_md_endpoint *ep, int *offset,
 				 const char *parent)
 {
-	int ret = 0;
-	int ep_offset = 0;
+	int parent_offset = 0;
 	u32 val, count = 0;
+	int ep_offset = 0;
 	u64 io_range[2];
 	char comp[128];
+	int ret = 0;
 
 	if (!ep->ep_name) {
 		dev_err(dev, "empty name");
@@ -265,14 +269,14 @@ static int __xrt_md_add_endpoint(struct device *dev, char *blob,
 	}
 
 	if (parent) {
-		ret = xrt_md_get_endpoint(dev, blob, parent, NULL, &ep_offset);
+		ret = xrt_md_get_endpoint(dev, blob, parent, NULL, &parent_offset);
 		if (ret) {
 			dev_err(dev, "invalid blob, ret = %d", ret);
 			return -EINVAL;
 		}
 	}
 
-	ep_offset = xrt_md_add_node(dev, blob, ep_offset, ep->ep_name);
+	ep_offset = xrt_md_add_node(dev, blob, parent_offset, ep->ep_name);
 	if (ep_offset < 0) {
 		dev_err(dev, "add endpoint failed, ret = %d", ret);
 		return -EINVAL;
@@ -408,11 +412,11 @@ int xrt_md_copy_endpoint(struct device *dev, char *blob, const char *src_blob,
 			 const char *ep_name, const char *regmap_name,
 			 const char *new_ep_name)
 {
+	const char *newepnm = new_ep_name ? new_ep_name : ep_name;
+	struct xrt_md_endpoint ep = {0};
 	int offset, target;
 	const char *parent;
 	int ret;
-	struct xrt_md_endpoint ep = {0};
-	const char *newepnm = new_ep_name ? new_ep_name : ep_name;
 
 	ret = xrt_md_get_endpoint(dev, src_blob, ep_name, regmap_name,
 				  &offset);
@@ -501,8 +505,8 @@ int xrt_md_get_interface_uuids(struct device *dev, const char *blob,
 			       u32 num_uuids, uuid_t *interface_uuids)
 {
 	int offset, count = 0;
-	int ret;
 	const char *uuid_str;
+	int ret;
 
 	ret = xrt_md_get_endpoint(dev, blob, XRT_MD_NODE_INTERFACES, NULL, &offset);
 	if (ret)

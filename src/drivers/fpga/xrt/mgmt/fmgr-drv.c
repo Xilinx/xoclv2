@@ -42,7 +42,7 @@ static int xmgmt_download_bitstream(struct platform_device *pdev,
 	int ret;
 
 	ret = xrt_xclbin_get_section(DEV(pdev), xclbin, BITSTREAM, (void **)&bitstream, &bit_len);
-	if (ret || !bitstream) {
+	if (ret) {
 		xrt_err(pdev, "bitstream not found");
 		return -ENOENT;
 	}
@@ -52,30 +52,36 @@ static int xmgmt_download_bitstream(struct platform_device *pdev,
 	if (ret) {
 		ret = -EINVAL;
 		xrt_err(pdev, "invalid bitstream header");
-		goto done;
+		goto fail;
 	}
 	if (bit_header.header_length + bit_header.bitstream_length > bit_len) {
 		ret = -EINVAL;
 		xrt_err(pdev, "invalid bitstream length. header %d, bitstream %d, section len %lld",
 			bit_header.header_length, bit_header.bitstream_length, bit_len);
-		goto done;
+		goto fail;
 	}
 
 	icap_leaf = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_ICAP, PLATFORM_DEVID_NONE);
 	if (!icap_leaf) {
 		ret = -ENODEV;
 		xrt_err(pdev, "icap does not exist");
-		goto done;
+		goto fail;
 	}
 	arg.xiiw_bit_data = bitstream + bit_header.header_length;
 	arg.xiiw_data_len = bit_header.bitstream_length;
 	ret = xleaf_call(icap_leaf, XRT_ICAP_WRITE, &arg);
-	if (ret)
+	if (ret) {
 		xrt_err(pdev, "write bitstream failed, ret = %d", ret);
-
-done:
-	if (icap_leaf)
 		xleaf_put_leaf(pdev, icap_leaf);
+		goto fail;
+	}
+
+	xleaf_put_leaf(pdev, icap_leaf);
+	vfree(bitstream);
+
+	return 0;
+
+fail:
 	vfree(bitstream);
 
 	return ret;
@@ -111,7 +117,7 @@ static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 
 /*
  * The implementation requries full xclbin image before we can start
- * programming the hardware via ICAP subsystem. Full image is required
+ * programming the hardware via ICAP subsystem. The full image is required
  * for checking the validity of xclbin and walking the sections to
  * discover the bitstream.
  */

@@ -24,6 +24,7 @@
 #include "main-impl.h"
 
 #define XMGMT_MAIN "xmgmt_main"
+#define XMGMT_SUPP_XCLBIN_MAJOR 2
 
 struct xmgmt_main {
 	struct platform_device *pdev;
@@ -413,6 +414,11 @@ static bool is_valid_firmware(struct platform_device *pdev,
 		return false;
 	}
 
+	if (xclbin->header.version_major != XMGMT_SUPP_XCLBIN_MAJOR) {
+		xrt_err(pdev, "firmware is not supported");
+		return false;
+	}
+
 	fw_uuid = get_uuid_from_firmware(pdev, xclbin);
 	if (!fw_uuid || strncmp(fw_uuid, dev_uuid, sizeof(dev_uuid)) != 0) {
 		xrt_err(pdev, "bad fw UUID: %s, expect: %s",
@@ -721,6 +727,9 @@ static int bitstream_axlf_ioctl(struct xmgmt_main *xmm, const void __user *arg)
 	copy_buffer_size = xclbin_obj.header.length;
 	if (copy_buffer_size > XCLBIN_MAX_SIZE)
 		return -EINVAL;
+	if (xclbin_obj.header.version_major != XMGMT_SUPP_XCLBIN_MAJOR)
+		return -EINVAL;
+
 	copy_buffer = vmalloc(copy_buffer_size);
 	if (!copy_buffer)
 		return -ENOMEM;
