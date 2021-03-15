@@ -9,6 +9,7 @@
  */
 
 #include <linux/platform_device.h>
+#include <linux/regmap.h>
 #include "metadata.h"
 #include "xleaf.h"
 
@@ -79,28 +80,33 @@ static struct vsec_device vsec_devs[] = {
 	},
 };
 
+static const struct regmap_config vsec_regmap_config = {
+	.reg_bits = 32,
+	.val_bits = 32,
+	.reg_stride = 4,
+	.max_register = 0x1000,
+};
+
 struct xrt_vsec {
 	struct platform_device	*pdev;
-	void			*base;
-	ulong			length;
+	struct regmap		*regmap;
+	u32			length;
 
 	char			*metadata;
 	char			uuid[VSEC_UUID_LEN];
+	int			group;
 };
 
-static inline u32 vsec_read_header(struct xrt_vsec *vsec, u32 reg)
+static inline int vsec_read_entry(struct xrt_vsec *vsec, u32 index, struct xrt_vsec_entry *entry)
 {
-	return readl(vsec->base + reg);
-}
+	int ret;
 
-static inline void vsec_read_entry(struct xrt_vsec *vsec, u32 index, struct xrt_vsec_entry *entry)
-{
-	u32 *p_entry = (u32 *)(vsec->base + sizeof(struct xrt_vsec_header) +
-			       index * sizeof(struct xrt_vsec_entry));
-	u32 off;
+	ret = regmap_bulk_read(vsec->regmap, sizeof(struct xrt_vsec_header) +
+			       index * sizeof(struct xrt_vsec_entry), entry,
+			       sizeof(struct xrt_vsec_entry) /
+			       vsec_regmap_config.reg_stride);
 
-	for (off = 0; off < sizeof(struct xrt_vsec_entry) / 4; off++)
-		*((u32 *)entry + off) = readl(p_entry + off);
+	return ret;
 }
 
 static inline u32 vsec_get_bar(struct xrt_vsec_entry *entry)
@@ -199,7 +205,12 @@ static int xrt_vsec_create_metadata(struct xrt_vsec *vsec)
 
 	for (i = 0; i * sizeof(entry) < vsec->length -
 	    sizeof(struct xrt_vsec_header); i++) {
-		vsec_read_entry(vsec, i, &entry);
+		ret = vsec_read_entry(vsec, i, &entry);
+		if (ret) {
+			xrt_err(vsec->pdev, "failed read entry %d, ret %d", i, ret);
+			goto fail;
+		}
+
 		if (entry.type == VSEC_TYPE_END)
 			break;
 		ret = xrt_vsec_add_node(vsec, vsec->metadata, &entry);
@@ -236,6 +247,7 @@ static int xrt_vsec_mapio(struct xrt_vsec *vsec)
 {
 	struct xrt_subdev_platdata *pdata = DEV_PDATA(vsec->pdev);
 	struct resource *res = NULL;
+	void __iomem *base = NULL;
 	const u64 *bar_off;
 	const u32 *bar;
 	u64 addr;
@@ -271,18 +283,22 @@ static int xrt_vsec_mapio(struct xrt_vsec *vsec)
 
 	addr = res->start + be64_to_cpu(*bar_off);
 
-	vsec->base = ioremap(addr, sizeof(struct xrt_vsec_header));
-	if (!vsec->base) {
-		xrt_err(vsec->pdev, "Map header failed");
+	base = devm_ioremap(&vsec->pdev->dev, addr, vsec_regmap_config.max_register);
+	if (!base) {
+		xrt_err(vsec->pdev, "Map failed");
 		return -EIO;
 	}
 
-	vsec->length = vsec_read_header(vsec, VSEC_REG_LENGTH);
-	iounmap(vsec->base);
-	vsec->base = ioremap(addr, vsec->length);
-	if (!vsec->base) {
-		xrt_err(vsec->pdev, "map failed");
-		return -EIO;
+	vsec->regmap = devm_regmap_init_mmio(&vsec->pdev->dev, base, &vsec_regmap_config);
+	if (IS_ERR(vsec->regmap)) {
+		xrt_err(vsec->pdev, "regmap %pR failed", res);
+		return PTR_ERR(vsec->regmap);
+	}
+
+	ret = regmap_read(vsec->regmap, VSEC_REG_LENGTH, &vsec->length);
+	if (ret) {
+		xrt_err(vsec->pdev, "failed to read length %d", ret);
+		return ret;
 	}
 
 	return 0;
@@ -294,11 +310,8 @@ static int xrt_vsec_remove(struct platform_device *pdev)
 
 	vsec = platform_get_drvdata(pdev);
 
-	if (vsec->base) {
-		iounmap(vsec->base);
-		vsec->base = NULL;
-	}
-
+	if (vsec->group >= 0)
+		xleaf_destroy_group(pdev, vsec->group);
 	vfree(vsec->metadata);
 
 	return 0;
@@ -314,6 +327,7 @@ static int xrt_vsec_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	vsec->pdev = pdev;
+	vsec->group = -1;
 	platform_set_drvdata(pdev, vsec);
 
 	ret = xrt_vsec_mapio(vsec);
@@ -325,9 +339,10 @@ static int xrt_vsec_probe(struct platform_device *pdev)
 		xrt_err(pdev, "create metadata failed, ret %d", ret);
 		goto failed;
 	}
-	ret = xleaf_create_group(pdev, vsec->metadata);
+	vsec->group = xleaf_create_group(pdev, vsec->metadata);
 	if (ret < 0) {
-		xrt_err(pdev, "create group failed, ret %d", ret);
+		xrt_err(pdev, "create group failed, ret %d", vsec->group);
+		ret = vsec->group;
 		goto failed;
 	}
 

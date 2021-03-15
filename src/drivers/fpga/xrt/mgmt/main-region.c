@@ -15,7 +15,7 @@
 #include "xleaf.h"
 #include "xleaf/axigate.h"
 #include "xclbin-helper.h"
-#include "main-impl.h"
+#include "xmgnt.h"
 
 struct xmgmt_bridge {
 	struct platform_device *pdev;
@@ -53,9 +53,9 @@ static int xmgmt_br_enable_set(struct fpga_bridge *bridge, bool enable)
 	}
 
 	if (enable)
-		rc = xleaf_call(axigate_leaf, XRT_AXIGATE_FREE, NULL);
+		rc = xleaf_call(axigate_leaf, XRT_AXIGATE_OPEN, NULL);
 	else
-		rc = xleaf_call(axigate_leaf, XRT_AXIGATE_FREEZE, NULL);
+		rc = xleaf_call(axigate_leaf, XRT_AXIGATE_CLOSE, NULL);
 
 	if (rc) {
 		xrt_err(br_data->pdev, "failed to %s gate %s, rc %d",

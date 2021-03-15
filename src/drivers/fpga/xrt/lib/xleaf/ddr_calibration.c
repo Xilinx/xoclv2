@@ -10,12 +10,24 @@
  *      Lizhi Hou<Lizhi.Hou@xilinx.com>
  */
 #include <linux/delay.h>
+#include <linux/regmap.h>
 #include "xclbin-helper.h"
 #include "metadata.h"
 #include "xleaf/ddr-srsr.h"
-#include "xleaf/calib.h"
+#include "xleaf/ddr_calibration.h"
 
 #define XRT_CALIB	"xrt_calib"
+
+#define XRT_CALIB_STATUS_REG		0
+#define XRT_CALIB_READ_RETRIES		20
+#define XRT_CALIB_READ_INTERVAL		500 /* ms */
+
+static const struct regmap_config calib_regmap_config = {
+	.reg_bits = 32,
+	.val_bits = 32,
+	.reg_stride = 4,
+	.max_register = 0x1000,
+};
 
 struct calib_cache {
 	struct list_head	link;
@@ -26,17 +38,14 @@ struct calib_cache {
 
 struct calib {
 	struct platform_device	*pdev;
-	void			*calib_base;
+	struct regmap		*regmap;
 	struct mutex		lock; /* calibration dev lock */
 	struct list_head	cache_list;
 	u32			cache_num;
 	enum xrt_calib_results	result;
 };
 
-#define CALIB_DONE(calib)			\
-	(ioread32((calib)->calib_base) & BIT(0))
-
-static void calib_cache_clean_nolock(struct calib *calib)
+static void __calib_cache_clean_nolock(struct calib *calib)
 {
 	struct calib_cache *cache, *temp;
 
@@ -51,7 +60,7 @@ static void calib_cache_clean_nolock(struct calib *calib)
 static void calib_cache_clean(struct calib *calib)
 {
 	mutex_lock(&calib->lock);
-	calib_cache_clean_nolock(calib);
+	__calib_cache_clean_nolock(calib);
 	mutex_unlock(&calib->lock);
 }
 
@@ -121,36 +130,48 @@ done:
 
 static int calib_calibration(struct calib *calib)
 {
-	int i;
+	u32 times = XRT_CALIB_READ_RETRIES;
+	u32 status;
+	int ret;
 
-	for (i = 0; i < 20; i++) {
-		if (CALIB_DONE(calib))
+	while (times != 0) {
+		ret = regmap_read(calib->regmap, XRT_CALIB_STATUS_REG, &status);
+		if (ret) {
+			xrt_err(calib->pdev, "failed to read status reg %d", ret);
+			return ret;
+		}
+
+		if (status & BIT(0))
 			break;
-		msleep(500);
+		msleep(XRT_CALIB_READ_INTERVAL);
+		times--;
 	}
 
-	if (i == 20) {
+	if (!times) {
 		xrt_err(calib->pdev,
 			"MIG calibration timeout after bitstream download");
 		return -ETIMEDOUT;
 	}
 
-	xrt_info(calib->pdev, "took %dms", i * 500);
+	xrt_info(calib->pdev, "took %dms", (XRT_CALIB_READ_RETRIES - times) *
+		 XRT_CALIB_READ_INTERVAL);
 	return 0;
 }
 
 static void xrt_calib_event_cb(struct platform_device *pdev, void *arg)
 {
 	struct calib *calib = platform_get_drvdata(pdev);
-		struct xrt_event *evt = (struct xrt_event *)arg;
+	struct xrt_event *evt = (struct xrt_event *)arg;
 	enum xrt_events e = evt->xe_evt;
-	enum xrt_subdev_id id = evt->xe_subdev.xevt_subdev_id;
-	int instance = evt->xe_subdev.xevt_subdev_instance;
 	struct platform_device *leaf;
-	int ret;
+	enum xrt_subdev_id id;
+	int ret, instance;
+
+	id = evt->xe_subdev.xevt_subdev_id;
+	instance = evt->xe_subdev.xevt_subdev_instance;
 
 	switch (e) {
-	case XRT_EVENT_POST_CREATION: {
+	case XRT_EVENT_POST_CREATION:
 		if (id == XRT_SUBDEV_SRSR) {
 			leaf = xleaf_get_leaf_by_id(pdev,
 						    XRT_SUBDEV_SRSR,
@@ -161,16 +182,16 @@ static void xrt_calib_event_cb(struct platform_device *pdev, void *arg)
 			}
 			ret = calib_srsr(calib, leaf);
 			xleaf_put_leaf(pdev, leaf);
-			calib->result =
-				ret ? XRT_CALIB_FAILED : XRT_CALIB_SUCCEEDED;
 		} else if (id == XRT_SUBDEV_UCS) {
 			ret = calib_calibration(calib);
-			calib->result =
-				ret ? XRT_CALIB_FAILED : XRT_CALIB_SUCCEEDED;
 		}
+		if (ret)
+			calib->result = XRT_CALIB_FAILED;
+		else
+			calib->result = XRT_CALIB_SUCCEEDED;
 		break;
-	}
 	default:
+		xrt_dbg(pdev, "ignored event %d", e);
 		break;
 	}
 }
@@ -181,19 +202,14 @@ static int xrt_calib_remove(struct platform_device *pdev)
 
 	calib_cache_clean(calib);
 
-	if (calib->calib_base)
-		iounmap(calib->calib_base);
-
-	platform_set_drvdata(pdev, NULL);
-	devm_kfree(&pdev->dev, calib);
-
 	return 0;
 }
 
 static int xrt_calib_probe(struct platform_device *pdev)
 {
-	struct calib *calib;
+	void __iomem *base = NULL;
 	struct resource *res;
+	struct calib *calib;
 	int err = 0;
 
 	calib = devm_kzalloc(&pdev->dev, sizeof(*calib), GFP_KERNEL);
@@ -204,13 +220,21 @@ static int xrt_calib_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, calib);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
+	if (!res) {
+		err = -EINVAL;
 		goto failed;
+	}
 
-	calib->calib_base = ioremap(res->start, res->end - res->start + 1);
-	if (!calib->calib_base) {
-		err = -EIO;
+	base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(base)) {
+		err = PTR_ERR(base);
+		goto failed;
+	}
+
+	calib->regmap = devm_regmap_init_mmio(&pdev->dev, base, &calib_regmap_config);
+	if (IS_ERR(calib->regmap)) {
 		xrt_err(pdev, "Map iomem failed");
+		err = PTR_ERR(calib->regmap);
 		goto failed;
 	}
 
@@ -220,7 +244,6 @@ static int xrt_calib_probe(struct platform_device *pdev)
 	return 0;
 
 failed:
-	xrt_calib_remove(pdev);
 	return err;
 }
 

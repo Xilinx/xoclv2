@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/regmap.h>
 #include <linux/io.h>
 #include "metadata.h"
 #include "xleaf.h"
@@ -19,57 +20,95 @@
 
 #define XRT_AXIGATE "xrt_axigate"
 
-struct axigate_regs {
-	u32		iag_wr;
-	u32		iag_rvsd;
-	u32		iag_rd;
-} __packed;
+#define XRT_AXIGATE_WRITE_REG		0
+#define XRT_AXIGATE_READ_REG		8
+
+#define XRT_AXIGATE_CTRL_CLOSE		0
+#define XRT_AXIGATE_CTRL_OPEN_BIT0	1
+#define XRT_AXIGATE_CTRL_OPEN_BIT1	2
+
+#define XRT_AXIGATE_INTERVAL		500 /* ns */
 
 struct xrt_axigate {
 	struct platform_device	*pdev;
-	void			*base;
+	struct regmap		*regmap;
 	struct mutex		gate_lock; /* gate dev lock */
 
 	void			*evt_hdl;
 	const char		*ep_name;
 
-	bool			gate_freezed;
+	bool			gate_closed;
+};
+
+static const struct regmap_config axigate_regmap_config = {
+	.reg_bits = 32,
+	.val_bits = 32,
+	.reg_stride = 4,
+	.max_register = 0x1000,
 };
 
 /* the ep names are in the order of hardware layers */
 static const char * const xrt_axigate_epnames[] = {
-	XRT_MD_NODE_GATE_PLP,
-	XRT_MD_NODE_GATE_ULP,
-	NULL
+	XRT_MD_NODE_GATE_PLP, /* PLP: Provider Logic Partition */
+	XRT_MD_NODE_GATE_ULP  /* ULP: User Logic Partition */
 };
 
-#define reg_rd(g, r)						\
-	ioread32((void *)(g)->base + offsetof(struct axigate_regs, r))
-#define reg_wr(g, v, r)						\
-	iowrite32(v, (void *)(g)->base + offsetof(struct axigate_regs, r))
-
-static inline void freeze_gate(struct xrt_axigate *gate)
+static inline int close_gate(struct xrt_axigate *gate)
 {
-	reg_wr(gate, 0, iag_wr);
-	ndelay(500);
-	reg_rd(gate, iag_rd);
+	u32 val;
+	int ret;
+
+	ret = regmap_write(gate->regmap, XRT_AXIGATE_WRITE_REG, XRT_AXIGATE_CTRL_CLOSE);
+	if (ret) {
+		xrt_err(gate->pdev, "write gate failed %d", ret);
+		return ret;
+	}
+	ndelay(XRT_AXIGATE_INTERVAL);
+	ret = regmap_read(gate->regmap, XRT_AXIGATE_READ_REG, &val);
+	if (ret) {
+		xrt_err(gate->pdev, "read gate failed %d", ret);
+		return ret;
+	}
+
+	return 0;
 }
 
-static inline void free_gate(struct xrt_axigate *gate)
+static inline int open_gate(struct xrt_axigate *gate)
 {
-	reg_wr(gate, 0x2, iag_wr);
-	ndelay(500);
-	(void)reg_rd(gate, iag_rd);
-	reg_wr(gate, 0x3, iag_wr);
-	ndelay(500);
-	reg_rd(gate, iag_rd);
+	u32 val;
+	int ret;
+
+	ret = regmap_write(gate->regmap, XRT_AXIGATE_WRITE_REG, XRT_AXIGATE_CTRL_OPEN_BIT1);
+	if (ret) {
+		xrt_err(gate->pdev, "write 2 failed %d", ret);
+		return ret;
+	}
+	ndelay(XRT_AXIGATE_INTERVAL);
+	ret = regmap_read(gate->regmap, XRT_AXIGATE_READ_REG, &val);
+	if (ret) {
+		xrt_err(gate->pdev, "read 2 failed %d", ret);
+		return ret;
+	}
+	ret = regmap_write(gate->regmap, XRT_AXIGATE_WRITE_REG,
+			   XRT_AXIGATE_CTRL_OPEN_BIT0 | XRT_AXIGATE_CTRL_OPEN_BIT1);
+	if (ret) {
+		xrt_err(gate->pdev, "write 3 failed %d", ret);
+		return ret;
+	}
+	ndelay(XRT_AXIGATE_INTERVAL);
+	ret = regmap_read(gate->regmap, XRT_AXIGATE_READ_REG, &val);
+	if (ret) {
+		xrt_err(gate->pdev, "read 3 failed %d", ret);
+		return ret;
+	}
+
+	return 0;
 }
 
 static int xrt_axigate_epname_idx(struct platform_device *pdev)
 {
-	int			i;
-	int			ret;
-	struct resource		*res;
+	struct resource	*res;
+	int ret, i;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -77,77 +116,94 @@ static int xrt_axigate_epname_idx(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	for (i = 0; xrt_axigate_epnames[i]; i++) {
+	for (i = 0; i < ARRAY_SIZE(xrt_axigate_epnames); i++) {
 		ret = strncmp(xrt_axigate_epnames[i], res->name,
 			      strlen(xrt_axigate_epnames[i]) + 1);
 		if (!ret)
-			break;
+			return i;
 	}
 
-	ret = (xrt_axigate_epnames[i]) ? i : -EINVAL;
+	return -EINVAL;
+}
+
+static int xrt_axigate_close(struct platform_device *pdev)
+{
+	struct xrt_axigate *gate;
+	u32 status = 0;
+	int ret;
+
+	gate = platform_get_drvdata(pdev);
+
+	mutex_lock(&gate->gate_lock);
+	ret = regmap_read(gate->regmap, XRT_AXIGATE_READ_REG, &status);
+	if (ret) {
+		xrt_err(pdev, "read gate failed %d", ret);
+		goto failed;
+	}
+	if (status) {		/* gate is opened */
+		xleaf_broadcast_event(pdev, XRT_EVENT_PRE_GATE_CLOSE, false);
+		ret = close_gate(gate);
+		if (ret)
+			goto failed;
+	}
+
+	gate->gate_closed = true;
+
+failed:
+	mutex_unlock(&gate->gate_lock);
+
+	xrt_info(pdev, "close gate %s", gate->ep_name);
 	return ret;
 }
 
-static void xrt_axigate_freeze(struct platform_device *pdev)
+static int xrt_axigate_open(struct platform_device *pdev)
 {
-	struct xrt_axigate	*gate;
-	u32			freeze = 0;
+	struct xrt_axigate *gate;
+	u32 status;
+	int ret;
 
 	gate = platform_get_drvdata(pdev);
 
 	mutex_lock(&gate->gate_lock);
-	freeze = reg_rd(gate, iag_rd);
-	if (freeze) {		/* gate is opened */
-		xleaf_broadcast_event(pdev, XRT_EVENT_PRE_GATE_CLOSE, false);
-		freeze_gate(gate);
+	ret = regmap_read(gate->regmap, XRT_AXIGATE_READ_REG, &status);
+	if (ret) {
+		xrt_err(pdev, "read gate failed %d", ret);
+		goto failed;
 	}
-
-	gate->gate_freezed = true;
-	mutex_unlock(&gate->gate_lock);
-
-	xrt_info(pdev, "freeze gate %s", gate->ep_name);
-}
-
-static void xrt_axigate_free(struct platform_device *pdev)
-{
-	struct xrt_axigate	*gate;
-	u32			freeze;
-
-	gate = platform_get_drvdata(pdev);
-
-	mutex_lock(&gate->gate_lock);
-	freeze = reg_rd(gate, iag_rd);
-	if (!freeze) {		/* gate is closed */
-		free_gate(gate);
+	if (!status) {		/* gate is closed */
+		ret = open_gate(gate);
+		if (ret)
+			goto failed;
 		xleaf_broadcast_event(pdev, XRT_EVENT_POST_GATE_OPEN, true);
-		/* xrt_axigate_free() could be called in event cb, thus
+		/* xrt_axigate_open() could be called in event cb, thus
 		 * we can not wait for the completes
 		 */
 	}
 
-	gate->gate_freezed = false;
+	gate->gate_closed = false;
+
+failed:
 	mutex_unlock(&gate->gate_lock);
 
-	xrt_info(pdev, "free gate %s", gate->ep_name);
+	xrt_info(pdev, "open gate %s", gate->ep_name);
+	return ret;
 }
 
 static void xrt_axigate_event_cb(struct platform_device *pdev, void *arg)
 {
-	struct platform_device *leaf;
+	struct xrt_axigate *gate = platform_get_drvdata(pdev);
 	struct xrt_event *evt = (struct xrt_event *)arg;
 	enum xrt_events e = evt->xe_evt;
-	enum xrt_subdev_id id = evt->xe_subdev.xevt_subdev_id;
-	int instance = evt->xe_subdev.xevt_subdev_instance;
-	struct xrt_axigate *gate = platform_get_drvdata(pdev);
+	struct platform_device *leaf;
+	enum xrt_subdev_id id;
 	struct resource	*res;
+	int instance;
 
-	switch (e) {
-	case XRT_EVENT_POST_CREATION:
-		break;
-	default:
+	if (e != XRT_EVENT_POST_CREATION)
 		return;
-	}
 
+	instance = evt->xe_subdev.xevt_subdev_instance;
+	id = evt->xe_subdev.xevt_subdev_id;
 	if (id != XRT_SUBDEV_AXIGATE)
 		return;
 
@@ -157,64 +213,48 @@ static void xrt_axigate_event_cb(struct platform_device *pdev, void *arg)
 
 	res = platform_get_resource(leaf, IORESOURCE_MEM, 0);
 	if (!res || !strncmp(res->name, gate->ep_name, strlen(res->name) + 1)) {
-		(void)xleaf_put_leaf(pdev, leaf);
+		xleaf_put_leaf(pdev, leaf);
 		return;
 	}
 
-	/*
-	 * higher level axigate instance created,
-	 * make sure the gate is openned. This covers 1RP flow which
-	 * has plp gate as well.
-	 */
+	/* higher level axigate instance created, make sure the gate is opened. */
 	if (xrt_axigate_epname_idx(leaf) > xrt_axigate_epname_idx(pdev))
-		xrt_axigate_free(pdev);
+		xrt_axigate_open(pdev);
 	else
-		xleaf_call(leaf, XRT_AXIGATE_FREE, NULL);
+		xleaf_call(leaf, XRT_AXIGATE_OPEN, NULL);
 
-	(void)xleaf_put_leaf(pdev, leaf);
+	xleaf_put_leaf(pdev, leaf);
 }
 
 static int
 xrt_axigate_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
+	int ret = 0;
+
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
 		xrt_axigate_event_cb(pdev, arg);
 		break;
-	case XRT_AXIGATE_FREEZE:
-		xrt_axigate_freeze(pdev);
+	case XRT_AXIGATE_CLOSE:
+		ret = xrt_axigate_close(pdev);
 		break;
-	case XRT_AXIGATE_FREE:
-		xrt_axigate_free(pdev);
+	case XRT_AXIGATE_OPEN:
+		ret = xrt_axigate_open(pdev);
 		break;
 	default:
 		xrt_err(pdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
-	return 0;
-}
-
-static int xrt_axigate_remove(struct platform_device *pdev)
-{
-	struct xrt_axigate	*gate;
-
-	gate = platform_get_drvdata(pdev);
-
-	if (gate->base)
-		iounmap(gate->base);
-
-	platform_set_drvdata(pdev, NULL);
-	devm_kfree(&pdev->dev, gate);
-
-	return 0;
+	return ret;
 }
 
 static int xrt_axigate_probe(struct platform_device *pdev)
 {
-	struct xrt_axigate	*gate;
-	struct resource		*res;
-	int			ret;
+	struct xrt_axigate *gate = NULL;
+	void __iomem *base = NULL;
+	struct resource *res;
+	int ret;
 
 	gate = devm_kzalloc(&pdev->dev, sizeof(*gate), GFP_KERNEL);
 	if (!gate)
@@ -231,13 +271,19 @@ static int xrt_axigate_probe(struct platform_device *pdev)
 		goto failed;
 	}
 
-	gate->base = ioremap(res->start, res->end - res->start + 1);
-	if (!gate->base) {
+	base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(base)) {
 		xrt_err(pdev, "map base iomem failed");
-		ret = -EFAULT;
+		ret = PTR_ERR(base);
 		goto failed;
 	}
 
+	gate->regmap = devm_regmap_init_mmio(&pdev->dev, base, &axigate_regmap_config);
+	if (IS_ERR(gate->regmap)) {
+		xrt_err(pdev, "regmap %pR failed", res);
+		ret = PTR_ERR(gate->regmap);
+		goto failed;
+	}
 	gate->ep_name = res->name;
 
 	mutex_init(&gate->gate_lock);
@@ -245,21 +291,20 @@ static int xrt_axigate_probe(struct platform_device *pdev)
 	return 0;
 
 failed:
-	xrt_axigate_remove(pdev);
 	return ret;
 }
 
 static struct xrt_subdev_endpoints xrt_axigate_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names[]) {
-			{ .ep_name = "ep_pr_isolate_ulp_00" },
+			{ .ep_name = XRT_MD_NODE_GATE_ULP },
 			{ NULL },
 		},
 		.xse_min_ep = 1,
 	},
 	{
 		.xse_names = (struct xrt_subdev_ep_names[]) {
-			{ .ep_name = "ep_pr_isolate_plp_00" },
+			{ .ep_name = XRT_MD_NODE_GATE_PLP },
 			{ NULL },
 		},
 		.xse_min_ep = 1,
@@ -283,7 +328,6 @@ static struct platform_driver xrt_axigate_driver = {
 		.name = XRT_AXIGATE,
 	},
 	.probe = xrt_axigate_probe,
-	.remove = xrt_axigate_remove,
 	.id_table = xrt_axigate_table,
 };
 

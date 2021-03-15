@@ -16,8 +16,8 @@
  * AXIGATE driver leaf calls.
  */
 enum xrt_axigate_leaf_cmd {
-	XRT_AXIGATE_FREEZE = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
-	XRT_AXIGATE_FREE,
+	XRT_AXIGATE_CLOSE = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
+	XRT_AXIGATE_OPEN,
 };
 
 #endif	/* _XRT_AXIGATE_H_ */

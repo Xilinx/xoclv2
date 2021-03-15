@@ -7,8 +7,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef _XMGMT_MAIN_IMPL_H_
-#define _XMGMT_MAIN_IMPL_H_
+#ifndef _XMGMT_XMGNT_H_
+#define _XMGMT_XMGNT_H_
 
 #include <linux/platform_device.h>
 #include "xmgmt-main.h"
@@ -35,7 +35,7 @@ void xmgmt_mailbox_remove(void *handle);
 void xmgmt_peer_notify_state(void *handle, bool online);
 void xmgmt_mailbox_event_cb(struct platform_device *pdev, void *arg);
 
-int xmgmt_main_register_leaf(void);
-void xmgmt_main_unregister_leaf(void);
+int xmgmt_register_leaf(void);
+void xmgmt_unregister_leaf(void);
 
-#endif	/* _XMGMT_MAIN_IMPL_H_ */
+#endif	/* _XMGMT_XMGNT_H_ */

@@ -16,7 +16,7 @@
  */
 enum xrt_icap_leaf_cmd {
 	XRT_ICAP_WRITE = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
-	XRT_ICAP_IDCODE,
+	XRT_ICAP_GET_IDCODE,
 };
 
 struct xrt_icap_wr {

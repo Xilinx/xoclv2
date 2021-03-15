@@ -95,6 +95,10 @@
 #define XRT_MD_NODE_XVC_PRI "ep_debug_bscan_mgmt_00"
 #define XRT_MD_NODE_UCS_CONTROL_STATUS "ep_ucs_control_status_00"
 
+/* endpoint regmaps */
+#define XRT_MD_REGMAP_DDR_SRSR "drv_ddr_srsr"
+#define XRT_MD_REGMAP_CLKFREQ "freq_cnt"
+
 /* driver defined endpoints */
 #define XRT_MD_NODE_BLP_ROM "drv_ep_blp_rom_00"
 #define XRT_MD_NODE_DDR_SRSR "drv_ep_ddr_srsr"
@@ -116,8 +120,6 @@
 #define XRT_MD_PROP_VBNV "vbnv"
 #define XRT_MD_PROP_VROM "vrom"
 #define XRT_MD_PROP_PARTITION_LEVEL "partition_level"
-
-#define XRT_MD_REGMAP_DDR_SRSR "drv_ddr_srsr"
 
 struct xrt_md_endpoint {
 	const char	*ep_name;

@@ -12,13 +12,13 @@
 
 #include <linux/crc32c.h>
 #include <linux/xrt/mailbox_proto.h>
-#include "main-impl.h"
+#include "xmgnt.h"
 #include "xleaf/mailbox.h"
 #include "xleaf/cmc.h"
 #include "metadata.h"
 #include "xclbin-helper.h"
 #include "xleaf/clock.h"
-#include "xleaf/calib.h"
+#include "xleaf/ddr_calibration.h"
 #include "xleaf/icap.h"
 
 struct xmgmt_mailbox {
@@ -429,7 +429,7 @@ static int xmgmt_mailbox_get_icap_idcode(struct xmgmt_mailbox *xmbx, u64 *id)
 		return -ENOENT;
 	}
 
-	rc = xleaf_call(icappdev, XRT_ICAP_IDCODE, id);
+	rc = xleaf_call(icappdev, XRT_ICAP_GET_IDCODE, id);
 	xleaf_put_leaf(pdev, icappdev);
 	if (rc)
 		xrt_err(pdev, "can't get icap idcode: %d", rc);

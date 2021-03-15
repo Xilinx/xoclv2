@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/regmap.h>
 #include <linux/io.h>
 #include "metadata.h"
 #include "xleaf.h"
@@ -28,64 +29,91 @@
 
 #define XRT_CLKFREQ		"xrt_clkfreq"
 
-#define OCL_CLKWIZ_STATUS_MASK		0xffff
+#define XRT_CLKFREQ_CONTROL_STATUS_MASK		0xffff
 
-#define OCL_CLKWIZ_STATUS_MEASURE_START	0x1
-#define OCL_CLKWIZ_STATUS_MEASURE_DONE	0x2
-#define OCL_CLK_FREQ_COUNTER_OFFSET	0x8
-#define OCL_CLK_FREQ_V5_COUNTER_OFFSET	0x10
-#define OCL_CLK_FREQ_V5_CLK0_ENABLED	0x10000
+#define XRT_CLKFREQ_CONTROL_START	0x1
+#define XRT_CLKFREQ_CONTROL_DONE	0x2
+#define XRT_CLKFREQ_V5_CLK0_ENABLED	0x10000
+
+#define XRT_CLKFREQ_CONTROL_REG		0
+#define XRT_CLKFREQ_COUNT_REG		0x8
+#define XRT_CLKFREQ_V5_COUNT_REG	0x10
+
+#define XRT_CLKFREQ_READ_RETRIES	10
+
+static const struct regmap_config clkfreq_regmap_config = {
+	.reg_bits = 32,
+	.val_bits = 32,
+	.reg_stride = 4,
+	.max_register = 0x1000,
+};
 
 struct clkfreq {
 	struct platform_device	*pdev;
-	void __iomem		*clkfreq_base;
+	struct regmap		*regmap;
 	const char		*clkfreq_ep_name;
 	struct mutex		clkfreq_lock; /* clock counter dev lock */
 };
 
-static inline u32 reg_rd(struct clkfreq *clkfreq, u32 offset)
+static int clkfreq_read(struct clkfreq *clkfreq, u32 *freq)
 {
-	return ioread32(clkfreq->clkfreq_base + offset);
-}
+	int times = XRT_CLKFREQ_READ_RETRIES;
+	u32 status;
+	int ret;
 
-static inline void reg_wr(struct clkfreq *clkfreq, u32 val, u32 offset)
-{
-	iowrite32(val, clkfreq->clkfreq_base + offset);
-}
-
-static u32 clkfreq_read(struct clkfreq *clkfreq)
-{
-	u32 freq = 0, status;
-	int times = 10;
-
+	*freq = 0;
 	mutex_lock(&clkfreq->clkfreq_lock);
-	reg_wr(clkfreq, OCL_CLKWIZ_STATUS_MEASURE_START, 0);
+	ret = regmap_write(clkfreq->regmap, XRT_CLKFREQ_CONTROL_REG, XRT_CLKFREQ_CONTROL_START);
+	if (ret) {
+		CLKFREQ_INFO(clkfreq, "write start to control reg failed %d", ret);
+		goto failed;
+	}
 	while (times != 0) {
-		status = reg_rd(clkfreq, 0);
-		if ((status & OCL_CLKWIZ_STATUS_MASK) ==
-		    OCL_CLKWIZ_STATUS_MEASURE_DONE)
+		ret = regmap_read(clkfreq->regmap, XRT_CLKFREQ_CONTROL_REG, &status);
+		if (ret) {
+			CLKFREQ_INFO(clkfreq, "read control reg failed %d", ret);
+			goto failed;
+		}
+		if ((status & XRT_CLKFREQ_CONTROL_STATUS_MASK) == XRT_CLKFREQ_CONTROL_DONE)
 			break;
 		mdelay(1);
 		times--;
 	};
-	if (times > 0) {
-		freq = (status & OCL_CLK_FREQ_V5_CLK0_ENABLED) ?
-			reg_rd(clkfreq, OCL_CLK_FREQ_V5_COUNTER_OFFSET) :
-			reg_rd(clkfreq, OCL_CLK_FREQ_COUNTER_OFFSET);
+
+	if (!times) {
+		ret = -ETIMEDOUT;
+		goto failed;
 	}
+
+	if (status & XRT_CLKFREQ_V5_CLK0_ENABLED)
+		ret = regmap_read(clkfreq->regmap, XRT_CLKFREQ_V5_COUNT_REG, freq);
+	else
+		ret = regmap_read(clkfreq->regmap, XRT_CLKFREQ_COUNT_REG, freq);
+	if (ret) {
+		CLKFREQ_INFO(clkfreq, "read count failed %d", ret);
+		goto failed;
+	}
+
 	mutex_unlock(&clkfreq->clkfreq_lock);
 
-	return freq;
+	return 0;
+
+failed:
+	mutex_unlock(&clkfreq->clkfreq_lock);
+
+	return ret;
 }
 
 static ssize_t freq_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct clkfreq *clkfreq = platform_get_drvdata(to_platform_device(dev));
-	u32 freq;
 	ssize_t count;
+	u32 freq;
 
-	freq = clkfreq_read(clkfreq);
-	count = snprintf(buf, 64, "%d\n", freq);
+	if (clkfreq_read(clkfreq, &freq))
+		return -EINVAL;
+
+	count = snprintf(buf, 64, "%u\n", freq);
 
 	return count;
 }
@@ -103,8 +131,8 @@ static struct attribute_group clkfreq_attr_group = {
 static int
 xrt_clkfreq_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 {
-	struct clkfreq		*clkfreq;
-	int			ret = 0;
+	struct clkfreq *clkfreq;
+	int ret = 0;
 
 	clkfreq = platform_get_drvdata(pdev);
 
@@ -112,10 +140,9 @@ xrt_clkfreq_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 	case XRT_XLEAF_EVENT:
 		/* Does not handle any event. */
 		break;
-	case XRT_CLKFREQ_READ: {
-		*(u32 *)arg = clkfreq_read(clkfreq);
+	case XRT_CLKFREQ_READ:
+		ret = clkfreq_read(clkfreq, arg);
 		break;
-	}
 	default:
 		xrt_err(pdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
@@ -126,24 +153,15 @@ xrt_clkfreq_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 
 static int clkfreq_remove(struct platform_device *pdev)
 {
-	struct clkfreq *clkfreq;
+	sysfs_remove_group(&pdev->dev.kobj, &clkfreq_attr_group);
 
-	clkfreq = platform_get_drvdata(pdev);
-	if (!clkfreq) {
-		xrt_err(pdev, "driver data is NULL");
-		return -EINVAL;
-	}
-
-	platform_set_drvdata(pdev, NULL);
-	devm_kfree(&pdev->dev, clkfreq);
-
-	CLKFREQ_INFO(clkfreq, "successfully removed clkfreq subdev");
 	return 0;
 }
 
 static int clkfreq_probe(struct platform_device *pdev)
 {
 	struct clkfreq *clkfreq = NULL;
+	void __iomem *base = NULL;
 	struct resource *res;
 	int ret;
 
@@ -156,10 +174,20 @@ static int clkfreq_probe(struct platform_device *pdev)
 	mutex_init(&clkfreq->clkfreq_lock);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	clkfreq->clkfreq_base = ioremap(res->start, res->end - res->start + 1);
-	if (!clkfreq->clkfreq_base) {
-		CLKFREQ_ERR(clkfreq, "map base %pR failed", res);
-		ret = -EFAULT;
+	if (!res) {
+		ret = -EINVAL;
+		goto failed;
+	}
+	base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(base)) {
+		ret = PTR_ERR(base);
+		goto failed;
+	}
+
+	clkfreq->regmap = devm_regmap_init_mmio(&pdev->dev, base, &clkfreq_regmap_config);
+	if (IS_ERR(clkfreq->regmap)) {
+		CLKFREQ_ERR(clkfreq, "regmap %pR failed", res);
+		ret = PTR_ERR(clkfreq->regmap);
 		goto failed;
 	}
 	clkfreq->clkfreq_ep_name = res->name;
@@ -175,14 +203,13 @@ static int clkfreq_probe(struct platform_device *pdev)
 	return 0;
 
 failed:
-	clkfreq_remove(pdev);
 	return ret;
 }
 
 static struct xrt_subdev_endpoints xrt_clkfreq_endpoints[] = {
 	{
 		.xse_names = (struct xrt_subdev_ep_names[]) {
-			{ .regmap_name = "freq_cnt" },
+			{ .regmap_name = XRT_MD_REGMAP_CLKFREQ },
 			{ NULL },
 		},
 		.xse_min_ep = 1,

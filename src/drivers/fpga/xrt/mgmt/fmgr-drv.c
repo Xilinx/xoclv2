@@ -19,7 +19,7 @@
 #include "fmgr.h"
 #include "xleaf/axigate.h"
 #include "xleaf/icap.h"
-#include "main-impl.h"
+#include "xmgnt.h"
 
 struct xfpga_class {
 	const struct platform_device *pdev;
