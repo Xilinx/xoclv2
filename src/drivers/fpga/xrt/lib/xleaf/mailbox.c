@@ -319,7 +319,6 @@ struct mailbox {
 	u32			mbx_req_cnt;
 	bool			mbx_listen_stop;
 
-	bool			mbx_peer_dead;
 	u64			mbx_opened;
 };
 
@@ -505,11 +504,6 @@ static void timeout_msg(struct mailbox_channel *ch)
 	if (msg) {
 		if (atomic_dec_if_positive(&msg->mbm_ttl) < 0) {
 			MBX_WARN(mbx, "found outstanding msg time'd out");
-			if (!mbx->mbx_peer_dead) {
-				MBX_WARN(mbx, "peer becomes dead");
-				/* Peer is not active any more. */
-				mbx->mbx_peer_dead = true;
-			}
 			chan_msg_done(ch, -ETIMEDOUT);
 		}
 	}
@@ -567,7 +561,6 @@ static void handle_timer_event(struct mailbox_channel *ch)
 static void chan_worker(struct work_struct *work)
 {
 	struct mailbox_channel *ch = container_of(work, struct mailbox_channel, mbc_work);
-	struct mailbox *mbx = ch->mbc_parent;
 	bool progress;
 
 	while (!test_bit(MBXCS_BIT_STOP, &ch->mbc_state)) {
@@ -580,13 +573,8 @@ static void chan_worker(struct work_struct *work)
 		}
 
 		progress = ch->mbc_tran(ch);
-		if (progress) {
+		if (progress)
 			outstanding_msg_ttl_reset(ch);
-			if (mbx->mbx_peer_dead) {
-				MBX_INFO(mbx, "peer becomes active");
-				mbx->mbx_peer_dead = false;
-			}
-		}
 
 		handle_timer_event(ch);
 	}
@@ -1295,10 +1283,6 @@ static int mailbox_request(struct platform_device *pdev, void *req,
 	struct mailbox *mbx = platform_get_drvdata(pdev);
 	struct mailbox_msg *reqmsg = NULL, *respmsg = NULL;
 
-	/* If peer is not alive, no point sending req and waiting for resp. */
-	if (mbx->mbx_peer_dead)
-		return -ENOTCONN;
-
 	reqmsg = alloc_msg(req, reqlen);
 	if (!reqmsg)
 		goto fail;
@@ -1358,10 +1342,6 @@ static int mailbox_post(struct platform_device *pdev, u64 reqid, void *buf, size
 	struct mailbox *mbx = platform_get_drvdata(pdev);
 	struct mailbox_msg *msg = NULL;
 	int rv = 0;
-
-	/* If peer is not alive, no point posting a msg. */
-	if (mbx->mbx_peer_dead)
-		return -ENOTCONN;
 
 	msg = alloc_msg(NULL, len);
 	if (!msg)
@@ -1505,7 +1485,6 @@ static int mailbox_start(struct mailbox *mbx)
 	int ret;
 
 	mbx->mbx_req_cnt = 0;
-	mbx->mbx_peer_dead = false;
 	mbx->mbx_opened = 0;
 	mbx->mbx_listen_stop = false;
 

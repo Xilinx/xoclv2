@@ -358,7 +358,7 @@ static int xroot_root_cb(struct device *dev, void *parg, enum xrt_root_cmd cmd, 
 		break;
 
 	/* Event actions. */
-	case XRT_ROOT_EVENT:
+	case XRT_ROOT_EVENT_SYNC:
 	case XRT_ROOT_EVENT_ASYNC: {
 		bool async = (cmd == XRT_ROOT_EVENT_ASYNC);
 		struct xrt_event *evt = (struct xrt_event *)arg;
