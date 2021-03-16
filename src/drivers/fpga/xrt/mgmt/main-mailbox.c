@@ -58,7 +58,7 @@ static inline void xmgmt_mailbox_prt_req(struct xmgmt_mailbox *xmbx, bool send,
 static inline void xmgmt_mailbox_prt_resp(struct xmgmt_mailbox *xmbx,
 					  struct xrt_mailbox_post *resp)
 {
-	xrt_info(xmbx->pdev, "respond %zu bytes >>>>>%s", resp->xmip_data_size,
+	xrt_info(xmbx->pdev, "respond %zu bytes >>>%s>>>", resp->xmip_data_size,
 		 mailbox_chan2name((resp)->xmip_sw_ch));
 }
 
@@ -209,6 +209,7 @@ static int xmgmt_mailbox_dtb_add_vrom(struct platform_device *pdev,
 		u32 cdma_base_address[4];
 	} header = { 0 };
 	char *vbnv = xmgmt_get_vbnv(pdev);
+	const u64 *rng;
 	int rc;
 
 	*(u32 *)header.entry_point_string = 0x786e6c78;
@@ -219,11 +220,11 @@ static int xmgmt_mailbox_dtb_add_vrom(struct platform_device *pdev,
 
 	header.feature_bitmap = UNIFIED_PLATFORM;
 	rc = xrt_md_get_prop(DEV(pdev), src_dtb, XRT_MD_NODE_CMC_FW_MEM, NULL,
-			     XRT_MD_PROP_IO_OFFSET, NULL, NULL);
+			     XRT_MD_PROP_IO_OFFSET, (const void **)&rng, NULL);
 	if (rc == 0)
 		header.feature_bitmap |= BOARD_MGMT_ENBLD;
 	rc = xrt_md_get_prop(DEV(pdev), src_dtb, XRT_MD_NODE_ERT_FW_MEM, NULL,
-			     XRT_MD_PROP_IO_OFFSET, NULL, NULL);
+			     XRT_MD_PROP_IO_OFFSET, (const void **)&rng, NULL);
 	if (rc == 0)
 		header.feature_bitmap |= MB_SCHEDULER;
 
@@ -511,8 +512,7 @@ static void xmgmt_mailbox_simple_respond(struct xmgmt_mailbox *xmbx, u64 msgid, 
 static void xmgmt_mailbox_resp_peer_data(struct xmgmt_mailbox *xmbx, struct xcl_mailbox_req *req,
 					 size_t len, u64 msgid, bool sw_ch)
 {
-	struct xcl_mailbox_peer_data *pdata =
-		(struct xcl_mailbox_peer_data *)req->data;
+	struct xcl_mailbox_peer_data *pdata = (struct xcl_mailbox_peer_data *)req->data;
 
 	if (len < (sizeof(*req) + sizeof(*pdata) - 1)) {
 		xrt_err(xmbx->pdev, "received corrupted %s, dropped", mailbox_req2name(req->req));

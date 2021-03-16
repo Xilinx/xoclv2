@@ -228,16 +228,16 @@ static int xrt_grp_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 
 		rc = xrt_subdev_pool_get(&xg->leaves, get_leaf->xpigl_match_cb,
 					 get_leaf->xpigl_match_arg,
-					 DEV(get_leaf->xpigl_pdev),
-					 &get_leaf->xpigl_leaf);
+					 DEV(get_leaf->xpigl_caller_pdev),
+					 &get_leaf->xpigl_tgt_pdev);
 		break;
 	}
 	case XRT_GROUP_PUT_LEAF: {
 		struct xrt_root_put_leaf *put_leaf =
 			(struct xrt_root_put_leaf *)arg;
 
-		rc = xrt_subdev_pool_put(&xg->leaves, put_leaf->xpipl_leaf,
-					 DEV(put_leaf->xpipl_pdev));
+		rc = xrt_subdev_pool_put(&xg->leaves, put_leaf->xpipl_tgt_pdev,
+					 DEV(put_leaf->xpipl_caller_pdev));
 		break;
 	}
 	case XRT_GROUP_INIT_CHILDREN:

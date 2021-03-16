@@ -35,7 +35,7 @@ enum xrt_root_cmd {
 	XRT_ROOT_WAIT_GROUP_BRINGUP,
 
 	/* Event actions. */
-	XRT_ROOT_EVENT,
+	XRT_ROOT_EVENT_SYNC,
 	XRT_ROOT_EVENT_ASYNC,
 
 	/* Device info. */
@@ -48,15 +48,15 @@ enum xrt_root_cmd {
 };
 
 struct xrt_root_get_leaf {
-	struct platform_device *xpigl_pdev; /* caller's pdev */
+	struct platform_device *xpigl_caller_pdev;
 	xrt_subdev_match_t xpigl_match_cb;
 	void *xpigl_match_arg;
-	struct platform_device *xpigl_leaf; /* target leaf pdev */
+	struct platform_device *xpigl_tgt_pdev;
 };
 
 struct xrt_root_put_leaf {
-	struct platform_device *xpipl_pdev; /* caller's pdev */
-	struct platform_device *xpipl_leaf; /* target's pdev */
+	struct platform_device *xpipl_caller_pdev;
+	struct platform_device *xpipl_tgt_pdev;
 };
 
 struct xrt_root_lookup_group {
@@ -91,6 +91,10 @@ struct xrt_root_hwmon {
 	struct device *xpih_hwmon_dev;
 };
 
+/*
+ * Callback for leaf to make a root request. Arguments are: parent device, parent cookie, req,
+ * and arg.
+ */
 typedef int (*xrt_subdev_root_cb_t)(struct device *, void *, u32, void *);
 int xrt_subdev_root_request(struct platform_device *self, u32 cmd, void *arg);
 

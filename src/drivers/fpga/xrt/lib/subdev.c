@@ -390,7 +390,7 @@ xleaf_get_leaf(struct platform_device *pdev, xrt_subdev_match_t match_cb, void *
 	rc = xrt_subdev_root_request(pdev, XRT_ROOT_GET_LEAF, &get_leaf);
 	if (rc)
 		return NULL;
-	return get_leaf.xpigl_leaf;
+	return get_leaf.xpigl_tgt_pdev;
 }
 EXPORT_SYMBOL_GPL(xleaf_get_leaf);
 
@@ -757,7 +757,7 @@ void xrt_subdev_pool_trigger_event(struct xrt_subdev_pool *spool, enum xrt_event
 		evt.xe_evt = e;
 		evt.xe_subdev.xevt_subdev_id = sdev->xs_id;
 		evt.xe_subdev.xevt_subdev_instance = tgt->id;
-		xrt_subdev_root_request(tgt, XRT_ROOT_EVENT, &evt);
+		xrt_subdev_root_request(tgt, XRT_ROOT_EVENT_SYNC, &evt);
 		xrt_subdev_pool_put_impl(spool, tgt, spool->xsp_owner);
 	}
 }
@@ -801,7 +801,7 @@ EXPORT_SYMBOL_GPL(xrt_subdev_pool_get_holders);
 int xleaf_broadcast_event(struct platform_device *pdev, enum xrt_events evt, bool async)
 {
 	struct xrt_event e = { evt, };
-	enum xrt_root_cmd cmd = async ? XRT_ROOT_EVENT_ASYNC : XRT_ROOT_EVENT;
+	enum xrt_root_cmd cmd = async ? XRT_ROOT_EVENT_ASYNC : XRT_ROOT_EVENT_SYNC;
 
 	WARN_ON(evt == XRT_EVENT_POST_CREATION || evt == XRT_EVENT_PRE_REMOVAL);
 	return xrt_subdev_root_request(pdev, cmd, &e);

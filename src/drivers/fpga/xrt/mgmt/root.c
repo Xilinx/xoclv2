@@ -18,7 +18,7 @@
 #include "xmgnt.h"
 #include "metadata.h"
 
-#define XMGMT_MODULE_NAME	"xmgmt"
+#define XMGMT_MODULE_NAME	"xrt-mgmt"
 #define XMGMT_DRIVER_VERSION	"4.0.0"
 
 #define XMGMT_PDEV(xm)		((xm)->pdev)
@@ -37,9 +37,13 @@
 	PCI_DEVID((pcidev)->bus->number, 0)); })
 
 static struct class *xmgmt_class;
+
+/* PCI Device IDs */
+#define PCI_DEVICE_ID_U50_GOLDEN	0xD020
+#define PCI_DEVICE_ID_U50		0x5020
 static const struct pci_device_id xmgmt_pci_ids[] = {
-	{ PCI_DEVICE(0x10EE, 0xd020), }, /* Alveo U50 (golden image) */
-	{ PCI_DEVICE(0x10EE, 0x5020), }, /* Alveo U50 */
+	{ PCI_DEVICE(PCI_VENDOR_ID_XILINX, PCI_DEVICE_ID_U50_GOLDEN), }, /* Alveo U50 (golden) */
+	{ PCI_DEVICE(PCI_VENDOR_ID_XILINX, PCI_DEVICE_ID_U50), }, /* Alveo U50 */
 	{ 0, }
 };
 
@@ -68,18 +72,8 @@ static int xmgmt_config_pci(struct xmgmt *xm)
 	pci_set_master(pdev);
 
 	rc = pcie_get_readrq(pdev);
-	if (rc < 0) {
-		xmgmt_err(xm, "failed to read mrrs %d", rc);
-		return rc;
-	}
-	if (rc > 512) {
-		rc = pcie_set_readrq(pdev, 512);
-		if (rc) {
-			xmgmt_err(xm, "failed to force mrrs %d", rc);
-			return rc;
-		}
-	}
-
+	if (rc > 512)
+		pcie_set_readrq(pdev, 512);
 	return 0;
 }
 
@@ -145,17 +139,12 @@ static void xmgmt_root_hot_reset(struct pci_dev *pdev)
 	 */
 
 	pci_read_config_word(bus->self, PCI_COMMAND, &pci_cmd);
-	pci_write_config_word(bus->self, PCI_COMMAND,
-			      (pci_cmd & ~PCI_COMMAND_SERR));
+	pci_write_config_word(bus->self, PCI_COMMAND, (pci_cmd & ~PCI_COMMAND_SERR));
 	pcie_capability_read_word(bus->self, PCI_EXP_DEVCTL, &devctl);
-	pcie_capability_write_word(bus->self, PCI_EXP_DEVCTL,
-				   (devctl & ~PCI_EXP_DEVCTL_FERE));
+	pcie_capability_write_word(bus->self, PCI_EXP_DEVCTL, (devctl & ~PCI_EXP_DEVCTL_FERE));
 	pci_read_config_byte(bus->self, PCI_BRIDGE_CONTROL, &pci_bctl);
-	pci_bctl |= PCI_BRIDGE_CTL_BUS_RESET;
-	pci_write_config_byte(bus->self, PCI_BRIDGE_CONTROL, pci_bctl);
-
+	pci_write_config_byte(bus->self, PCI_BRIDGE_CONTROL, pci_bctl | PCI_BRIDGE_CTL_BUS_RESET);
 	msleep(100);
-	pci_bctl &= ~PCI_BRIDGE_CTL_BUS_RESET;
 	pci_write_config_byte(bus->self, PCI_BRIDGE_CONTROL, pci_bctl);
 	ssleep(1);
 
