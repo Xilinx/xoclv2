@@ -233,24 +233,6 @@ struct platform_device *xleaf_devnode_open(struct inode *inode);
 void xleaf_devnode_close(struct inode *inode);
 
 /* Helpers. */
-static inline void xrt_memcpy_fromio(void *buf, void __iomem *iomem, u32 size)
-{
-	int i;
-
-	WARN_ON(size & 0x3);
-	for (i = 0; i < size / 4; i++)
-		((u32 *)buf)[i] = ioread32((char *)(iomem) + sizeof(u32) * i);
-}
-
-static inline void xrt_memcpy_toio(void __iomem *iomem, void *buf, u32 size)
-{
-	int i;
-
-	WARN_ON(size & 0x3);
-	for (i = 0; i < size / 4; i++)
-		iowrite32(((u32 *)buf)[i], ((char *)(iomem) + sizeof(u32) * i));
-}
-
 int xleaf_register_driver(enum xrt_subdev_id id, struct platform_driver *drv,
 			  struct xrt_subdev_endpoints *eps);
 void xleaf_unregister_driver(enum xrt_subdev_id id);

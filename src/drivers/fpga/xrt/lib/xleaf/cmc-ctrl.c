@@ -23,6 +23,15 @@ struct xrt_cmc_ctrl {
 	size_t firmware_size;
 };
 
+static inline void xrt_memcpy_toio(void __iomem *iomem, void *buf, u32 size)
+{
+	int i;
+
+	WARN_ON(size & 0x3);
+	for (i = 0; i < size / 4; i++)
+		iowrite32(((u32 *)buf)[i], ((char *)(iomem) + sizeof(u32) * i));
+}
+
 static inline void
 cmc_mutex_config(struct xrt_cmc_ctrl *cmc_ctrl, u32 val)
 {
