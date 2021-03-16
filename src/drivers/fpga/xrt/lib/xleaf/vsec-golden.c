@@ -65,10 +65,10 @@ static int xrt_vsec_get_golden_ver(struct xrt_vsec *vsec)
 		return -EINVAL;
 	}
 
-	devctl_arg.xgir_id = XRT_DEVCTL_GOLDEN_VER;
-	devctl_arg.xgir_buf = &ver;
-	devctl_arg.xgir_len = sizeof(ver);
-	devctl_arg.xgir_offset = 0;
+	devctl_arg.xdr_id = XRT_DEVCTL_GOLDEN_VER;
+	devctl_arg.xdr_buf = &ver;
+	devctl_arg.xdr_len = sizeof(ver);
+	devctl_arg.xdr_offset = 0;
 	err = xleaf_call(devctl_leaf, XRT_DEVCTL_READ, &devctl_arg);
 	xleaf_put_leaf(pdev, devctl_leaf);
 	if (err) {

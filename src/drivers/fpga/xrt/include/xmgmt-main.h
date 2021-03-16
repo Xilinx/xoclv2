@@ -13,16 +13,15 @@
 #include "xleaf.h"
 
 enum xrt_mgmt_main_leaf_cmd {
-	/* section needs to be vfree'd by caller */
 	XRT_MGMT_MAIN_GET_AXLF_SECTION = XRT_XLEAF_CUSTOM_BASE, /* See comments in xleaf.h */
-	/* vbnv needs to be kfree'd by caller */
 	XRT_MGMT_MAIN_GET_VBNV,
 };
 
+/* There are three kind of partitions. Each of them is programmed independently. */
 enum provider_kind {
-	XMGMT_BLP,
-	XMGMT_PLP,
-	XMGMT_ULP,
+	XMGMT_BLP, /* Base Logic Partition */
+	XMGMT_PLP, /* Provider Logic Partition */
+	XMGMT_ULP, /* User Logic Partition */
 };
 
 struct xrt_mgmt_main_get_axlf_section {

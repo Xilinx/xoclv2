@@ -34,22 +34,22 @@ xrt-lib-y := 			\
 	group.o			\
 	xleaf/vsec.o		\
 	xleaf/vsec-golden.o	\
-	xleaf/axigate.o	\
+	xleaf/axigate.o		\
 	xleaf/qspi.o		\
 	xleaf/devctl.o		\
-	xleaf/mailbox.o	\
+	xleaf/mailbox.o		\
 	xleaf/icap.o		\
 	xleaf/cmc.o		\
 	xleaf/cmc-ctrl.o	\
 	xleaf/cmc-sensors.o	\
 	xleaf/cmc-mailbox.o	\
 	xleaf/cmc-bdinfo.o	\
-	xleaf/cmc-sc.o	\
+	xleaf/cmc-sc.o		\
 	xleaf/srsr.o		\
 	xleaf/clock.o		\
-	xleaf/clkfreq.o	\
+	xleaf/clkfreq.o		\
 	xleaf/ucs.o		\
-	xleaf/calib.o		\
+	xleaf/ddr_calibration.o	\
 	../metadata/metadata.o	\
 	$(fdtobj)
 

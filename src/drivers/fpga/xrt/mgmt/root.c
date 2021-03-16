@@ -15,7 +15,7 @@
 #include <linux/delay.h>
 
 #include "xroot.h"
-#include "main-impl.h"
+#include "xmgnt.h"
 #include "metadata.h"
 
 #define XMGMT_MODULE_NAME	"xmgmt"
@@ -308,7 +308,7 @@ static int __init xmgmt_init(void)
 {
 	int res = 0;
 
-	res = xmgmt_main_register_leaf();
+	res = xmgmt_register_leaf();
 	if (res)
 		return res;
 
@@ -329,7 +329,7 @@ static __exit void xmgmt_exit(void)
 {
 	pci_unregister_driver(&xmgmt_driver);
 	class_destroy(xmgmt_class);
-	xmgmt_main_unregister_leaf();
+	xmgmt_unregister_leaf();
 }
 
 module_init(xmgmt_init);
