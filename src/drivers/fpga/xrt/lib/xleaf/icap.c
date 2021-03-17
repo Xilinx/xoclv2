@@ -197,26 +197,42 @@ static void icap_probe_chip(struct icap *icap)
 
 	regmap_read(icap->regmap, ICAP_REG_SR, &val);
 	regmap_read(icap->regmap, ICAP_REG_SR, &val);
+	/* Disable interrupts */
 	regmap_write(icap->regmap, ICAP_REG_GIER, 0);
+	/* Read ICAP FIFO vacancy */
 	regmap_read(icap->regmap, ICAP_REG_WFV, &val);
+	/* Send dummy word */
 	regmap_write(icap->regmap, ICAP_REG_WF, 0xffffffff);
+	/* Send sync word */
 	regmap_write(icap->regmap, ICAP_REG_WF, 0xaa995566);
+	/* Send NOP word */
 	regmap_write(icap->regmap, ICAP_REG_WF, 0x20000000);
+	/* Send NOP word */
 	regmap_write(icap->regmap, ICAP_REG_WF, 0x20000000);
+	/* ID code register */
 	regmap_write(icap->regmap, ICAP_REG_WF, 0x28018001);
+	/* Send NOP word */
 	regmap_write(icap->regmap, ICAP_REG_WF, 0x20000000);
+	/* Send NOP word */
 	regmap_write(icap->regmap, ICAP_REG_WF, 0x20000000);
+	/* Flush all writes on PCIe */
 	regmap_read(icap->regmap, ICAP_REG_CR, &val);
+	/* Push the commands to config engine */
 	regmap_write(icap->regmap, ICAP_REG_CR, 0x1);
+	/* TODO */
 	regmap_read(icap->regmap, ICAP_REG_CR, &val);
 	regmap_read(icap->regmap, ICAP_REG_CR, &val);
 	regmap_read(icap->regmap, ICAP_REG_SR, &val);
 	regmap_read(icap->regmap, ICAP_REG_CR, &val);
 	regmap_read(icap->regmap, ICAP_REG_SR, &val);
+	/* Tell config engine how many words to transfer to read FIFO */
 	regmap_write(icap->regmap, ICAP_REG_SZ, 0x1);
 	regmap_read(icap->regmap, ICAP_REG_CR, &val);
+	/* Switch the ICAP to read mode */
 	regmap_write(icap->regmap, ICAP_REG_CR, 0x2);
+	/* Read FIFO vacancy register */
 	regmap_read(icap->regmap, ICAP_REG_RFO, &val);
+	/* Read ID code from Read FIFO */
 	regmap_read(icap->regmap, ICAP_REG_RF, &icap->idcode);
 	regmap_read(icap->regmap, ICAP_REG_CR, &val);
 }
