@@ -64,6 +64,14 @@ https://xilinx.github.io/XRT/master/html/index.html
 https://xilinx.github.io/XRT/master/html/security.html
 https://xilinx.github.io/XRT/master/html/platforms_partitions.html
 
+Changes since v3:
+- Leaf drivers use regmap-mmio to access hardware registers.
+- Renamed driver module: xmgmt.ko -> xrt-mgmt.ko
+- Renamed files: calib.[c|h] -> ddr_calibration.[c|h],
+                 lib/main.[c|h] -> lib/lib-drv.[c|h],
+                 mgmt/main-impl.h - > mgmt/xmgnt.h
+- Changed code base on v3 code review comments.
+
 Changes since v2:
 - Streamlined the driver framework into *xleaf*, *group* and *xroot*
 - Updated documentation to show the driver model with examples

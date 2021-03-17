@@ -589,6 +589,8 @@ xmgmt_mainleaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 		char **vbnv_p = (char **)arg;
 
 		*vbnv_p = xmgmt_get_vbnv(pdev);
+		if (!*vbnv_p)
+			ret = -EINVAL;
 		break;
 	}
 	default:
