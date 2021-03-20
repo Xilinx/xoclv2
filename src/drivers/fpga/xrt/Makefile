@@ -5,11 +5,13 @@
 # Authors: Sonal.Santan@xilinx.com
 #
 
-all:
+all:    fast
+	$(MAKE) lint
+
+fast:
 	$(MAKE) -C lib all
 	$(MAKE) -C mgmt all
 	$(MAKE) -C selftests all
-	$(MAKE) lint
 
 tags:
 	../../../../scripts/tags.sh

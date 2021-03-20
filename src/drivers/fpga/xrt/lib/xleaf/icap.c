@@ -51,6 +51,26 @@
 #define ICAP_STATUS_EOS		0x4
 #define ICAP_STATUS_DONE	0x1
 
+/*
+ * Canned command sequence to obtain IDCODE of the FPGA
+ */
+static const u32 idcode_stream[] = {
+	/* dummy word */
+	cpu_to_be32(0xffffffff),
+	/* sync word */
+	cpu_to_be32(0xaa995566),
+	/* NOP word */
+	cpu_to_be32(0x20000000),
+	/* NOP word */
+	cpu_to_be32(0x20000000),
+	/* ID code */
+	cpu_to_be32(0x28018001),
+	/* NOP word */
+	cpu_to_be32(0x20000000),
+	/* NOP word */
+	cpu_to_be32(0x20000000),
+};
+
 static const struct regmap_config icap_regmap_config = {
 	.reg_bits = 32,
 	.val_bits = 32,
@@ -66,7 +86,7 @@ struct icap {
 	u32			idcode;
 };
 
-static int wait_for_done(struct icap *icap)
+static int wait_for_done(const struct icap *icap)
 {
 	int i = 0;
 	int ret;
@@ -90,7 +110,7 @@ static int wait_for_done(struct icap *icap)
 	return -ETIMEDOUT;
 }
 
-static int icap_write(struct icap *icap, const u32 *word_buf, int size)
+static int icap_write(const struct icap *icap, const u32 *word_buf, int size)
 {
 	u32 value = 0;
 	int ret;
@@ -189,36 +209,38 @@ failed:
 }
 
 /*
- * Run the following sequence of canned commands to obtain IDCODE of the FPGA
+ * Discover the FPGA IDCODE using special sequence of canned commands
  */
-static void icap_probe_chip(struct icap *icap)
+static int icap_probe_chip(struct icap *icap)
 {
-	u32 val;
+	int err;
+	u32 val = 0;
 
 	regmap_read(icap->regmap, ICAP_REG_SR, &val);
-	regmap_read(icap->regmap, ICAP_REG_SR, &val);
-	regmap_write(icap->regmap, ICAP_REG_GIER, 0);
+	if (val != ICAP_STATUS_DONE)
+		return -ENODEV;
+	/* Read ICAP FIFO vacancy */
 	regmap_read(icap->regmap, ICAP_REG_WFV, &val);
-	regmap_write(icap->regmap, ICAP_REG_WF, 0xffffffff);
-	regmap_write(icap->regmap, ICAP_REG_WF, 0xaa995566);
-	regmap_write(icap->regmap, ICAP_REG_WF, 0x20000000);
-	regmap_write(icap->regmap, ICAP_REG_WF, 0x20000000);
-	regmap_write(icap->regmap, ICAP_REG_WF, 0x28018001);
-	regmap_write(icap->regmap, ICAP_REG_WF, 0x20000000);
-	regmap_write(icap->regmap, ICAP_REG_WF, 0x20000000);
-	regmap_read(icap->regmap, ICAP_REG_CR, &val);
-	regmap_write(icap->regmap, ICAP_REG_CR, 0x1);
-	regmap_read(icap->regmap, ICAP_REG_CR, &val);
-	regmap_read(icap->regmap, ICAP_REG_CR, &val);
-	regmap_read(icap->regmap, ICAP_REG_SR, &val);
-	regmap_read(icap->regmap, ICAP_REG_CR, &val);
-	regmap_read(icap->regmap, ICAP_REG_SR, &val);
+	if (val < 8)
+		return -ENODEV;
+	err = icap_write(icap, idcode_stream, ARRAY_SIZE(idcode_stream));
+	if (err)
+		return err;
+	err = wait_for_done(icap);
+	if (err)
+		return err;
+
+	/* Tell config engine how many words to transfer to read FIFO */
 	regmap_write(icap->regmap, ICAP_REG_SZ, 0x1);
-	regmap_read(icap->regmap, ICAP_REG_CR, &val);
+	/* Switch the ICAP to read mode */
 	regmap_write(icap->regmap, ICAP_REG_CR, 0x2);
-	regmap_read(icap->regmap, ICAP_REG_RFO, &val);
+	err = wait_for_done(icap);
+	if (err)
+		return err;
+
+	/* Read IDCODE from Read FIFO */
 	regmap_read(icap->regmap, ICAP_REG_RF, &icap->idcode);
-	regmap_read(icap->regmap, ICAP_REG_CR, &val);
+	return 0;
 }
 
 static int
@@ -254,6 +276,7 @@ static int xrt_icap_probe(struct platform_device *pdev)
 	void __iomem *base = NULL;
 	struct resource *res;
 	struct icap *icap;
+	int result = 0;
 
 	icap = devm_kzalloc(&pdev->dev, sizeof(*icap), GFP_KERNEL);
 	if (!icap)
@@ -277,9 +300,15 @@ static int xrt_icap_probe(struct platform_device *pdev)
 		ICAP_ERR(icap, "init mmio failed");
 		return PTR_ERR(icap->regmap);
 	}
+	/* Disable ICAP interrupts */
+	regmap_write(icap->regmap, ICAP_REG_GIER, 0);
 
-	icap_probe_chip(icap);
-	return 0;
+	result = icap_probe_chip(icap);
+	if (result)
+		xrt_err(pdev, "Failed to probe FPGA");
+	else
+		xrt_info(pdev, "Discovered FPGA IDCODE %x", icap->idcode);
+	return result;
 }
 
 static struct xrt_subdev_endpoints xrt_icap_endpoints[] = {
