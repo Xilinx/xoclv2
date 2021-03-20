@@ -11,7 +11,7 @@ modprobe fpga_mgr
 modprobe fpga_region
 modprobe fpga_bridge
 insmod ./lib/xrt-lib.ko
-insmod ./mgmt/xmgmt.ko
+insmod ./mgmt/xrt-mgmt.ko
 
 sleep 1
 
@@ -28,6 +28,6 @@ tree -f -l -L 2 /sys/class/fpga_bridge/
 tree -f -l -L 2 /sys/class/fpga_manager/
 tree -f -l -L 2 /sys/class/fpga_region/
 
-sudo rmmod xmgmt
+sudo rmmod xrt-mgmt
 sleep 1
 sudo insmod selftests/xrt-stest1.ko
