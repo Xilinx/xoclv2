@@ -161,6 +161,8 @@ static void xmgmt_root_hot_reset(struct pci_dev *pdev)
 			break;
 		msleep(20);
 	}
+	if (i == 300)
+		xmgmt_err(xm, "time'd out waiting for device to be online after reset");
 
 	xmgmt_info(xm, "waiting for %d ms", i * 20);
 	xmgmt_pci_restore_config_all(xm);
