@@ -324,7 +324,7 @@ child relationship.
    shell). Except for root UUID exported by VSEC, hardware itself does not know
    about UUIDs. UUIDs are stored in xsabin and xclbin. The image format has a
    special node called Partition UUIDs which define the compatibility UUIDs. See
-   :ref:`_partition_uuids`.
+   :ref:`partition_uuids`.
 
 
 The physical partitions and their loading is illustrated below::
@@ -355,7 +355,7 @@ for VSEC in PCIe extended configuration space. Using VSEC it determines the logi
 UUID of Shell and uses the UUID to load matching *xsabin* file from Linux firmware
 directory. The xsabin file contains metadata to discover peripherals that are part
 of Shell and firmware(s) for any embedded soft processors in Shell. The xsabin file
-also contains Partition UUIDs as described here :ref:`_partition_uuids`.
+also contains Partition UUIDs as described here :ref:`partition_uuids`.
 
 The Shell exports a child interface UUID which is used for the compatibility check
 when loading user compiled xclbin over the User partition as part of DFX. When a user
