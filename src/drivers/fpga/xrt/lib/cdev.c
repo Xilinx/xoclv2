@@ -12,7 +12,7 @@
 
 extern struct class *xrt_class;
 
-#define XRT_CDEV_DIR		"xfpga"
+#define XRT_CDEV_DIR		"xrt"
 #define INODE2PDATA(inode)	\
 	container_of((inode)->i_cdev, struct xrt_subdev_platdata, xsp_cdev)
 #define INODE2PDEV(inode)	\
