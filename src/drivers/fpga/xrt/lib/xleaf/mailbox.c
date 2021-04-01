@@ -188,10 +188,10 @@
 #define STATUS_RTA		BIT(3)
 #define STATUS_VALID		(STATUS_EMPTY | STATUS_FULL | STATUS_STA | STATUS_RTA)
 
-#define MBX_ERR(mbx, fmt, arg...) xrt_err((mbx)->mbx_pdev, fmt "\n", ##arg)
-#define MBX_WARN(mbx, fmt, arg...) xrt_warn((mbx)->mbx_pdev, fmt "\n", ##arg)
-#define MBX_INFO(mbx, fmt, arg...) xrt_info((mbx)->mbx_pdev, fmt "\n", ##arg)
-#define MBX_DBG(mbx, fmt, arg...) xrt_dbg((mbx)->mbx_pdev, fmt "\n", ##arg)
+#define MBX_ERR(mbx, fmt, arg...) xrt_err((mbx)->mbx_xdev, fmt "\n", ##arg)
+#define MBX_WARN(mbx, fmt, arg...) xrt_warn((mbx)->mbx_xdev, fmt "\n", ##arg)
+#define MBX_INFO(mbx, fmt, arg...) xrt_info((mbx)->mbx_xdev, fmt "\n", ##arg)
+#define MBX_DBG(mbx, fmt, arg...) xrt_dbg((mbx)->mbx_xdev, fmt "\n", ##arg)
 
 #define MAILBOX_TTL_TIMER	(HZ / 10) /* in jiffies */
 #define MAILBOX_SEC2TTL(s)	((s) * HZ / MAILBOX_TTL_TIMER)
@@ -292,7 +292,7 @@ struct mailbox_channel {
  * The mailbox softstate.
  */
 struct mailbox {
-	struct platform_device	*mbx_pdev;
+	struct xrt_device	*mbx_xdev;
 	struct timer_list	mbx_poll_timer;
 	struct mailbox_reg	*mbx_regs;
 
@@ -737,7 +737,7 @@ static int chan_init(struct mailbox *mbx, enum mailbox_chan_type type,
 	mutex_unlock(&ch->sw_chan_mutex);
 
 	/* One thread for one channel. */
-	ch->mbc_wq = create_singlethread_workqueue(dev_name(&mbx->mbx_pdev->dev));
+	ch->mbc_wq = create_singlethread_workqueue(dev_name(&mbx->mbx_xdev->dev));
 	if (!ch->mbc_wq) {
 		chan_fini(ch);
 		return -ENOMEM;
@@ -1158,9 +1158,9 @@ static bool chan_do_tx(struct mailbox_channel *ch)
 
 static ssize_t mailbox_ctl_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct platform_device *pdev = to_platform_device(dev);
+	struct xrt_device *xdev = to_xrt_dev(dev);
 	int nreg = sizeof(struct mailbox_reg) / sizeof(u32);
-	struct mailbox *mbx = platform_get_drvdata(pdev);
+	struct mailbox *mbx = xrt_get_drvdata(xdev);
 	u32 *reg = (u32 *)mbx->mbx_regs;
 	int r, n;
 
@@ -1191,9 +1191,9 @@ static ssize_t mailbox_ctl_show(struct device *dev, struct device_attribute *att
 static ssize_t mailbox_ctl_store(struct device *dev,
 				 struct device_attribute *da, const char *buf, size_t count)
 {
-	struct platform_device *pdev = to_platform_device(dev);
+	struct xrt_device *xdev = to_xrt_dev(dev);
 	int nreg = sizeof(struct mailbox_reg) / sizeof(u32);
-	struct mailbox *mbx = platform_get_drvdata(pdev);
+	struct mailbox *mbx = xrt_get_drvdata(xdev);
 	u32 *reg = (u32 *)mbx->mbx_regs;
 	u32 off, val;
 
@@ -1216,8 +1216,8 @@ static DEVICE_ATTR_RW(mailbox_ctl);
 
 static ssize_t mailbox_pkt_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct mailbox *mbx = platform_get_drvdata(pdev);
+	struct xrt_device *xdev = to_xrt_dev(dev);
+	struct mailbox *mbx = xrt_get_drvdata(xdev);
 	struct mailbox_pkt *pkt = &mbx->mbx_tst_pkt;
 	u32 sz = pkt->hdr.payload_size;
 
@@ -1236,8 +1236,8 @@ static ssize_t mailbox_pkt_show(struct device *dev, struct device_attribute *att
 static ssize_t mailbox_pkt_store(struct device *dev,
 				 struct device_attribute *da, const char *buf, size_t count)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct mailbox *mbx = platform_get_drvdata(pdev);
+	struct xrt_device *xdev = to_xrt_dev(dev);
+	struct mailbox *mbx = xrt_get_drvdata(xdev);
 	struct mailbox_pkt *pkt = &mbx->mbx_tst_pkt;
 	size_t maxlen = sizeof(mbx->mbx_tst_pkt.body.data);
 
@@ -1276,11 +1276,11 @@ static const struct attribute_group mailbox_attrgroup = {
 /*
  * Msg will be sent to peer and reply will be received.
  */
-static int mailbox_request(struct platform_device *pdev, void *req,
+static int mailbox_request(struct xrt_device *xdev, void *req,
 			   size_t reqlen, void *resp, size_t *resplen, bool sw_ch, u32 resp_ttl)
 {
 	int rv = -ENOMEM;
-	struct mailbox *mbx = platform_get_drvdata(pdev);
+	struct mailbox *mbx = xrt_get_drvdata(xdev);
 	struct mailbox_msg *reqmsg = NULL, *respmsg = NULL;
 
 	reqmsg = alloc_msg(req, reqlen);
@@ -1337,9 +1337,9 @@ fail:
 /*
  * Posting notification or response to peer.
  */
-static int mailbox_post(struct platform_device *pdev, u64 reqid, void *buf, size_t len, bool sw_ch)
+static int mailbox_post(struct xrt_device *xdev, u64 reqid, void *buf, size_t len, bool sw_ch)
 {
-	struct mailbox *mbx = platform_get_drvdata(pdev);
+	struct mailbox *mbx = xrt_get_drvdata(xdev);
 	struct mailbox_msg *msg = NULL;
 	int rv = 0;
 
@@ -1418,9 +1418,9 @@ static void mailbox_recv_request(struct work_struct *work)
 	mutex_unlock(&mbx->mbx_lock);
 }
 
-static int mailbox_listen(struct platform_device *pdev, mailbox_msg_cb_t cb, void *cbarg)
+static int mailbox_listen(struct xrt_device *xdev, mailbox_msg_cb_t cb, void *cbarg)
 {
-	struct mailbox *mbx = platform_get_drvdata(pdev);
+	struct mailbox *mbx = xrt_get_drvdata(xdev);
 
 	mutex_lock(&mbx->mbx_listen_cb_lock);
 
@@ -1432,9 +1432,9 @@ static int mailbox_listen(struct platform_device *pdev, mailbox_msg_cb_t cb, voi
 	return 0;
 }
 
-static int mailbox_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+static int mailbox_leaf_call(struct xrt_device *xdev, u32 cmd, void *arg)
 {
-	struct mailbox *mbx = platform_get_drvdata(pdev);
+	struct mailbox *mbx = xrt_get_drvdata(xdev);
 	int ret = 0;
 
 	switch (cmd) {
@@ -1444,14 +1444,14 @@ static int mailbox_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 	case XRT_MAILBOX_POST: {
 		struct xrt_mailbox_post *post = (struct xrt_mailbox_post *)arg;
 
-		ret = mailbox_post(pdev, post->xmip_req_id, post->xmip_data,
+		ret = mailbox_post(xdev, post->xmip_req_id, post->xmip_data,
 				   post->xmip_data_size, post->xmip_sw_ch);
 		break;
 	}
 	case XRT_MAILBOX_REQUEST: {
 		struct xrt_mailbox_request *req = (struct xrt_mailbox_request *)arg;
 
-		ret = mailbox_request(pdev, req->xmir_req, req->xmir_req_size,
+		ret = mailbox_request(xdev, req->xmir_req, req->xmir_req_size,
 				      req->xmir_resp, &req->xmir_resp_size, req->xmir_sw_ch,
 				      req->xmir_resp_ttl);
 		break;
@@ -1459,7 +1459,7 @@ static int mailbox_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 	case XRT_MAILBOX_LISTEN: {
 		struct xrt_mailbox_listen *listen = (struct xrt_mailbox_listen *)arg;
 
-		ret = mailbox_listen(pdev, listen->xmil_cb, listen->xmil_cb_arg);
+		ret = mailbox_listen(xdev, listen->xmil_cb, listen->xmil_cb_arg);
 		break;
 	}
 	default:
@@ -1489,7 +1489,7 @@ static int mailbox_start(struct mailbox *mbx)
 	mbx->mbx_listen_stop = false;
 
 	/* Dedicated thread for listening to peer request. */
-	mbx->mbx_listen_wq = create_singlethread_workqueue(dev_name(&mbx->mbx_pdev->dev));
+	mbx->mbx_listen_wq = create_singlethread_workqueue(dev_name(&mbx->mbx_xdev->dev));
 	if (!mbx->mbx_listen_wq) {
 		MBX_ERR(mbx, "failed to create request-listen work queue");
 		ret = -ENOMEM;
@@ -1530,13 +1530,13 @@ static int mailbox_open(struct inode *inode, struct file *file)
 	 * Only allow one open from daemon. Mailbox msg can only be polled
 	 * by one daemon.
 	 */
-	struct platform_device *pdev = xleaf_devnode_open_excl(inode);
+	struct xrt_device *xdev = xleaf_devnode_open_excl(inode);
 	struct mailbox *mbx = NULL;
 
-	if (!pdev)
+	if (!xdev)
 		return -ENXIO;
 
-	mbx = platform_get_drvdata(pdev);
+	mbx = xrt_get_drvdata(xdev);
 	if (!mbx)
 		return -ENXIO;
 
@@ -1732,39 +1732,38 @@ static uint mailbox_poll(struct file *file, poll_table *wait)
 	return POLLIN;
 }
 
-static int mailbox_remove(struct platform_device *pdev)
+static void mailbox_remove(struct xrt_device *xdev)
 {
-	struct mailbox *mbx = platform_get_drvdata(pdev);
+	struct mailbox *mbx = xrt_get_drvdata(xdev);
 
 	/* Stop accessing from sysfs node. */
-	sysfs_remove_group(&pdev->dev.kobj, &mailbox_attrgroup);
+	sysfs_remove_group(&xdev->dev.kobj, &mailbox_attrgroup);
 	mailbox_stop(mbx);
 	if (mbx->mbx_regs)
 		iounmap(mbx->mbx_regs);
 	MBX_INFO(mbx, "mailbox cleaned up successfully");
-	platform_set_drvdata(pdev, NULL);
-	return 0;
+	xrt_set_drvdata(xdev, NULL);
 }
 
-static int mailbox_probe(struct platform_device *pdev)
+static int mailbox_probe(struct xrt_device *xdev)
 {
 	struct mailbox *mbx = NULL;
 	struct resource *res;
 	int ret;
 
-	mbx = devm_kzalloc(DEV(pdev), sizeof(struct mailbox), GFP_KERNEL);
+	mbx = devm_kzalloc(DEV(xdev), sizeof(struct mailbox), GFP_KERNEL);
 	if (!mbx)
 		return -ENOMEM;
 
-	mbx->mbx_pdev = pdev;
-	platform_set_drvdata(pdev, mbx);
+	mbx->mbx_xdev = xdev;
+	xrt_set_drvdata(xdev, mbx);
 
 	init_completion(&mbx->mbx_comp);
 	mutex_init(&mbx->mbx_lock);
 	mutex_init(&mbx->mbx_listen_cb_lock);
 	INIT_LIST_HEAD(&mbx->mbx_req_list);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = xrt_get_resource(xdev, IORESOURCE_MEM, 0);
 	if (res) {
 		mbx->mbx_regs = ioremap(res->start, res->end - res->start + 1);
 		if (!mbx->mbx_regs) {
@@ -1779,7 +1778,7 @@ static int mailbox_probe(struct platform_device *pdev)
 		goto failed;
 
 	/* Enable access thru sysfs node. */
-	ret = sysfs_create_group(&pdev->dev.kobj, &mailbox_attrgroup);
+	ret = sysfs_create_group(&xdev->dev.kobj, &mailbox_attrgroup);
 	if (ret != 0) {
 		MBX_ERR(mbx, "failed to init sysfs");
 		goto failed;
@@ -1789,13 +1788,13 @@ static int mailbox_probe(struct platform_device *pdev)
 	return 0;
 
 failed:
-	mailbox_remove(pdev);
+	mailbox_remove(xdev);
 	return ret;
 }
 
-static struct xrt_subdev_endpoints xrt_mailbox_endpoints[] = {
+static struct xrt_dev_endpoints xrt_mailbox_endpoints[] = {
 	{
-		.xse_names = (struct xrt_subdev_ep_names []){
+		.xse_names = (struct xrt_dev_ep_names []){
 			{ .ep_name = XRT_MD_NODE_MAILBOX_VSEC},
 			{ NULL },
 		},
@@ -1804,11 +1803,13 @@ static struct xrt_subdev_endpoints xrt_mailbox_endpoints[] = {
 	{ 0 },
 };
 
-static struct xrt_subdev_drvdata mailbox_drvdata = {
-	.xsd_dev_ops = {
-		.xsd_leaf_call = mailbox_leaf_call,
+#define XRT_MAILBOX	"xrt_mailbox"
+
+static struct xrt_driver xrt_mailbox_driver = {
+	.driver = {
+		.name	= XRT_MAILBOX,
 	},
-	.xsd_file_ops = {
+	.file_ops = {
 		.xsf_ops = {
 			.owner = THIS_MODULE,
 			.open = mailbox_open,
@@ -1819,30 +1820,11 @@ static struct xrt_subdev_drvdata mailbox_drvdata = {
 		},
 		.xsf_dev_name = "mailbox",
 	},
+	.subdev_id = XRT_SUBDEV_MAILBOX,
+	.endpoints = xrt_mailbox_endpoints,
+	.probe = mailbox_probe,
+	.remove = mailbox_remove,
+	.leaf_call = mailbox_leaf_call,
 };
 
-#define XRT_MAILBOX	"xrt_mailbox"
-
-static struct platform_device_id mailbox_id_table[] = {
-	{ XRT_MAILBOX, (kernel_ulong_t)&mailbox_drvdata },
-	{ },
-};
-
-static struct platform_driver xrt_mailbox_driver = {
-	.probe		= mailbox_probe,
-	.remove		= mailbox_remove,
-	.driver		= {
-		.name	= XRT_MAILBOX,
-	},
-	.id_table = mailbox_id_table,
-};
-
-void mailbox_leaf_init_fini(bool init)
-{
-	if (init) {
-		xleaf_register_driver(XRT_SUBDEV_MAILBOX,
-				      &xrt_mailbox_driver, xrt_mailbox_endpoints);
-	} else {
-		xleaf_unregister_driver(XRT_SUBDEV_MAILBOX);
-	}
-}
+XRT_LEAF_INIT_FINI_FUNC(mailbox);

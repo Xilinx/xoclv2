@@ -68,7 +68,7 @@
 #define CMC_OEM_ID_REG                  0xC50
 
 struct xrt_cmc_sensor {
-	struct platform_device *pdev;
+	struct xrt_device *xdev;
 	struct cmc_reg_map reg_io;
 	struct device *hwmon_dev;
 	const char *name;
@@ -328,44 +328,45 @@ static const struct attribute_group *hwmon_cmc_attrgroups[] = {
 	NULL
 };
 
-void cmc_sensor_remove(struct platform_device *pdev)
+void cmc_sensor_remove(struct xrt_device *xdev)
 {
 	struct xrt_cmc_sensor *cmc_sensor =
-		(struct xrt_cmc_sensor *)cmc_pdev2sensor(pdev);
+		(struct xrt_cmc_sensor *)cmc_xdev2sensor(xdev);
 
 	WARN_ON(!cmc_sensor);
 	if (cmc_sensor->hwmon_dev)
-		xleaf_unregister_hwmon(pdev, cmc_sensor->hwmon_dev);
+		xleaf_unregister_hwmon(xdev, cmc_sensor->hwmon_dev);
 	kfree(cmc_sensor->name);
 }
 
 static const char *cmc_get_vbnv(struct xrt_cmc_sensor *cmc_sensor)
 {
-	int ret;
+	struct xrt_device *mgmt_leaf;
 	const char *vbnv;
-	struct platform_device *mgmt_leaf =
-		xleaf_get_leaf_by_id(cmc_sensor->pdev, XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
+	int ret;
 
+	mgmt_leaf = xleaf_get_leaf_by_id(cmc_sensor->xdev, XRT_SUBDEV_MGMT_MAIN,
+					 XRT_INVALID_DEVICE_INST);
 	if (!mgmt_leaf)
 		return NULL;
 
 	ret = xleaf_call(mgmt_leaf, XRT_MGMT_MAIN_GET_VBNV, &vbnv);
-	xleaf_put_leaf(cmc_sensor->pdev, mgmt_leaf);
+	xleaf_put_leaf(cmc_sensor->xdev, mgmt_leaf);
 	if (ret)
 		return NULL;
 	return vbnv;
 }
 
-int cmc_sensor_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl)
+int cmc_sensor_probe(struct xrt_device *xdev, struct cmc_reg_map *regmaps, void **hdl)
 {
 	struct xrt_cmc_sensor *cmc_sensor;
 	const char *vbnv;
 
-	cmc_sensor = devm_kzalloc(DEV(pdev), sizeof(*cmc_sensor), GFP_KERNEL);
+	cmc_sensor = devm_kzalloc(DEV(xdev), sizeof(*cmc_sensor), GFP_KERNEL);
 	if (!cmc_sensor)
 		return -ENOMEM;
 
-	cmc_sensor->pdev = pdev;
+	cmc_sensor->xdev = xdev;
 	/* Obtain register maps we need to read sensor values. */
 	cmc_sensor->reg_io = regmaps[IO_REG];
 
@@ -375,18 +376,18 @@ int cmc_sensor_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, 
 	 * Make a root call to ask root to register. If we register using
 	 * platform device, we'll be treated as ISA device, not PCI device.
 	 */
-	cmc_sensor->hwmon_dev = xleaf_register_hwmon(pdev, vbnv, cmc_sensor, hwmon_cmc_attrgroups);
+	cmc_sensor->hwmon_dev = xleaf_register_hwmon(xdev, vbnv, cmc_sensor, hwmon_cmc_attrgroups);
 	if (!cmc_sensor->hwmon_dev)
-		xrt_err(pdev, "failed to create HWMON device");
+		xrt_err(xdev, "failed to create HWMON device");
 
 	*hdl = cmc_sensor;
 	return 0;
 }
 
-void cmc_sensor_read(struct platform_device *pdev, struct xcl_sensor *s)
+void cmc_sensor_read(struct xrt_device *xdev, struct xcl_sensor *s)
 {
 #define READ_INST_SENSOR(off)	READ_SENSOR(cmc_sensor, off, SENSOR_INS)
-	struct xrt_cmc_sensor *cmc_sensor = (struct xrt_cmc_sensor *)cmc_pdev2sensor(pdev);
+	struct xrt_cmc_sensor *cmc_sensor = (struct xrt_cmc_sensor *)cmc_xdev2sensor(xdev);
 
 	s->vol_12v_pex = READ_INST_SENSOR(CMC_12V_PEX_REG);
 	s->vol_12v_aux = READ_INST_SENSOR(CMC_12V_AUX_REG);

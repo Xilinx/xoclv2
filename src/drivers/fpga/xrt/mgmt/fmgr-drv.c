@@ -10,7 +10,6 @@
 #include <linux/cred.h>
 #include <linux/efi.h>
 #include <linux/fpga/fpga-mgr.h>
-#include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 
@@ -22,61 +21,61 @@
 #include "xmgnt.h"
 
 struct xfpga_class {
-	const struct platform_device *pdev;
-	char                          name[64];
+	struct xrt_device *xdev;
+	char name[64];
 };
 
 /*
  * xclbin download plumbing -- find the download subsystem, ICAP and
  * pass the xclbin for heavy lifting
  */
-static int xmgmt_download_bitstream(struct platform_device *pdev,
+static int xmgmt_download_bitstream(struct xrt_device *xdev,
 				    const struct axlf *xclbin)
 
 {
 	struct xclbin_bit_head_info bit_header = { 0 };
-	struct platform_device *icap_leaf = NULL;
+	struct xrt_device *icap_leaf = NULL;
 	struct xrt_icap_wr arg;
 	char *bitstream = NULL;
 	u64 bit_len;
 	int ret;
 
-	ret = xrt_xclbin_get_section(DEV(pdev), xclbin, BITSTREAM, (void **)&bitstream, &bit_len);
+	ret = xrt_xclbin_get_section(DEV(xdev), xclbin, BITSTREAM, (void **)&bitstream, &bit_len);
 	if (ret) {
-		xrt_err(pdev, "bitstream not found");
+		xrt_err(xdev, "bitstream not found");
 		return -ENOENT;
 	}
-	ret = xrt_xclbin_parse_bitstream_header(DEV(pdev), bitstream,
+	ret = xrt_xclbin_parse_bitstream_header(DEV(xdev), bitstream,
 						XCLBIN_HWICAP_BITFILE_BUF_SZ,
 						&bit_header);
 	if (ret) {
 		ret = -EINVAL;
-		xrt_err(pdev, "invalid bitstream header");
+		xrt_err(xdev, "invalid bitstream header");
 		goto fail;
 	}
 	if (bit_header.header_length + bit_header.bitstream_length > bit_len) {
 		ret = -EINVAL;
-		xrt_err(pdev, "invalid bitstream length. header %d, bitstream %d, section len %lld",
+		xrt_err(xdev, "invalid bitstream length. header %d, bitstream %d, section len %lld",
 			bit_header.header_length, bit_header.bitstream_length, bit_len);
 		goto fail;
 	}
 
-	icap_leaf = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_ICAP, PLATFORM_DEVID_NONE);
+	icap_leaf = xleaf_get_leaf_by_id(xdev, XRT_SUBDEV_ICAP, XRT_INVALID_DEVICE_INST);
 	if (!icap_leaf) {
 		ret = -ENODEV;
-		xrt_err(pdev, "icap does not exist");
+		xrt_err(xdev, "icap does not exist");
 		goto fail;
 	}
 	arg.xiiw_bit_data = bitstream + bit_header.header_length;
 	arg.xiiw_data_len = bit_header.bitstream_length;
 	ret = xleaf_call(icap_leaf, XRT_ICAP_WRITE, &arg);
 	if (ret) {
-		xrt_err(pdev, "write bitstream failed, ret = %d", ret);
-		xleaf_put_leaf(pdev, icap_leaf);
+		xrt_err(xdev, "write bitstream failed, ret = %d", ret);
+		xleaf_put_leaf(xdev, icap_leaf);
 		goto fail;
 	}
 
-	xleaf_put_leaf(pdev, icap_leaf);
+	xleaf_put_leaf(xdev, icap_leaf);
 	vfree(bitstream);
 
 	return 0;
@@ -99,7 +98,7 @@ static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 	struct xfpga_class *obj = mgr->priv;
 
 	if (!(info->flags & FPGA_MGR_PARTIAL_RECONFIG)) {
-		xrt_info(obj->pdev, "%s only supports partial reconfiguration\n", obj->name);
+		xrt_info(obj->xdev, "%s only supports partial reconfiguration\n", obj->name);
 		return -EINVAL;
 	}
 
@@ -109,7 +108,7 @@ static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 	if (count > bin->header.length)
 		return -EINVAL;
 
-	xrt_info(obj->pdev, "Prepare download of xclbin %pUb of length %lld B",
+	xrt_info(obj->xdev, "Prepare download of xclbin %pUb of length %lld B",
 		 &bin->header.uuid, bin->header.length);
 
 	return 0;
@@ -130,7 +129,7 @@ static int xmgmt_pr_write(struct fpga_manager *mgr,
 	if (bin->header.length != count)
 		return -EINVAL;
 
-	return xmgmt_download_bitstream((void *)obj->pdev, bin);
+	return xmgmt_download_bitstream((void *)obj->xdev, bin);
 }
 
 static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
@@ -139,7 +138,7 @@ static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 	const struct axlf *bin = (const struct axlf *)info->buf;
 	struct xfpga_class *obj = mgr->priv;
 
-	xrt_info(obj->pdev, "Finished download of xclbin %pUb",
+	xrt_info(obj->xdev, "Finished download of xclbin %pUb",
 		 &bin->header.uuid);
 	return 0;
 }
@@ -157,9 +156,9 @@ static const struct fpga_manager_ops xmgmt_pr_ops = {
 	.state = xmgmt_pr_state,
 };
 
-struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev)
+struct fpga_manager *xmgmt_fmgr_probe(struct xrt_device *xdev)
 {
-	struct xfpga_class *obj = devm_kzalloc(DEV(pdev), sizeof(struct xfpga_class),
+	struct xfpga_class *obj = devm_kzalloc(DEV(xdev), sizeof(struct xfpga_class),
 					       GFP_KERNEL);
 	struct fpga_manager *fmgr = NULL;
 	int ret = 0;
@@ -168,8 +167,8 @@ struct fpga_manager *xmgmt_fmgr_probe(struct platform_device *pdev)
 		return ERR_PTR(-ENOMEM);
 
 	snprintf(obj->name, sizeof(obj->name), "Xilinx Alveo FPGA Manager");
-	obj->pdev = pdev;
-	fmgr = fpga_mgr_create(&pdev->dev,
+	obj->xdev = xdev;
+	fmgr = fpga_mgr_create(&xdev->dev,
 			       obj->name,
 			       &xmgmt_pr_ops,
 			       obj);

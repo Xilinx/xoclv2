@@ -9,7 +9,6 @@
  */
 
 #include <linux/mod_devicetable.h>
-#include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/regmap.h>
@@ -37,7 +36,7 @@ static const struct regmap_config devctl_regmap_config = {
 };
 
 struct xrt_devctl {
-	struct platform_device	*pdev;
+	struct xrt_device	*xdev;
 	struct regmap		*regmap[XRT_DEVCTL_MAX];
 	ulong			sizes[XRT_DEVCTL_MAX];
 };
@@ -55,12 +54,12 @@ static int xrt_devctl_name2id(struct xrt_devctl *devctl, const char *name)
 }
 
 static int
-xrt_devctl_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_devctl_leaf_call(struct xrt_device *xdev, u32 cmd, void *arg)
 {
 	struct xrt_devctl *devctl;
 	int ret = 0;
 
-	devctl = platform_get_drvdata(pdev);
+	devctl = xrt_get_drvdata(xdev);
 
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
@@ -70,17 +69,17 @@ xrt_devctl_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 		struct xrt_devctl_rw *rw_arg = arg;
 
 		if (rw_arg->xdr_len & 0x3) {
-			xrt_err(pdev, "invalid len %d", rw_arg->xdr_len);
+			xrt_err(xdev, "invalid len %d", rw_arg->xdr_len);
 			return -EINVAL;
 		}
 
 		if (rw_arg->xdr_id >= XRT_DEVCTL_MAX) {
-			xrt_err(pdev, "invalid id %d", rw_arg->xdr_id);
+			xrt_err(xdev, "invalid id %d", rw_arg->xdr_id);
 			return -EINVAL;
 		}
 
 		if (!devctl->regmap[rw_arg->xdr_id]) {
-			xrt_err(pdev, "io not found, id %d",
+			xrt_err(xdev, "io not found, id %d",
 				rw_arg->xdr_id);
 			return -EINVAL;
 		}
@@ -91,47 +90,47 @@ xrt_devctl_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	default:
-		xrt_err(pdev, "unsupported cmd %d", cmd);
+		xrt_err(xdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
 	return ret;
 }
 
-static int xrt_devctl_probe(struct platform_device *pdev)
+static int xrt_devctl_probe(struct xrt_device *xdev)
 {
 	struct xrt_devctl *devctl = NULL;
 	void __iomem *base = NULL;
 	struct resource *res;
 	int i, id, ret = 0;
 
-	devctl = devm_kzalloc(&pdev->dev, sizeof(*devctl), GFP_KERNEL);
+	devctl = devm_kzalloc(&xdev->dev, sizeof(*devctl), GFP_KERNEL);
 	if (!devctl)
 		return -ENOMEM;
 
-	devctl->pdev = pdev;
-	platform_set_drvdata(pdev, devctl);
+	devctl->xdev = xdev;
+	xrt_set_drvdata(xdev, devctl);
 
-	xrt_info(pdev, "probing...");
-	for (i = 0, res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	xrt_info(xdev, "probing...");
+	for (i = 0, res = xrt_get_resource(xdev, IORESOURCE_MEM, 0);
 	    res;
-	    res = platform_get_resource(pdev, IORESOURCE_MEM, ++i)) {
+	    res = xrt_get_resource(xdev, IORESOURCE_MEM, ++i)) {
 		struct regmap_config config = devctl_regmap_config;
 
 		id = xrt_devctl_name2id(devctl, res->name);
 		if (id < 0) {
-			xrt_err(pdev, "ep %s not found", res->name);
+			xrt_err(xdev, "ep %s not found", res->name);
 			continue;
 		}
-		base = devm_ioremap_resource(&pdev->dev, res);
+		base = devm_ioremap_resource(&xdev->dev, res);
 		if (IS_ERR(base)) {
 			ret = PTR_ERR(base);
 			break;
 		}
 		config.max_register = res->end - res->start + 1;
-		devctl->regmap[id] = devm_regmap_init_mmio(&pdev->dev, base, &config);
+		devctl->regmap[id] = devm_regmap_init_mmio(&xdev->dev, base, &config);
 		if (IS_ERR(devctl->regmap[id])) {
-			xrt_err(pdev, "map base failed %pR", res);
+			xrt_err(xdev, "map base failed %pR", res);
 			ret = PTR_ERR(devctl->regmap[id]);
 			break;
 		}
@@ -141,9 +140,9 @@ static int xrt_devctl_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static struct xrt_subdev_endpoints xrt_devctl_endpoints[] = {
+static struct xrt_dev_endpoints xrt_devctl_endpoints[] = {
 	{
-		.xse_names = (struct xrt_subdev_ep_names[]) {
+		.xse_names = (struct xrt_dev_ep_names[]) {
 			/* add name if ep is in same partition */
 			{ .ep_name = XRT_MD_NODE_BLP_ROM },
 			{ NULL },
@@ -151,7 +150,7 @@ static struct xrt_subdev_endpoints xrt_devctl_endpoints[] = {
 		.xse_min_ep = 1,
 	},
 	{
-		.xse_names = (struct xrt_subdev_ep_names[]) {
+		.xse_names = (struct xrt_dev_ep_names[]) {
 			{ .ep_name = XRT_MD_NODE_GOLDEN_VER },
 			{ NULL },
 		},
@@ -161,29 +160,14 @@ static struct xrt_subdev_endpoints xrt_devctl_endpoints[] = {
 	{ 0 },
 };
 
-static struct xrt_subdev_drvdata xrt_devctl_data = {
-	.xsd_dev_ops = {
-		.xsd_leaf_call = xrt_devctl_leaf_call,
-	},
-};
-
-static const struct platform_device_id xrt_devctl_table[] = {
-	{ XRT_DEVCTL, (kernel_ulong_t)&xrt_devctl_data },
-	{ },
-};
-
-static struct platform_driver xrt_devctl_driver = {
+static struct xrt_driver xrt_devctl_driver = {
 	.driver = {
 		.name = XRT_DEVCTL,
 	},
+	.subdev_id = XRT_SUBDEV_DEVCTL,
+	.endpoints = xrt_devctl_endpoints,
 	.probe = xrt_devctl_probe,
-	.id_table = xrt_devctl_table,
+	.leaf_call = xrt_devctl_leaf_call,
 };
 
-void devctl_leaf_init_fini(bool init)
-{
-	if (init)
-		xleaf_register_driver(XRT_SUBDEV_DEVCTL, &xrt_devctl_driver, xrt_devctl_endpoints);
-	else
-		xleaf_unregister_driver(XRT_SUBDEV_DEVCTL);
-}
+XRT_LEAF_INIT_FINI_FUNC(devctl);

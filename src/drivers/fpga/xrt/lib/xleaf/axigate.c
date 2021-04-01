@@ -9,7 +9,6 @@
  */
 
 #include <linux/mod_devicetable.h>
-#include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/regmap.h>
@@ -30,7 +29,7 @@
 #define XRT_AXIGATE_INTERVAL		500 /* ns */
 
 struct xrt_axigate {
-	struct platform_device	*pdev;
+	struct xrt_device	*xdev;
 	struct regmap		*regmap;
 	struct mutex		gate_lock; /* gate dev lock */
 
@@ -60,13 +59,17 @@ static inline int close_gate(struct xrt_axigate *gate)
 
 	ret = regmap_write(gate->regmap, XRT_AXIGATE_WRITE_REG, XRT_AXIGATE_CTRL_CLOSE);
 	if (ret) {
-		xrt_err(gate->pdev, "write gate failed %d", ret);
+		xrt_err(gate->xdev, "write gate failed %d", ret);
 		return ret;
 	}
 	ndelay(XRT_AXIGATE_INTERVAL);
+	/*
+	 * Legacy hardware requires extra read work properly.
+	 * This is not on critical path, thus the extra read should not impact performance much.
+	 */
 	ret = regmap_read(gate->regmap, XRT_AXIGATE_READ_REG, &val);
 	if (ret) {
-		xrt_err(gate->pdev, "read gate failed %d", ret);
+		xrt_err(gate->xdev, "read gate failed %d", ret);
 		return ret;
 	}
 
@@ -80,39 +83,43 @@ static inline int open_gate(struct xrt_axigate *gate)
 
 	ret = regmap_write(gate->regmap, XRT_AXIGATE_WRITE_REG, XRT_AXIGATE_CTRL_OPEN_BIT1);
 	if (ret) {
-		xrt_err(gate->pdev, "write 2 failed %d", ret);
+		xrt_err(gate->xdev, "write 2 failed %d", ret);
 		return ret;
 	}
 	ndelay(XRT_AXIGATE_INTERVAL);
+	/*
+	 * Legacy hardware requires extra read work properly.
+	 * This is not on critical path, thus the extra read should not impact performance much.
+	 */
 	ret = regmap_read(gate->regmap, XRT_AXIGATE_READ_REG, &val);
 	if (ret) {
-		xrt_err(gate->pdev, "read 2 failed %d", ret);
+		xrt_err(gate->xdev, "read 2 failed %d", ret);
 		return ret;
 	}
 	ret = regmap_write(gate->regmap, XRT_AXIGATE_WRITE_REG,
 			   XRT_AXIGATE_CTRL_OPEN_BIT0 | XRT_AXIGATE_CTRL_OPEN_BIT1);
 	if (ret) {
-		xrt_err(gate->pdev, "write 3 failed %d", ret);
+		xrt_err(gate->xdev, "write 3 failed %d", ret);
 		return ret;
 	}
 	ndelay(XRT_AXIGATE_INTERVAL);
 	ret = regmap_read(gate->regmap, XRT_AXIGATE_READ_REG, &val);
 	if (ret) {
-		xrt_err(gate->pdev, "read 3 failed %d", ret);
+		xrt_err(gate->xdev, "read 3 failed %d", ret);
 		return ret;
 	}
 
 	return 0;
 }
 
-static int xrt_axigate_epname_idx(struct platform_device *pdev)
+static int xrt_axigate_epname_idx(struct xrt_device *xdev)
 {
 	struct resource	*res;
 	int ret, i;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = xrt_get_resource(xdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		xrt_err(pdev, "Empty Resource!");
+		xrt_err(xdev, "Empty Resource!");
 		return -EINVAL;
 	}
 
@@ -126,22 +133,22 @@ static int xrt_axigate_epname_idx(struct platform_device *pdev)
 	return -EINVAL;
 }
 
-static int xrt_axigate_close(struct platform_device *pdev)
+static int xrt_axigate_close(struct xrt_device *xdev)
 {
 	struct xrt_axigate *gate;
 	u32 status = 0;
 	int ret;
 
-	gate = platform_get_drvdata(pdev);
+	gate = xrt_get_drvdata(xdev);
 
 	mutex_lock(&gate->gate_lock);
 	ret = regmap_read(gate->regmap, XRT_AXIGATE_READ_REG, &status);
 	if (ret) {
-		xrt_err(pdev, "read gate failed %d", ret);
+		xrt_err(xdev, "read gate failed %d", ret);
 		goto failed;
 	}
 	if (status) {		/* gate is opened */
-		xleaf_broadcast_event(pdev, XRT_EVENT_PRE_GATE_CLOSE, false);
+		xleaf_broadcast_event(xdev, XRT_EVENT_PRE_GATE_CLOSE, false);
 		ret = close_gate(gate);
 		if (ret)
 			goto failed;
@@ -152,29 +159,29 @@ static int xrt_axigate_close(struct platform_device *pdev)
 failed:
 	mutex_unlock(&gate->gate_lock);
 
-	xrt_info(pdev, "close gate %s", gate->ep_name);
+	xrt_info(xdev, "close gate %s", gate->ep_name);
 	return ret;
 }
 
-static int xrt_axigate_open(struct platform_device *pdev)
+static int xrt_axigate_open(struct xrt_device *xdev)
 {
 	struct xrt_axigate *gate;
 	u32 status;
 	int ret;
 
-	gate = platform_get_drvdata(pdev);
+	gate = xrt_get_drvdata(xdev);
 
 	mutex_lock(&gate->gate_lock);
 	ret = regmap_read(gate->regmap, XRT_AXIGATE_READ_REG, &status);
 	if (ret) {
-		xrt_err(pdev, "read gate failed %d", ret);
+		xrt_err(xdev, "read gate failed %d", ret);
 		goto failed;
 	}
 	if (!status) {		/* gate is closed */
 		ret = open_gate(gate);
 		if (ret)
 			goto failed;
-		xleaf_broadcast_event(pdev, XRT_EVENT_POST_GATE_OPEN, true);
+		xleaf_broadcast_event(xdev, XRT_EVENT_POST_GATE_OPEN, true);
 		/* xrt_axigate_open() could be called in event cb, thus
 		 * we can not wait for the completes
 		 */
@@ -185,16 +192,16 @@ static int xrt_axigate_open(struct platform_device *pdev)
 failed:
 	mutex_unlock(&gate->gate_lock);
 
-	xrt_info(pdev, "open gate %s", gate->ep_name);
+	xrt_info(xdev, "open gate %s", gate->ep_name);
 	return ret;
 }
 
-static void xrt_axigate_event_cb(struct platform_device *pdev, void *arg)
+static void xrt_axigate_event_cb(struct xrt_device *xdev, void *arg)
 {
-	struct xrt_axigate *gate = platform_get_drvdata(pdev);
+	struct xrt_axigate *gate = xrt_get_drvdata(xdev);
 	struct xrt_event *evt = (struct xrt_event *)arg;
 	enum xrt_events e = evt->xe_evt;
-	struct platform_device *leaf;
+	struct xrt_device *leaf;
 	enum xrt_subdev_id id;
 	struct resource	*res;
 	int instance;
@@ -207,80 +214,80 @@ static void xrt_axigate_event_cb(struct platform_device *pdev, void *arg)
 	if (id != XRT_SUBDEV_AXIGATE)
 		return;
 
-	leaf = xleaf_get_leaf_by_id(pdev, id, instance);
+	leaf = xleaf_get_leaf_by_id(xdev, id, instance);
 	if (!leaf)
 		return;
 
-	res = platform_get_resource(leaf, IORESOURCE_MEM, 0);
+	res = xrt_get_resource(leaf, IORESOURCE_MEM, 0);
 	if (!res || !strncmp(res->name, gate->ep_name, strlen(res->name) + 1)) {
-		xleaf_put_leaf(pdev, leaf);
+		xleaf_put_leaf(xdev, leaf);
 		return;
 	}
 
 	/* higher level axigate instance created, make sure the gate is opened. */
-	if (xrt_axigate_epname_idx(leaf) > xrt_axigate_epname_idx(pdev))
-		xrt_axigate_open(pdev);
+	if (xrt_axigate_epname_idx(leaf) > xrt_axigate_epname_idx(xdev))
+		xrt_axigate_open(xdev);
 	else
 		xleaf_call(leaf, XRT_AXIGATE_OPEN, NULL);
 
-	xleaf_put_leaf(pdev, leaf);
+	xleaf_put_leaf(xdev, leaf);
 }
 
 static int
-xrt_axigate_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_axigate_leaf_call(struct xrt_device *xdev, u32 cmd, void *arg)
 {
 	int ret = 0;
 
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
-		xrt_axigate_event_cb(pdev, arg);
+		xrt_axigate_event_cb(xdev, arg);
 		break;
 	case XRT_AXIGATE_CLOSE:
-		ret = xrt_axigate_close(pdev);
+		ret = xrt_axigate_close(xdev);
 		break;
 	case XRT_AXIGATE_OPEN:
-		ret = xrt_axigate_open(pdev);
+		ret = xrt_axigate_open(xdev);
 		break;
 	default:
-		xrt_err(pdev, "unsupported cmd %d", cmd);
+		xrt_err(xdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
 	return ret;
 }
 
-static int xrt_axigate_probe(struct platform_device *pdev)
+static int xrt_axigate_probe(struct xrt_device *xdev)
 {
 	struct xrt_axigate *gate = NULL;
 	void __iomem *base = NULL;
 	struct resource *res;
 	int ret;
 
-	gate = devm_kzalloc(&pdev->dev, sizeof(*gate), GFP_KERNEL);
+	gate = devm_kzalloc(&xdev->dev, sizeof(*gate), GFP_KERNEL);
 	if (!gate)
 		return -ENOMEM;
 
-	gate->pdev = pdev;
-	platform_set_drvdata(pdev, gate);
+	gate->xdev = xdev;
+	xrt_set_drvdata(xdev, gate);
 
-	xrt_info(pdev, "probing...");
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	xrt_info(xdev, "probing...");
+	res = xrt_get_resource(xdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		xrt_err(pdev, "Empty resource 0");
+		xrt_err(xdev, "Empty resource 0");
 		ret = -EINVAL;
 		goto failed;
 	}
 
-	base = devm_ioremap_resource(&pdev->dev, res);
+	base = devm_ioremap_resource(&xdev->dev, res);
 	if (IS_ERR(base)) {
-		xrt_err(pdev, "map base iomem failed");
+		xrt_err(xdev, "map base iomem failed");
 		ret = PTR_ERR(base);
 		goto failed;
 	}
 
-	gate->regmap = devm_regmap_init_mmio(&pdev->dev, base, &axigate_regmap_config);
+	gate->regmap = devm_regmap_init_mmio(&xdev->dev, base, &axigate_regmap_config);
 	if (IS_ERR(gate->regmap)) {
-		xrt_err(pdev, "regmap %pR failed", res);
+		xrt_err(xdev, "regmap %pR failed", res);
 		ret = PTR_ERR(gate->regmap);
 		goto failed;
 	}
@@ -294,16 +301,16 @@ failed:
 	return ret;
 }
 
-static struct xrt_subdev_endpoints xrt_axigate_endpoints[] = {
+static struct xrt_dev_endpoints xrt_axigate_endpoints[] = {
 	{
-		.xse_names = (struct xrt_subdev_ep_names[]) {
+		.xse_names = (struct xrt_dev_ep_names[]) {
 			{ .ep_name = XRT_MD_NODE_GATE_ULP },
 			{ NULL },
 		},
 		.xse_min_ep = 1,
 	},
 	{
-		.xse_names = (struct xrt_subdev_ep_names[]) {
+		.xse_names = (struct xrt_dev_ep_names[]) {
 			{ .ep_name = XRT_MD_NODE_GATE_PLP },
 			{ NULL },
 		},
@@ -312,31 +319,14 @@ static struct xrt_subdev_endpoints xrt_axigate_endpoints[] = {
 	{ 0 },
 };
 
-static struct xrt_subdev_drvdata xrt_axigate_data = {
-	.xsd_dev_ops = {
-		.xsd_leaf_call = xrt_axigate_leaf_call,
-	},
-};
-
-static const struct platform_device_id xrt_axigate_table[] = {
-	{ XRT_AXIGATE, (kernel_ulong_t)&xrt_axigate_data },
-	{ },
-};
-
-static struct platform_driver xrt_axigate_driver = {
+static struct xrt_driver xrt_axigate_driver = {
 	.driver = {
 		.name = XRT_AXIGATE,
 	},
+	.subdev_id = XRT_SUBDEV_AXIGATE,
+	.endpoints = xrt_axigate_endpoints,
 	.probe = xrt_axigate_probe,
-	.id_table = xrt_axigate_table,
+	.leaf_call = xrt_axigate_leaf_call,
 };
 
-void axigate_leaf_init_fini(bool init)
-{
-	if (init) {
-		xleaf_register_driver(XRT_SUBDEV_AXIGATE,
-				      &xrt_axigate_driver, xrt_axigate_endpoints);
-	} else {
-		xleaf_unregister_driver(XRT_SUBDEV_AXIGATE);
-	}
-}
+XRT_LEAF_INIT_FINI_FUNC(axigate);

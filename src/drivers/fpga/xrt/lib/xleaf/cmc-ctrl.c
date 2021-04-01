@@ -14,7 +14,7 @@
 #include "xrt-cmc-impl.h"
 
 struct xrt_cmc_ctrl {
-	struct platform_device *pdev;
+	struct xrt_device *xdev;
 	struct cmc_reg_map reg_mutex;
 	struct cmc_reg_map reg_reset;
 	struct cmc_reg_map reg_io;
@@ -98,20 +98,20 @@ static int cmc_ulp_access(struct xrt_cmc_ctrl *cmc_ctrl, bool granted)
 	cmc_mutex_config(cmc_ctrl, granted ? 1 : 0);
 	CMC_WAIT(cmc_ulp_access_allowed(cmc_ctrl) == granted);
 	if (cmc_ulp_access_allowed(cmc_ctrl) != granted) {
-		xrt_err(cmc_ctrl->pdev, "mutex status is 0x%x after %s",
+		xrt_err(cmc_ctrl->xdev, "mutex status is 0x%x after %s",
 			cmc_mutex_status(cmc_ctrl), opname);
 		return -EBUSY;
 	}
-	xrt_info(cmc_ctrl->pdev, "%s operation succeeded", opname);
+	xrt_info(cmc_ctrl->xdev, "%s operation succeeded", opname);
 	return 0;
 }
 
 static int cmc_stop(struct xrt_cmc_ctrl *cmc_ctrl)
 {
-	struct platform_device *pdev = cmc_ctrl->pdev;
+	struct xrt_device *xdev = cmc_ctrl->xdev;
 
 	if (cmc_reset_held(cmc_ctrl)) {
-		xrt_info(pdev, "CMC is already in reset state");
+		xrt_info(xdev, "CMC is already in reset state");
 		return 0;
 	}
 
@@ -120,28 +120,28 @@ static int cmc_stop(struct xrt_cmc_ctrl *cmc_ctrl)
 		cmc_io_wr(cmc_ctrl, CMC_REG_IO_STOP_CONFIRM, 1);
 		CMC_WAIT(cmc_stopped(cmc_ctrl));
 		if (!cmc_stopped(cmc_ctrl)) {
-			xrt_err(pdev, "failed to stop CMC");
+			xrt_err(xdev, "failed to stop CMC");
 			return -ETIMEDOUT;
 		}
 	}
 
 	cmc_reset_wr(cmc_ctrl, CMC_RESET_MASK_ON);
 	if (!cmc_reset_held(cmc_ctrl)) {
-		xrt_err(pdev, "failed to hold CMC in reset state");
+		xrt_err(xdev, "failed to hold CMC in reset state");
 		return -EINVAL;
 	}
 
-	xrt_info(pdev, "CMC is successfully stopped");
+	xrt_info(xdev, "CMC is successfully stopped");
 	return 0;
 }
 
 static int cmc_load_image(struct xrt_cmc_ctrl *cmc_ctrl)
 {
-	struct platform_device *pdev = cmc_ctrl->pdev;
+	struct xrt_device *xdev = cmc_ctrl->xdev;
 
 	/* Sanity check the size of the firmware. */
 	if (cmc_ctrl->firmware_size > cmc_ctrl->reg_image.crm_size) {
-		xrt_err(pdev, "CMC firmware image is too big: %zu",
+		xrt_err(xdev, "CMC firmware image is too big: %zu",
 			cmc_ctrl->firmware_size);
 		return -EINVAL;
 	}
@@ -152,24 +152,24 @@ static int cmc_load_image(struct xrt_cmc_ctrl *cmc_ctrl)
 
 static int cmc_start(struct xrt_cmc_ctrl *cmc_ctrl)
 {
-	struct platform_device *pdev = cmc_ctrl->pdev;
+	struct xrt_device *xdev = cmc_ctrl->xdev;
 
 	cmc_reset_wr(cmc_ctrl, CMC_RESET_MASK_OFF);
 	if (cmc_reset_held(cmc_ctrl)) {
-		xrt_err(pdev, "failed to release CMC from reset state");
+		xrt_err(xdev, "failed to release CMC from reset state");
 		return -EINVAL;
 	}
 
 	CMC_WAIT(cmc_ready(cmc_ctrl));
 	if (!cmc_ready(cmc_ctrl)) {
-		xrt_err(pdev, "failed to wait for CMC to be ready");
+		xrt_err(xdev, "failed to wait for CMC to be ready");
 		return -ETIMEDOUT;
 	}
 
-	xrt_info(pdev, "Wait for 5 seconds for CMC to connect to SC");
+	xrt_info(xdev, "Wait for 5 seconds for CMC to connect to SC");
 	ssleep(5);
 
-	xrt_info(pdev, "CMC is ready: version 0x%x, status 0x%x, id 0x%x",
+	xrt_info(xdev, "CMC is ready: version 0x%x, status 0x%x, id 0x%x",
 		 cmc_io_rd(cmc_ctrl, CMC_REG_IO_VERSION),
 		 cmc_io_rd(cmc_ctrl, CMC_REG_IO_STATUS),
 		 cmc_io_rd(cmc_ctrl, CMC_REG_IO_MAGIC));
@@ -180,9 +180,9 @@ static int cmc_start(struct xrt_cmc_ctrl *cmc_ctrl)
 static int cmc_fetch_firmware(struct xrt_cmc_ctrl *cmc_ctrl)
 {
 	int ret = 0;
-	struct platform_device *pdev = cmc_ctrl->pdev;
-	struct platform_device *mgmt_leaf = xleaf_get_leaf_by_id(pdev,
-		XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
+	struct xrt_device *xdev = cmc_ctrl->xdev;
+	struct xrt_device *mgmt_leaf = xleaf_get_leaf_by_id(xdev,
+		XRT_SUBDEV_MGMT_MAIN, XRT_INVALID_DEVICE_INST);
 	struct xrt_mgmt_main_get_axlf_section gs = {
 		XMGMT_BLP, FIRMWARE,
 	};
@@ -200,9 +200,9 @@ static int cmc_fetch_firmware(struct xrt_cmc_ctrl *cmc_ctrl)
 			cmc_ctrl->firmware_size = gs.xmmigas_section_size;
 		}
 	} else {
-		xrt_err(pdev, "failed to fetch firmware: %d", ret);
+		xrt_err(xdev, "failed to fetch firmware: %d", ret);
 	}
-	xleaf_put_leaf(pdev, mgmt_leaf);
+	xleaf_put_leaf(xdev, mgmt_leaf);
 
 	return ret;
 }
@@ -225,24 +225,24 @@ static struct attribute_group cmc_ctrl_attr_group = {
 	.attrs = cmc_ctrl_attrs,
 };
 
-void cmc_ctrl_remove(struct platform_device *pdev)
+void cmc_ctrl_remove(struct xrt_device *xdev)
 {
 	struct xrt_cmc_ctrl *cmc_ctrl =
-		(struct xrt_cmc_ctrl *)cmc_pdev2ctrl(pdev);
+		(struct xrt_cmc_ctrl *)cmc_xdev2ctrl(xdev);
 
 	if (!cmc_ctrl)
 		return;
 
-	sysfs_remove_group(&DEV(cmc_ctrl->pdev)->kobj, &cmc_ctrl_attr_group);
+	sysfs_remove_group(&DEV(cmc_ctrl->xdev)->kobj, &cmc_ctrl_attr_group);
 	cmc_ulp_access(cmc_ctrl, false);
 	vfree(cmc_ctrl->firmware);
 	/* We intentionally leave CMC in running state. */
 }
 
-void cmc_ctrl_event_cb(struct platform_device *pdev, void *arg)
+void cmc_ctrl_event_cb(struct xrt_device *xdev, void *arg)
 {
 	struct xrt_cmc_ctrl *cmc_ctrl =
-		(struct xrt_cmc_ctrl *)cmc_pdev2ctrl(pdev);
+		(struct xrt_cmc_ctrl *)cmc_xdev2ctrl(xdev);
 	struct xrt_event *evt = (struct xrt_event *)arg;
 	enum xrt_events e = evt->xe_evt;
 
@@ -254,21 +254,21 @@ void cmc_ctrl_event_cb(struct platform_device *pdev, void *arg)
 		cmc_ulp_access(cmc_ctrl, true);
 		break;
 	default:
-		xrt_dbg(pdev, "ignored event %d", e);
+		xrt_dbg(xdev, "ignored event %d", e);
 		break;
 	}
 }
 
-int cmc_ctrl_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl)
+int cmc_ctrl_probe(struct xrt_device *xdev, struct cmc_reg_map *regmaps, void **hdl)
 {
 	struct xrt_cmc_ctrl *cmc_ctrl;
 	int ret = 0;
 
-	cmc_ctrl = devm_kzalloc(DEV(pdev), sizeof(*cmc_ctrl), GFP_KERNEL);
+	cmc_ctrl = devm_kzalloc(DEV(xdev), sizeof(*cmc_ctrl), GFP_KERNEL);
 	if (!cmc_ctrl)
 		return -ENOMEM;
 
-	cmc_ctrl->pdev = pdev;
+	cmc_ctrl->xdev = xdev;
 
 	/* Obtain register maps we need to start/stop CMC. */
 	cmc_ctrl->reg_mutex = regmaps[IO_MUTEX];
@@ -299,15 +299,15 @@ int cmc_ctrl_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, vo
 	if (ret)
 		goto done;
 
-	ret  = sysfs_create_group(&DEV(pdev)->kobj, &cmc_ctrl_attr_group);
+	ret  = sysfs_create_group(&DEV(xdev)->kobj, &cmc_ctrl_attr_group);
 	if (ret)
-		xrt_err(pdev, "failed to create sysfs nodes: %d", ret);
+		xrt_err(xdev, "failed to create sysfs nodes: %d", ret);
 
 	*hdl = cmc_ctrl;
 	return 0;
 
 done:
-	cmc_ctrl_remove(pdev);
-	devm_kfree(DEV(pdev), cmc_ctrl);
+	cmc_ctrl_remove(xdev);
+	devm_kfree(DEV(xdev), cmc_ctrl);
 	return ret;
 }

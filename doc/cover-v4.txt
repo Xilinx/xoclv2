@@ -64,8 +64,7 @@ user physical function driver xocl. XRT open source runtime stack is
 available at https://github.com/Xilinx/XRT
 
 Complete documentation for XRT open source stack including sections on
-Alveo/XRT
-security and platform architecture can be found here:
+Alveo/XRT security and platform architecture can be found here:
 
 https://xilinx.github.io/XRT/master/html/index.html
 https://xilinx.github.io/XRT/master/html/security.html
@@ -77,7 +76,7 @@ Changes since v3:
 - Renamed files: calib.[c|h] -> ddr_calibration.[c|h],
                  lib/main.[c|h] -> lib/lib-drv.[c|h],
                  mgmt/main-impl.h - > mgmt/xmgnt.h
-- Changed code base on v3 code review comments.
+- Updated code base to include v3 code review comments.
 
 Changes since v2:
 - Streamlined the driver framework into *xleaf*, *group* and *xroot*
@@ -96,12 +95,24 @@ Changes since v1:
 - Addressed checkpatch issues
 - Dropped xrt- prefix from some header files
 
-For reference V1 version of patch series can be found here:
+For reference V3 version of patch series can be found here:
 
-https://lore.kernel.org/lkml/20201217075046.28553-1-sonals@xilinx.com/
-https://lore.kernel.org/lkml/20201217075046.28553-2-sonals@xilinx.com/
-https://lore.kernel.org/lkml/20201217075046.28553-3-sonals@xilinx.com/
-https://lore.kernel.org/lkml/20201217075046.28553-4-sonals@xilinx.com/
-https://lore.kernel.org/lkml/20201217075046.28553-5-sonals@xilinx.com/
-https://lore.kernel.org/lkml/20201217075046.28553-6-sonals@xilinx.com/
-https://lore.kernel.org/lkml/20201217075046.28553-7-sonals@xilinx.com/
+https://lore.kernel.org/lkml/20210218064019.29189-1-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-2-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-3-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-4-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-5-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-6-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-7-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-8-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-9-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-10-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-11-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-12-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-13-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-14-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-15-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-16-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-17-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-18-lizhih@xilinx.com
+https://lore.kernel.org/lkml/20210218064019.29189-19-lizhih@xilinx.com

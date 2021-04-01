@@ -10,30 +10,29 @@
 #ifndef _XMGMT_XMGNT_H_
 #define _XMGMT_XMGNT_H_
 
-#include <linux/platform_device.h>
 #include "xmgmt-main.h"
 
 struct fpga_manager;
-int xmgmt_process_xclbin(struct platform_device *pdev,
+int xmgmt_process_xclbin(struct xrt_device *xdev,
 			 struct fpga_manager *fmgr,
 			 const struct axlf *xclbin,
 			 enum provider_kind kind);
-void xmgmt_region_cleanup_all(struct platform_device *pdev);
+void xmgmt_region_cleanup_all(struct xrt_device *xdev);
 
-int bitstream_axlf_mailbox(struct platform_device *pdev, const void *xclbin);
-int xmgmt_hot_reset(struct platform_device *pdev);
+int bitstream_axlf_mailbox(struct xrt_device *xdev, const void *xclbin);
+int xmgmt_hot_reset(struct xrt_device *xdev);
 
 /* Getting dtb for specified group. Caller should vfree returned dtb .*/
-char *xmgmt_get_dtb(struct platform_device *pdev, enum provider_kind kind);
-char *xmgmt_get_vbnv(struct platform_device *pdev);
-int xmgmt_get_provider_uuid(struct platform_device *pdev,
+char *xmgmt_get_dtb(struct xrt_device *xdev, enum provider_kind kind);
+char *xmgmt_get_vbnv(struct xrt_device *xdev);
+int xmgmt_get_provider_uuid(struct xrt_device *xdev,
 			    enum provider_kind kind, uuid_t *uuid);
 
-void *xmgmt_pdev2mailbox(struct platform_device *pdev);
-void *xmgmt_mailbox_probe(struct platform_device *pdev);
+void *xmgmt_xdev2mailbox(struct xrt_device *xdev);
+void *xmgmt_mailbox_probe(struct xrt_device *xdev);
 void xmgmt_mailbox_remove(void *handle);
 void xmgmt_peer_notify_state(void *handle, bool online);
-void xmgmt_mailbox_event_cb(struct platform_device *pdev, void *arg);
+void xmgmt_mailbox_event_cb(struct xrt_device *xdev, void *arg);
 
 int xmgmt_register_leaf(void);
 void xmgmt_unregister_leaf(void);

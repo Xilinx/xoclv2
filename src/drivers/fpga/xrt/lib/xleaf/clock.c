@@ -11,7 +11,6 @@
  */
 
 #include <linux/mod_devicetable.h>
-#include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/regmap.h>
@@ -34,13 +33,13 @@
 #define XRT_CLOCK_DEFAULT_EXPIRE_SECS	1
 
 #define CLOCK_ERR(clock, fmt, arg...)	\
-	xrt_err((clock)->pdev, fmt "\n", ##arg)
+	xrt_err((clock)->xdev, fmt "\n", ##arg)
 #define CLOCK_WARN(clock, fmt, arg...)	\
-	xrt_warn((clock)->pdev, fmt "\n", ##arg)
+	xrt_warn((clock)->xdev, fmt "\n", ##arg)
 #define CLOCK_INFO(clock, fmt, arg...)	\
-	xrt_info((clock)->pdev, fmt "\n", ##arg)
+	xrt_info((clock)->xdev, fmt "\n", ##arg)
 #define CLOCK_DBG(clock, fmt, arg...)	\
-	xrt_dbg((clock)->pdev, fmt "\n", ##arg)
+	xrt_dbg((clock)->xdev, fmt "\n", ##arg)
 
 #define XRT_CLOCK	"xrt_clock"
 
@@ -52,7 +51,7 @@ static const struct regmap_config clock_regmap_config = {
 };
 
 struct clock {
-	struct platform_device  *pdev;
+	struct xrt_device	*xdev;
 	struct regmap		*regmap;
 	struct mutex		clock_lock; /* clock dev lock */
 
@@ -412,31 +411,31 @@ fail:
 
 static int get_freq_counter(struct clock *clock, u32 *freq)
 {
-	struct xrt_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
-	struct platform_device *pdev = clock->pdev;
-	struct platform_device *counter_leaf;
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(clock->xdev);
+	struct xrt_device *xdev = clock->xdev;
+	struct xrt_device *counter_leaf;
 	const void *counter;
 	int err;
 
 	WARN_ON(!mutex_is_locked(&clock->clock_lock));
 
-	err = xrt_md_get_prop(DEV(pdev), pdata->xsp_dtb, clock->clock_ep_name,
+	err = xrt_md_get_prop(DEV(xdev), pdata->xsp_dtb, clock->clock_ep_name,
 			      NULL, XRT_MD_PROP_CLK_CNT, &counter, NULL);
 	if (err) {
-		xrt_err(pdev, "no counter specified");
+		xrt_err(xdev, "no counter specified");
 		return err;
 	}
 
-	counter_leaf = xleaf_get_leaf_by_epname(pdev, counter);
+	counter_leaf = xleaf_get_leaf_by_epname(xdev, counter);
 	if (!counter_leaf) {
-		xrt_err(pdev, "can't find counter");
+		xrt_err(xdev, "can't find counter");
 		return -ENOENT;
 	}
 
 	err = xleaf_call(counter_leaf, XRT_CLKFREQ_READ, freq);
 	if (err)
-		xrt_err(pdev, "can't read counter");
-	xleaf_put_leaf(clock->pdev, counter_leaf);
+		xrt_err(xdev, "can't read counter");
+	xleaf_put_leaf(clock->xdev, counter_leaf);
 
 	return err;
 }
@@ -467,13 +466,13 @@ static int clock_verify_freq(struct clock *clock)
 
 	err = get_freq(clock, &freq);
 	if (err) {
-		xrt_err(clock->pdev, "get freq failed, %d", err);
+		xrt_err(clock->xdev, "get freq failed, %d", err);
 		goto end;
 	}
 
 	err = get_freq_counter(clock, &clock_freq_counter);
 	if (err) {
-		xrt_err(clock->pdev, "get freq counter failed, %d", err);
+		xrt_err(clock->xdev, "get freq counter failed, %d", err);
 		goto end;
 	}
 
@@ -497,15 +496,15 @@ end:
 
 static int clock_init(struct clock *clock)
 {
-	struct xrt_subdev_platdata *pdata = DEV_PDATA(clock->pdev);
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(clock->xdev);
 	const u16 *freq;
 	int err = 0;
 
-	err = xrt_md_get_prop(DEV(clock->pdev), pdata->xsp_dtb,
+	err = xrt_md_get_prop(DEV(clock->xdev), pdata->xsp_dtb,
 			      clock->clock_ep_name, NULL, XRT_MD_PROP_CLK_FREQ,
 		(const void **)&freq, NULL);
 	if (err) {
-		xrt_info(clock->pdev, "no default freq");
+		xrt_info(clock->xdev, "no default freq");
 		return 0;
 	}
 
@@ -516,7 +515,7 @@ static int clock_init(struct clock *clock)
 
 static ssize_t freq_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct clock *clock = platform_get_drvdata(to_platform_device(dev));
+	struct clock *clock = xrt_get_drvdata(to_xrt_dev(dev));
 	ssize_t count;
 	u16 freq = 0;
 
@@ -540,12 +539,12 @@ static struct attribute_group clock_attr_group = {
 };
 
 static int
-xrt_clock_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_clock_leaf_call(struct xrt_device *xdev, u32 cmd, void *arg)
 {
 	struct clock *clock;
 	int ret = 0;
 
-	clock = platform_get_drvdata(pdev);
+	clock = xrt_get_drvdata(xdev);
 
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
@@ -568,48 +567,46 @@ xrt_clock_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	}
 	default:
-		xrt_err(pdev, "unsupported cmd %d", cmd);
+		xrt_err(xdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
 	return ret;
 }
 
-static int clock_remove(struct platform_device *pdev)
+static void clock_remove(struct xrt_device *xdev)
 {
-	sysfs_remove_group(&pdev->dev.kobj, &clock_attr_group);
-
-	return 0;
+	sysfs_remove_group(&xdev->dev.kobj, &clock_attr_group);
 }
 
-static int clock_probe(struct platform_device *pdev)
+static int clock_probe(struct xrt_device *xdev)
 {
 	struct clock *clock = NULL;
 	void __iomem *base = NULL;
 	struct resource *res;
 	int ret;
 
-	clock = devm_kzalloc(&pdev->dev, sizeof(*clock), GFP_KERNEL);
+	clock = devm_kzalloc(&xdev->dev, sizeof(*clock), GFP_KERNEL);
 	if (!clock)
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, clock);
-	clock->pdev = pdev;
+	xrt_set_drvdata(xdev, clock);
+	clock->xdev = xdev;
 	mutex_init(&clock->clock_lock);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = xrt_get_resource(xdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		ret = -EINVAL;
 		goto failed;
 	}
 
-	base = devm_ioremap_resource(&pdev->dev, res);
+	base = devm_ioremap_resource(&xdev->dev, res);
 	if (IS_ERR(base)) {
 		ret = PTR_ERR(base);
 		goto failed;
 	}
 
-	clock->regmap = devm_regmap_init_mmio(&pdev->dev, base, &clock_regmap_config);
+	clock->regmap = devm_regmap_init_mmio(&xdev->dev, base, &clock_regmap_config);
 	if (IS_ERR(clock->regmap)) {
 		CLOCK_ERR(clock, "regmap %pR failed", res);
 		ret = PTR_ERR(clock->regmap);
@@ -621,7 +618,7 @@ static int clock_probe(struct platform_device *pdev)
 	if (ret)
 		goto failed;
 
-	ret = sysfs_create_group(&pdev->dev.kobj, &clock_attr_group);
+	ret = sysfs_create_group(&xdev->dev.kobj, &clock_attr_group);
 	if (ret) {
 		CLOCK_ERR(clock, "create clock attrs failed: %d", ret);
 		goto failed;
@@ -635,9 +632,9 @@ failed:
 	return ret;
 }
 
-static struct xrt_subdev_endpoints xrt_clock_endpoints[] = {
+static struct xrt_dev_endpoints xrt_clock_endpoints[] = {
 	{
-		.xse_names = (struct xrt_subdev_ep_names[]) {
+		.xse_names = (struct xrt_dev_ep_names[]) {
 			{ .regmap_name = "clkwiz" },
 			{ NULL },
 		},
@@ -646,30 +643,15 @@ static struct xrt_subdev_endpoints xrt_clock_endpoints[] = {
 	{ 0 },
 };
 
-static struct xrt_subdev_drvdata xrt_clock_data = {
-	.xsd_dev_ops = {
-		.xsd_leaf_call = xrt_clock_leaf_call,
-	},
-};
-
-static const struct platform_device_id xrt_clock_table[] = {
-	{ XRT_CLOCK, (kernel_ulong_t)&xrt_clock_data },
-	{ },
-};
-
-static struct platform_driver xrt_clock_driver = {
+static struct xrt_driver xrt_clock_driver = {
 	.driver = {
 		.name = XRT_CLOCK,
 	},
+	.subdev_id = XRT_SUBDEV_CLOCK,
+	.endpoints = xrt_clock_endpoints,
 	.probe = clock_probe,
 	.remove = clock_remove,
-	.id_table = xrt_clock_table,
+	.leaf_call = xrt_clock_leaf_call,
 };
 
-void clock_leaf_init_fini(bool init)
-{
-	if (init)
-		xleaf_register_driver(XRT_SUBDEV_CLOCK, &xrt_clock_driver, xrt_clock_endpoints);
-	else
-		xleaf_unregister_driver(XRT_SUBDEV_CLOCK);
-}
+XRT_LEAF_INIT_FINI_FUNC(clock);

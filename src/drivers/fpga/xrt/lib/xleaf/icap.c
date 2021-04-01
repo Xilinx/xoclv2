@@ -11,7 +11,6 @@
  */
 
 #include <linux/mod_devicetable.h>
-#include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/regmap.h>
@@ -24,13 +23,13 @@
 #define XRT_ICAP "xrt_icap"
 
 #define ICAP_ERR(icap, fmt, arg...)	\
-	xrt_err((icap)->pdev, fmt "\n", ##arg)
+	xrt_err((icap)->xdev, fmt "\n", ##arg)
 #define ICAP_WARN(icap, fmt, arg...)	\
-	xrt_warn((icap)->pdev, fmt "\n", ##arg)
+	xrt_warn((icap)->xdev, fmt "\n", ##arg)
 #define ICAP_INFO(icap, fmt, arg...)	\
-	xrt_info((icap)->pdev, fmt "\n", ##arg)
+	xrt_info((icap)->xdev, fmt "\n", ##arg)
 #define ICAP_DBG(icap, fmt, arg...)	\
-	xrt_dbg((icap)->pdev, fmt "\n", ##arg)
+	xrt_dbg((icap)->xdev, fmt "\n", ##arg)
 
 /*
  * AXI-HWICAP IP register layout. Please see
@@ -79,7 +78,7 @@ static const struct regmap_config icap_regmap_config = {
 };
 
 struct icap {
-	struct platform_device	*pdev;
+	struct xrt_device	*xdev;
 	struct regmap		*regmap;
 	struct mutex		icap_lock; /* icap dev lock */
 
@@ -244,13 +243,13 @@ static int icap_probe_chip(struct icap *icap)
 }
 
 static int
-xrt_icap_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_icap_leaf_call(struct xrt_device *xdev, u32 cmd, void *arg)
 {
 	struct xrt_icap_wr *wr_arg = arg;
 	struct icap *icap;
 	int ret = 0;
 
-	icap = platform_get_drvdata(pdev);
+	icap = xrt_get_drvdata(xdev);
 
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
@@ -271,31 +270,31 @@ xrt_icap_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 	return ret;
 }
 
-static int xrt_icap_probe(struct platform_device *pdev)
+static int xrt_icap_probe(struct xrt_device *xdev)
 {
 	void __iomem *base = NULL;
 	struct resource *res;
 	struct icap *icap;
 	int result = 0;
 
-	icap = devm_kzalloc(&pdev->dev, sizeof(*icap), GFP_KERNEL);
+	icap = devm_kzalloc(&xdev->dev, sizeof(*icap), GFP_KERNEL);
 	if (!icap)
 		return -ENOMEM;
 
-	icap->pdev = pdev;
-	platform_set_drvdata(pdev, icap);
+	icap->xdev = xdev;
+	xrt_set_drvdata(xdev, icap);
 	mutex_init(&icap->icap_lock);
 
-	xrt_info(pdev, "probing");
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	xrt_info(xdev, "probing");
+	res = xrt_get_resource(xdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -EINVAL;
 
-	base = devm_ioremap_resource(&pdev->dev, res);
+	base = devm_ioremap_resource(&xdev->dev, res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
-	icap->regmap = devm_regmap_init_mmio(&pdev->dev, base, &icap_regmap_config);
+	icap->regmap = devm_regmap_init_mmio(&xdev->dev, base, &icap_regmap_config);
 	if (IS_ERR(icap->regmap)) {
 		ICAP_ERR(icap, "init mmio failed");
 		return PTR_ERR(icap->regmap);
@@ -305,15 +304,15 @@ static int xrt_icap_probe(struct platform_device *pdev)
 
 	result = icap_probe_chip(icap);
 	if (result)
-		xrt_err(pdev, "Failed to probe FPGA");
+		xrt_err(xdev, "Failed to probe FPGA");
 	else
-		xrt_info(pdev, "Discovered FPGA IDCODE %x", icap->idcode);
+		xrt_info(xdev, "Discovered FPGA IDCODE %x", icap->idcode);
 	return result;
 }
 
-static struct xrt_subdev_endpoints xrt_icap_endpoints[] = {
+static struct xrt_dev_endpoints xrt_icap_endpoints[] = {
 	{
-		.xse_names = (struct xrt_subdev_ep_names[]) {
+		.xse_names = (struct xrt_dev_ep_names[]) {
 			{ .ep_name = XRT_MD_NODE_FPGA_CONFIG },
 			{ NULL },
 		},
@@ -322,29 +321,14 @@ static struct xrt_subdev_endpoints xrt_icap_endpoints[] = {
 	{ 0 },
 };
 
-static struct xrt_subdev_drvdata xrt_icap_data = {
-	.xsd_dev_ops = {
-		.xsd_leaf_call = xrt_icap_leaf_call,
-	},
-};
-
-static const struct platform_device_id xrt_icap_table[] = {
-	{ XRT_ICAP, (kernel_ulong_t)&xrt_icap_data },
-	{ },
-};
-
-static struct platform_driver xrt_icap_driver = {
+static struct xrt_driver xrt_icap_driver = {
 	.driver = {
 		.name = XRT_ICAP,
 	},
+	.subdev_id = XRT_SUBDEV_ICAP,
+	.endpoints = xrt_icap_endpoints,
 	.probe = xrt_icap_probe,
-	.id_table = xrt_icap_table,
+	.leaf_call = xrt_icap_leaf_call,
 };
 
-void icap_leaf_init_fini(bool init)
-{
-	if (init)
-		xleaf_register_driver(XRT_SUBDEV_ICAP, &xrt_icap_driver, xrt_icap_endpoints);
-	else
-		xleaf_unregister_driver(XRT_SUBDEV_ICAP);
-}
+XRT_LEAF_INIT_FINI_FUNC(icap);
