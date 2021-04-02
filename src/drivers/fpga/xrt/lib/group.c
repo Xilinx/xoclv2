@@ -9,7 +9,6 @@
  */
 
 #include <linux/mod_devicetable.h>
-#include <linux/platform_device.h>
 #include "xleaf.h"
 #include "subdev_pool.h"
 #include "group.h"
@@ -19,7 +18,7 @@
 #define XRT_GRP "xrt_group"
 
 struct xrt_group {
-	struct platform_device *pdev;
+	struct xrt_device *xdev;
 	struct xrt_subdev_pool leaves;
 	bool leaves_created;
 	struct mutex lock; /* lock for group */
@@ -29,8 +28,8 @@ static int xrt_grp_root_cb(struct device *dev, void *parg,
 			   enum xrt_root_cmd cmd, void *arg)
 {
 	int rc;
-	struct platform_device *pdev =
-		container_of(dev, struct platform_device, dev);
+	struct xrt_device *xdev =
+		container_of(dev, struct xrt_device, dev);
 	struct xrt_group *xg = (struct xrt_group *)parg;
 
 	switch (cmd) {
@@ -38,14 +37,14 @@ static int xrt_grp_root_cb(struct device *dev, void *parg,
 		struct xrt_root_get_holders *holders =
 			(struct xrt_root_get_holders *)arg;
 		rc = xrt_subdev_pool_get_holders(&xg->leaves,
-						 holders->xpigh_pdev,
+						 holders->xpigh_xdev,
 						 holders->xpigh_holder_buf,
 						 holders->xpigh_holder_buf_len);
 		break;
 	}
 	default:
 		/* Forward parent call to root. */
-		rc = xrt_subdev_root_request(pdev, cmd, arg);
+		rc = xrt_subdev_root_request(xdev, cmd, arg);
 		break;
 	}
 
@@ -56,13 +55,13 @@ static int xrt_grp_root_cb(struct device *dev, void *parg,
  * Cut subdev's dtb from group's dtb based on passed-in endpoint descriptor.
  * Return the subdev's dtb through dtbp, if found.
  */
-static int xrt_grp_cut_subdev_dtb(struct xrt_group *xg, struct xrt_subdev_endpoints *eps,
+static int xrt_grp_cut_subdev_dtb(struct xrt_group *xg, struct xrt_dev_endpoints *eps,
 				  char *grp_dtb, char **dtbp)
 {
 	int ret, i, ep_count = 0;
 	char *dtb = NULL;
 
-	ret = xrt_md_create(DEV(xg->pdev), &dtb);
+	ret = xrt_md_create(DEV(xg->xdev), &dtb);
 	if (ret)
 		return ret;
 
@@ -71,14 +70,14 @@ static int xrt_grp_cut_subdev_dtb(struct xrt_group *xg, struct xrt_subdev_endpoi
 		const char *reg_name = eps->xse_names[i].regmap_name;
 
 		if (!ep_name)
-			xrt_md_get_compatible_endpoint(DEV(xg->pdev), grp_dtb, reg_name, &ep_name);
+			xrt_md_get_compatible_endpoint(DEV(xg->xdev), grp_dtb, reg_name, &ep_name);
 		if (!ep_name)
 			continue;
 
-		ret = xrt_md_copy_endpoint(DEV(xg->pdev), dtb, grp_dtb, ep_name, reg_name, NULL);
+		ret = xrt_md_copy_endpoint(DEV(xg->xdev), dtb, grp_dtb, ep_name, reg_name, NULL);
 		if (ret)
 			continue;
-		xrt_md_del_endpoint(DEV(xg->pdev), grp_dtb, ep_name, reg_name);
+		xrt_md_del_endpoint(DEV(xg->xdev), grp_dtb, ep_name, reg_name);
 		ep_count++;
 	}
 	/* Found enough endpoints, return the subdev's dtb. */
@@ -89,7 +88,7 @@ static int xrt_grp_cut_subdev_dtb(struct xrt_group *xg, struct xrt_subdev_endpoi
 
 	/* Cleanup - Restore all endpoints that has been deleted, if any. */
 	if (ep_count > 0) {
-		xrt_md_copy_endpoint(DEV(xg->pdev), grp_dtb, dtb,
+		xrt_md_copy_endpoint(DEV(xg->xdev), grp_dtb, dtb,
 				     XRT_MD_NODE_ENDPOINTS, NULL, NULL);
 	}
 	vfree(dtb);
@@ -99,8 +98,8 @@ static int xrt_grp_cut_subdev_dtb(struct xrt_group *xg, struct xrt_subdev_endpoi
 
 static int xrt_grp_create_leaves(struct xrt_group *xg)
 {
-	struct xrt_subdev_platdata *pdata = DEV_PDATA(xg->pdev);
-	struct xrt_subdev_endpoints *eps = NULL;
+	struct xrt_subdev_platdata *pdata = DEV_PDATA(xg->xdev);
+	struct xrt_dev_endpoints *eps = NULL;
 	int ret = 0, failed = 0;
 	enum xrt_subdev_id did;
 	char *grp_dtb = NULL;
@@ -109,9 +108,9 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 	if (!pdata)
 		return -EINVAL;
 
-	mlen = xrt_md_size(DEV(xg->pdev), pdata->xsp_dtb);
+	mlen = xrt_md_size(DEV(xg->xdev), pdata->xsp_dtb);
 	if (mlen == XRT_MD_INVALID_LENGTH) {
-		xrt_err(xg->pdev, "invalid dtb, len %ld", mlen);
+		xrt_err(xg->xdev, "invalid dtb, len %ld", mlen);
 		return -EINVAL;
 	}
 
@@ -129,7 +128,7 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 	}
 
 	/* Create all leaves based on dtb. */
-	xrt_info(xg->pdev, "bringing up leaves...");
+	xrt_info(xg->xdev, "bringing up leaves...");
 	memcpy(grp_dtb, pdata->xsp_dtb, mlen);
 	for (did = 0; did < XRT_SUBDEV_NUM; did++) {
 		eps = xrt_drv_get_endpoints(did);
@@ -139,7 +138,7 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 			ret = xrt_grp_cut_subdev_dtb(xg, eps, grp_dtb, &dtb);
 			if (ret) {
 				failed++;
-				xrt_err(xg->pdev, "failed to cut subdev dtb for drv %s: %d",
+				xrt_err(xg->xdev, "failed to cut subdev dtb for drv %s: %d",
 					xrt_drv_name(did), ret);
 			}
 			if (!dtb) {
@@ -155,7 +154,7 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 			ret = xrt_subdev_pool_add(&xg->leaves, did, xrt_grp_root_cb, xg, dtb);
 			if (ret < 0) {
 				failed++;
-				xrt_err(xg->pdev, "failed to add %s: %d", xrt_drv_name(did), ret);
+				xrt_err(xg->xdev, "failed to add %s: %d", xrt_drv_name(did), ret);
 			}
 			vfree(dtb);
 			/* Continue searching for the same instance from grp_dtb. */
@@ -177,44 +176,43 @@ static void xrt_grp_remove_leaves(struct xrt_group *xg)
 		return;
 	}
 
-	xrt_info(xg->pdev, "tearing down leaves...");
+	xrt_info(xg->xdev, "tearing down leaves...");
 	xrt_subdev_pool_fini(&xg->leaves);
 	xg->leaves_created = false;
 
 	mutex_unlock(&xg->lock);
 }
 
-static int xrt_grp_probe(struct platform_device *pdev)
+static int xrt_grp_probe(struct xrt_device *xdev)
 {
 	struct xrt_group *xg;
 
-	xrt_info(pdev, "probing...");
+	xrt_info(xdev, "probing...");
 
-	xg = devm_kzalloc(&pdev->dev, sizeof(*xg), GFP_KERNEL);
+	xg = devm_kzalloc(&xdev->dev, sizeof(*xg), GFP_KERNEL);
 	if (!xg)
 		return -ENOMEM;
 
-	xg->pdev = pdev;
+	xg->xdev = xdev;
 	mutex_init(&xg->lock);
-	xrt_subdev_pool_init(DEV(pdev), &xg->leaves);
-	platform_set_drvdata(pdev, xg);
+	xrt_subdev_pool_init(DEV(xdev), &xg->leaves);
+	xrt_set_drvdata(xdev, xg);
 
 	return 0;
 }
 
-static int xrt_grp_remove(struct platform_device *pdev)
+static void xrt_grp_remove(struct xrt_device *xdev)
 {
-	struct xrt_group *xg = platform_get_drvdata(pdev);
+	struct xrt_group *xg = xrt_get_drvdata(xdev);
 
-	xrt_info(pdev, "leaving...");
+	xrt_info(xdev, "leaving...");
 	xrt_grp_remove_leaves(xg);
-	return 0;
 }
 
-static int xrt_grp_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+static int xrt_grp_leaf_call(struct xrt_device *xdev, u32 cmd, void *arg)
 {
 	int rc = 0;
-	struct xrt_group *xg = platform_get_drvdata(pdev);
+	struct xrt_group *xg = xrt_get_drvdata(xdev);
 
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
@@ -228,16 +226,16 @@ static int xrt_grp_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 
 		rc = xrt_subdev_pool_get(&xg->leaves, get_leaf->xpigl_match_cb,
 					 get_leaf->xpigl_match_arg,
-					 DEV(get_leaf->xpigl_caller_pdev),
-					 &get_leaf->xpigl_tgt_pdev);
+					 DEV(get_leaf->xpigl_caller_xdev),
+					 &get_leaf->xpigl_tgt_xdev);
 		break;
 	}
 	case XRT_GROUP_PUT_LEAF: {
 		struct xrt_root_put_leaf *put_leaf =
 			(struct xrt_root_put_leaf *)arg;
 
-		rc = xrt_subdev_pool_put(&xg->leaves, put_leaf->xpipl_tgt_pdev,
-					 DEV(put_leaf->xpipl_caller_pdev));
+		rc = xrt_subdev_pool_put(&xg->leaves, put_leaf->xpipl_tgt_xdev,
+					 DEV(put_leaf->xpipl_caller_xdev));
 		break;
 	}
 	case XRT_GROUP_INIT_CHILDREN:
@@ -250,37 +248,21 @@ static int xrt_grp_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 		xrt_subdev_pool_trigger_event(&xg->leaves, (enum xrt_events)(uintptr_t)arg);
 		break;
 	default:
-		xrt_err(pdev, "unknown IOCTL cmd %d", cmd);
+		xrt_err(xdev, "unknown IOCTL cmd %d", cmd);
 		rc = -EINVAL;
 		break;
 	}
 	return rc;
 }
 
-static struct xrt_subdev_drvdata xrt_grp_data = {
-	.xsd_dev_ops = {
-		.xsd_leaf_call = xrt_grp_leaf_call,
-	},
-};
-
-static const struct platform_device_id xrt_grp_id_table[] = {
-	{ XRT_GRP, (kernel_ulong_t)&xrt_grp_data },
-	{ },
-};
-
-static struct platform_driver xrt_group_driver = {
+static struct xrt_driver xrt_group_driver = {
 	.driver	= {
 		.name    = XRT_GRP,
 	},
-	.probe   = xrt_grp_probe,
-	.remove  = xrt_grp_remove,
-	.id_table = xrt_grp_id_table,
+	.subdev_id = XRT_SUBDEV_GRP,
+	.probe = xrt_grp_probe,
+	.remove = xrt_grp_remove,
+	.leaf_call = xrt_grp_leaf_call,
 };
 
-void group_leaf_init_fini(bool init)
-{
-	if (init)
-		xleaf_register_driver(XRT_SUBDEV_GRP, &xrt_group_driver, NULL);
-	else
-		xleaf_unregister_driver(XRT_SUBDEV_GRP);
-}
+XRT_LEAF_INIT_FINI_FUNC(group);

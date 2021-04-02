@@ -36,7 +36,7 @@ struct cmc_pkt_payload_sector_data {
 };
 
 struct xrt_cmc_sc {
-	struct platform_device *pdev;
+	struct xrt_device *xdev;
 	struct cmc_reg_map reg_io;
 	bool sc_fw_erased;
 	int mbx_generation;
@@ -62,7 +62,7 @@ static bool is_sc_ready(struct xrt_cmc_sc *cmc_sc, bool quiet)
 		return true;
 
 	if (!quiet) {
-		xrt_err(cmc_sc->pdev, "SC is not ready, state=%d",
+		xrt_err(cmc_sc->xdev, "SC is not ready, state=%d",
 			st.status.sc_mode);
 	}
 	return false;
@@ -91,8 +91,8 @@ static int cmc_erase_sc_firmware(struct xrt_cmc_sc *cmc_sc)
 	if (cmc_sc->sc_fw_erased)
 		return 0;
 
-	xrt_info(cmc_sc->pdev, "erasing SC firmware...");
-	ret = cmc_mailbox_send_packet(cmc_sc->pdev, cmc_sc->mbx_generation,
+	xrt_info(cmc_sc->xdev, "erasing SC firmware...");
+	ret = cmc_mailbox_send_packet(cmc_sc->xdev, cmc_sc->mbx_generation,
 				      CMC_MBX_PKT_OP_MSP432_ERASE_FW, NULL, 0);
 	if (ret == 0)
 		cmc_sc->sc_fw_erased = true;
@@ -109,7 +109,7 @@ static int cmc_write_sc_firmware_section(struct xrt_cmc_sc *cmc_sc,
 	struct cmc_pkt_payload_sector_data *data_payload;
 	u8 pkt_op;
 
-	xrt_info(cmc_sc->pdev, "writing %zu bytes @0x%llx", n, start);
+	xrt_info(cmc_sc->xdev, "writing %zu bytes @0x%llx", n, start);
 
 	if (n == 0)
 		return 0;
@@ -141,7 +141,7 @@ static int cmc_write_sc_firmware_section(struct xrt_cmc_sc *cmc_sc,
 			memcpy(data_payload->data, buf + sz, thissz);
 			pktsize = thissz + offsetof(struct cmc_pkt_payload_sector_data, data);
 		}
-		ret = cmc_mailbox_send_packet(cmc_sc->pdev,
+		ret = cmc_mailbox_send_packet(cmc_sc->xdev,
 					      cmc_sc->mbx_generation, pkt_op, pkt, pktsize);
 	}
 
@@ -154,7 +154,7 @@ cmc_boot_sc(struct xrt_cmc_sc *cmc_sc, u32 jump_addr)
 	int ret = 0;
 	struct cmc_pkt_payload_image_end pkt = { 0 };
 
-	xrt_info(cmc_sc->pdev, "rebooting SC @0x%x", jump_addr);
+	xrt_info(cmc_sc->xdev, "rebooting SC @0x%x", jump_addr);
 
 	WARN_ON(!cmc_sc->sc_fw_erased);
 
@@ -163,7 +163,7 @@ cmc_boot_sc(struct xrt_cmc_sc *cmc_sc, u32 jump_addr)
 
 	/* Try booting it up. */
 	pkt.BSL_jump_addr = jump_addr;
-	ret = cmc_mailbox_send_packet(cmc_sc->pdev, cmc_sc->mbx_generation,
+	ret = cmc_mailbox_send_packet(cmc_sc->xdev, cmc_sc->mbx_generation,
 				      CMC_MBX_PKT_OP_MSP432_IMAGE_END, (char *)&pkt, sizeof(pkt));
 	if (ret)
 		return ret;
@@ -201,7 +201,7 @@ ssize_t cmc_update_sc_firmware(struct file *file, const char __user *ubuf, size_
 		return -EFAULT;
 	}
 
-	cmc_sc->mbx_generation = cmc_mailbox_acquire(cmc_sc->pdev);
+	cmc_sc->mbx_generation = cmc_mailbox_acquire(cmc_sc->xdev);
 	if (cmc_sc->mbx_generation < 0) {
 		vfree(kbuf);
 		return -ENODEV;
@@ -209,14 +209,14 @@ ssize_t cmc_update_sc_firmware(struct file *file, const char __user *ubuf, size_
 
 	ret = cmc_erase_sc_firmware(cmc_sc);
 	if (ret) {
-		xrt_err(cmc_sc->pdev, "can't erase SC firmware");
+		xrt_err(cmc_sc->xdev, "can't erase SC firmware");
 	} else if (*off == jump_offset) {
 		/*
 		 * Write to jump_offset will cause a reboot of SC and jump
 		 * to address that is passed in.
 		 */
 		if (n != sizeof(jump_addr)) {
-			xrt_err(cmc_sc->pdev, "invalid jump addr size");
+			xrt_err(cmc_sc->xdev, "invalid jump addr size");
 			ret = -EINVAL;
 		} else {
 			jump_addr = *(u32 *)kbuf;
@@ -228,10 +228,10 @@ ssize_t cmc_update_sc_firmware(struct file *file, const char __user *ubuf, size_
 		ret = cmc_write_sc_firmware_section(cmc_sc, *off, n, kbuf);
 	}
 
-	cmc_mailbox_release(cmc_sc->pdev, cmc_sc->mbx_generation);
+	cmc_mailbox_release(cmc_sc->xdev, cmc_sc->mbx_generation);
 
 	if (need_refresh)
-		cmc_refresh_board_info(cmc_sc->pdev);
+		cmc_refresh_board_info(cmc_sc->xdev);
 
 	vfree(kbuf);
 	if (ret) {
@@ -248,9 +248,9 @@ ssize_t cmc_update_sc_firmware(struct file *file, const char __user *ubuf, size_
  */
 int cmc_sc_open(struct inode *inode, struct file *file)
 {
-	struct platform_device *pdev = xleaf_devnode_open_excl(inode);
+	struct xrt_device *xdev = xleaf_devnode_open_excl(inode);
 
-	file->private_data = cmc_pdev2sc(pdev);
+	file->private_data = cmc_xdev2sc(xdev);
 	return 0;
 }
 
@@ -291,8 +291,8 @@ loff_t cmc_sc_llseek(struct file *filp, loff_t off, int whence)
 
 static ssize_t sc_is_fixed_show(struct device *dev, struct device_attribute *da, char *buf)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct xrt_cmc_sc *cmc_sc = cmc_pdev2sc(pdev);
+	struct xrt_device *xdev = to_xrt_dev(dev);
+	struct xrt_cmc_sc *cmc_sc = cmc_xdev2sc(xdev);
 
 	return sprintf(buf, "%d\n", is_sc_fixed(cmc_sc));
 }
@@ -314,34 +314,34 @@ static struct attribute_group cmc_sc_attr_group = {
 	.attrs = cmc_sc_attrs,
 };
 
-void cmc_sc_remove(struct platform_device *pdev)
+void cmc_sc_remove(struct xrt_device *xdev)
 {
-	struct xrt_cmc_sc *cmc_sc = cmc_pdev2sc(pdev);
+	struct xrt_cmc_sc *cmc_sc = cmc_xdev2sc(xdev);
 
 	if (!cmc_sc)
 		return;
 
-	sysfs_remove_group(&pdev->dev.kobj, &cmc_sc_attr_group);
+	sysfs_remove_group(&xdev->dev.kobj, &cmc_sc_attr_group);
 }
 
-int cmc_sc_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl)
+int cmc_sc_probe(struct xrt_device *xdev, struct cmc_reg_map *regmaps, void **hdl)
 {
 	int ret;
 	struct xrt_cmc_sc *cmc_sc;
 
-	cmc_sc = devm_kzalloc(DEV(pdev), sizeof(*cmc_sc), GFP_KERNEL);
+	cmc_sc = devm_kzalloc(DEV(xdev), sizeof(*cmc_sc), GFP_KERNEL);
 	if (!cmc_sc)
 		return -ENOMEM;
 
-	cmc_sc->pdev = pdev;
+	cmc_sc->xdev = xdev;
 	/* Obtain register maps we need to start/stop CMC. */
 	cmc_sc->reg_io = regmaps[IO_REG];
-	cmc_sc->mbx_max_payload_sz = cmc_mailbox_max_payload(pdev);
+	cmc_sc->mbx_max_payload_sz = cmc_mailbox_max_payload(xdev);
 	cmc_sc->mbx_generation = -ENODEV;
 
-	ret = sysfs_create_group(&pdev->dev.kobj, &cmc_sc_attr_group);
+	ret = sysfs_create_group(&xdev->dev.kobj, &cmc_sc_attr_group);
 	if (ret) {
-		xrt_err(pdev, "create sc attrs failed: %d", ret);
+		xrt_err(xdev, "create sc attrs failed: %d", ret);
 		goto fail;
 	}
 
@@ -349,7 +349,7 @@ int cmc_sc_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void
 	return 0;
 
 fail:
-	cmc_sc_remove(pdev);
-	devm_kfree(DEV(pdev), cmc_sc);
+	cmc_sc_remove(xdev);
+	devm_kfree(DEV(xdev), cmc_sc);
 	return ret;
 }

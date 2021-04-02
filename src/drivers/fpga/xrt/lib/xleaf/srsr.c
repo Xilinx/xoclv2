@@ -9,7 +9,6 @@
  */
 
 #include <linux/mod_devicetable.h>
-#include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
@@ -39,7 +38,7 @@
 
 struct xrt_ddr_srsr {
 	void __iomem		*base;
-	struct platform_device	*pdev;
+	struct xrt_device	*xdev;
 	struct mutex		lock;	/* lock for xrt_ddr_srsr */
 	const char		*ep_name;
 };
@@ -85,11 +84,11 @@ static int srsr_full_calib(struct xrt_ddr_srsr *srsr, char **data, u32 *data_len
 	}
 
 	if (err) {
-		xrt_err(srsr->pdev, "Calibration timeout");
+		xrt_err(srsr->xdev, "Calibration timeout");
 		goto failed;
 	}
 
-	xrt_info(srsr->pdev, "calibrate time %dms", i * FULL_CALIB_TIMEOUT);
+	xrt_info(srsr->xdev, "calibrate time %dms", i * FULL_CALIB_TIMEOUT);
 
 	/* END_ADDR0/1 provides the end address for a given memory
 	 * configuration
@@ -106,7 +105,7 @@ static int srsr_full_calib(struct xrt_ddr_srsr *srsr, char **data, u32 *data_len
 
 	*data_len = (((sz_hi << 9) | sz_lo) + 1) * sizeof(uint32_t);
 	if (*data_len >= 0x4000) {
-		xrt_err(srsr->pdev, "Invalid data size 0x%x", *data_len);
+		xrt_err(srsr->xdev, "Invalid data size 0x%x", *data_len);
 		err = -EINVAL;
 		goto failed;
 	}
@@ -128,10 +127,10 @@ static int srsr_full_calib(struct xrt_ddr_srsr *srsr, char **data, u32 *data_len
 		msleep(20);
 	}
 	if (err) {
-		xrt_err(srsr->pdev, "request data timeout");
+		xrt_err(srsr->xdev, "request data timeout");
 		goto failed;
 	}
-	xrt_info(srsr->pdev, "req data time %dms", i * FULL_CALIB_TIMEOUT);
+	xrt_info(srsr->xdev, "req data time %dms", i * FULL_CALIB_TIMEOUT);
 
 	reg_wr(srsr, CTRL_BIT_SREF_REQ | CTRL_BIT_XSDB_SELECT, REG_CTRL_OFFSET);
 
@@ -185,9 +184,9 @@ static int srsr_fast_calib(struct xrt_ddr_srsr *srsr, char *data, u32 data_size,
 		msleep(20);
 	}
 	if (err)
-		xrt_err(srsr->pdev, "timed out");
+		xrt_err(srsr->xdev, "timed out");
 	else
-		xrt_info(srsr->pdev, "time %dms", i * FAST_CALIB_TIMEOUT);
+		xrt_info(srsr->xdev, "time %dms", i * FAST_CALIB_TIMEOUT);
 
 	reg_wr(srsr, CTRL_BIT_RESTORE_COMPLETE, REG_CTRL_OFFSET);
 	val = reg_rd(srsr, REG_CTRL_OFFSET);
@@ -197,9 +196,9 @@ static int srsr_fast_calib(struct xrt_ddr_srsr *srsr, char *data, u32 data_size,
 	return err;
 }
 
-static int xrt_srsr_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+static int xrt_srsr_leaf_call(struct xrt_device *xdev, u32 cmd, void *arg)
 {
-	struct xrt_ddr_srsr *srsr = platform_get_drvdata(pdev);
+	struct xrt_ddr_srsr *srsr = xrt_get_drvdata(xdev);
 	struct xrt_srsr_calib *req = arg;
 	int ret = 0;
 
@@ -214,76 +213,68 @@ static int xrt_srsr_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 		*(const char **)arg = srsr->ep_name;
 		break;
 	default:
-		xrt_err(pdev, "unsupported cmd %d", cmd);
+		xrt_err(xdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
 	return ret;
 }
 
-static int xrt_srsr_probe(struct platform_device *pdev)
+static int xrt_srsr_probe(struct xrt_device *xdev)
 {
 	struct xrt_ddr_srsr *srsr;
 	struct resource *res;
 	int err = 0;
 
-	srsr = devm_kzalloc(&pdev->dev, sizeof(*srsr), GFP_KERNEL);
+	srsr = devm_kzalloc(&xdev->dev, sizeof(*srsr), GFP_KERNEL);
 	if (!srsr)
 		return -ENOMEM;
 
-	srsr->pdev = pdev;
-	platform_set_drvdata(pdev, srsr);
+	srsr->xdev = xdev;
+	xrt_set_drvdata(xdev, srsr);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = xrt_get_resource(xdev, IORESOURCE_MEM, 0);
 	if (!res)
 		goto failed;
 
-	xrt_info(pdev, "IO start: 0x%llx, end: 0x%llx", res->start, res->end);
+	xrt_info(xdev, "IO start: 0x%llx, end: 0x%llx", res->start, res->end);
 
 	srsr->ep_name = res->name;
 	srsr->base = ioremap(res->start, res->end - res->start + 1);
 	if (!srsr->base) {
 		err = -EIO;
-		xrt_err(pdev, "Map iomem failed");
+		xrt_err(xdev, "Map iomem failed");
 		goto failed;
 	}
 	mutex_init(&srsr->lock);
 
-	err = sysfs_create_group(&pdev->dev.kobj, &xrt_ddr_srsr_attrgroup);
+	err = sysfs_create_group(&xdev->dev.kobj, &xrt_ddr_srsr_attrgroup);
 	if (err)
 		goto create_xrt_ddr_srsr_failed;
 
 	return 0;
 
 create_xrt_ddr_srsr_failed:
-	platform_set_drvdata(pdev, NULL);
+	xrt_set_drvdata(xdev, NULL);
 failed:
 	return err;
 }
 
-static int xrt_srsr_remove(struct platform_device *pdev)
+static void xrt_srsr_remove(struct xrt_device *xdev)
 {
-	struct xrt_ddr_srsr *srsr = platform_get_drvdata(pdev);
+	struct xrt_ddr_srsr *srsr = xrt_get_drvdata(xdev);
 
-	if (!srsr) {
-		xrt_err(pdev, "driver data is NULL");
-		return -EINVAL;
-	}
-
-	sysfs_remove_group(&pdev->dev.kobj, &xrt_ddr_srsr_attrgroup);
+	sysfs_remove_group(&xdev->dev.kobj, &xrt_ddr_srsr_attrgroup);
 
 	if (srsr->base)
 		iounmap(srsr->base);
 
-	platform_set_drvdata(pdev, NULL);
-	devm_kfree(&pdev->dev, srsr);
-
-	return 0;
+	xrt_set_drvdata(xdev, NULL);
 }
 
-struct xrt_subdev_endpoints xrt_srsr_endpoints[] = {
+struct xrt_dev_endpoints xrt_srsr_endpoints[] = {
 	{
-		.xse_names = (struct xrt_subdev_ep_names[]) {
+		.xse_names = (struct xrt_dev_ep_names[]) {
 			{ .regmap_name = XRT_MD_REGMAP_DDR_SRSR },
 			{ NULL },
 		},
@@ -292,22 +283,13 @@ struct xrt_subdev_endpoints xrt_srsr_endpoints[] = {
 	{ 0 },
 };
 
-static struct xrt_subdev_drvdata xrt_srsr_data = {
-	.xsd_dev_ops = {
-		.xsd_leaf_call = xrt_srsr_leaf_call,
-	},
-};
-
-static const struct platform_device_id xrt_srsr_table[] = {
-	{ XRT_DDR_SRSR, (kernel_ulong_t)&xrt_srsr_data },
-	{ },
-};
-
-struct platform_driver xrt_ddr_srsr_driver = {
+struct xrt_driver xrt_ddr_srsr_driver = {
 	.driver = {
 		.name = XRT_DDR_SRSR,
 	},
+	.subdev_id = XRT_SUBDEV_SRSR,
+	.endpoints = xrt_srsr_endpoints,
 	.probe = xrt_srsr_probe,
 	.remove = xrt_srsr_remove,
-	.id_table = xrt_srsr_table,
+	.leaf_call = xrt_srsr_leaf_call,
 };

@@ -27,7 +27,7 @@ enum board_info_key {
 };
 
 struct xrt_cmc_bdinfo {
-	struct platform_device *pdev;
+	struct xrt_device *xdev;
 	struct mutex lock; /* protect bdinfo */
 	char *bdinfo;
 	size_t bdinfo_sz;
@@ -64,8 +64,8 @@ static int cmc_refresh_board_info_nolock(struct xrt_cmc_bdinfo *cmc_bdi)
 	int ret = 0;
 	int gen = -EINVAL;
 	char *bdinfo_raw = NULL;
-	size_t bd_info_sz = cmc_mailbox_max_payload(cmc_bdi->pdev);
-	struct platform_device *pdev = cmc_bdi->pdev;
+	size_t bd_info_sz = cmc_mailbox_max_payload(cmc_bdi->xdev);
+	struct xrt_device *xdev = cmc_bdi->xdev;
 	void *newinfo = NULL;
 
 	WARN_ON(!mutex_is_locked(&cmc_bdi->lock));
@@ -77,20 +77,20 @@ static int cmc_refresh_board_info_nolock(struct xrt_cmc_bdinfo *cmc_bdi)
 	}
 
 	/* Load new info from HW. */
-	gen = cmc_mailbox_acquire(pdev);
+	gen = cmc_mailbox_acquire(xdev);
 	if (gen < 0) {
-		xrt_err(pdev, "failed to hold mailbox: %d", gen);
+		xrt_err(xdev, "failed to hold mailbox: %d", gen);
 		ret = gen;
 		goto done;
 	}
-	ret = cmc_mailbox_send_packet(pdev, gen, CMC_MBX_PKT_OP_BOARD_INFO, NULL, 0);
+	ret = cmc_mailbox_send_packet(xdev, gen, CMC_MBX_PKT_OP_BOARD_INFO, NULL, 0);
 	if (ret) {
-		xrt_err(pdev, "failed to send pkt: %d", ret);
+		xrt_err(xdev, "failed to send pkt: %d", ret);
 		goto done;
 	}
-	ret = cmc_mailbox_recv_packet(pdev, gen, bdinfo_raw, &bd_info_sz);
+	ret = cmc_mailbox_recv_packet(xdev, gen, bdinfo_raw, &bd_info_sz);
 	if (ret) {
-		xrt_err(pdev, "failed to receive pkt: %d", ret);
+		xrt_err(xdev, "failed to receive pkt: %d", ret);
 		goto done;
 	}
 
@@ -106,15 +106,15 @@ static int cmc_refresh_board_info_nolock(struct xrt_cmc_bdinfo *cmc_bdi)
 
 done:
 	if (gen >= 0)
-		cmc_mailbox_release(pdev, gen);
+		cmc_mailbox_release(xdev, gen);
 	vfree(bdinfo_raw);
 	return ret;
 }
 
-int cmc_refresh_board_info(struct platform_device *pdev)
+int cmc_refresh_board_info(struct xrt_device *xdev)
 {
 	int ret;
-	struct xrt_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);
+	struct xrt_cmc_bdinfo *cmc_bdi = cmc_xdev2bdinfo(xdev);
 
 	if (!cmc_bdi)
 		return -ENODEV;
@@ -148,7 +148,7 @@ static void cmc_copy_dynamic_mac(struct xrt_cmc_bdinfo *cmc_bdi, u32 *num_mac, v
 		return;
 
 	if (len != 8) {
-		xrt_err(cmc_bdi->pdev, "dynamic mac data is corrupted.");
+		xrt_err(cmc_bdi->xdev, "dynamic mac data is corrupted.");
 		return;
 	}
 
@@ -166,16 +166,16 @@ static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 /* Not a real SC version to indicate that SC image does not exist. */
 #define NONE_BMC_VERSION	"0.0.0"
 	int ret = 0;
-	struct platform_device *pdev = cmc_bdi->pdev;
-	struct platform_device *mgmt_leaf =
-		xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_MGMT_MAIN, PLATFORM_DEVID_NONE);
+	struct xrt_device *xdev = cmc_bdi->xdev;
+	struct xrt_device *mgmt_leaf =
+		xleaf_get_leaf_by_id(xdev, XRT_SUBDEV_MGMT_MAIN, XRT_INVALID_DEVICE_INST);
 	struct xrt_mgmt_main_get_axlf_section gs = { XMGMT_BLP, BMC, };
 	struct bmc *bmcsect;
 
 	(void)sprintf(expbmc, "%s", NONE_BMC_VERSION);
 
 	if (!mgmt_leaf) {
-		xrt_err(pdev, "failed to get hold of main");
+		xrt_err(xdev, "failed to get hold of main");
 		return;
 	}
 
@@ -190,17 +190,17 @@ static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 		 */
 		cmc_copy_board_info_by_key(cmc_bdi, BDINFO_BMC_VER, expbmc);
 	}
-	xleaf_put_leaf(pdev, mgmt_leaf);
+	xleaf_put_leaf(xdev, mgmt_leaf);
 }
 
-int cmc_bdinfo_read(struct platform_device *pdev, struct xcl_board_info *bdinfo)
+int cmc_bdinfo_read(struct xrt_device *xdev, struct xcl_board_info *bdinfo)
 {
-	struct xrt_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);
+	struct xrt_cmc_bdinfo *cmc_bdi = cmc_xdev2bdinfo(xdev);
 
 	mutex_lock(&cmc_bdi->lock);
 
 	if (!cmc_bdi->bdinfo) {
-		xrt_err(cmc_bdi->pdev, "board info is not available");
+		xrt_err(cmc_bdi->xdev, "board info is not available");
 		mutex_unlock(&cmc_bdi->lock);
 		return -ENOENT;
 	}
@@ -228,8 +228,8 @@ int cmc_bdinfo_read(struct platform_device *pdev, struct xcl_board_info *bdinfo)
 		struct device_attribute *attr, char *buf)		\
 	{								\
 		const char *s;						\
-		struct platform_device *pdev = to_platform_device(dev);	\
-		struct xrt_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);\
+		struct xrt_device *xdev = to_xrt_dev(dev);		\
+		struct xrt_cmc_bdinfo *cmc_bdi = cmc_xdev2bdinfo(xdev);\
 									\
 		mutex_lock(&cmc_bdi->lock);				\
 		s = cmc_parse_board_info(cmc_bdi, key, NULL);		\
@@ -252,8 +252,8 @@ static ssize_t bdinfo_raw_show(struct file *filp, struct kobject *kobj,
 {
 	ssize_t ret = 0;
 	struct device *dev = container_of(kobj, struct device, kobj);
-	struct platform_device *pdev = to_platform_device(dev);
-	struct xrt_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);
+	struct xrt_device *xdev = to_xrt_dev(dev);
+	struct xrt_cmc_bdinfo *cmc_bdi = cmc_xdev2bdinfo(xdev);
 
 	if (!cmc_bdi || !cmc_bdi->bdinfo_sz)
 		return 0;
@@ -290,40 +290,40 @@ static struct attribute_group cmc_bdinfo_attr_group = {
 	.bin_attrs = cmc_bdinfo_bin_attrs,
 };
 
-void cmc_bdinfo_remove(struct platform_device *pdev)
+void cmc_bdinfo_remove(struct xrt_device *xdev)
 {
-	struct xrt_cmc_bdinfo *cmc_bdi = cmc_pdev2bdinfo(pdev);
+	struct xrt_cmc_bdinfo *cmc_bdi = cmc_xdev2bdinfo(xdev);
 
 	if (!cmc_bdi)
 		return;
 
-	sysfs_remove_group(&pdev->dev.kobj, &cmc_bdinfo_attr_group);
+	sysfs_remove_group(&xdev->dev.kobj, &cmc_bdinfo_attr_group);
 	kfree(cmc_bdi->bdinfo);
 }
 
-int cmc_bdinfo_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl)
+int cmc_bdinfo_probe(struct xrt_device *xdev, struct cmc_reg_map *regmaps, void **hdl)
 {
 	int ret;
 	struct xrt_cmc_bdinfo *cmc_bdi;
 
-	cmc_bdi = devm_kzalloc(DEV(pdev), sizeof(*cmc_bdi), GFP_KERNEL);
+	cmc_bdi = devm_kzalloc(DEV(xdev), sizeof(*cmc_bdi), GFP_KERNEL);
 	if (!cmc_bdi)
 		return -ENOMEM;
 
-	cmc_bdi->pdev = pdev;
+	cmc_bdi->xdev = xdev;
 	mutex_init(&cmc_bdi->lock);
 
 	mutex_lock(&cmc_bdi->lock);
 	ret = cmc_refresh_board_info_nolock(cmc_bdi);
 	mutex_unlock(&cmc_bdi->lock);
 	if (ret) {
-		xrt_err(pdev, "failed to load board info: %d", ret);
+		xrt_err(xdev, "failed to load board info: %d", ret);
 		goto fail;
 	}
 
-	ret = sysfs_create_group(&pdev->dev.kobj, &cmc_bdinfo_attr_group);
+	ret = sysfs_create_group(&xdev->dev.kobj, &cmc_bdinfo_attr_group);
 	if (ret) {
-		xrt_err(pdev, "create bdinfo attrs failed: %d", ret);
+		xrt_err(xdev, "create bdinfo attrs failed: %d", ret);
 		goto fail;
 	}
 
@@ -331,7 +331,7 @@ int cmc_bdinfo_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, 
 	return 0;
 
 fail:
-	cmc_bdinfo_remove(pdev);
-	devm_kfree(DEV(pdev), cmc_bdi);
+	cmc_bdinfo_remove(xdev);
+	devm_kfree(DEV(xdev), cmc_bdi);
 	return ret;
 }

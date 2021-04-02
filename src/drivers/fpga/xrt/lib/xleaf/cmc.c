@@ -24,7 +24,7 @@ static struct xrt_iores_map cmc_iores_id_map[] = {
 };
 
 struct xrt_cmc {
-	struct platform_device *pdev;
+	struct xrt_device *xdev;
 	struct cmc_reg_map regs[NUM_IOADDR];
 	void *ctrl_hdl;
 	void *sensor_hdl;
@@ -33,37 +33,37 @@ struct xrt_cmc {
 	void *sc_hdl;
 };
 
-void *cmc_pdev2sc(struct platform_device *pdev)
+void *cmc_xdev2sc(struct xrt_device *xdev)
 {
-	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = xrt_get_drvdata(xdev);
 
 	return cmc->sc_hdl;
 }
 
-void *cmc_pdev2bdinfo(struct platform_device *pdev)
+void *cmc_xdev2bdinfo(struct xrt_device *xdev)
 {
-	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = xrt_get_drvdata(xdev);
 
 	return cmc->bdinfo_hdl;
 }
 
-void *cmc_pdev2ctrl(struct platform_device *pdev)
+void *cmc_xdev2ctrl(struct xrt_device *xdev)
 {
-	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = xrt_get_drvdata(xdev);
 
 	return cmc->ctrl_hdl;
 }
 
-void *cmc_pdev2sensor(struct platform_device *pdev)
+void *cmc_xdev2sensor(struct xrt_device *xdev)
 {
-	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = xrt_get_drvdata(xdev);
 
 	return cmc->sensor_hdl;
 }
 
-void *cmc_pdev2mbx(struct platform_device *pdev)
+void *cmc_xdev2mbx(struct xrt_device *xdev)
 {
-	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = xrt_get_drvdata(xdev);
 
 	return cmc->mbx_hdl;
 }
@@ -74,16 +74,16 @@ static int cmc_map_io(struct xrt_cmc *cmc, struct resource *res)
 
 	id = xrt_md_res_name2id(cmc_iores_id_map, ARRAY_SIZE(cmc_iores_id_map), res->name);
 	if (id < 0) {
-		xrt_err(cmc->pdev, "resource %s ignored", res->name);
+		xrt_err(cmc->xdev, "resource %s ignored", res->name);
 		return -EINVAL;
 	}
 	if (cmc->regs[id].crm_addr) {
-		xrt_err(cmc->pdev, "resource %s already mapped", res->name);
+		xrt_err(cmc->xdev, "resource %s already mapped", res->name);
 		return -EINVAL;
 	}
 	cmc->regs[id].crm_addr = ioremap(res->start, res->end - res->start + 1);
 	if (!cmc->regs[id].crm_addr) {
-		xrt_err(cmc->pdev, "resource %s map failed", res->name);
+		xrt_err(cmc->xdev, "resource %s map failed", res->name);
 		return -EIO;
 	}
 	cmc->regs[id].crm_size = res->end - res->start + 1;
@@ -91,46 +91,44 @@ static int cmc_map_io(struct xrt_cmc *cmc, struct resource *res)
 	return 0;
 }
 
-static int cmc_remove(struct platform_device *pdev)
+static void cmc_remove(struct xrt_device *xdev)
 {
 	int i;
-	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = xrt_get_drvdata(xdev);
 
-	xrt_info(pdev, "leaving...");
+	xrt_info(xdev, "leaving...");
 
-	cmc_sc_remove(pdev);
-	cmc_bdinfo_remove(pdev);
-	cmc_mailbox_remove(pdev);
-	cmc_sensor_remove(pdev);
-	cmc_ctrl_remove(pdev);
+	cmc_sc_remove(xdev);
+	cmc_bdinfo_remove(xdev);
+	cmc_mailbox_remove(xdev);
+	cmc_sensor_remove(xdev);
+	cmc_ctrl_remove(xdev);
 
 	for (i = 0; i < NUM_IOADDR; i++) {
 		if (!cmc->regs[i].crm_addr)
 			continue;
 		iounmap(cmc->regs[i].crm_addr);
 	}
-
-	return 0;
 }
 
-static int cmc_probe(struct platform_device *pdev)
+static int cmc_probe(struct xrt_device *xdev)
 {
 	struct xrt_cmc *cmc;
 	struct resource *res;
 	int i = 0;
 	int ret = 0;
 
-	xrt_info(pdev, "probing...");
+	xrt_info(xdev, "probing...");
 
-	cmc = devm_kzalloc(DEV(pdev), sizeof(*cmc), GFP_KERNEL);
+	cmc = devm_kzalloc(DEV(xdev), sizeof(*cmc), GFP_KERNEL);
 	if (!cmc)
 		return -ENOMEM;
 
-	cmc->pdev = pdev;
-	platform_set_drvdata(pdev, cmc);
+	cmc->xdev = xdev;
+	xrt_set_drvdata(xdev, cmc);
 
 	for (i = 0; ; i++) {
-		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
+		res = xrt_get_resource(xdev, IORESOURCE_MEM, i);
 		if (!res)
 			break;
 		cmc_map_io(cmc, res);
@@ -140,65 +138,65 @@ static int cmc_probe(struct platform_device *pdev)
 			break;
 	}
 	if (i != NUM_IOADDR) {
-		xrt_err(cmc->pdev, "not all needed resources are found");
+		xrt_err(cmc->xdev, "not all needed resources are found");
 		ret = -EINVAL;
 		goto done;
 	}
 
-	ret = cmc_ctrl_probe(cmc->pdev, cmc->regs, &cmc->ctrl_hdl);
+	ret = cmc_ctrl_probe(cmc->xdev, cmc->regs, &cmc->ctrl_hdl);
 	if (ret)
 		goto done;
 
 	/* Non-critical part of init can fail. */
-	cmc_sensor_probe(cmc->pdev, cmc->regs, &cmc->sensor_hdl);
-	cmc_mailbox_probe(cmc->pdev, cmc->regs, &cmc->mbx_hdl);
-	cmc_bdinfo_probe(cmc->pdev, cmc->regs, &cmc->bdinfo_hdl);
-	cmc_sc_probe(cmc->pdev, cmc->regs, &cmc->sc_hdl);
+	cmc_sensor_probe(cmc->xdev, cmc->regs, &cmc->sensor_hdl);
+	cmc_mailbox_probe(cmc->xdev, cmc->regs, &cmc->mbx_hdl);
+	cmc_bdinfo_probe(cmc->xdev, cmc->regs, &cmc->bdinfo_hdl);
+	cmc_sc_probe(cmc->xdev, cmc->regs, &cmc->sc_hdl);
 
 	return 0;
 
 done:
-	cmc_remove(pdev);
+	cmc_remove(xdev);
 	return ret;
 }
 
 static int
-xrt_cmc_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_cmc_leaf_call(struct xrt_device *xdev, u32 cmd, void *arg)
 {
-	struct xrt_cmc *cmc = platform_get_drvdata(pdev);
+	struct xrt_cmc *cmc = xrt_get_drvdata(xdev);
 	int ret = -ENOENT;
 
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
-		cmc_ctrl_event_cb(pdev, arg);
+		cmc_ctrl_event_cb(xdev, arg);
 		break;
 	case XRT_CMC_READ_BOARD_INFO: {
 		struct xcl_board_info *i = (struct xcl_board_info *)arg;
 
 		if (cmc->bdinfo_hdl)
-			ret = cmc_bdinfo_read(pdev, i);
+			ret = cmc_bdinfo_read(xdev, i);
 		break;
 	}
 	case XRT_CMC_READ_SENSORS: {
 		struct xcl_sensor *s = (struct xcl_sensor *)arg;
 
 		if (cmc->sensor_hdl) {
-			cmc_sensor_read(pdev, s);
+			cmc_sensor_read(xdev, s);
 			ret = 0;
 		}
 		break;
 	}
 	default:
-		xrt_err(pdev, "unsupported cmd %d", cmd);
+		xrt_err(xdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
 	return ret;
 }
 
-static struct xrt_subdev_endpoints xrt_cmc_endpoints[] = {
+static struct xrt_dev_endpoints xrt_cmc_endpoints[] = {
 	{
-		.xse_names = (struct xrt_subdev_ep_names []) {
+		.xse_names = (struct xrt_dev_ep_names []) {
 			{ .ep_name = XRT_MD_NODE_CMC_REG },
 			{ .ep_name = XRT_MD_NODE_CMC_RESET },
 			{ .ep_name = XRT_MD_NODE_CMC_MUTEX },
@@ -210,8 +208,11 @@ static struct xrt_subdev_endpoints xrt_cmc_endpoints[] = {
 	{ 0 },
 };
 
-static struct xrt_subdev_drvdata xrt_cmc_data = {
-	.xsd_file_ops = {
+static struct xrt_driver xrt_cmc_driver = {
+	.driver	= {
+		.name = XRT_CMC,
+	},
+	.file_ops = {
 		.xsf_ops = {
 			.owner = THIS_MODULE,
 			.open = cmc_sc_open,
@@ -221,29 +222,11 @@ static struct xrt_subdev_drvdata xrt_cmc_data = {
 		},
 		.xsf_dev_name = "cmc",
 	},
-	.xsd_dev_ops = {
-		.xsd_leaf_call = xrt_cmc_leaf_call,
-	},
+	.subdev_id = XRT_SUBDEV_CMC,
+	.endpoints = xrt_cmc_endpoints,
+	.probe = cmc_probe,
+	.remove = cmc_remove,
+	.leaf_call = xrt_cmc_leaf_call,
 };
 
-static const struct platform_device_id cmc_id_table[] = {
-	{ XRT_CMC, (kernel_ulong_t)&xrt_cmc_data },
-	{ },
-};
-
-static struct platform_driver xrt_cmc_driver = {
-	.driver	= {
-		.name    = XRT_CMC,
-	},
-	.probe   = cmc_probe,
-	.remove  = cmc_remove,
-	.id_table = cmc_id_table,
-};
-
-void cmc_leaf_init_fini(bool init)
-{
-	if (init)
-		xleaf_register_driver(XRT_SUBDEV_CMC, &xrt_cmc_driver, xrt_cmc_endpoints);
-	else
-		xleaf_unregister_driver(XRT_SUBDEV_CMC);
-}
+XRT_LEAF_INIT_FINI_FUNC(cmc);

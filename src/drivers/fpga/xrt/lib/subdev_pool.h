@@ -32,9 +32,9 @@ void xrt_subdev_pool_fini(struct xrt_subdev_pool *spool);
 int xrt_subdev_pool_get(struct xrt_subdev_pool *spool,
 			xrt_subdev_match_t match,
 			void *arg, struct device *holder_dev,
-			struct platform_device **pdevp);
+			struct xrt_device **xdevp);
 int xrt_subdev_pool_put(struct xrt_subdev_pool *spool,
-			struct platform_device *pdev,
+			struct xrt_device *xdev,
 			struct device *holder_dev);
 int xrt_subdev_pool_add(struct xrt_subdev_pool *spool,
 			enum xrt_subdev_id id, xrt_subdev_root_cb_t pcb,
@@ -42,7 +42,7 @@ int xrt_subdev_pool_add(struct xrt_subdev_pool *spool,
 int xrt_subdev_pool_del(struct xrt_subdev_pool *spool,
 			enum xrt_subdev_id id, int instance);
 ssize_t xrt_subdev_pool_get_holders(struct xrt_subdev_pool *spool,
-				    struct platform_device *pdev,
+				    struct xrt_device *xdev,
 				    char *buf, size_t len);
 
 void xrt_subdev_pool_trigger_event(struct xrt_subdev_pool *spool,

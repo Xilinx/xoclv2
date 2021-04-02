@@ -10,8 +10,6 @@
 #define _LIB_DRV_H_
 
 const char *xrt_drv_name(enum xrt_subdev_id id);
-int xrt_drv_get_instance(enum xrt_subdev_id id);
-void xrt_drv_put_instance(enum xrt_subdev_id id, int instance);
-struct xrt_subdev_endpoints *xrt_drv_get_endpoints(enum xrt_subdev_id id);
+struct xrt_dev_endpoints *xrt_drv_get_endpoints(enum xrt_subdev_id id);
 
 #endif	/* _LIB_DRV_H_ */

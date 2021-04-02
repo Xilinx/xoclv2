@@ -91,35 +91,35 @@ struct cmc_reg_map {
 	size_t crm_size;
 };
 
-int cmc_ctrl_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl);
-void cmc_ctrl_remove(struct platform_device *pdev);
-void *cmc_pdev2ctrl(struct platform_device *pdev);
-void cmc_ctrl_event_cb(struct platform_device *pdev, void *arg);
+int cmc_ctrl_probe(struct xrt_device *xdev, struct cmc_reg_map *regmaps, void **hdl);
+void cmc_ctrl_remove(struct xrt_device *xdev);
+void *cmc_xdev2ctrl(struct xrt_device *pdev);
+void cmc_ctrl_event_cb(struct xrt_device *xdev, void *arg);
 
-int cmc_sensor_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl);
-void cmc_sensor_remove(struct platform_device *pdev);
-void *cmc_pdev2sensor(struct platform_device *pdev);
-void cmc_sensor_read(struct platform_device *pdev, struct xcl_sensor *s);
+int cmc_sensor_probe(struct xrt_device *xdev, struct cmc_reg_map *regmaps, void **hdl);
+void cmc_sensor_remove(struct xrt_device *xdev);
+void *cmc_xdev2sensor(struct xrt_device *pdev);
+void cmc_sensor_read(struct xrt_device *xdev, struct xcl_sensor *s);
 
-int cmc_mailbox_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl);
-void cmc_mailbox_remove(struct platform_device *pdev);
-void *cmc_pdev2mbx(struct platform_device *pdev);
-int cmc_mailbox_acquire(struct platform_device *pdev);
-void cmc_mailbox_release(struct platform_device *pdev, int generation);
-size_t cmc_mailbox_max_payload(struct platform_device *pdev);
-int cmc_mailbox_send_packet(struct platform_device *pdev, int generation,
+int cmc_mailbox_probe(struct xrt_device *xdev, struct cmc_reg_map *regmaps, void **hdl);
+void cmc_mailbox_remove(struct xrt_device *xdev);
+void *cmc_xdev2mbx(struct xrt_device *pdev);
+int cmc_mailbox_acquire(struct xrt_device *xdev);
+void cmc_mailbox_release(struct xrt_device *xdev, int generation);
+size_t cmc_mailbox_max_payload(struct xrt_device *xdev);
+int cmc_mailbox_send_packet(struct xrt_device *xdev, int generation,
 			    u8 op, const char *buf, size_t len);
-int cmc_mailbox_recv_packet(struct platform_device *pdev, int generation, char *buf, size_t *len);
+int cmc_mailbox_recv_packet(struct xrt_device *xdev, int generation, char *buf, size_t *len);
 
-int cmc_bdinfo_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl);
-void cmc_bdinfo_remove(struct platform_device *pdev);
-void *cmc_pdev2bdinfo(struct platform_device *pdev);
-int cmc_refresh_board_info(struct platform_device *pdev);
-int cmc_bdinfo_read(struct platform_device *pdev, struct xcl_board_info *bdinfo);
+int cmc_bdinfo_probe(struct xrt_device *xdev, struct cmc_reg_map *regmaps, void **hdl);
+void cmc_bdinfo_remove(struct xrt_device *xdev);
+void *cmc_xdev2bdinfo(struct xrt_device *pdev);
+int cmc_refresh_board_info(struct xrt_device *xdev);
+int cmc_bdinfo_read(struct xrt_device *xdev, struct xcl_board_info *bdinfo);
 
-int cmc_sc_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl);
-void cmc_sc_remove(struct platform_device *pdev);
-void *cmc_pdev2sc(struct platform_device *pdev);
+int cmc_sc_probe(struct xrt_device *xdev, struct cmc_reg_map *regmaps, void **hdl);
+void cmc_sc_remove(struct xrt_device *xdev);
+void *cmc_xdev2sc(struct xrt_device *pdev);
 int cmc_sc_open(struct inode *inode, struct file *file);
 int cmc_sc_close(struct inode *inode, struct file *file);
 ssize_t cmc_update_sc_firmware(struct file *file, const char __user *ubuf, size_t n, loff_t *off);

@@ -33,7 +33,7 @@ struct cmc_pkt {
 };
 
 struct xrt_cmc_mbx {
-	struct platform_device *pdev;
+	struct xrt_device *xdev;
 	struct cmc_reg_map reg_io;
 	u32 mbx_offset;
 	struct mutex lock; /* protect xrt_cmc_mbx */
@@ -89,7 +89,7 @@ static int cmc_mailbox_wait(struct xrt_cmc_mbx *cmc_mbx)
 
 	CMC_LONG_WAIT(cmc_pkt_host_owned(cmc_mbx));
 	if (!cmc_pkt_host_owned(cmc_mbx)) {
-		xrt_err(cmc_mbx->pdev, "CMC packet error: time'd out");
+		xrt_err(cmc_mbx->xdev, "CMC packet error: time'd out");
 		return -ETIMEDOUT;
 	}
 
@@ -97,7 +97,7 @@ static int cmc_mailbox_wait(struct xrt_cmc_mbx *cmc_mbx)
 	if (val & CMC_ERROR_MASK_MBX_ERR)
 		val = cmc_io_rd(cmc_mbx, CMC_REG_IO_MBX_ERROR);
 	if (val) {
-		xrt_err(cmc_mbx->pdev, "CMC packet error: %d", val);
+		xrt_err(cmc_mbx->xdev, "CMC packet error: %d", val);
 		cmc_pkt_clear_error(cmc_mbx);
 		return -EIO;
 	}
@@ -115,8 +115,8 @@ static int cmc_mailbox_pkt_write(struct xrt_cmc_mbx *cmc_mbx)
 	WARN_ON(!mutex_is_locked(&cmc_mbx->lock));
 
 #ifdef	MBX_PKT_DEBUG
-	xrt_info(cmc_mbx->pdev, "Sending CMC packet: %d DWORDS...", len);
-	xrt_info(cmc_mbx->pdev, "opcode=%d payload_sz=0x%x (0x%x)",
+	xrt_info(cmc_mbx->xdev, "Sending CMC packet: %d DWORDS...", len);
+	xrt_info(cmc_mbx->xdev, "opcode=%d payload_sz=0x%x (0x%x)",
 		 cmc_mbx->pkt.hdr.op, cmc_mbx->pkt.hdr.payload_sz, pkt[0]);
 	for (i = 0; i < 16; i++) {// print out first 16 bytes
 		/* Comment out to avoid check patch complaint. */
@@ -159,7 +159,7 @@ static int cmc_mailbox_pkt_read(struct xrt_cmc_mbx *cmc_mbx)
 	pkt = (u32 *)&cmc_mbx->pkt;
 	len = CMC_PKT_SZ(&hdr);
 	if (hdr.payload_sz == 0 || len > CMC_PKT_MAX_SZ) {
-		xrt_err(cmc_mbx->pdev, "read invalid CMC packet");
+		xrt_err(cmc_mbx->xdev, "read invalid CMC packet");
 		return -EINVAL;
 	}
 
@@ -170,16 +170,16 @@ static int cmc_mailbox_pkt_read(struct xrt_cmc_mbx *cmc_mbx)
 	return ret;
 }
 
-int cmc_mailbox_recv_packet(struct platform_device *pdev, int generation, char *buf, size_t *len)
+int cmc_mailbox_recv_packet(struct xrt_device *xdev, int generation, char *buf, size_t *len)
 {
 	int ret;
-	struct xrt_cmc_mbx *cmc_mbx = cmc_pdev2mbx(pdev);
+	struct xrt_cmc_mbx *cmc_mbx = cmc_xdev2mbx(xdev);
 
 	if (!cmc_mbx)
 		return -EINVAL;
 
 	if (cmc_mbx->generation != generation) {
-		xrt_err(cmc_mbx->pdev, "stale generation number passed in");
+		xrt_err(cmc_mbx->xdev, "stale generation number passed in");
 		return -EINVAL;
 	}
 
@@ -191,7 +191,7 @@ int cmc_mailbox_recv_packet(struct platform_device *pdev, int generation, char *
 		return ret;
 	}
 	if (cmc_mbx->pkt.hdr.payload_sz > *len) {
-		xrt_err(cmc_mbx->pdev,
+		xrt_err(cmc_mbx->xdev,
 			"packet size (0x%x) exceeds buf size (0x%lx)",
 			cmc_mbx->pkt.hdr.payload_sz, *len);
 		mutex_unlock(&cmc_mbx->lock);
@@ -204,22 +204,22 @@ int cmc_mailbox_recv_packet(struct platform_device *pdev, int generation, char *
 	return 0;
 }
 
-int cmc_mailbox_send_packet(struct platform_device *pdev, int generation,
+int cmc_mailbox_send_packet(struct xrt_device *xdev, int generation,
 			    u8 op, const char *buf, size_t len)
 {
 	int ret;
-	struct xrt_cmc_mbx *cmc_mbx = cmc_pdev2mbx(pdev);
+	struct xrt_cmc_mbx *cmc_mbx = cmc_xdev2mbx(xdev);
 
 	if (!cmc_mbx)
 		return -ENODEV;
 
 	if (cmc_mbx->generation != generation) {
-		xrt_err(cmc_mbx->pdev, "stale generation number passed in");
+		xrt_err(cmc_mbx->xdev, "stale generation number passed in");
 		return -EINVAL;
 	}
 
 	if (len > CMC_PKT_MAX_PAYLOAD_SZ_IN_BYTES) {
-		xrt_err(cmc_mbx->pdev,
+		xrt_err(cmc_mbx->xdev,
 			"packet size (0x%lx) exceeds max size (0x%lx)",
 			len, CMC_PKT_MAX_PAYLOAD_SZ_IN_BYTES);
 		return -E2BIG;
@@ -239,27 +239,27 @@ int cmc_mailbox_send_packet(struct platform_device *pdev, int generation,
 	return ret;
 }
 
-int cmc_mailbox_acquire(struct platform_device *pdev)
+int cmc_mailbox_acquire(struct xrt_device *xdev)
 {
-	struct xrt_cmc_mbx *cmc_mbx = cmc_pdev2mbx(pdev);
+	struct xrt_cmc_mbx *cmc_mbx = cmc_xdev2mbx(xdev);
 
 	if (!cmc_mbx)
 		return -EINVAL;
 
 	if (down_killable(&cmc_mbx->sem)) {
-		xrt_info(cmc_mbx->pdev, "giving up on acquiring CMC mailbox");
+		xrt_info(cmc_mbx->xdev, "giving up on acquiring CMC mailbox");
 		return -ERESTARTSYS;
 	}
 
 	return cmc_mbx->generation;
 }
 
-void cmc_mailbox_release(struct platform_device *pdev, int generation)
+void cmc_mailbox_release(struct xrt_device *xdev, int generation)
 {
-	struct xrt_cmc_mbx *cmc_mbx = cmc_pdev2mbx(pdev);
+	struct xrt_cmc_mbx *cmc_mbx = cmc_xdev2mbx(xdev);
 
 	if (cmc_mbx->generation != generation) {
-		xrt_err(cmc_mbx->pdev, "stale generation number passed in");
+		xrt_err(cmc_mbx->xdev, "stale generation number passed in");
 		return;
 	}
 
@@ -271,41 +271,41 @@ void cmc_mailbox_release(struct platform_device *pdev, int generation)
 	up(&cmc_mbx->sem);
 }
 
-size_t cmc_mailbox_max_payload(struct platform_device *pdev)
+size_t cmc_mailbox_max_payload(struct xrt_device *xdev)
 {
 	return CMC_PKT_MAX_PAYLOAD_SZ_IN_BYTES;
 }
 
-void cmc_mailbox_remove(struct platform_device *pdev)
+void cmc_mailbox_remove(struct xrt_device *xdev)
 {
 	/* Nothing to do */
 }
 
-int cmc_mailbox_probe(struct platform_device *pdev, struct cmc_reg_map *regmaps, void **hdl)
+int cmc_mailbox_probe(struct xrt_device *xdev, struct cmc_reg_map *regmaps, void **hdl)
 {
 	struct xrt_cmc_mbx *cmc_mbx;
 
-	cmc_mbx = devm_kzalloc(DEV(pdev), sizeof(*cmc_mbx), GFP_KERNEL);
+	cmc_mbx = devm_kzalloc(DEV(xdev), sizeof(*cmc_mbx), GFP_KERNEL);
 	if (!cmc_mbx)
 		return -ENOMEM;
 
-	cmc_mbx->pdev = pdev;
+	cmc_mbx->xdev = xdev;
 	/* Obtain register maps we need to start/stop CMC. */
 	cmc_mbx->reg_io = regmaps[IO_REG];
 	mutex_init(&cmc_mbx->lock);
 	sema_init(&cmc_mbx->sem, 1);
 	cmc_mbx->mbx_offset = cmc_io_rd(cmc_mbx, CMC_REG_IO_MBX_OFFSET);
 	if (cmc_mbx->mbx_offset == 0) {
-		xrt_err(cmc_mbx->pdev, "CMC mailbox is not available");
+		xrt_err(cmc_mbx->xdev, "CMC mailbox is not available");
 		goto done;
 	} else {
-		xrt_info(cmc_mbx->pdev, "CMC mailbox offset is 0x%x", cmc_mbx->mbx_offset);
+		xrt_info(cmc_mbx->xdev, "CMC mailbox offset is 0x%x", cmc_mbx->mbx_offset);
 	}
 
 	*hdl = cmc_mbx;
 	return 0;
 done:
-	cmc_mailbox_remove(pdev);
-	devm_kfree(DEV(pdev), cmc_mbx);
+	cmc_mailbox_remove(xdev);
+	devm_kfree(DEV(xdev), cmc_mbx);
 	return -ENODEV;
 }

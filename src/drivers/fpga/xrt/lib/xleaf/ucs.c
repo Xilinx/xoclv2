@@ -9,7 +9,6 @@
  */
 
 #include <linux/mod_devicetable.h>
-#include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/regmap.h>
@@ -19,13 +18,13 @@
 #include "xleaf/clock.h"
 
 #define UCS_ERR(ucs, fmt, arg...)   \
-	xrt_err((ucs)->pdev, fmt "\n", ##arg)
+	xrt_err((ucs)->xdev, fmt "\n", ##arg)
 #define UCS_WARN(ucs, fmt, arg...)  \
-	xrt_warn((ucs)->pdev, fmt "\n", ##arg)
+	xrt_warn((ucs)->xdev, fmt "\n", ##arg)
 #define UCS_INFO(ucs, fmt, arg...)  \
-	xrt_info((ucs)->pdev, fmt "\n", ##arg)
+	xrt_info((ucs)->xdev, fmt "\n", ##arg)
 #define UCS_DBG(ucs, fmt, arg...)   \
-	xrt_dbg((ucs)->pdev, fmt "\n", ##arg)
+	xrt_dbg((ucs)->xdev, fmt "\n", ##arg)
 
 #define XRT_UCS		"xrt_ucs"
 
@@ -42,16 +41,16 @@ static const struct regmap_config ucs_regmap_config = {
 };
 
 struct xrt_ucs {
-	struct platform_device	*pdev;
+	struct xrt_device	*xdev;
 	struct regmap		*regmap;
 	struct mutex		ucs_lock; /* ucs dev lock */
 };
 
-static void xrt_ucs_event_cb(struct platform_device *pdev, void *arg)
+static void xrt_ucs_event_cb(struct xrt_device *xdev, void *arg)
 {
 	struct xrt_event *evt = (struct xrt_event *)arg;
 	enum xrt_events e = evt->xe_evt;
-	struct platform_device *leaf;
+	struct xrt_device *leaf;
 	enum xrt_subdev_id id;
 	int instance;
 
@@ -59,21 +58,21 @@ static void xrt_ucs_event_cb(struct platform_device *pdev, void *arg)
 	instance = evt->xe_subdev.xevt_subdev_instance;
 
 	if (e != XRT_EVENT_POST_CREATION) {
-		xrt_dbg(pdev, "ignored event %d", e);
+		xrt_dbg(xdev, "ignored event %d", e);
 		return;
 	}
 
 	if (id != XRT_SUBDEV_CLOCK)
 		return;
 
-	leaf = xleaf_get_leaf_by_id(pdev, XRT_SUBDEV_CLOCK, instance);
+	leaf = xleaf_get_leaf_by_id(xdev, XRT_SUBDEV_CLOCK, instance);
 	if (!leaf) {
-		xrt_err(pdev, "does not get clock subdev");
+		xrt_err(xdev, "does not get clock subdev");
 		return;
 	}
 
 	xleaf_call(leaf, XRT_CLOCK_VERIFY, NULL);
-	xleaf_put_leaf(pdev, leaf);
+	xleaf_put_leaf(xdev, leaf);
 }
 
 static int ucs_enable(struct xrt_ucs *ucs)
@@ -88,43 +87,43 @@ static int ucs_enable(struct xrt_ucs *ucs)
 }
 
 static int
-xrt_ucs_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+xrt_ucs_leaf_call(struct xrt_device *xdev, u32 cmd, void *arg)
 {
 	switch (cmd) {
 	case XRT_XLEAF_EVENT:
-		xrt_ucs_event_cb(pdev, arg);
+		xrt_ucs_event_cb(xdev, arg);
 		break;
 	default:
-		xrt_err(pdev, "unsupported cmd %d", cmd);
+		xrt_err(xdev, "unsupported cmd %d", cmd);
 		return -EINVAL;
 	}
 
 	return 0;
 }
 
-static int ucs_probe(struct platform_device *pdev)
+static int ucs_probe(struct xrt_device *xdev)
 {
 	struct xrt_ucs *ucs = NULL;
 	void __iomem *base = NULL;
 	struct resource *res;
 
-	ucs = devm_kzalloc(&pdev->dev, sizeof(*ucs), GFP_KERNEL);
+	ucs = devm_kzalloc(&xdev->dev, sizeof(*ucs), GFP_KERNEL);
 	if (!ucs)
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, ucs);
-	ucs->pdev = pdev;
+	xrt_set_drvdata(xdev, ucs);
+	ucs->xdev = xdev;
 	mutex_init(&ucs->ucs_lock);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = xrt_get_resource(xdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -EINVAL;
 
-	base = devm_ioremap_resource(&pdev->dev, res);
+	base = devm_ioremap_resource(&xdev->dev, res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
-	ucs->regmap = devm_regmap_init_mmio(&pdev->dev, base, &ucs_regmap_config);
+	ucs->regmap = devm_regmap_init_mmio(&xdev->dev, base, &ucs_regmap_config);
 	if (IS_ERR(ucs->regmap)) {
 		UCS_ERR(ucs, "map base %pR failed", res);
 		return PTR_ERR(ucs->regmap);
@@ -134,9 +133,9 @@ static int ucs_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static struct xrt_subdev_endpoints xrt_ucs_endpoints[] = {
+static struct xrt_dev_endpoints xrt_ucs_endpoints[] = {
 	{
-		.xse_names = (struct xrt_subdev_ep_names[]) {
+		.xse_names = (struct xrt_dev_ep_names[]) {
 			{ .ep_name = XRT_MD_NODE_UCS_CONTROL_STATUS },
 			{ NULL },
 		},
@@ -145,29 +144,14 @@ static struct xrt_subdev_endpoints xrt_ucs_endpoints[] = {
 	{ 0 },
 };
 
-static struct xrt_subdev_drvdata xrt_ucs_data = {
-	.xsd_dev_ops = {
-		.xsd_leaf_call = xrt_ucs_leaf_call,
-	},
-};
-
-static const struct platform_device_id xrt_ucs_table[] = {
-	{ XRT_UCS, (kernel_ulong_t)&xrt_ucs_data },
-	{ },
-};
-
-static struct platform_driver xrt_ucs_driver = {
+static struct xrt_driver xrt_ucs_driver = {
 	.driver = {
 		.name = XRT_UCS,
 	},
+	.subdev_id = XRT_SUBDEV_UCS,
+	.endpoints = xrt_ucs_endpoints,
 	.probe = ucs_probe,
-	.id_table = xrt_ucs_table,
+	.leaf_call = xrt_ucs_leaf_call,
 };
 
-void ucs_leaf_init_fini(bool init)
-{
-	if (init)
-		xleaf_register_driver(XRT_SUBDEV_UCS, &xrt_ucs_driver, xrt_ucs_endpoints);
-	else
-		xleaf_unregister_driver(XRT_SUBDEV_UCS);
-}
+XRT_LEAF_INIT_FINI_FUNC(ucs);

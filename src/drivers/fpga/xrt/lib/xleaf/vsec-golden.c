@@ -8,7 +8,6 @@
  *      Max Zhen <maxz@xilinx.com>
  */
 
-#include <linux/platform_device.h>
 #include "metadata.h"
 #include "xleaf.h"
 #include "xleaf/devctl.h"
@@ -45,7 +44,7 @@ static struct xrt_md_endpoint xrt_golden_ver_endpoint = {
 };
 
 struct xrt_vsec {
-	struct platform_device	*pdev;
+	struct xrt_device	*xdev;
 	char			*metadata;
 	unsigned short		vendor;
 	unsigned short		device;
@@ -54,14 +53,14 @@ struct xrt_vsec {
 
 static int xrt_vsec_get_golden_ver(struct xrt_vsec *vsec)
 {
-	struct platform_device *devctl_leaf;
-	struct platform_device *pdev = vsec->pdev;
+	struct xrt_device *devctl_leaf;
+	struct xrt_device *xdev = vsec->xdev;
 	struct xrt_devctl_rw devctl_arg = { 0 };
 	int err, ver;
 
-	devctl_leaf = xleaf_get_leaf_by_epname(pdev, XRT_MD_NODE_GOLDEN_VER);
+	devctl_leaf = xleaf_get_leaf_by_epname(xdev, XRT_MD_NODE_GOLDEN_VER);
 	if (!devctl_leaf) {
-		xrt_err(pdev, "can not get %s", XRT_MD_NODE_GOLDEN_VER);
+		xrt_err(xdev, "can not get %s", XRT_MD_NODE_GOLDEN_VER);
 		return -EINVAL;
 	}
 
@@ -70,9 +69,9 @@ static int xrt_vsec_get_golden_ver(struct xrt_vsec *vsec)
 	devctl_arg.xdr_len = sizeof(ver);
 	devctl_arg.xdr_offset = 0;
 	err = xleaf_call(devctl_leaf, XRT_DEVCTL_READ, &devctl_arg);
-	xleaf_put_leaf(pdev, devctl_leaf);
+	xleaf_put_leaf(xdev, devctl_leaf);
 	if (err) {
-		xrt_err(pdev, "can't get golden image version: %d", err);
+		xrt_err(xdev, "can't get golden image version: %d", err);
 		return err;
 	}
 
@@ -83,10 +82,10 @@ static int xrt_vsec_add_node(struct xrt_vsec *vsec, struct xrt_md_endpoint *dev)
 {
 	int ret;
 
-	xrt_info(vsec->pdev, "add ep %s", dev->ep_name);
-	ret = xrt_md_add_endpoint(DEV(vsec->pdev), vsec->metadata, dev);
+	xrt_info(vsec->xdev, "add ep %s", dev->ep_name);
+	ret = xrt_md_add_endpoint(DEV(vsec->xdev), vsec->metadata, dev);
 	if (ret)
-		xrt_err(vsec->pdev, "add ep failed, ret %d", ret);
+		xrt_err(vsec->xdev, "add ep failed, ret %d", ret);
 	return ret;
 }
 
@@ -115,9 +114,9 @@ static int xrt_vsec_create_metadata(struct xrt_vsec *vsec)
 {
 	int ret;
 
-	ret = xrt_md_create(&vsec->pdev->dev, &vsec->metadata);
+	ret = xrt_md_create(&vsec->xdev->dev, &vsec->metadata);
 	if (ret) {
-		xrt_err(vsec->pdev, "create metadata failed");
+		xrt_err(vsec->xdev, "create metadata failed");
 		return ret;
 	}
 
@@ -131,8 +130,8 @@ static int xrt_vsec_create_metadata(struct xrt_vsec *vsec)
 
 static ssize_t VBNV_show(struct device *dev, struct device_attribute *da, char *buf)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct xrt_vsec *vsec = platform_get_drvdata(pdev);
+	struct xrt_device *xdev = to_xrt_dev(dev);
+	struct xrt_vsec *vsec = xrt_get_drvdata(xdev);
 
 	return sprintf(buf, "xilinx_%s_GOLDEN_%d\n", vsec->bdname,
 		xrt_vsec_get_golden_ver(vsec));
@@ -148,41 +147,40 @@ static const struct attribute_group vsec_attrgroup = {
 	.attrs = vsec_attrs,
 };
 
-static int xrt_vsec_remove(struct platform_device *pdev)
+static void xrt_vsec_remove(struct xrt_device *xdev)
 {
 	struct xrt_vsec	*vsec;
 
-	xrt_info(pdev, "leaving...");
-	sysfs_remove_group(&DEV(pdev)->kobj, &vsec_attrgroup);
-	vsec = platform_get_drvdata(pdev);
+	xrt_info(xdev, "leaving...");
+	sysfs_remove_group(&DEV(xdev)->kobj, &vsec_attrgroup);
+	vsec = xrt_get_drvdata(xdev);
 	vfree(vsec->metadata);
-	return 0;
 }
 
-static int xrt_vsec_probe(struct platform_device *pdev)
+static int xrt_vsec_probe(struct xrt_device *xdev)
 {
 	struct xrt_vsec	*vsec;
 	int			ret = 0;
 	int			i;
 
-	xrt_info(pdev, "probing...");
+	xrt_info(xdev, "probing...");
 
-	vsec = devm_kzalloc(&pdev->dev, sizeof(*vsec), GFP_KERNEL);
+	vsec = devm_kzalloc(&xdev->dev, sizeof(*vsec), GFP_KERNEL);
 	if (!vsec)
 		return -ENOMEM;
 
-	vsec->pdev = pdev;
-	xleaf_get_root_id(pdev, &vsec->vendor, &vsec->device, NULL, NULL);
-	platform_set_drvdata(pdev, vsec);
+	vsec->xdev = xdev;
+	xleaf_get_root_id(xdev, &vsec->vendor, &vsec->device, NULL, NULL);
+	xrt_set_drvdata(xdev, vsec);
 
 	ret = xrt_vsec_create_metadata(vsec);
 	if (ret) {
-		xrt_err(pdev, "create metadata failed, ret %d", ret);
+		xrt_err(xdev, "create metadata failed, ret %d", ret);
 		goto failed;
 	}
-	ret = xleaf_create_group(pdev, vsec->metadata);
+	ret = xleaf_create_group(xdev, vsec->metadata);
 	if (ret < 0)
-		xrt_err(pdev, "create group failed, ret %d", ret);
+		xrt_err(xdev, "create group failed, ret %d", ret);
 	else
 		ret = 0;
 
@@ -196,19 +194,19 @@ static int xrt_vsec_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (sysfs_create_group(&DEV(pdev)->kobj, &vsec_attrgroup))
-		xrt_err(pdev, "failed to create sysfs group");
+	if (sysfs_create_group(&DEV(xdev)->kobj, &vsec_attrgroup))
+		xrt_err(xdev, "failed to create sysfs group");
 
 failed:
 	if (ret)
-		xrt_vsec_remove(pdev);
+		xrt_vsec_remove(xdev);
 
 	return ret;
 }
 
-static struct xrt_subdev_endpoints xrt_vsec_golden_endpoints[] = {
+static struct xrt_dev_endpoints xrt_vsec_golden_endpoints[] = {
 	{
-		.xse_names = (struct xrt_subdev_ep_names []){
+		.xse_names = (struct xrt_dev_ep_names []){
 			{ .ep_name = XRT_MD_NODE_VSEC_GOLDEN },
 			{ NULL },
 		},
@@ -217,29 +215,14 @@ static struct xrt_subdev_endpoints xrt_vsec_golden_endpoints[] = {
 	{ 0 },
 };
 
-static struct xrt_subdev_drvdata xrt_vsec_data = {
-};
-
-static const struct platform_device_id xrt_vsec_table[] = {
-	{ XRT_VSEC_GOLDEN, (kernel_ulong_t)&xrt_vsec_data },
-	{ },
-};
-
-static struct platform_driver xrt_vsec_golden_driver = {
+static struct xrt_driver xrt_vsec_golden_driver = {
 	.driver = {
 		.name = XRT_VSEC_GOLDEN,
 	},
+	.subdev_id = XRT_SUBDEV_VSEC_GOLDEN,
+	.endpoints = xrt_vsec_golden_endpoints,
 	.probe = xrt_vsec_probe,
 	.remove = xrt_vsec_remove,
-	.id_table = xrt_vsec_table,
 };
 
-void vsec_golden_leaf_init_fini(bool init)
-{
-	if (init) {
-		xleaf_register_driver(XRT_SUBDEV_VSEC_GOLDEN,
-				      &xrt_vsec_golden_driver, xrt_vsec_golden_endpoints);
-	} else {
-		xleaf_unregister_driver(XRT_SUBDEV_VSEC_GOLDEN);
-	}
-}
+XRT_LEAF_INIT_FINI_FUNC(vsec_golden);

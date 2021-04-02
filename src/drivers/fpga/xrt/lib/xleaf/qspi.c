@@ -69,10 +69,10 @@
 /* Quad IO Fast Read */
 #define QSPI_CMD_QUAD_IO_READ			0xEB
 
-#define QSPI_ERR(flash, fmt, arg...)	xrt_err((flash)->pdev, fmt, ##arg)
-#define QSPI_WARN(flash, fmt, arg...)	xrt_warn((flash)->pdev, fmt, ##arg)
-#define QSPI_INFO(flash, fmt, arg...)	xrt_info((flash)->pdev, fmt, ##arg)
-#define QSPI_DBG(flash, fmt, arg...)	xrt_dbg((flash)->pdev, fmt, ##arg)
+#define QSPI_ERR(flash, fmt, arg...)	xrt_err((flash)->xdev, fmt, ##arg)
+#define QSPI_WARN(flash, fmt, arg...)	xrt_warn((flash)->xdev, fmt, ##arg)
+#define QSPI_INFO(flash, fmt, arg...)	xrt_info((flash)->xdev, fmt, ##arg)
+#define QSPI_DBG(flash, fmt, arg...)	xrt_dbg((flash)->xdev, fmt, ##arg)
 
 /*
  * QSPI control reg bits.
@@ -235,7 +235,7 @@ struct qspi_reg {
 } __packed;
 
 struct xrt_qspi {
-	struct platform_device	*pdev;
+	struct xrt_device	*xdev;
 	struct resource *res;
 	struct mutex io_lock;	/* qspi lock */
 	size_t flash_size;
@@ -883,9 +883,9 @@ qspi_read(struct file *file, char __user *ubuf, size_t n, loff_t *off)
 }
 
 /* Read request from other parts of driver. */
-static int qspi_kernel_read(struct platform_device *pdev, char *buf, size_t n, loff_t off)
+static int qspi_kernel_read(struct xrt_device *xdev, char *buf, size_t n, loff_t off)
 {
-	struct xrt_qspi *flash = platform_get_drvdata(pdev);
+	struct xrt_qspi *flash = xrt_get_drvdata(xdev);
 
 	QSPI_INFO(flash, "kernel reading %zu bytes @0x%llx", n, off);
 	return qspi_do_read(flash, buf, n, off);
@@ -1051,12 +1051,12 @@ static loff_t qspi_llseek(struct file *filp, loff_t off, int whence)
 static int qspi_open(struct inode *inode, struct file *file)
 {
 	struct xrt_qspi *flash;
-	struct platform_device *pdev = xleaf_devnode_open_excl(inode);
+	struct xrt_device *xdev = xleaf_devnode_open_excl(inode);
 
-	if (!pdev)
+	if (!xdev)
 		return -EBUSY;
 
-	flash = platform_get_drvdata(pdev);
+	flash = xrt_get_drvdata(xdev);
 	file->private_data = flash;
 	return 0;
 }
@@ -1098,15 +1098,13 @@ static struct attribute_group qspi_attr_group = {
 	.attrs = qspi_attrs,
 };
 
-static int qspi_remove(struct platform_device *pdev)
+static void qspi_remove(struct xrt_device *xdev)
 {
-	struct xrt_qspi *flash = platform_get_drvdata(pdev);
+	struct xrt_qspi *flash = xrt_get_drvdata(xdev);
 
-	if (!flash)
-		return -EINVAL;
-	platform_set_drvdata(pdev, NULL);
+	xrt_set_drvdata(xdev, NULL);
 
-	sysfs_remove_group(&DEV(flash->pdev)->kobj, &qspi_attr_group);
+	sysfs_remove_group(&DEV(flash->xdev)->kobj, &qspi_attr_group);
 
 	if (flash->io_buf)
 		vfree(flash->io_buf);
@@ -1115,7 +1113,6 @@ static int qspi_remove(struct platform_device *pdev)
 		iounmap(flash->qspi_regs);
 
 	mutex_destroy(&flash->io_lock);
-	return 0;
 }
 
 static int qspi_get_ID(struct xrt_qspi *flash)
@@ -1187,21 +1184,21 @@ static int qspi_controller_probe(struct xrt_qspi *flash)
 	return 0;
 }
 
-static int qspi_probe(struct platform_device *pdev)
+static int qspi_probe(struct xrt_device *xdev)
 {
 	struct xrt_qspi *flash;
 	int ret;
 
-	flash = devm_kzalloc(DEV(pdev), sizeof(*flash), GFP_KERNEL);
+	flash = devm_kzalloc(DEV(xdev), sizeof(*flash), GFP_KERNEL);
 	if (!flash)
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, flash);
-	flash->pdev = pdev;
+	xrt_set_drvdata(xdev, flash);
+	flash->xdev = xdev;
 
 	mutex_init(&flash->io_lock);
 
-	flash->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	flash->res = xrt_get_resource(xdev, IORESOURCE_MEM, 0);
 	if (!flash->res) {
 		ret = -EINVAL;
 		QSPI_ERR(flash, "empty resource");
@@ -1225,7 +1222,7 @@ static int qspi_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	ret  = sysfs_create_group(&DEV(pdev)->kobj, &qspi_attr_group);
+	ret  = sysfs_create_group(&DEV(xdev)->kobj, &qspi_attr_group);
 	if (ret)
 		QSPI_ERR(flash, "failed to create sysfs nodes");
 
@@ -1233,21 +1230,21 @@ static int qspi_probe(struct platform_device *pdev)
 
 error:
 	QSPI_ERR(flash, "probing failed");
-	qspi_remove(pdev);
+	qspi_remove(xdev);
 	return ret;
 }
 
-static size_t qspi_get_size(struct platform_device *pdev)
+static size_t qspi_get_size(struct xrt_device *xdev)
 {
-	struct xrt_qspi *flash = platform_get_drvdata(pdev);
+	struct xrt_qspi *flash = xrt_get_drvdata(xdev);
 
 	return flash->flash_size;
 }
 
 static int
-qspi_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
+qspi_leaf_call(struct xrt_device *xdev, u32 cmd, void *arg)
 {
-	struct xrt_qspi *flash = platform_get_drvdata(pdev);
+	struct xrt_qspi *flash = xrt_get_drvdata(xdev);
 	int ret = 0;
 
 	switch (cmd) {
@@ -1256,13 +1253,13 @@ qspi_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 		break;
 	case XRT_FLASH_GET_SIZE: {
 		size_t *sz = (size_t *)arg;
-		*sz = qspi_get_size(pdev);
+		*sz = qspi_get_size(xdev);
 		break;
 	}
 	case XRT_FLASH_READ: {
 		struct xrt_flash_read *rd = (struct xrt_flash_read *)arg;
 
-		ret = qspi_kernel_read(pdev, rd->xfir_buf, rd->xfir_size, rd->xfir_offset);
+		ret = qspi_kernel_read(xdev, rd->xfir_buf, rd->xfir_size, rd->xfir_offset);
 		break;
 	}
 	default:
@@ -1273,9 +1270,9 @@ qspi_leaf_call(struct platform_device *pdev, u32 cmd, void *arg)
 	return ret;
 }
 
-static struct xrt_subdev_endpoints xrt_qspi_endpoints[] = {
+static struct xrt_dev_endpoints xrt_qspi_endpoints[] = {
 	{
-		.xse_names = (struct xrt_subdev_ep_names []){
+		.xse_names = (struct xrt_dev_ep_names []){
 			{
 				.ep_name = XRT_MD_NODE_FLASH_VSEC,
 			},
@@ -1286,11 +1283,11 @@ static struct xrt_subdev_endpoints xrt_qspi_endpoints[] = {
 	{ 0 },
 };
 
-static struct xrt_subdev_drvdata qspi_data = {
-	.xsd_dev_ops = {
-		.xsd_leaf_call = qspi_leaf_call,
+static struct xrt_driver xrt_qspi_driver = {
+	.driver	= {
+		.name = XRT_QSPI,
 	},
-	.xsd_file_ops = {
+	.file_ops = {
 		.xsf_ops = {
 			.owner = THIS_MODULE,
 			.open = qspi_open,
@@ -1301,26 +1298,11 @@ static struct xrt_subdev_drvdata qspi_data = {
 		},
 		.xsf_dev_name = "flash",
 	},
+	.subdev_id = XRT_SUBDEV_QSPI,
+	.endpoints = xrt_qspi_endpoints,
+	.probe = qspi_probe,
+	.remove = qspi_remove,
+	.leaf_call = qspi_leaf_call,
 };
 
-static const struct platform_device_id qspi_id_table[] = {
-	{ XRT_QSPI, (kernel_ulong_t)&qspi_data },
-	{ },
-};
-
-static struct platform_driver xrt_qspi_driver = {
-	.driver	= {
-		.name    = XRT_QSPI,
-	},
-	.probe   = qspi_probe,
-	.remove  = qspi_remove,
-	.id_table = qspi_id_table,
-};
-
-void qspi_leaf_init_fini(bool init)
-{
-	if (init)
-		xleaf_register_driver(XRT_SUBDEV_QSPI, &xrt_qspi_driver, xrt_qspi_endpoints);
-	else
-		xleaf_unregister_driver(XRT_SUBDEV_QSPI);
-}
+XRT_LEAF_INIT_FINI_FUNC(qspi);
