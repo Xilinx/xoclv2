@@ -50,8 +50,8 @@ xrt-lib-y := 			\
 	xleaf/clkfreq.o		\
 	xleaf/ucs.o		\
 	xleaf/ddr_calibration.o	\
-#	../metadata/metadata.o	\
-#	$(fdtobj)
+	../metadata/metadata.o	\
+	$(fdtobj)
 
 
 CONFIG_MODULE_SIG=n
