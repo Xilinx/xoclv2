@@ -50,13 +50,6 @@ struct selftest1 {
 	bool ready;
 };
 
-static void selftest1_root_hot_reset(struct pci_dev *pdev)
-{
-	struct selftest1 *xm = pci_get_drvdata(pdev);
-
-	selftest1_info(xm, "hot reset ignored");
-}
-
 static int selftest1_create_root_metadata(struct selftest1 *xm, char **root_dtb, const char *ep)
 {
 	char *dtb = NULL;
@@ -99,9 +92,7 @@ static struct attribute_group selftest1_root_attr_group = {
 	.attrs = selftest1_root_attrs,
 };
 
-static struct xroot_physical_function_callback selftest1_xroot_pf_cb = {
-	.xpc_hot_reset = selftest1_root_hot_reset,
-};
+static struct xroot_physical_function_callback selftest1_xroot_pf_cb = { 0 };
 
 static int selftest1_create_group(struct selftest1 *xm, const char *ep)
 {
@@ -122,7 +113,7 @@ static int selftest1_create_group(struct selftest1 *xm, const char *ep)
  * As part of the probe the following hierarchy is built from synthetic
  * device tree fragments:
  *                          +-----------+
- *                          |   selftest1   |
+ *                          | selftest1 |
  *                          +-----+-----+
  *                                |
  *           +--------------------+--------------------+
@@ -149,7 +140,7 @@ static int selftest1_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	xm->pdev = pdev;
 	pci_set_drvdata(pdev, xm);
 
-	ret = xroot_probe(pdev, &selftest1_xroot_pf_cb, &xm->root);
+	ret = xroot_probe(dev, &selftest1_xroot_pf_cb, &xm->root);
 	if (ret)
 		goto failed;
 

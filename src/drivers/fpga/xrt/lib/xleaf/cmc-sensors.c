@@ -6,6 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
+#include <linux/io.h>
+#include <linux/slab.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
 #include "xmgmt-main.h"

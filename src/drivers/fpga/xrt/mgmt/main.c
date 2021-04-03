@@ -10,6 +10,8 @@
 
 #include <linux/firmware.h>
 #include <linux/uaccess.h>
+#include <linux/slab.h>
+#include <linux/io.h>
 #include "xclbin-helper.h"
 #include "metadata.h"
 #include "xleaf/flash.h"

@@ -9,7 +9,6 @@
 #ifndef _XRT_ROOT_H_
 #define _XRT_ROOT_H_
 
-#include <linux/pci.h>
 #include "xdevice.h"
 #include "subdev_id.h"
 #include "events.h"
@@ -72,6 +71,7 @@ struct xrt_root_get_holders {
 };
 
 struct xrt_root_get_res {
+	u32 xpigr_region_id;
 	struct resource *xpigr_res;
 };
 
@@ -102,10 +102,13 @@ int xrt_subdev_root_request(struct xrt_device *self, u32 cmd, void *arg);
  * needed in common root driver.
  */
 struct xroot_physical_function_callback {
-	void (*xpc_hot_reset)(struct pci_dev *pdev);
+	void (*xpc_get_id)(struct device *dev, struct xrt_root_get_id *rid);
+	int (*xpc_get_resource)(struct device *dev, struct xrt_root_get_res *res);
+	int (*xpc_get_vsec_offset)(struct device *dev, u64 *offset);
+	void (*xpc_hot_reset)(struct device *dev);
 };
 
-int xroot_probe(struct pci_dev *pdev, struct xroot_physical_function_callback *cb, void **root);
+int xroot_probe(struct device *dev, struct xroot_physical_function_callback *cb, void **root);
 void xroot_remove(void *root);
 bool xroot_wait_for_bringup(void *root);
 int xroot_add_vsec_node(void *root, char *dtb);

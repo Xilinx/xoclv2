@@ -8,6 +8,7 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
+#include <linux/io.h>
 #include "metadata.h"
 #include "xleaf.h"
 #include "xrt-cmc-impl.h"

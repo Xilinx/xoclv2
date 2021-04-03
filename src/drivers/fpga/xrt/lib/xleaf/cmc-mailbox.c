@@ -8,6 +8,7 @@
 
 #include <linux/mutex.h>
 #include <linux/delay.h>
+#include <linux/io.h>
 #include "xleaf.h"
 #include "xrt-cmc-impl.h"
 
