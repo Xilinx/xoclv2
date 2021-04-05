@@ -50,8 +50,8 @@ struct xroot_events {
 struct xroot_groups {
 	struct xrt_subdev_pool pool;
 	struct work_struct bringup_work;
-	atomic_t bringup_pending;
-	atomic_t bringup_failed;
+	atomic_t bringup_pending_cnt;
+	atomic_t bringup_failed_cnt;
 	struct completion bringup_comp;
 };
 
@@ -167,13 +167,13 @@ int xroot_create_group(void *root, char *dtb)
 	struct xroot *xr = (struct xroot *)root;
 	int ret;
 
-	atomic_inc(&xr->groups.bringup_pending);
+	atomic_inc(&xr->groups.bringup_pending_cnt);
 	ret = xrt_subdev_pool_add(&xr->groups.pool, XRT_SUBDEV_GRP, xroot_root_cb, xr, dtb);
 	if (ret >= 0) {
 		schedule_work(&xr->groups.bringup_work);
 	} else {
-		atomic_dec(&xr->groups.bringup_pending);
-		atomic_inc(&xr->groups.bringup_failed);
+		atomic_dec(&xr->groups.bringup_pending_cnt);
+		atomic_inc(&xr->groups.bringup_failed_cnt);
 		xroot_err(xr, "failed to create group: %d", ret);
 	}
 	return ret;
@@ -428,11 +428,11 @@ static void xroot_bringup_group_work(struct work_struct *work)
 		if (r == -EEXIST)
 			continue; /* Already brough up, nothing to do. */
 		if (r)
-			atomic_inc(&xr->groups.bringup_failed);
+			atomic_inc(&xr->groups.bringup_failed_cnt);
 
 		xroot_group_trigger_event(xr, i, XRT_EVENT_POST_CREATION);
 
-		if (atomic_dec_and_test(&xr->groups.bringup_pending))
+		if (atomic_dec_and_test(&xr->groups.bringup_pending_cnt))
 			complete(&xr->groups.bringup_comp);
 	}
 }
@@ -441,8 +441,8 @@ static void xroot_groups_init(struct xroot *xr)
 {
 	xrt_subdev_pool_init(DEV(xr->pdev), &xr->groups.pool);
 	INIT_WORK(&xr->groups.bringup_work, xroot_bringup_group_work);
-	atomic_set(&xr->groups.bringup_pending, 0);
-	atomic_set(&xr->groups.bringup_failed, 0);
+	atomic_set(&xr->groups.bringup_pending_cnt, 0);
+	atomic_set(&xr->groups.bringup_failed_cnt, 0);
 	init_completion(&xr->groups.bringup_comp);
 }
 
@@ -526,7 +526,7 @@ bool xroot_wait_for_bringup(void *root)
 	struct xroot *xr = (struct xroot *)root;
 
 	wait_for_completion(&xr->groups.bringup_comp);
-	return atomic_read(&xr->groups.bringup_failed) == 0;
+	return atomic_read(&xr->groups.bringup_failed_cnt) == 0;
 }
 EXPORT_SYMBOL_GPL(xroot_wait_for_bringup);
 
