@@ -104,14 +104,12 @@ int xrt_subdev_root_request(struct xrt_device *self, u32 cmd, void *arg);
 struct xroot_physical_function_callback {
 	void (*xpc_get_id)(struct device *dev, struct xrt_root_get_id *rid);
 	int (*xpc_get_resource)(struct device *dev, struct xrt_root_get_res *res);
-	int (*xpc_get_vsec_offset)(struct device *dev, u64 *offset);
 	void (*xpc_hot_reset)(struct device *dev);
 };
 
 int xroot_probe(struct device *dev, struct xroot_physical_function_callback *cb, void **root);
 void xroot_remove(void *root);
 bool xroot_wait_for_bringup(void *root);
-int xroot_add_vsec_node(void *root, char *dtb);
 int xroot_create_group(void *xr, char *dtb);
 int xroot_add_simple_node(void *root, char *dtb, const char *endpoint);
 void xroot_broadcast(void *root, enum xrt_events evt);

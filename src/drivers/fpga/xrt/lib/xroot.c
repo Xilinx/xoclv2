@@ -453,51 +453,6 @@ static void xroot_groups_fini(struct xroot *xr)
 	xrt_subdev_pool_fini(&xr->groups.pool);
 }
 
-int xroot_add_vsec_node(void *root, char *dtb)
-{
-	struct xroot *xr = (struct xroot *)root;
-	struct device *dev = xr->dev;
-	struct xrt_md_endpoint ep = { 0 };
-	int ret = 0, vsec_bar;
-	u64 vsec_off, offset;
-
-	if (!xr->pf_cb.xpc_get_vsec_offset) {
-		xroot_info(xr, "No Vendor Specific Capability.");
-		return -ENOENT;
-	}
-
-	ret = xr->pf_cb.xpc_get_vsec_offset(dev, &offset);
-	if (ret)
-		return ret;
-	vsec_bar = (offset >> 32) & 0x0f000000;
-	vsec_off = (offset << 8) >> 8;
-
-	ep.ep_name = XRT_MD_NODE_VSEC;
-	ret = xrt_md_add_endpoint(dev, dtb, &ep);
-	if (ret) {
-		xroot_err(xr, "add vsec metadata failed, ret %d", ret);
-		goto failed;
-	}
-
-	ret = xrt_md_set_prop(dev, dtb, XRT_MD_NODE_VSEC, NULL,
-			      XRT_MD_PROP_BAR_IDX, &vsec_bar, sizeof(vsec_bar));
-	if (ret) {
-		xroot_err(xr, "add vsec bar idx failed, ret %d", ret);
-		goto failed;
-	}
-
-	ret = xrt_md_set_prop(dev, dtb, XRT_MD_NODE_VSEC, NULL,
-			      XRT_MD_PROP_OFFSET, &vsec_off, sizeof(vsec_off));
-	if (ret) {
-		xroot_err(xr, "add vsec offset failed, ret %d", ret);
-		goto failed;
-	}
-
-failed:
-	return ret;
-}
-EXPORT_SYMBOL_GPL(xroot_add_vsec_node);
-
 int xroot_add_simple_node(void *root, char *dtb, const char *endpoint)
 {
 	struct xroot *xr = (struct xroot *)root;
