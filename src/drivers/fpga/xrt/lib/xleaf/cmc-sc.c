@@ -7,6 +7,8 @@
  */
 
 #include <linux/uaccess.h>
+#include <linux/vmalloc.h>
+#include <linux/io.h>
 #include "xleaf.h"
 #include "xrt-cmc-impl.h"
 

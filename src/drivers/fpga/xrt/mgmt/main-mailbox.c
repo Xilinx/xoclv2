@@ -11,6 +11,8 @@
  */
 
 #include <linux/crc32c.h>
+#include <linux/slab.h>
+#include <linux/io.h>
 #include <linux/xrt/mailbox_proto.h>
 #include "xmgnt.h"
 #include "xleaf/mailbox.h"

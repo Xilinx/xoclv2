@@ -6,14 +6,16 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#include <linux/pci.h>
 #include <linux/vmalloc.h>
+#include <linux/slab.h>
 #include "xleaf.h"
 #include "subdev_pool.h"
 #include "lib-drv.h"
 #include "metadata.h"
 
-#define IS_ROOT_DEV(dev) ((dev)->bus == &pci_bus_type)
+extern struct bus_type xrt_bus_type;
+
+#define IS_ROOT_DEV(dev) ((dev)->bus != &xrt_bus_type)
 static inline struct device *find_root(struct xrt_device *xdev)
 {
 	struct device *d = DEV(xdev);
@@ -188,11 +190,9 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 		xrt_md_get_prop(parent, dtb, ep_name, regmap,
 				XRT_MD_PROP_BAR_IDX, (const void **)&bar_idx, NULL);
 		bar = bar_idx ? be32_to_cpu(*bar_idx) : 0;
-		xleaf_get_barres(to_xrt_dev(parent), &pci_res, bar);
-		(*res)[count2].start = pci_res->start +
-			be64_to_cpu(bar_range[0]);
-		(*res)[count2].end = pci_res->start +
-			be64_to_cpu(bar_range[0]) +
+		xleaf_get_root_res(to_xrt_dev(parent), bar, &pci_res);
+		(*res)[count2].start = pci_res->start + be64_to_cpu(bar_range[0]);
+		(*res)[count2].end = pci_res->start + be64_to_cpu(bar_range[0]) +
 			be64_to_cpu(bar_range[1]) - 1;
 		(*res)[count2].flags = IORESOURCE_MEM;
 		/* check if there is conflicted resource */
@@ -795,19 +795,13 @@ void xleaf_hot_reset(struct xrt_device *xdev)
 }
 EXPORT_SYMBOL_GPL(xleaf_hot_reset);
 
-void xleaf_get_barres(struct xrt_device *xdev, struct resource **res, uint bar_idx)
+void xleaf_get_root_res(struct xrt_device *xdev, u32 region_id, struct resource **res)
 {
 	struct xrt_root_get_res arg = { 0 };
 
-	if (bar_idx > PCI_STD_RESOURCE_END) {
-		xrt_err(xdev, "Invalid bar idx %d", bar_idx);
-		*res = NULL;
-		return;
-	}
-
+	arg.xpigr_region_id = region_id;
 	xrt_subdev_root_request(xdev, XRT_ROOT_GET_RESOURCE, &arg);
-
-	*res = &arg.xpigr_res[bar_idx];
+	*res = arg.xpigr_res;
 }
 
 void xleaf_get_root_id(struct xrt_device *xdev, unsigned short *vendor, unsigned short *device,

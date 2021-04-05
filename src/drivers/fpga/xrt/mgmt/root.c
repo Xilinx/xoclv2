@@ -35,6 +35,7 @@
 	({ typeof(_pcidev) (pcidev) = (_pcidev);	\
 	((pci_domain_nr((pcidev)->bus) << 16) |	\
 	PCI_DEVID((pcidev)->bus->number, 0)); })
+#define XRT_VSEC_ID		0x20
 
 static struct class *xmgmt_class;
 
@@ -113,8 +114,9 @@ static void xmgmt_pci_restore_config_all(struct xmgmt *xm)
 	bus_for_each_dev(&pci_bus_type, NULL, xm, xmgmt_match_slot_and_restore);
 }
 
-static void xmgmt_root_hot_reset(struct pci_dev *pdev)
+static void xmgmt_root_hot_reset(struct device *dev)
 {
+	struct pci_dev *pdev = to_pci_dev(dev);
 	struct xmgmt *xm = pci_get_drvdata(pdev);
 	struct pci_bus *bus;
 	u8 pci_bctl;
@@ -169,6 +171,58 @@ static void xmgmt_root_hot_reset(struct pci_dev *pdev)
 	xmgmt_config_pci(xm);
 }
 
+static int xmgmt_add_vsec_node(struct xmgmt *xm, char *dtb)
+{
+	u32 off_low, off_high, vsec_bar, header;
+	struct pci_dev *pdev = XMGMT_PDEV(xm);
+	struct xrt_md_endpoint ep = { 0 };
+	struct device *dev = DEV(pdev);
+	int cap = 0, ret = 0;
+	u64 vsec_off;
+
+	while ((cap = pci_find_next_ext_capability(pdev, cap, PCI_EXT_CAP_ID_VNDR))) {
+		pci_read_config_dword(pdev, cap + PCI_VNDR_HEADER, &header);
+		if (PCI_VNDR_HEADER_ID(header) == XRT_VSEC_ID)
+			break;
+	}
+	if (!cap) {
+		xmgmt_info(xm, "No Vendor Specific Capability.");
+		return -ENOENT;
+	}
+
+	if (pci_read_config_dword(pdev, cap + 8, &off_low) ||
+	    pci_read_config_dword(pdev, cap + 12, &off_high)) {
+		xmgmt_err(xm, "pci_read vendor specific failed.");
+		return -EINVAL;
+	}
+
+	ep.ep_name = XRT_MD_NODE_VSEC;
+	ret = xrt_md_add_endpoint(dev, dtb, &ep);
+	if (ret) {
+		xmgmt_err(xm, "add vsec metadata failed, ret %d", ret);
+		goto failed;
+	}
+
+	vsec_bar = cpu_to_be32(off_low & 0xf);
+	ret = xrt_md_set_prop(dev, dtb, XRT_MD_NODE_VSEC, NULL,
+			      XRT_MD_PROP_BAR_IDX, &vsec_bar, sizeof(vsec_bar));
+	if (ret) {
+		xmgmt_err(xm, "add vsec bar idx failed, ret %d", ret);
+		goto failed;
+	}
+
+	vsec_off = cpu_to_be64(((u64)off_high << 32) | (off_low & ~0xfU));
+	ret = xrt_md_set_prop(dev, dtb, XRT_MD_NODE_VSEC, NULL,
+			      XRT_MD_PROP_OFFSET, &vsec_off, sizeof(vsec_off));
+	if (ret) {
+		xmgmt_err(xm, "add vsec offset failed, ret %d", ret);
+		goto failed;
+	}
+
+failed:
+	return ret;
+}
+
 static int xmgmt_create_root_metadata(struct xmgmt *xm, char **root_dtb)
 {
 	char *dtb = NULL;
@@ -180,7 +234,7 @@ static int xmgmt_create_root_metadata(struct xmgmt *xm, char **root_dtb)
 		goto failed;
 	}
 
-	ret = xroot_add_vsec_node(xm->root, dtb);
+	ret = xmgmt_add_vsec_node(xm, dtb);
 	if (ret == -ENOENT) {
 		/*
 		 * We may be dealing with a MFG board.
@@ -222,7 +276,33 @@ static struct attribute_group xmgmt_root_attr_group = {
 	.attrs = xmgmt_root_attrs,
 };
 
+static void xmgmt_root_get_id(struct device *dev, struct xrt_root_get_id *rid)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+
+	rid->xpigi_vendor_id = pdev->vendor;
+	rid->xpigi_device_id = pdev->device;
+	rid->xpigi_sub_vendor_id = pdev->subsystem_vendor;
+	rid->xpigi_sub_device_id = pdev->subsystem_device;
+}
+
+static int xmgmt_root_get_resource(struct device *dev, struct xrt_root_get_res *res)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct xmgmt *xm = pci_get_drvdata(pdev);
+
+	if (res->xpigr_region_id > PCI_STD_RESOURCE_END) {
+		xmgmt_err(xm, "Invalid bar idx %d", res->xpigr_region_id);
+		return -EINVAL;
+	}
+
+	res->xpigr_res = &pdev->resource[res->xpigr_region_id];
+	return 0;
+}
+
 static struct xroot_physical_function_callback xmgmt_xroot_pf_cb = {
+	.xpc_get_id = xmgmt_root_get_id,
+	.xpc_get_resource = xmgmt_root_get_resource,
 	.xpc_hot_reset = xmgmt_root_hot_reset,
 };
 
@@ -242,7 +322,7 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		goto failed;
 
-	ret = xroot_probe(pdev, &xmgmt_xroot_pf_cb, &xm->root);
+	ret = xroot_probe(&pdev->dev, &xmgmt_xroot_pf_cb, &xm->root);
 	if (ret)
 		goto failed;
 

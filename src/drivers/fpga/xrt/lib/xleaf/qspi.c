@@ -10,6 +10,7 @@
 
 #include <linux/delay.h>
 #include <linux/uaccess.h>
+#include <linux/io.h>
 #include "metadata.h"
 #include "xleaf.h"
 #include "xleaf/flash.h"

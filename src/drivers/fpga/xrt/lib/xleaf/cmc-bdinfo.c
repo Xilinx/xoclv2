@@ -6,6 +6,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
+#include <linux/vmalloc.h>
+#include <linux/slab.h>
 #include "xleaf.h"
 #include "xrt-cmc-impl.h"
 #include "xmgmt-main.h"

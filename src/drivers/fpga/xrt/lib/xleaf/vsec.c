@@ -275,7 +275,7 @@ static int xrt_vsec_mapio(struct xrt_vsec *vsec)
 	xrt_info(vsec->xdev, "Map vsec at bar %d, offset 0x%llx",
 		 be32_to_cpu(*bar), be64_to_cpu(*bar_off));
 
-	xleaf_get_barres(vsec->xdev, &res, be32_to_cpu(*bar));
+	xleaf_get_root_res(vsec->xdev, be32_to_cpu(*bar), &res);
 	if (!res) {
 		xrt_err(vsec->xdev, "failed to get bar addr");
 		return -EINVAL;

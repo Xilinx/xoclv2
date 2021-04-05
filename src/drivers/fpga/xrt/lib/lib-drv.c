@@ -9,6 +9,7 @@
 
 #include <linux/module.h>
 #include <linux/vmalloc.h>
+#include <linux/slab.h>
 #include "xleaf.h"
 #include "xroot.h"
 #include "lib-drv.h"
@@ -68,7 +69,7 @@ static int xrt_bus_remove(struct device *dev)
 	return 0;
 }
 
-static struct bus_type xrt_bus_type = {
+struct bus_type xrt_bus_type = {
 	.name		= "xrt",
 	.match		= xrt_bus_match,
 	.probe		= xrt_bus_probe,
