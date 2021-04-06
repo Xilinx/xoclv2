@@ -117,6 +117,11 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 	mutex_lock(&xg->lock);
 
 	if (xg->leaves_created) {
+		/*
+		 * This is expected since caller does not keep track of the state of the group
+		 * and may, in some cases, still try to create leaves after it has already been
+		 * created. This special error code will let the caller know what is going on.
+		 */
 		mutex_unlock(&xg->lock);
 		return -EEXIST;
 	}
@@ -153,6 +158,11 @@ static int xrt_grp_create_leaves(struct xrt_group *xg)
 			/* Found a dtb for this instance, let's add it. */
 			ret = xrt_subdev_pool_add(&xg->leaves, did, xrt_grp_root_cb, xg, dtb);
 			if (ret < 0) {
+				/*
+				 * It is not a fatal error here. Some functionality is not usable
+				 * due to this missing device, but the error can be handled
+				 * when the functionality is used.
+				 */
 				failed++;
 				xrt_err(xg->xdev, "failed to add %s: %d", xrt_drv_name(did), ret);
 			}
