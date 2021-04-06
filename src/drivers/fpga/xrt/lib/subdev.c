@@ -347,13 +347,10 @@ static void xrt_subdev_destroy(struct xrt_subdev *sdev)
 {
 	struct xrt_device *xdev = sdev->xs_xdev;
 	struct device *dev = DEV(xdev);
-	int ret;
 
 	/* Take down the device node */
-	if (xrt_subdev_cdev_auto_creation(xdev)) {
-		ret = xleaf_devnode_destroy(xdev);
-		WARN_ON(ret);
-	}
+	if (xrt_subdev_cdev_auto_creation(xdev))
+		xleaf_devnode_destroy(xdev);
 	if (sdev->xs_id != XRT_SUBDEV_GRP)
 		sysfs_remove_link(&find_root(xdev)->kobj, dev_name(dev));
 	sysfs_remove_group(&dev->kobj, &xrt_subdev_attrgroup);
