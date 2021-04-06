@@ -167,7 +167,7 @@ static inline bool xleaf_devnode_enabled(struct xrt_device *xdev)
 
 int xleaf_devnode_create(struct xrt_device *xdev,
 			 const char *file_name, const char *inst_name);
-int xleaf_devnode_destroy(struct xrt_device *xdev);
+void xleaf_devnode_destroy(struct xrt_device *xdev);
 
 struct xrt_device *xleaf_devnode_open_excl(struct inode *inode);
 struct xrt_device *xleaf_devnode_open(struct inode *inode);

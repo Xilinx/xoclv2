@@ -31,9 +31,8 @@ static void xleaf_devnode_allowed(struct xrt_device *xdev)
 }
 
 /* Turn off access from cdev and wait for all existing user to go away. */
-static int xleaf_devnode_disallowed(struct xrt_device *xdev)
+static void xleaf_devnode_disallowed(struct xrt_device *xdev)
 {
-	int ret = 0;
 	struct xrt_subdev_platdata *pdata = DEV_PDATA(xdev);
 
 	mutex_lock(&pdata->xsp_devnode_lock);
@@ -41,26 +40,13 @@ static int xleaf_devnode_disallowed(struct xrt_device *xdev)
 	/* Prevent new opens. */
 	pdata->xsp_devnode_online = false;
 	/* Wait for existing user to close. */
-	while (!ret && pdata->xsp_devnode_ref) {
-		int rc;
-
+	while (pdata->xsp_devnode_ref) {
 		mutex_unlock(&pdata->xsp_devnode_lock);
-		rc = wait_for_completion_killable(&pdata->xsp_devnode_comp);
+		wait_for_completion(&pdata->xsp_devnode_comp);
 		mutex_lock(&pdata->xsp_devnode_lock);
-
-		if (rc == -ERESTARTSYS) {
-			/* Restore online state. */
-			pdata->xsp_devnode_online = true;
-			xrt_err(xdev, "%s is in use, ref=%d",
-				CDEV_NAME(pdata->xsp_sysdev),
-				pdata->xsp_devnode_ref);
-			ret = -EBUSY;
-		}
 	}
 
 	mutex_unlock(&pdata->xsp_devnode_lock);
-
-	return ret;
 }
 
 static struct xrt_device *
@@ -124,13 +110,10 @@ void xleaf_devnode_close(struct inode *inode)
 		pdata->xsp_devnode_excl = false;
 		notify = true;
 	}
-	if (notify) {
-		xrt_info(xdev, "closed %s, ref=%d",
-			 CDEV_NAME(pdata->xsp_sysdev), pdata->xsp_devnode_ref);
-	} else {
-		xrt_info(xdev, "closed %s, notifying waiter",
-			 CDEV_NAME(pdata->xsp_sysdev));
-	}
+	if (notify)
+		xrt_info(xdev, "closed %s", CDEV_NAME(pdata->xsp_sysdev));
+	else
+		xrt_info(xdev, "closed %s, notifying waiter", CDEV_NAME(pdata->xsp_sysdev));
 
 	mutex_unlock(&pdata->xsp_devnode_lock);
 
@@ -211,21 +194,17 @@ failed:
 	return ret;
 }
 
-int xleaf_devnode_destroy(struct xrt_device *xdev)
+void xleaf_devnode_destroy(struct xrt_device *xdev)
 {
 	struct xrt_subdev_platdata *pdata = DEV_PDATA(xdev);
 	struct cdev *cdevp = &pdata->xsp_cdev;
 	dev_t dev = cdevp->dev;
-	int rc;
 
-	rc = xleaf_devnode_disallowed(xdev);
-	if (rc)
-		return rc;
+	xleaf_devnode_disallowed(xdev);
 
 	xrt_info(xdev, "removed (%d, %d): /dev/%s/%s", MAJOR(dev), MINOR(dev),
 		 XRT_CDEV_DIR, CDEV_NAME(pdata->xsp_sysdev));
 	device_destroy(xrt_class, cdevp->dev);
 	pdata->xsp_sysdev = NULL;
 	cdev_del(cdevp);
-	return 0;
 }
