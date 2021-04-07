@@ -15,7 +15,9 @@
 
 extern struct bus_type xrt_bus_type;
 
-#define IS_ROOT_DEV(dev) ((dev)->bus != &xrt_bus_type)
+#define IS_ROOT_DEV(dev) 	((dev)->bus != &xrt_bus_type)
+#define XRT_HOLDER_BUF_SZ	1024
+
 static inline struct device *find_root(struct xrt_device *xdev)
 {
 	struct device *d = DEV(xdev);
@@ -82,7 +84,7 @@ static ssize_t holders_show(struct device *dev, struct device_attribute *attr, c
 {
 	ssize_t len;
 	struct xrt_device *xdev = to_xrt_dev(dev);
-	struct xrt_root_get_holders holders = { xdev, buf, 1024 };
+	struct xrt_root_get_holders holders = { xdev, buf, XRT_HOLDER_BUF_SZ };
 
 	len = xrt_subdev_root_request(xdev, XRT_ROOT_GET_LEAF_HOLDERS, &holders);
 	if (len >= holders.xpigh_holder_buf_len)
@@ -114,11 +116,17 @@ static ssize_t metadata_output(struct file *filp, struct kobject *kobj,
 		goto failed;
 	}
 
-	if (off >= size)
+	if (off >= size) {
+		dev_dbg(parent, "reading offset (%ld) beyond total size (%ld): %ld\n",
+			off, size);
 		goto failed;
+	}
 
-	if (off + count > size)
+	if (off + count > size) {
+		dev_dbg(parent, "reading end (%ld) beyond total size (%ld): %ld\n",
+			off + count, size);
 		count = size - off;
+	}
 	memcpy(buf, blob + off, count);
 
 	ret = count;
@@ -167,12 +175,13 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 	pdata = DEV_PDATA(to_xrt_dev(parent));
 
 	/* go through metadata and count endpoints in it */
-	for (xrt_md_get_next_endpoint(parent, dtb, NULL, NULL, &ep_name, &regmap); ep_name;
-	     xrt_md_get_next_endpoint(parent, dtb, ep_name, regmap, &ep_name, &regmap)) {
+	xrt_md_get_next_endpoint(parent, dtb, NULL, NULL, &ep_name, &regmap);
+	while (ep_name) {
 		ret = xrt_md_get_prop(parent, dtb, ep_name, regmap,
 				      XRT_MD_PROP_IO_OFFSET, (const void **)&bar_range, NULL);
 		if (!ret)
 			count1++;
+		xrt_md_get_next_endpoint(parent, dtb, ep_name, regmap, &ep_name, &regmap);
 	}
 	if (!count1)
 		return 0;
@@ -181,8 +190,9 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 	*res = vzalloc(sizeof(**res) * count1);
 
 	/* go through all endpoints again and get IO range for each endpoint */
-	for (xrt_md_get_next_endpoint(parent, dtb, NULL, NULL, &ep_name, &regmap); ep_name;
-	     xrt_md_get_next_endpoint(parent, dtb, ep_name, regmap, &ep_name, &regmap)) {
+	ep_name = NULL;
+	xrt_md_get_next_endpoint(parent, dtb, NULL, NULL, &ep_name, &regmap);
+	while (ep_name) {
 		ret = xrt_md_get_prop(parent, dtb, ep_name, regmap,
 				      XRT_MD_PROP_IO_OFFSET, (const void **)&bar_range, NULL);
 		if (ret)
@@ -212,6 +222,7 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 				     regmap, &(*res)[count2].name);
 
 		count2++;
+		xrt_md_get_next_endpoint(parent, dtb, ep_name, regmap, &ep_name, &regmap);
 	}
 
 	WARN_ON(count1 != count2);
@@ -245,6 +256,7 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 	struct xrt_device *xdev = NULL;
 	struct resource *res = NULL;
 	unsigned long dtb_len = 0;
+	bool dtb_alloced = false;
 	int res_num = 0;
 	size_t pdata_sz;
 	int ret;
@@ -252,7 +264,7 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 	sdev = xrt_subdev_alloc();
 	if (!sdev) {
 		dev_err(parent, "failed to alloc subdev for ID %d", id);
-		goto fail;
+		return NULL;
 	}
 	sdev->xs_id = id;
 
@@ -262,19 +274,20 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 			dev_err(parent, "can't create empty dtb: %d", ret);
 			goto fail;
 		}
+		dtb_alloced = true;
 	}
 	xrt_md_pack(parent, dtb);
 	dtb_len = xrt_md_size(parent, dtb);
 	if (dtb_len == XRT_MD_INVALID_LENGTH) {
 		dev_err(parent, "invalid metadata len %ld", dtb_len);
-		goto fail;
+		goto fail1;
 	}
 	pdata_sz = sizeof(struct xrt_subdev_platdata) + dtb_len;
 
 	/* Prepare platform data passed to subdev. */
 	pdata = vzalloc(pdata_sz);
 	if (!pdata)
-		goto fail;
+		goto fail1;
 
 	pdata->xsp_root_cb = pcb;
 	pdata->xsp_root_cb_arg = pcb_arg;
@@ -297,20 +310,20 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 		if (rc) {
 			dev_err(parent, "failed to get resource for %s: %d",
 				xrt_drv_name(id), rc);
-			goto fail;
+			goto fail2;
 		}
 	}
 	xdev = xrt_device_register(parent, id, res, res_num, pdata, pdata_sz);
 	vfree(res);
 	if (!xdev) {
 		dev_err(parent, "failed to create subdev for %s", xrt_drv_name(id));
-		goto fail;
+		goto fail2;
 	}
 	sdev->xs_xdev = xdev;
 
 	if (device_attach(DEV(xdev)) != 1) {
 		xrt_err(xdev, "failed to attach");
-		goto fail;
+		goto fail3;
 	}
 
 	if (sysfs_create_group(&DEV(xdev)->kobj, &xrt_subdev_attrgroup))
@@ -334,11 +347,14 @@ xrt_subdev_create(struct device *parent, enum xrt_subdev_id id,
 	vfree(pdata);
 	return sdev;
 
-fail:
+fail3:
+	xrt_device_unregister(sdev->xs_xdev);
+fail2:
 	vfree(pdata);
-	if (sdev && !IS_ERR_OR_NULL(sdev->xs_xdev))
-		xrt_device_unregister(sdev->xs_xdev);
-
+fail1:
+	if (dtb_alloced)
+		vfree(dtb);
+fail:
 	xrt_subdev_free(sdev);
 	return NULL;
 }
@@ -425,6 +441,7 @@ xrt_subdev_get_holders(struct xrt_subdev *sdev, char *buf, size_t len)
 		h = list_entry(ptr, struct xrt_subdev_holder, xsh_holder_list);
 		n += snprintf(buf + n, len - n, "%s:%d ",
 			      dev_name(h->xsh_holder), kref_read(&h->xsh_kref));
+		/* Truncation is fine here. Buffer content is only for debugging. */
 		if (n >= (len - 1))
 			break;
 	}
