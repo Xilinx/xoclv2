@@ -15,7 +15,7 @@
 
 extern struct bus_type xrt_bus_type;
 
-#define IS_ROOT_DEV(dev) 	((dev)->bus != &xrt_bus_type)
+#define IS_ROOT_DEV(dev)	((dev)->bus != &xrt_bus_type)
 #define XRT_HOLDER_BUF_SZ	1024
 
 static inline struct device *find_root(struct xrt_device *xdev)
@@ -117,14 +117,12 @@ static ssize_t metadata_output(struct file *filp, struct kobject *kobj,
 	}
 
 	if (off >= size) {
-		dev_dbg(parent, "reading offset (%ld) beyond total size (%ld): %ld\n",
-			off, size);
+		dev_dbg(dev, "offset (%lld) beyond total size: %ld\n", off, size);
 		goto failed;
 	}
 
 	if (off + count > size) {
-		dev_dbg(parent, "reading end (%ld) beyond total size (%ld): %ld\n",
-			off + count, size);
+		dev_dbg(dev, "count (%ld) beyond left bytes: %lld\n", count, size - off);
 		count = size - off;
 	}
 	memcpy(buf, blob + off, count);
