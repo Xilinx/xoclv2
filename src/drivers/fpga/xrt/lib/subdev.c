@@ -63,11 +63,6 @@ static struct xrt_subdev *xrt_subdev_alloc(void)
 	return sdev;
 }
 
-static void xrt_subdev_free(struct xrt_subdev *sdev)
-{
-	kfree(sdev);
-}
-
 int xrt_subdev_root_request(struct xrt_device *self, u32 cmd, void *arg)
 {
 	struct device *dev = DEV(self);
@@ -353,7 +348,7 @@ fail1:
 	if (dtb_alloced)
 		vfree(dtb);
 fail:
-	xrt_subdev_free(sdev);
+	kfree(sdev);
 	return NULL;
 }
 
@@ -369,7 +364,7 @@ static void xrt_subdev_destroy(struct xrt_subdev *sdev)
 		sysfs_remove_link(&find_root(xdev)->kobj, dev_name(dev));
 	sysfs_remove_group(&dev->kobj, &xrt_subdev_attrgroup);
 	xrt_device_unregister(xdev);
-	xrt_subdev_free(sdev);
+	kfree(sdev);
 }
 
 struct xrt_device *
