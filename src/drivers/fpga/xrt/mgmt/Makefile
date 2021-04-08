@@ -28,8 +28,8 @@ endif
 xrt-mgmt-y := root.o		\
 	   xmgnt-main.o		\
 	   xrt-mgr.o		\
-	   main-region.o	\
-	   main-mailbox.o	\
+	   xmgnt-main-region.o	\
+	   xmgnt-main-mailbox.o	\
 	   $(fdtobj)
 
 

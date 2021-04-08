@@ -10,7 +10,7 @@
 #ifndef _XMGMT_XMGNT_H_
 #define _XMGMT_XMGNT_H_
 
-#include "xmgmt-main.h"
+#include "xmgnt-main.h"
 
 struct fpga_manager;
 int xmgmt_process_xclbin(struct xrt_device *xdev,
