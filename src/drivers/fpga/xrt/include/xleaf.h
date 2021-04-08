@@ -31,13 +31,13 @@
 #define xrt_info(xdev, fmt, args...) FMT_PRT(dev_info, xdev, fmt, ##args)
 #define xrt_dbg(xdev, fmt, args...) FMT_PRT(dev_dbg, xdev, fmt, ##args)
 
-#define XRT_DEFINE_REGMAP_CONFIG(config_name)			\
-static const struct regmap_config config_name = {		\
-	.reg_bits = 32,						\
-	.val_bits = 32,						\
-	.reg_stride = 4,					\
-	.max_register = 0x1000,					\
-}
+#define XRT_DEFINE_REGMAP_CONFIG(config_name)				\
+	static const struct regmap_config config_name = {		\
+		.reg_bits = 32,						\
+		.val_bits = 32,						\
+		.reg_stride = 4,					\
+		.max_register = 0x1000,					\
+	}
 
 enum {
 	/* Starting cmd for common leaf cmd implemented by all leaves. */
