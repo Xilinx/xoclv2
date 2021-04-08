@@ -50,9 +50,11 @@ xrt-lib-y := 			\
 	xleaf/clkfreq.o		\
 	xleaf/ucs.o		\
 	xleaf/ddr_calibration.o	\
-	../metadata/metadata.o	\
 	$(fdtobj)
 
+ifndef CONFIG_FPGA_XRT_METADATA
+xrt-lib-y += ../metadata/metadata.o
+endif
 
 CONFIG_MODULE_SIG=n
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
