@@ -22,7 +22,7 @@ void xmgmt_region_cleanup_all(struct xrt_device *xdev);
 int bitstream_axlf_mailbox(struct xrt_device *xdev, const void *xclbin);
 int xmgmt_hot_reset(struct xrt_device *xdev);
 
-/* Getting dtb for specified group. Caller should vfree returned dtb .*/
+/* Getting dtb for specified group. Caller should vfree returned dtb. */
 char *xmgmt_get_dtb(struct xrt_device *xdev, enum provider_kind kind);
 char *xmgmt_get_vbnv(struct xrt_device *xdev);
 int xmgmt_get_provider_uuid(struct xrt_device *xdev,

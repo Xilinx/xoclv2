@@ -50,7 +50,7 @@ struct vsec_device {
 	u8		type;
 	char		*ep_name;
 	ulong		size;
-	char		*regmap;
+	char		*compat;
 };
 
 static struct vsec_device vsec_devs[] = {
@@ -58,34 +58,29 @@ static struct vsec_device vsec_devs[] = {
 		.type = VSEC_TYPE_UUID,
 		.ep_name = XRT_MD_NODE_BLP_ROM,
 		.size = VSEC_UUID_LEN,
-		.regmap = "vsec-uuid",
+		.compat = "vsec-uuid",
 	},
 	{
 		.type = VSEC_TYPE_FLASH,
 		.ep_name = XRT_MD_NODE_FLASH_VSEC,
 		.size = 4096,
-		.regmap = "vsec-flash",
+		.compat = "vsec-flash",
 	},
 	{
 		.type = VSEC_TYPE_PLATINFO,
 		.ep_name = XRT_MD_NODE_PLAT_INFO,
 		.size = 4,
-		.regmap = "vsec-platinfo",
+		.compat = "vsec-platinfo",
 	},
 	{
 		.type = VSEC_TYPE_MAILBOX,
 		.ep_name = XRT_MD_NODE_MAILBOX_VSEC,
 		.size = 48,
-		.regmap = "vsec-mbx",
+		.compat = "vsec-mbx",
 	},
 };
 
-static const struct regmap_config vsec_regmap_config = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_stride = 4,
-	.max_register = 0x1000,
-};
+XRT_DEFINE_REGMAP_CONFIG(vsec_regmap_config);
 
 struct xrt_vsec {
 	struct xrt_device	*xdev;
@@ -111,17 +106,17 @@ static inline int vsec_read_entry(struct xrt_vsec *vsec, u32 index, struct xrt_v
 
 static inline u32 vsec_get_bar(struct xrt_vsec_entry *entry)
 {
-	return ((entry)->bar_rev >> 4) & 0xf;
+	return (entry->bar_rev >> 4) & 0xf;
 }
 
 static inline u64 vsec_get_bar_off(struct xrt_vsec_entry *entry)
 {
-	return (entry)->off_lo | ((u64)(entry)->off_hi << 16);
+	return entry->off_lo | ((u64)entry->off_hi << 16);
 }
 
 static inline u32 vsec_get_rev(struct xrt_vsec_entry *entry)
 {
-	return (entry)->bar_rev & 0xf;
+	return entry->bar_rev & 0xf;
 }
 
 static char *type2epname(u32 type)
@@ -148,13 +143,13 @@ static ulong type2size(u32 type)
 	return 0;
 }
 
-static char *type2regmap(u32 type)
+static char *type2compat(u32 type)
 {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(vsec_devs); i++) {
 		if (vsec_devs[i].type == type)
-			return (vsec_devs[i].regmap);
+			return (vsec_devs[i].compat);
 	}
 
 	return NULL;
@@ -164,7 +159,7 @@ static int xrt_vsec_add_node(struct xrt_vsec *vsec,
 			     void *md_blob, struct xrt_vsec_entry *p_entry)
 {
 	struct xrt_md_endpoint ep;
-	char regmap_ver[64];
+	char compat_ver[64];
 	int ret;
 
 	if (!type2epname(p_entry->type))
@@ -176,15 +171,15 @@ static int xrt_vsec_add_node(struct xrt_vsec *vsec,
 	 * This is not supported for now. Assuming only one mailbox
 	 */
 
-	snprintf(regmap_ver, sizeof(regmap_ver) - 1, "%d-%d.%d.%d",
+	snprintf(compat_ver, sizeof(compat_ver) - 1, "%d-%d.%d.%d",
 		 p_entry->ver_type, p_entry->major, p_entry->minor,
 		 vsec_get_rev(p_entry));
 	ep.ep_name = type2epname(p_entry->type);
-	ep.bar = vsec_get_bar(p_entry);
+	ep.bar_index = vsec_get_bar(p_entry);
 	ep.bar_off = vsec_get_bar_off(p_entry);
 	ep.size = type2size(p_entry->type);
-	ep.regmap = type2regmap(p_entry->type);
-	ep.regmap_ver = regmap_ver;
+	ep.compat = type2compat(p_entry->type);
+	ep.compat_ver = compat_ver;
 	ret = xrt_md_add_endpoint(DEV(vsec->xdev), vsec->metadata, &ep);
 	if (ret)
 		xrt_err(vsec->xdev, "add ep failed, ret %d", ret);
@@ -337,12 +332,12 @@ static int xrt_vsec_probe(struct xrt_device *xdev)
 		xrt_err(xdev, "create metadata failed, ret %d", ret);
 		goto failed;
 	}
-	vsec->group = xleaf_create_group(xdev, vsec->metadata);
+	ret = xleaf_create_group(xdev, vsec->metadata);
 	if (ret < 0) {
 		xrt_err(xdev, "create group failed, ret %d", vsec->group);
-		ret = vsec->group;
 		goto failed;
 	}
+	vsec->group = ret;
 
 	return 0;
 

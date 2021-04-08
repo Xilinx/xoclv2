@@ -26,8 +26,8 @@ fdtobj := 				\
 endif
 
 xrt-mgmt-y := root.o		\
-	   main.o		\
-	   fmgr-drv.o		\
+	   xmgnt-main.o		\
+	   xrt-mgr.o		\
 	   main-region.o	\
 	   main-mailbox.o	\
 	   $(fdtobj)

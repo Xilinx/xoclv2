@@ -366,7 +366,7 @@ static int xroot_root_cb(struct device *dev, void *parg, enum xrt_root_cmd cmd, 
 			rc = xr->pf_cb.xpc_get_resource(xr->dev, res);
 		} else {
 			xroot_err(xr, "get resource is not supported");
-			rc = -ENOTSUPP;
+			rc = -EOPNOTSUPP;
 		}
 		break;
 	}
@@ -386,7 +386,7 @@ static int xroot_root_cb(struct device *dev, void *parg, enum xrt_root_cmd cmd, 
 			xr->pf_cb.xpc_hot_reset(xr->dev);
 		} else {
 			xroot_err(xr, "hot reset is not supported");
-			rc = -ENOTSUPP;
+			rc = -EOPNOTSUPP;
 		}
 		break;
 	}

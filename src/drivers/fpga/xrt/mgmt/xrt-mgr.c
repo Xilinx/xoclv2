@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * FPGA Manager Support for Xilinx Alveo Management Function Driver
+ * FPGA Manager Support for Xilinx Alveo
  *
  * Copyright (C) 2020-2021 Xilinx, Inc.
  *
@@ -15,7 +15,7 @@
 
 #include "xclbin-helper.h"
 #include "xleaf.h"
-#include "fmgr.h"
+#include "xrt-mgr.h"
 #include "xleaf/axigate.h"
 #include "xleaf/icap.h"
 #include "xmgnt.h"

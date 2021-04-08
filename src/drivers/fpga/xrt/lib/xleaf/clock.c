@@ -43,12 +43,7 @@
 
 #define XRT_CLOCK	"xrt_clock"
 
-static const struct regmap_config clock_regmap_config = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_stride = 4,
-	.max_register = 0x1000,
-};
+XRT_DEFINE_REGMAP_CONFIG(clock_regmap_config);
 
 struct clock {
 	struct xrt_device	*xdev;
@@ -635,7 +630,7 @@ failed:
 static struct xrt_dev_endpoints xrt_clock_endpoints[] = {
 	{
 		.xse_names = (struct xrt_dev_ep_names[]) {
-			{ .regmap_name = "clkwiz" },
+			{ .compat = "clkwiz" },
 			{ NULL },
 		},
 		.xse_min_ep = 1,

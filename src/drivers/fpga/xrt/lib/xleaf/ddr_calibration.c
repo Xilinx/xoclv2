@@ -22,12 +22,7 @@
 #define XRT_CALIB_READ_RETRIES		20
 #define XRT_CALIB_READ_INTERVAL		500 /* ms */
 
-static const struct regmap_config calib_regmap_config = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_stride = 4,
-	.max_register = 0x1000,
-};
+XRT_DEFINE_REGMAP_CONFIG(calib_regmap_config);
 
 struct calib_cache {
 	struct list_head	link;

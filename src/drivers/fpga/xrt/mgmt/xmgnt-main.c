@@ -11,7 +11,6 @@
 #include <linux/firmware.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
-#include <linux/io.h>
 #include "xclbin-helper.h"
 #include "metadata.h"
 #include "xleaf/flash.h"
@@ -20,7 +19,7 @@
 #include <linux/xrt/xmgmt-ioctl.h>
 #include "xleaf/devctl.h"
 #include "xmgmt-main.h"
-#include "fmgr.h"
+#include "xrt-mgr.h"
 #include "xleaf/icap.h"
 #include "xleaf/axigate.h"
 #include "xmgnt.h"
@@ -31,7 +30,7 @@
 #define XMGMT_FLAG_FLASH_READY	1
 #define XMGMT_FLAG_DEVCTL_READY	2
 
-#define XMGMT_UUID_STR_LEN	80
+#define XMGMT_UUID_STR_LEN	(UUID_SIZE * 2 + 1)
 
 struct xmgmt_main {
 	struct xrt_device *xdev;
@@ -42,7 +41,6 @@ struct xmgmt_main {
 	struct fpga_manager *fmgr;
 	void *mailbox_hdl;
 	struct mutex lock; /* busy lock */
-
 	uuid_t *blp_interface_uuids;
 	u32 blp_interface_uuid_num;
 };
@@ -450,7 +448,8 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 	rc = xrt_md_get_interface_uuids(&xdev->dev, dtb, 0, NULL);
 	if (rc > 0) {
 		xmm->blp_interface_uuid_num = rc;
-		xmm->blp_interface_uuids = vzalloc(sizeof(uuid_t) * xmm->blp_interface_uuid_num);
+		xmm->blp_interface_uuids =
+			kcalloc(xmm->blp_interface_uuid_num, sizeof(uuid_t), GFP_KERNEL);
 		if (!xmm->blp_interface_uuids) {
 			rc = -ENOMEM;
 			goto failed;
@@ -557,7 +556,7 @@ static void xmgmt_main_remove(struct xrt_device *xdev)
 
 	xrt_info(xdev, "leaving...");
 
-	vfree(xmm->blp_interface_uuids);
+	kfree(xmm->blp_interface_uuids);
 	vfree(xmm->firmware_blp);
 	vfree(xmm->firmware_plp);
 	vfree(xmm->firmware_ulp);
