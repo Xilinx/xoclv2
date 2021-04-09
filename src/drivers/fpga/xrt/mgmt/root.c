@@ -36,10 +36,17 @@
 	((pci_domain_nr((pcidev)->bus) << 16) |	\
 	PCI_DEVID((pcidev)->bus->number, 0)); })
 #define XRT_VSEC_ID		0x20
+#define XRT_MAX_READRQ		512
 
 static struct class *xmgmt_class;
 
 /* PCI Device IDs */
+/*
+ * Golden image is preloaded on the device when it is shipped to customer.
+ * Then, customer can load other shells (from Xilinx or some other vendor).
+ * If something goes wrong with the shell, customer can always go back to
+ * golden and start over again.
+ */
 #define PCI_DEVICE_ID_U50_GOLDEN	0xD020
 #define PCI_DEVICE_ID_U50		0x5020
 static const struct pci_device_id xmgmt_pci_ids[] = {
@@ -73,8 +80,8 @@ static int xmgmt_config_pci(struct xmgmt *xm)
 	pci_set_master(pdev);
 
 	rc = pcie_get_readrq(pdev);
-	if (rc > 512)
-		pcie_set_readrq(pdev, 512);
+	if (rc > XRT_MAX_READRQ)
+		pcie_set_readrq(pdev, XRT_MAX_READRQ);
 	return 0;
 }
 
@@ -125,11 +132,8 @@ static void xmgmt_root_hot_reset(struct device *dev)
 
 	xm = pci_get_drvdata(pdev);
 	xmgmt_info(xm, "hot reset start");
-
 	xmgmt_pci_save_config_all(xm);
-
 	pci_disable_device(pdev);
-
 	bus = pdev->bus;
 
 	/*
@@ -165,7 +169,7 @@ static void xmgmt_root_hot_reset(struct device *dev)
 		msleep(20);
 	}
 	if (i == 300)
-		xmgmt_err(xm, "time'd out waiting for device to be online after reset");
+		xmgmt_err(xm, "timed out waiting for device to be online after reset");
 
 	xmgmt_info(xm, "waiting for %d ms", i * 20);
 	xmgmt_pci_restore_config_all(xm);
