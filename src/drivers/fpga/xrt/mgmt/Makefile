@@ -26,10 +26,10 @@ fdtobj := 				\
 endif
 
 xrt-mgmt-y := root.o		\
-	   main.o		\
-	   fmgr-drv.o		\
-	   main-region.o	\
-	   main-mailbox.o	\
+	   xmgnt-main.o		\
+	   xrt-mgr.o		\
+	   xmgnt-main-region.o	\
+	   xmgnt-main-mailbox.o	\
 	   $(fdtobj)
 
 

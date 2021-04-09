@@ -158,7 +158,7 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 	struct resource *pci_res = NULL;
 	const u64 *bar_range;
 	const u32 *bar_idx;
-	char *ep_name = NULL, *regmap = NULL;
+	char *ep_name = NULL, *compat = NULL;
 	uint bar;
 	int count1 = 0, count2 = 0, ret;
 
@@ -168,13 +168,13 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 	pdata = DEV_PDATA(to_xrt_dev(parent));
 
 	/* go through metadata and count endpoints in it */
-	xrt_md_get_next_endpoint(parent, dtb, NULL, NULL, &ep_name, &regmap);
+	xrt_md_get_next_endpoint(parent, dtb, NULL, NULL, &ep_name, &compat);
 	while (ep_name) {
-		ret = xrt_md_get_prop(parent, dtb, ep_name, regmap,
+		ret = xrt_md_get_prop(parent, dtb, ep_name, compat,
 				      XRT_MD_PROP_IO_OFFSET, (const void **)&bar_range, NULL);
 		if (!ret)
 			count1++;
-		xrt_md_get_next_endpoint(parent, dtb, ep_name, regmap, &ep_name, &regmap);
+		xrt_md_get_next_endpoint(parent, dtb, ep_name, compat, &ep_name, &compat);
 	}
 	if (!count1)
 		return 0;
@@ -184,13 +184,13 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 
 	/* go through all endpoints again and get IO range for each endpoint */
 	ep_name = NULL;
-	xrt_md_get_next_endpoint(parent, dtb, NULL, NULL, &ep_name, &regmap);
+	xrt_md_get_next_endpoint(parent, dtb, NULL, NULL, &ep_name, &compat);
 	while (ep_name) {
-		ret = xrt_md_get_prop(parent, dtb, ep_name, regmap,
+		ret = xrt_md_get_prop(parent, dtb, ep_name, compat,
 				      XRT_MD_PROP_IO_OFFSET, (const void **)&bar_range, NULL);
 		if (ret)
 			continue;
-		xrt_md_get_prop(parent, dtb, ep_name, regmap,
+		xrt_md_get_prop(parent, dtb, ep_name, compat,
 				XRT_MD_PROP_BAR_IDX, (const void **)&bar_idx, NULL);
 		bar = bar_idx ? be32_to_cpu(*bar_idx) : 0;
 		xleaf_get_root_res(to_xrt_dev(parent), bar, &pci_res);
@@ -212,10 +212,10 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 		(*res)[count2].parent = pci_res;
 
 		xrt_md_find_endpoint(parent, pdata->xsp_dtb, ep_name,
-				     regmap, &(*res)[count2].name);
+				     compat, &(*res)[count2].name);
 
 		count2++;
-		xrt_md_get_next_endpoint(parent, dtb, ep_name, regmap, &ep_name, &regmap);
+		xrt_md_get_next_endpoint(parent, dtb, ep_name, compat, &ep_name, &compat);
 	}
 
 	WARN_ON(count1 != count2);

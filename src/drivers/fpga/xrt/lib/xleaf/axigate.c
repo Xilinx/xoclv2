@@ -32,19 +32,12 @@ struct xrt_axigate {
 	struct xrt_device	*xdev;
 	struct regmap		*regmap;
 	struct mutex		gate_lock; /* gate dev lock */
-
 	void			*evt_hdl;
 	const char		*ep_name;
-
 	bool			gate_closed;
 };
 
-static const struct regmap_config axigate_regmap_config = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_stride = 4,
-	.max_register = 0x1000,
-};
+XRT_DEFINE_REGMAP_CONFIG(axigate_regmap_config);
 
 /* the ep names are in the order of hardware layers */
 static const char * const xrt_axigate_epnames[] = {

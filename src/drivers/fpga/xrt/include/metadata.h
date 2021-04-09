@@ -13,7 +13,7 @@
 #include <linux/vmalloc.h>
 #include <linux/uuid.h>
 
-#define XRT_MD_INVALID_LENGTH (~0UL)
+#define XRT_MD_INVALID_LENGTH (~0U)
 
 /* metadata properties */
 #define XRT_MD_PROP_BAR_IDX "pcie_bar_mapping"
@@ -38,6 +38,7 @@
  * AF:  AXI Firewall
  * CMC: Card Management Controller
  * ERT: Embedded Runtime
+ * EP:  End Point
  * PLP: Provider Reconfigurable Partition
  * ULP: User Reconfigurable Partition
  */
@@ -47,11 +48,11 @@
 #define XRT_MD_NODE_AF_CTRL_DEBUG "ep_firewall_ctrl_debug_00"
 #define XRT_MD_NODE_AF_CTRL_MGMT "ep_firewall_ctrl_mgmt_00"
 #define XRT_MD_NODE_AF_CTRL_USER "ep_firewall_ctrl_user_00"
-#define XRT_MD_NODE_AF_DATA_C2H "ep_firewall_data_c2h_00"
-#define XRT_MD_NODE_AF_DATA_H2C "ep_firewall_data_h2c_00"
+#define XRT_MD_NODE_AF_DATA_C2H "ep_firewall_data_c2h_00" /* c2h: card to host */
+#define XRT_MD_NODE_AF_DATA_H2C "ep_firewall_data_h2c_00" /* h2c: host to card */
 #define XRT_MD_NODE_AF_DATA_M2M "ep_firewall_data_m2m_00"
 #define XRT_MD_NODE_AF_DATA_P2P "ep_firewall_data_p2p_00"
-#define XRT_MD_NODE_CLKFREQ_HBM "ep_freq_cnt_aclk_hbm_00"
+#define XRT_MD_NODE_CLKFREQ_HBM "ep_freq_cnt_aclk_hbm_00" /* hbm: High Bandwidth Memory */
 #define XRT_MD_NODE_CLKFREQ_K1 "ep_freq_cnt_aclk_kernel_00"
 #define XRT_MD_NODE_CLKFREQ_K2 "ep_freq_cnt_aclk_kernel_01"
 #define XRT_MD_NODE_CLK_KERNEL1 "ep_aclk_kernel_00"
@@ -95,9 +96,9 @@
 #define XRT_MD_NODE_XVC_PRI "ep_debug_bscan_mgmt_00"
 #define XRT_MD_NODE_UCS_CONTROL_STATUS "ep_ucs_control_status_00"
 
-/* endpoint regmaps */
-#define XRT_MD_REGMAP_DDR_SRSR "drv_ddr_srsr"
-#define XRT_MD_REGMAP_CLKFREQ "freq_cnt"
+/* endpoint compatible string */
+#define XRT_MD_COMPAT_DDR_SRSR "drv_ddr_srsr"
+#define XRT_MD_COMPAT_CLKFREQ "freq_cnt"
 
 /* driver defined endpoints */
 #define XRT_MD_NODE_BLP_ROM "drv_ep_blp_rom_00"
@@ -123,11 +124,11 @@
 
 struct xrt_md_endpoint {
 	const char	*ep_name;
-	u32		bar;
+	u32		bar_index;
 	u64		bar_off;
-	ulong		size;
-	char		*regmap;
-	char		*regmap_ver;
+	u64		size;
+	char		*compat;
+	char		*compat_ver;
 };
 
 /* Note: res_id is defined by leaf driver and must start with 0. */
@@ -162,29 +163,29 @@ xrt_md_res_id2name(const struct xrt_iores_map *res_map, int entry_num, int id)
 	return NULL;
 }
 
-unsigned long xrt_md_size(struct device *dev, const char *blob);
+u32 xrt_md_size(struct device *dev, const char *blob);
 int xrt_md_create(struct device *dev, char **blob);
 char *xrt_md_dup(struct device *dev, const char *blob);
 int xrt_md_add_endpoint(struct device *dev, char *blob,
 			struct xrt_md_endpoint *ep);
 int xrt_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
-			const char *regmap_name);
+			const char *compat);
 int xrt_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
-		    const char *regmap_name, const char *prop,
+		    const char *compat, const char *prop,
 		    const void **val, int *size);
 int xrt_md_set_prop(struct device *dev, char *blob, const char *ep_name,
-		    const char *regmap_name, const char *prop,
+		    const char *compat, const char *prop,
 		    const void *val, int size);
 int xrt_md_copy_endpoint(struct device *dev, char *blob, const char *src_blob,
-			 const char *ep_name, const char *regmap_name,
+			 const char *ep_name, const char *compat,
 			 const char *new_ep_name);
 int xrt_md_get_next_endpoint(struct device *dev, const char *blob,
-			     const char *ep_name,  const char *regmap_name,
-			     char **next_ep, char **next_regmap);
+			     const char *ep_name,  const char *compat,
+			     char **next_ep, char **next_compat);
 int xrt_md_get_compatible_endpoint(struct device *dev, const char *blob,
-				   const char *regmap_name, const char **ep_name);
+				   const char *compat, const char **ep_name);
 int xrt_md_find_endpoint(struct device *dev, const char *blob,
-			 const char *ep_name, const char *regmap_name,
+			 const char *ep_name, const char *compat,
 			 const char **epname);
 int xrt_md_pack(struct device *dev, char *blob);
 int xrt_md_get_interface_uuids(struct device *dev, const char *blob,
@@ -214,7 +215,9 @@ static inline int xrt_md_trans_str2uuid(struct device *dev, const char *uuidstr,
 	char tmp[3] = { 0 };
 	int i, ret;
 
-	BUILD_BUG_ON(UUID_SIZE != 16);
+	if (strlen(uuidstr) != UUID_SIZE * 2)
+		return -EINVAL;
+
 	str = uuidstr + strlen(uuidstr) - 2;
 
 	for (i = 0; i < sizeof(*p_uuid) && str >= uuidstr; i++) {

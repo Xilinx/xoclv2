@@ -12,8 +12,8 @@
 #include "libfdt.h"
 #include "metadata.h"
 
-#define MAX_BLOB_SIZE	(4096 * 25)
-#define MAX_DEPTH 5
+#define XRT_MAX_BLOB_SIZE	(4096 * 25)
+#define XRT_MAX_DEPTH 5
 
 static int xrt_md_setprop(struct device *dev, char *blob, int offset,
 			  const char *prop, const void *val, int size)
@@ -21,8 +21,10 @@ static int xrt_md_setprop(struct device *dev, char *blob, int offset,
 	int ret;
 
 	ret = fdt_setprop(blob, offset, prop, val, size);
-	if (ret)
+	if (ret) {
+		ret = -EINVAL;
 		dev_err(dev, "failed to set prop %d", ret);
+	}
 
 	return ret;
 }
@@ -33,29 +35,41 @@ static int xrt_md_add_node(struct device *dev, char *blob, int parent_offset,
 	int ret;
 
 	ret = fdt_add_subnode(blob, parent_offset, ep_name);
-	if (ret < 0 && ret != -FDT_ERR_EXISTS)
+	if (ret < 0 && ret != -FDT_ERR_EXISTS) {
+		ret = -EINVAL;
 		dev_err(dev, "failed to add node %s. %d", ep_name, ret);
+	}
 
 	return ret;
 }
 
 static int xrt_md_get_endpoint(struct device *dev, const char *blob,
-			       const char *ep_name, const char *regmap_name,
+			       const char *ep_name, const char *compat,
 			       int *ep_offset)
 {
 	const char *name;
 	int offset;
 
-	for (offset = fdt_next_node(blob, -1, NULL);
-	    offset >= 0;
-	    offset = fdt_next_node(blob, offset, NULL)) {
-		name = fdt_get_name(blob, offset, NULL);
-		if (!name || strncmp(name, ep_name, strlen(ep_name) + 1))
-			continue;
-		if (!regmap_name ||
-		    !fdt_node_check_compatible(blob, offset, regmap_name))
-			break;
+	if (compat) {
+		for (offset = fdt_next_node((blob), -1, NULL);
+		     offset >= 0;
+		     offset = fdt_next_node((blob), offset, NULL)) {
+			name = fdt_get_name(blob, offset, NULL);
+			if (!name || strncmp(name, ep_name, strlen(ep_name) + 1))
+				continue;
+			if (!fdt_node_check_compatible(blob, offset, compat))
+				break;
+		}
+	} else {
+		for (offset = fdt_next_node((blob), -1, NULL);
+		     offset >= 0;
+		     offset = fdt_next_node((blob), offset, NULL)) {
+			name = fdt_get_name(blob, offset, NULL);
+			if (name && !strncmp(name, ep_name, strlen(ep_name) + 1))
+				break;
+		}
 	}
+
 	if (offset < 0)
 		return -ENODEV;
 
@@ -65,17 +79,21 @@ static int xrt_md_get_endpoint(struct device *dev, const char *blob,
 }
 
 static inline int xrt_md_get_node(struct device *dev, const char *blob,
-				  const char *name, const char *regmap_name,
+				  const char *name, const char *compat,
 				  int *offset)
 {
 	int ret = 0;
 
 	if (name) {
-		ret = xrt_md_get_endpoint(dev, blob, name, regmap_name,
+		ret = xrt_md_get_endpoint(dev, blob, name, compat,
 					  offset);
 		if (ret) {
-			dev_err(dev, "cannot get node %s, regmap %s, ret = %d",
-				name, regmap_name, ret);
+			if (compat) {
+				dev_err(dev, "cannot get node %s compat %s, ret %d",
+					name, compat, ret);
+			} else {
+				dev_err(dev, "cannot get node %s, ret %d", name, ret);
+			}
 			return -EINVAL;
 		}
 	} else {
@@ -94,16 +112,16 @@ static int xrt_md_overlay(struct device *dev, char *blob, int target,
 			  const char *overlay_blob, int overlay_offset,
 			  int depth)
 {
-	int	property, subnode;
-	int	ret;
+	int property, subnode;
+	int ret;
 
 	if (!blob || !overlay_blob) {
 		dev_err(dev, "blob is NULL");
 		return -EINVAL;
 	}
 
-	if (depth > MAX_DEPTH) {
-		dev_err(dev, "meta data depth beyond %d", MAX_DEPTH);
+	if (depth > XRT_MAX_DEPTH) {
+		dev_err(dev, "meta data depth beyond %d", XRT_MAX_DEPTH);
 		return -EINVAL;
 	}
 
@@ -129,7 +147,7 @@ static int xrt_md_overlay(struct device *dev, char *blob, int target,
 
 		prop = fdt_getprop_by_offset(overlay_blob, property, &name,
 					     &prop_len);
-		if (!prop || prop_len >= MAX_BLOB_SIZE || prop_len < 0) {
+		if (!prop || prop_len >= XRT_MAX_BLOB_SIZE || prop_len < 0) {
 			dev_err(dev, "internal error");
 			return -EINVAL;
 		}
@@ -151,7 +169,7 @@ static int xrt_md_overlay(struct device *dev, char *blob, int target,
 			nnode = fdt_subnode_offset(blob, target, name);
 		if (nnode < 0) {
 			dev_err(dev, "add node failed, ret = %d", nnode);
-			return nnode;
+			return -EINVAL;
 		}
 
 		ret = xrt_md_overlay(dev, blob, nnode, overlay_blob, subnode, depth + 1);
@@ -162,11 +180,11 @@ static int xrt_md_overlay(struct device *dev, char *blob, int target,
 	return 0;
 }
 
-unsigned long xrt_md_size(struct device *dev, const char *blob)
+u32 xrt_md_size(struct device *dev, const char *blob)
 {
-	unsigned long len = (long)fdt_totalsize(blob);
+	u32 len = fdt_totalsize(blob);
 
-	if (len > MAX_BLOB_SIZE)
+	if (len > XRT_MAX_BLOB_SIZE)
 		return XRT_MD_INVALID_LENGTH;
 
 	return len;
@@ -182,24 +200,27 @@ int xrt_md_create(struct device *dev, char **blob)
 		return -EINVAL;
 	}
 
-	*blob = vzalloc(MAX_BLOB_SIZE);
+	*blob = vzalloc(XRT_MAX_BLOB_SIZE);
 	if (!*blob)
 		return -ENOMEM;
 
-	ret = fdt_create_empty_tree(*blob, MAX_BLOB_SIZE);
+	ret = fdt_create_empty_tree(*blob, XRT_MAX_BLOB_SIZE);
 	if (ret) {
+		ret = -EINVAL;
 		dev_err(dev, "format blob failed, ret = %d", ret);
 		goto failed;
 	}
 
 	ret = fdt_next_node(*blob, -1, NULL);
 	if (ret < 0) {
+		ret = -EINVAL;
 		dev_err(dev, "No Node, ret = %d", ret);
 		goto failed;
 	}
 
 	ret = fdt_add_subnode(*blob, 0, XRT_MD_NODE_ENDPOINTS);
 	if (ret < 0) {
+		ret = -EINVAL;
 		dev_err(dev, "add node failed, ret = %d", ret);
 		goto failed;
 	}
@@ -233,20 +254,22 @@ char *xrt_md_dup(struct device *dev, const char *blob)
 EXPORT_SYMBOL_GPL(xrt_md_dup);
 
 int xrt_md_del_endpoint(struct device *dev, char *blob, const char *ep_name,
-			const char *regmap_name)
+			const char *compat)
 {
 	int ep_offset;
 	int ret;
 
-	ret = xrt_md_get_endpoint(dev, blob, ep_name, regmap_name, &ep_offset);
+	ret = xrt_md_get_endpoint(dev, blob, ep_name, compat, &ep_offset);
 	if (ret) {
 		dev_err(dev, "can not find ep %s", ep_name);
 		return -EINVAL;
 	}
 
 	ret = fdt_del_node(blob, ep_offset);
-	if (ret)
+	if (ret) {
+		ret = -EINVAL;
 		dev_err(dev, "delete node %s failed, ret %d", ep_name, ret);
+	}
 
 	return ret;
 }
@@ -285,7 +308,7 @@ static int __xrt_md_add_endpoint(struct device *dev, char *blob,
 		*offset = ep_offset;
 
 	if (ep->size != 0) {
-		val = cpu_to_be32(ep->bar);
+		val = cpu_to_be32(ep->bar_index);
 		ret = xrt_md_setprop(dev, blob, ep_offset, XRT_MD_PROP_BAR_IDX,
 				     &val, sizeof(u32));
 		if (ret) {
@@ -304,21 +327,21 @@ static int __xrt_md_add_endpoint(struct device *dev, char *blob,
 		}
 	}
 
-	if (ep->regmap) {
-		if (ep->regmap_ver) {
+	if (ep->compat) {
+		if (ep->compat_ver) {
 			count = snprintf(comp, sizeof(comp) - 1,
-					 "%s-%s", ep->regmap, ep->regmap_ver);
+					 "%s-%s", ep->compat, ep->compat_ver);
 			count++;
 		}
-		if (count > sizeof(comp)) {
+		if (count >= sizeof(comp)) {
 			ret = -EINVAL;
 			goto failed;
 		}
 
 		count += snprintf(comp + count, sizeof(comp) - count - 1,
-				  "%s", ep->regmap);
+				  "%s", ep->compat);
 		count++;
-		if (count > sizeof(comp)) {
+		if (count >= sizeof(comp)) {
 			ret = -EINVAL;
 			goto failed;
 		}
@@ -347,23 +370,29 @@ int xrt_md_add_endpoint(struct device *dev, char *blob,
 EXPORT_SYMBOL_GPL(xrt_md_add_endpoint);
 
 int xrt_md_find_endpoint(struct device *dev, const char *blob,
-			 const char *ep_name, const char *regmap_name,
+			 const char *ep_name, const char *compat,
 			 const char **epname)
 {
 	int offset;
 	int ret;
 
-	ret = xrt_md_get_endpoint(dev, blob, ep_name, regmap_name,
+	ret = xrt_md_get_endpoint(dev, blob, ep_name, compat,
 				  &offset);
-	if (!ret && epname)
-		*epname = fdt_get_name(blob, offset, NULL);
+	if (ret)
+		return ret;
 
-	return ret;
+	if (epname) {
+		*epname = fdt_get_name(blob, offset, NULL);
+		if (!*epname)
+			return -EINVAL;
+	}
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(xrt_md_find_endpoint);
 
 int xrt_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
-		    const char *regmap_name, const char *prop,
+		    const char *compat, const char *prop,
 		    const void **val, int *size)
 {
 	int offset;
@@ -375,7 +404,7 @@ int xrt_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
 	}
 
 	*val = NULL;
-	ret = xrt_md_get_node(dev, blob, ep_name, regmap_name, &offset);
+	ret = xrt_md_get_node(dev, blob, ep_name, compat, &offset);
 	if (ret)
 		return ret;
 
@@ -390,13 +419,13 @@ int xrt_md_get_prop(struct device *dev, const char *blob, const char *ep_name,
 EXPORT_SYMBOL_GPL(xrt_md_get_prop);
 
 int xrt_md_set_prop(struct device *dev, char *blob,
-		    const char *ep_name, const char *regmap_name,
+		    const char *ep_name, const char *compat,
 		    const char *prop, const void *val, int size)
 {
 	int offset;
 	int ret;
 
-	ret = xrt_md_get_node(dev, blob, ep_name, regmap_name, &offset);
+	ret = xrt_md_get_node(dev, blob, ep_name, compat, &offset);
 	if (ret)
 		return ret;
 
@@ -409,7 +438,7 @@ int xrt_md_set_prop(struct device *dev, char *blob,
 EXPORT_SYMBOL_GPL(xrt_md_set_prop);
 
 int xrt_md_copy_endpoint(struct device *dev, char *blob, const char *src_blob,
-			 const char *ep_name, const char *regmap_name,
+			 const char *ep_name, const char *compat,
 			 const char *new_ep_name)
 {
 	const char *newepnm = new_ep_name ? new_ep_name : ep_name;
@@ -418,12 +447,12 @@ int xrt_md_copy_endpoint(struct device *dev, char *blob, const char *src_blob,
 	const char *parent;
 	int ret;
 
-	ret = xrt_md_get_endpoint(dev, src_blob, ep_name, regmap_name,
+	ret = xrt_md_get_endpoint(dev, src_blob, ep_name, compat,
 				  &offset);
 	if (ret)
 		return -EINVAL;
 
-	ret = xrt_md_get_endpoint(dev, blob, newepnm, regmap_name, &target);
+	ret = xrt_md_get_endpoint(dev, blob, newepnm, compat, &target);
 	if (ret) {
 		ep.ep_name = newepnm;
 		parent = fdt_parent_offset(src_blob, offset) == 0 ? NULL : XRT_MD_NODE_ENDPOINTS;
@@ -441,31 +470,33 @@ int xrt_md_copy_endpoint(struct device *dev, char *blob, const char *src_blob,
 EXPORT_SYMBOL_GPL(xrt_md_copy_endpoint);
 
 int xrt_md_get_next_endpoint(struct device *dev, const char *blob,
-			     const char *ep_name, const char *regmap_name,
-			     char **next_ep, char **next_regmap)
+			     const char *ep_name, const char *compat,
+			     char **next_ep, char **next_compat)
 {
 	int offset, ret;
 
 	*next_ep = NULL;
-	*next_regmap = NULL;
+	*next_compat = NULL;
 	if (!ep_name) {
 		ret = xrt_md_get_endpoint(dev, blob, XRT_MD_NODE_ENDPOINTS, NULL,
 					  &offset);
 	} else {
-		ret = xrt_md_get_endpoint(dev, blob, ep_name, regmap_name,
+		ret = xrt_md_get_endpoint(dev, blob, ep_name, compat,
 					  &offset);
 	}
 
 	if (ret)
 		return -EINVAL;
 
-	offset = ep_name ? fdt_next_subnode(blob, offset) :
-		fdt_first_subnode(blob, offset);
+	if (ep_name)
+		offset = fdt_next_subnode(blob, offset);
+	else
+		offset = fdt_first_subnode(blob, offset);
 	if (offset < 0)
 		return -EINVAL;
 
 	*next_ep = (char *)fdt_get_name(blob, offset, NULL);
-	*next_regmap = (char *)fdt_stringlist_get(blob, offset, XRT_MD_PROP_COMPATIBLE,
+	*next_compat = (char *)fdt_stringlist_get(blob, offset, XRT_MD_PROP_COMPATIBLE,
 						  0, NULL);
 
 	return 0;
@@ -473,11 +504,11 @@ int xrt_md_get_next_endpoint(struct device *dev, const char *blob,
 EXPORT_SYMBOL_GPL(xrt_md_get_next_endpoint);
 
 int xrt_md_get_compatible_endpoint(struct device *dev, const char *blob,
-				   const char *regmap_name, const char **ep_name)
+				   const char *compat, const char **ep_name)
 {
 	int ep_offset;
 
-	ep_offset = fdt_node_offset_by_compatible(blob, -1, regmap_name);
+	ep_offset = fdt_node_offset_by_compatible(blob, -1, compat);
 	if (ep_offset < 0) {
 		*ep_name = NULL;
 		return -ENOENT;
@@ -494,8 +525,10 @@ int xrt_md_pack(struct device *dev, char *blob)
 	int ret;
 
 	ret = fdt_pack(blob);
-	if (ret)
+	if (ret) {
+		ret = -EINVAL;
 		dev_err(dev, "pack failed %d", ret);
+	}
 
 	return ret;
 }

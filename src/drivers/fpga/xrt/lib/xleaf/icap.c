@@ -70,18 +70,12 @@ static const u32 idcode_stream[] = {
 	cpu_to_be32(0x20000000),
 };
 
-static const struct regmap_config icap_regmap_config = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_stride = 4,
-	.max_register = 0x1000,
-};
+XRT_DEFINE_REGMAP_CONFIG(icap_regmap_config);
 
 struct icap {
 	struct xrt_device	*xdev;
 	struct regmap		*regmap;
 	struct mutex		icap_lock; /* icap dev lock */
-
 	u32			idcode;
 };
 

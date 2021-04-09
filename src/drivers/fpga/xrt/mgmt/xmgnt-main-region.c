@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * FPGA Region Support for Xilinx Alveo Management Function Driver
+ * FPGA Region Support for Xilinx Alveo
  *
  * Copyright (C) 2020-2021 Xilinx, Inc.
- * Bulk of the code borrowed from XRT mgmt driver file, fmgr.c
  *
  * Authors: Lizhi.Hou@xilinx.com
  */
@@ -11,6 +10,7 @@
 #include <linux/uuid.h>
 #include <linux/fpga/fpga-bridge.h>
 #include <linux/fpga/fpga-region.h>
+#include <linux/slab.h>
 #include "metadata.h"
 #include "xleaf.h"
 #include "xleaf/axigate.h"
@@ -26,10 +26,10 @@ struct xmgmt_region {
 	struct xrt_device *xdev;
 	struct fpga_region *region;
 	struct fpga_compat_id compat_id;
-	uuid_t intf_uuid;
+	uuid_t interface_uuid;
 	struct fpga_bridge *bridge;
 	int group_instance;
-	uuid_t dep_uuid;
+	uuid_t depend_uuid;
 	struct list_head list;
 };
 
@@ -144,7 +144,7 @@ static void xmgmt_destroy_region(struct fpga_region *region)
 	struct xmgmt_region *r_data = region->priv;
 
 	xrt_info(r_data->xdev, "destroy fpga region %llx.%llx",
-		 region->compat_id->id_l, region->compat_id->id_h);
+		 region->compat_id->id_h, region->compat_id->id_l);
 
 	fpga_region_unregister(region);
 
@@ -203,7 +203,7 @@ static int xmgmt_region_match_base(struct device *dev, const void *data)
 
 	match_region = to_fpga_region(dev);
 	r_data = match_region->priv;
-	if (uuid_is_null(&r_data->dep_uuid))
+	if (uuid_is_null(&r_data->depend_uuid))
 		return true;
 
 	return false;
@@ -223,7 +223,7 @@ static int xmgmt_region_match_by_uuid(struct device *dev, const void *data)
 
 	match_region = to_fpga_region(dev);
 	r_data = match_region->priv;
-	if (uuid_equal(&r_data->dep_uuid, arg->uuids))
+	if (uuid_equal(&r_data->depend_uuid, arg->uuids))
 		return true;
 
 	return false;
@@ -379,7 +379,7 @@ int xmgmt_process_xclbin(struct xrt_device *xdev,
 		goto failed;
 	}
 	arg.uuid_num = rc;
-	arg.uuids = vzalloc(sizeof(uuid_t) * arg.uuid_num);
+	arg.uuids = kcalloc(arg.uuid_num, sizeof(uuid_t), GFP_KERNEL);
 	if (!arg.uuids) {
 		rc = -ENOMEM;
 		goto failed;
@@ -436,9 +436,9 @@ int xmgmt_process_xclbin(struct xrt_device *xdev,
 		r_data->xdev = xdev;
 		r_data->region = region;
 		r_data->group_instance = -1;
-		uuid_copy(&r_data->intf_uuid, &arg.uuids[i]);
+		uuid_copy(&r_data->interface_uuid, &arg.uuids[i]);
 		if (compat_region)
-			import_uuid(&r_data->dep_uuid, (const char *)compat_region->compat_id);
+			import_uuid(&r_data->depend_uuid, (const char *)compat_region->compat_id);
 		r_data->bridge = xmgmt_create_bridge(xdev, dtb);
 		if (!r_data->bridge) {
 			xrt_err(xdev, "failed to create fpga bridge");
@@ -449,7 +449,7 @@ int xmgmt_process_xclbin(struct xrt_device *xdev,
 		}
 
 		region->compat_id = &r_data->compat_id;
-		export_uuid((char *)region->compat_id, &r_data->intf_uuid);
+		export_uuid((char *)region->compat_id, &r_data->interface_uuid);
 		region->priv = r_data;
 
 		rc = fpga_region_register(region);
@@ -461,13 +461,14 @@ int xmgmt_process_xclbin(struct xrt_device *xdev,
 			goto failed;
 		}
 
-		xrt_info(xdev, "created fpga region %llx%llx",
-			 region->compat_id->id_l, region->compat_id->id_h);
+		xrt_info(xdev, "created fpga region %llx.%llx",
+			 region->compat_id->id_h, region->compat_id->id_l);
 	}
 
 	if (compat_region)
 		put_device(&compat_region->dev);
 	vfree(dtb);
+	kfree(arg.uuids);
 	return 0;
 
 failed:
@@ -479,5 +480,6 @@ failed:
 	}
 
 	vfree(dtb);
+	kfree(arg.uuids);
 	return rc;
 }

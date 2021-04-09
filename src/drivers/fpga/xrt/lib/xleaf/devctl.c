@@ -29,11 +29,7 @@ static struct xrt_name_id name_id[XRT_DEVCTL_MAX] = {
 	{ XRT_MD_NODE_GOLDEN_VER, XRT_DEVCTL_GOLDEN_VER },
 };
 
-static const struct regmap_config devctl_regmap_config = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_stride = 4,
-};
+XRT_DEFINE_REGMAP_CONFIG(devctl_regmap_config);
 
 struct xrt_devctl {
 	struct xrt_device	*xdev;

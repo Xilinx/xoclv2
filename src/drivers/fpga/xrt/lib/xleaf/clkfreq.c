@@ -40,12 +40,7 @@
 
 #define XRT_CLKFREQ_READ_RETRIES	10
 
-static const struct regmap_config clkfreq_regmap_config = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_stride = 4,
-	.max_register = 0x1000,
-};
+XRT_DEFINE_REGMAP_CONFIG(clkfreq_regmap_config);
 
 struct clkfreq {
 	struct xrt_device	*xdev;
@@ -206,7 +201,7 @@ failed:
 static struct xrt_dev_endpoints xrt_clkfreq_endpoints[] = {
 	{
 		.xse_names = (struct xrt_dev_ep_names[]) {
-			{ .regmap_name = XRT_MD_REGMAP_CLKFREQ },
+			{ .compat = XRT_MD_COMPAT_CLKFREQ },
 			{ NULL },
 		},
 		.xse_min_ep = 1,

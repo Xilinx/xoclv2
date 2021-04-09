@@ -117,12 +117,13 @@ static void xmgmt_pci_restore_config_all(struct xmgmt *xm)
 static void xmgmt_root_hot_reset(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
-	struct xmgmt *xm = pci_get_drvdata(pdev);
 	struct pci_bus *bus;
-	u8 pci_bctl;
 	u16 pci_cmd, devctl;
+	struct xmgmt *xm;
+	u8 pci_bctl;
 	int i, ret;
 
+	xm = pci_get_drvdata(pdev);
 	xmgmt_info(xm, "hot reset start");
 
 	xmgmt_pci_save_config_all(xm);
@@ -289,8 +290,9 @@ static void xmgmt_root_get_id(struct device *dev, struct xrt_root_get_id *rid)
 static int xmgmt_root_get_resource(struct device *dev, struct xrt_root_get_res *res)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
-	struct xmgmt *xm = pci_get_drvdata(pdev);
+	struct xmgmt *xm;
 
+	xm = pci_get_drvdata(pdev);
 	if (res->xpigr_region_id > PCI_STD_RESOURCE_END) {
 		xmgmt_err(xm, "Invalid bar idx %d", res->xpigr_region_id);
 		return -EINVAL;

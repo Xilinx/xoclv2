@@ -65,19 +65,19 @@ static int xrt_grp_cut_subdev_dtb(struct xrt_group *xg, struct xrt_dev_endpoints
 	if (ret)
 		return ret;
 
-	for (i = 0; eps->xse_names[i].ep_name || eps->xse_names[i].regmap_name; i++) {
+	for (i = 0; eps->xse_names[i].ep_name || eps->xse_names[i].compat; i++) {
 		const char *ep_name = eps->xse_names[i].ep_name;
-		const char *reg_name = eps->xse_names[i].regmap_name;
+		const char *compat = eps->xse_names[i].compat;
 
 		if (!ep_name)
-			xrt_md_get_compatible_endpoint(DEV(xg->xdev), grp_dtb, reg_name, &ep_name);
+			xrt_md_get_compatible_endpoint(DEV(xg->xdev), grp_dtb, compat, &ep_name);
 		if (!ep_name)
 			continue;
 
-		ret = xrt_md_copy_endpoint(DEV(xg->xdev), dtb, grp_dtb, ep_name, reg_name, NULL);
+		ret = xrt_md_copy_endpoint(DEV(xg->xdev), dtb, grp_dtb, ep_name, compat, NULL);
 		if (ret)
 			continue;
-		xrt_md_del_endpoint(DEV(xg->xdev), grp_dtb, ep_name, reg_name);
+		xrt_md_del_endpoint(DEV(xg->xdev), grp_dtb, ep_name, compat);
 		ep_count++;
 	}
 	/* Found enough endpoints, return the subdev's dtb. */

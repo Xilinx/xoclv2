@@ -33,12 +33,7 @@
 
 #define CLK_MAX_VALUE			6400
 
-static const struct regmap_config ucs_regmap_config = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_stride = 4,
-	.max_register = 0x1000,
-};
+XRT_DEFINE_REGMAP_CONFIG(ucs_regmap_config);
 
 struct xrt_ucs {
 	struct xrt_device	*xdev;
