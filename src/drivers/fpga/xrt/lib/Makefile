@@ -75,4 +75,5 @@ all:
 clean:
 	rm -rf *.o *.o.d *~ core .depend .*.cmd *.ko *.ko.unsigned *.mod.c \
 	rm -rf xleaf/*.o xleaf/*.o.d xleaf/*~ core xleaf/.depend xleaf/.*.cmd xleaf/*.mod.c \
-	.tmp_versions *.symvers modules.order *.mod .cache.mk
+	.tmp_versions *.symvers modules.order *.mod .cache.mk ../metadata/metadata.o \
+	../metadata/.metadata.o.cmd ../metadata/.metadata.o.d
