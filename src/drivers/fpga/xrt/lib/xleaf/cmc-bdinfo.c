@@ -10,7 +10,7 @@
 #include <linux/slab.h>
 #include "xleaf.h"
 #include "xrt-cmc-impl.h"
-#include "xmgmt-main.h"
+#include "xmgnt-main.h"
 #include <linux/xrt/mailbox_proto.h>
 
 enum board_info_key {

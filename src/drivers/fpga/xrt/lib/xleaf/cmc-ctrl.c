@@ -11,7 +11,7 @@
 #include <linux/vmalloc.h>
 #include <linux/io.h>
 #include "xleaf.h"
-#include "xmgmt-main.h"
+#include "xmgnt-main.h"
 #include "xrt-cmc-impl.h"
 
 struct xrt_cmc_ctrl {

@@ -10,7 +10,7 @@
 #define _SELFTEST1_MAIN_IMPL_H_
 
 #include <linux/platform_device.h>
-#include "xmgmt-main.h"
+#include "xmgnt-main.h"
 
 int selftest1_main_register_leaf(void);
 void selftest1_main_unregister_leaf(void);
