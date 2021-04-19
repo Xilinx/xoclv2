@@ -18,10 +18,10 @@
 #include "metadata.h"
 #include "xleaf/test.h"
 
-#define SELFTEST1_MODULE_NAME	"xrt-selftest1"
+#define SELFTEST1_MODULE_NAME	"xrt-stest1"
 #define SELFTEST1_DRIVER_VERSION	"4.0.0"
 
-#define SELFTEST1_DEV(xm)		((xm)->dev)
+#define SELFTEST1_DEV(xm)		((xm).dev)
 #define selftest1_err(xm, fmt, args...)	\
 	dev_err(SELFTEST1_DEV(xm), "%s: " fmt, __func__, ##args)
 #define selftest1_warn(xm, fmt, args...)	\
@@ -37,7 +37,9 @@ struct selftest1 {
 	bool ready;
 };
 
-static int selftest1_create_root_metadata(struct selftest1 *xm, char **root_dtb, const char *ep)
+static struct selftest1 xm;
+
+static int selftest1_create_root_metadata(char **root_dtb, const char *ep)
 {
 	char *dtb = NULL;
 	int ret;
@@ -48,7 +50,7 @@ static int selftest1_create_root_metadata(struct selftest1 *xm, char **root_dtb,
 		goto failed;
 	}
 
-	ret = xroot_add_simple_node(xm->root, dtb, ep);
+	ret = xroot_add_simple_node(xm.root, dtb, ep);
 	if (ret)
 		goto failed;
 
@@ -63,9 +65,7 @@ failed:
 static ssize_t ready_show(struct device *dev,
 			  struct device_attribute *da, char *buf)
 {
-	struct selftest1 *xm = dev_get_drvdata(dev);
-
-	return sprintf(buf, "%d\n", xm->ready);
+	return sprintf(buf, "%d\n", xm.ready);
 }
 static DEVICE_ATTR_RO(ready);
 
@@ -80,15 +80,15 @@ static struct attribute_group selftest1_root_attr_group = {
 
 static struct xroot_physical_function_callback selftest1_xroot_pf_cb = { 0 };
 
-static int selftest1_create_group(struct selftest1 *xm, const char *ep)
+static int selftest1_create_group(const char *ep)
 {
 	char *dtb = NULL;
-	int ret = selftest1_create_root_metadata(xm, &dtb, ep);
+	int ret = selftest1_create_root_metadata(&dtb, ep);
 
 	if (ret)
 		return ret;
 
-	ret = xroot_create_group(xm->root, dtb);
+	ret = xroot_create_group(xm.root, dtb);
 	vfree(dtb);
 	if (ret < 0)
 		selftest1_err(xm, "failed to create root group: %d", ret);
@@ -118,36 +118,32 @@ static int selftest1_create_group(struct selftest1 *xm, const char *ep)
 static int selftest1_probe(struct device *dev)
 {
 	int ret;
-	struct selftest1 *xm = devm_kzalloc(dev, sizeof(*xm), GFP_KERNEL);
 
-	if (!xm)
-		return -ENOMEM;
-	dev_set_drvdata(dev, xm);
-	xm->dev = dev;
+	xm.dev = dev;
 
-	ret = xroot_probe(dev, &selftest1_xroot_pf_cb, &xm->root);
+	ret = xroot_probe(dev, &selftest1_xroot_pf_cb, &xm.root);
 	if (ret)
 		goto failed;
 
-	ret = selftest1_create_group(xm, XRT_MD_NODE_TEST);
+	ret = selftest1_create_group(XRT_MD_NODE_TEST);
 
 	if (ret)
 		goto failed_metadata;
 
-	ret = selftest1_create_group(xm, XRT_MD_NODE_TEST);
+	ret = selftest1_create_group(XRT_MD_NODE_TEST);
 
 	if (ret)
 		goto failed_metadata;
 
-	ret = selftest1_create_group(xm, XRT_MD_NODE_MGMT_MAIN);
+	ret = selftest1_create_group(XRT_MD_NODE_MGMT_MAIN);
 
 	if (ret)
 		goto failed_metadata;
 
-	if (!xroot_wait_for_bringup(xm->root))
+	if (!xroot_wait_for_bringup(xm.root))
 		selftest1_err(xm, "failed to bringup all groups");
 	else
-		xm->ready = true;
+		xm.ready = true;
 
 	ret = sysfs_create_group(&dev->kobj, &selftest1_root_attr_group);
 	if (ret) {
@@ -155,12 +151,12 @@ static int selftest1_probe(struct device *dev)
 		selftest1_warn(xm, "create selftest1 root attrs failed: %d", ret);
 	}
 
-	xroot_broadcast(xm->root, XRT_EVENT_POST_CREATION);
+	xroot_broadcast(xm.root, XRT_EVENT_POST_CREATION);
 	selftest1_info(xm, "%s started successfully", SELFTEST1_MODULE_NAME);
 	return 0;
 
 failed_metadata:
-	(void)xroot_remove(xm->root);
+	(void)xroot_remove(xm.root);
 failed:
 	dev_set_drvdata(dev, NULL);
 	return ret;
@@ -168,16 +164,15 @@ failed:
 
 static void selftest1_remove(struct device *dev)
 {
-	struct selftest1 *xm = dev_get_drvdata(dev);
-
-	xroot_broadcast(xm->root, XRT_EVENT_PRE_REMOVAL);
+	xroot_broadcast(xm.root, XRT_EVENT_PRE_REMOVAL);
 	sysfs_remove_group(&dev->kobj, &selftest1_root_attr_group);
-	(void)xroot_remove(xm->root);
+	(void)xroot_remove(xm.root);
 	selftest1_info(xm, "%s cleaned up successfully", SELFTEST1_MODULE_NAME);
 }
 
 static struct miscdevice selftest1_driver = {
 	.name = SELFTEST1_MODULE_NAME,
+	.minor = MISC_DYNAMIC_MINOR,
 };
 
 static int __init selftest1_init(void)

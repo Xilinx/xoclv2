@@ -91,7 +91,8 @@ static void xrt_test_event_cb(struct xrt_device *xdev, void *arg)
 
 	leaf = xleaf_get_leaf_by_id(xdev, id, instance);
 	if (leaf) {
-		xrt_info(xdev, "This test device: %p, Callee test device/instance: %p/%d", xdev, leaf, instance);
+		xrt_info(xdev, "This test device: %p, Callee test device/instance: %p/%d",
+			 xdev, leaf, instance);
 		(void)xleaf_put_leaf(xdev, leaf);
 	}
 
