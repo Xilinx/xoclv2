@@ -6,6 +6,8 @@
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
+ *	Lizhi Hou <lizhih@xilinx.com>
+ *	Sonal Santan <sonals@xilinx.com>
  */
 
 #include <linux/delay.h>
@@ -89,15 +91,16 @@ static void xrt_test_event_cb(struct xrt_device *xdev, void *arg)
 
 	leaf = xleaf_get_leaf_by_id(xdev, id, instance);
 	if (leaf) {
-		(void)xleaf_call(leaf, 1, NULL);
+		xrt_info(xdev, "This test device: %p, Callee test device/instance: %p/%d",
+			 xdev, leaf, instance);
 		(void)xleaf_put_leaf(xdev, leaf);
 	}
 
 	/* Broadcast event. */
 	if (xdev->instance == 1)
 		xleaf_broadcast_event(xdev, XRT_EVENT_TEST, true);
-	xrt_dbg(xdev, "processed XRT_EVENT_POST_CREATION for (%d, %d)",
-		id, instance);
+	xrt_info(xdev, "processed XRT_EVENT_POST_CREATION for (%d, %d)",
+		 id, instance);
 }
 
 static int xrt_test_cb_a(struct xrt_device *xdev, void *arg)
@@ -107,7 +110,7 @@ static int xrt_test_cb_a(struct xrt_device *xdev, void *arg)
 
 	uuid_copy(&payload->dummy1, &uuid_null);
 	strcpy(payload->dummy2, "alveo");
-	xrt_dbg(xdev, "processed xleaf cmd XRT_XLEAF_TEST_A on leaf %p", xt->xdev);
+	xrt_info(xdev, "processed xleaf cmd XRT_XLEAF_TEST_A on leaf %p", xt->xdev);
 	return 0;
 }
 
@@ -125,7 +128,7 @@ static int xrt_test_cb_b(struct xrt_device *xdev, void *arg)
 		return -ENODEV;
 	ret = xleaf_call(peer, XRT_XLEAF_TEST_A, arg);
 	xleaf_put_leaf(xdev, peer);
-	xrt_dbg(xdev, "processed xleaf cmd XRT_XLEAF_TEST_B on leaf %p", xt->xdev);
+	xrt_info(xdev, "processed xleaf cmd XRT_XLEAF_TEST_B on leaf %p", xt->xdev);
 	return ret;
 }
 
@@ -176,6 +179,7 @@ xrt_test_leaf_call(struct xrt_device *xdev, u32 cmd, void *arg)
 		ret = xrt_test_cb_b(xdev, arg);
 		break;
 	default:
+		xrt_err(xdev, "Ignored bogus command %d", cmd);
 		ret = -ENOTTY;
 		break;
 	}

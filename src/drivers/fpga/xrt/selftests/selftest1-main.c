@@ -16,7 +16,7 @@
 #include "xleaf/flash.h"
 #include "xleaf/devctl.h"
 #include "xleaf/test.h"
-#include "xmgmt-main.h"
+#include "xmgnt-main.h"
 #include "main-impl.h"
 #include "xleaf.h"
 #include <linux/xrt/flash_xrt_data.h>

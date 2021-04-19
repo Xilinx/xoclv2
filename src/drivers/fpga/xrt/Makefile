@@ -10,7 +10,7 @@ all:    fast
 
 fast:
 	$(MAKE) -C lib all
-	$(MAKE) -C mgmt all
+	$(MAKE) -C mgnt all
 	$(MAKE) -C selftests all
 
 tags:
@@ -18,7 +18,7 @@ tags:
 
 clean:
 	$(MAKE) -C lib clean
-	$(MAKE) -C mgmt clean
+	$(MAKE) -C mgnt clean
 	$(MAKE) -C selftests clean
 	rm -f ../../../lib/.fdt*.o.cmd
 

@@ -10,7 +10,7 @@
 #include <linux/slab.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
-#include "xmgmt-main.h"
+#include "xmgnt-main.h"
 #include "xrt-cmc-impl.h"
 
 #define CMC_12V_PEX_REG			0x20

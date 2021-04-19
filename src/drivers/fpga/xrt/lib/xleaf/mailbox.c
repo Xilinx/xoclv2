@@ -177,7 +177,7 @@
 #include "metadata.h"
 #include "xleaf.h"
 #include "xleaf/mailbox.h"
-#include "xmgmt-main.h"
+#include "xmgnt-main.h"
 
 #define FLAG_STI		BIT(0)
 #define FLAG_RTI		BIT(1)
