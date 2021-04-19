@@ -91,7 +91,7 @@ static void xrt_test_event_cb(struct xrt_device *xdev, void *arg)
 
 	leaf = xleaf_get_leaf_by_id(xdev, id, instance);
 	if (leaf) {
-		(void)xleaf_call(leaf, 1, NULL);
+		xrt_info(xdev, "This test device: %p, Callee test device/instance: %p/%d", xdev, leaf, instance);
 		(void)xleaf_put_leaf(xdev, leaf);
 	}
 
@@ -178,6 +178,7 @@ xrt_test_leaf_call(struct xrt_device *xdev, u32 cmd, void *arg)
 		ret = xrt_test_cb_b(xdev, arg);
 		break;
 	default:
+		xrt_err(xdev, "Ignored bogus command %d", cmd);
 		ret = -ENOTTY;
 		break;
 	}
