@@ -98,7 +98,7 @@ static void xrt_test_event_cb(struct xrt_device *xdev, void *arg)
 	/* Broadcast event. */
 	if (xdev->instance == 1)
 		xleaf_broadcast_event(xdev, XRT_EVENT_TEST, true);
-	xrt_dbg(xdev, "processed XRT_EVENT_POST_CREATION for (%d, %d)",
+	xrt_info(xdev, "processed XRT_EVENT_POST_CREATION for (%d, %d)",
 		id, instance);
 }
 
@@ -109,7 +109,7 @@ static int xrt_test_cb_a(struct xrt_device *xdev, void *arg)
 
 	uuid_copy(&payload->dummy1, &uuid_null);
 	strcpy(payload->dummy2, "alveo");
-	xrt_dbg(xdev, "processed xleaf cmd XRT_XLEAF_TEST_A on leaf %p", xt->xdev);
+	xrt_info(xdev, "processed xleaf cmd XRT_XLEAF_TEST_A on leaf %p", xt->xdev);
 	return 0;
 }
 
@@ -127,7 +127,7 @@ static int xrt_test_cb_b(struct xrt_device *xdev, void *arg)
 		return -ENODEV;
 	ret = xleaf_call(peer, XRT_XLEAF_TEST_A, arg);
 	xleaf_put_leaf(xdev, peer);
-	xrt_dbg(xdev, "processed xleaf cmd XRT_XLEAF_TEST_B on leaf %p", xt->xdev);
+	xrt_info(xdev, "processed xleaf cmd XRT_XLEAF_TEST_B on leaf %p", xt->xdev);
 	return ret;
 }
 
