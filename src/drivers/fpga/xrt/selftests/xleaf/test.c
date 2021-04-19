@@ -6,6 +6,8 @@
  *
  * Authors:
  *	Cheng Zhen <maxz@xilinx.com>
+ *	Lizhi Hou <lizhih@xilinx.com>
+ *	Sonal Santan <sonals@xilinx.com>
  */
 
 #include <linux/delay.h>

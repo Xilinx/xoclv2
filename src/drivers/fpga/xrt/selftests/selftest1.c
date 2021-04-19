@@ -9,8 +9,7 @@
  */
 
 #include <linux/module.h>
-#include <linux/pci.h>
-#include <linux/aer.h>
+#include <linux/miscdevice.h>
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
 
@@ -22,8 +21,7 @@
 #define SELFTEST1_MODULE_NAME	"xrt-selftest1"
 #define SELFTEST1_DRIVER_VERSION	"4.0.0"
 
-#define SELFTEST1_PDEV(xm)		((xm)->pdev)
-#define SELFTEST1_DEV(xm)		(&(SELFTEST1_PDEV(xm)->dev))
+#define SELFTEST1_DEV(xm)		((xm)->dev)
 #define selftest1_err(xm, fmt, args...)	\
 	dev_err(SELFTEST1_DEV(xm), "%s: " fmt, __func__, ##args)
 #define selftest1_warn(xm, fmt, args...)	\
@@ -32,20 +30,9 @@
 	dev_info(SELFTEST1_DEV(xm), "%s: " fmt, __func__, ##args)
 #define selftest1_dbg(xm, fmt, args...)	\
 	dev_dbg(SELFTEST1_DEV(xm), "%s: " fmt, __func__, ##args)
-#define SELFTEST1_DEV_ID(_pdev)			\
-	({ typeof(_pdev) pdev = (_pdev);	\
-	((pci_domain_nr(pdev->bus) << 16) |	\
-	PCI_DEVID(pdev->bus->number, 0)); })
-
-static struct class *selftest1_class;
-static const struct pci_device_id selftest1_pci_ids[] = {
-	{ PCI_DEVICE(0x10EE, 0xd020), },
-	{ PCI_DEVICE(0x10EE, 0x5020), },
-	{ 0, }
-};
 
 struct selftest1 {
-	struct pci_dev *pdev;
+	struct device *dev;
 	void *root;
 	bool ready;
 };
@@ -76,8 +63,7 @@ failed:
 static ssize_t ready_show(struct device *dev,
 			  struct device_attribute *da, char *buf)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct selftest1 *xm = pci_get_drvdata(pdev);
+	struct selftest1 *xm = dev_get_drvdata(dev);
 
 	return sprintf(buf, "%d\n", xm->ready);
 }
@@ -129,16 +115,15 @@ static int selftest1_create_group(struct selftest1 *xm, const char *ep)
  *      | test[0] |          | test[1] |          | mgmt_main |
  *      +---------+          +---------+          +-----------+
  */
-static int selftest1_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+static int selftest1_probe(struct device *dev)
 {
 	int ret;
-	struct device *dev = &pdev->dev;
 	struct selftest1 *xm = devm_kzalloc(dev, sizeof(*xm), GFP_KERNEL);
 
 	if (!xm)
 		return -ENOMEM;
-	xm->pdev = pdev;
-	pci_set_drvdata(pdev, xm);
+	dev_set_drvdata(dev, xm);
+	xm->dev = dev;
 
 	ret = xroot_probe(dev, &selftest1_xroot_pf_cb, &xm->root);
 	if (ret)
@@ -164,7 +149,7 @@ static int selftest1_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	else
 		xm->ready = true;
 
-	ret = sysfs_create_group(&pdev->dev.kobj, &selftest1_root_attr_group);
+	ret = sysfs_create_group(&dev->kobj, &selftest1_root_attr_group);
 	if (ret) {
 		/* Warning instead of failing the probe. */
 		selftest1_warn(xm, "create selftest1 root attrs failed: %d", ret);
@@ -177,25 +162,22 @@ static int selftest1_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 failed_metadata:
 	(void)xroot_remove(xm->root);
 failed:
-	pci_set_drvdata(pdev, NULL);
+	dev_set_drvdata(dev, NULL);
 	return ret;
 }
 
-static void selftest1_remove(struct pci_dev *pdev)
+static void selftest1_remove(struct device *dev)
 {
-	struct selftest1 *xm = pci_get_drvdata(pdev);
+	struct selftest1 *xm = dev_get_drvdata(dev);
 
 	xroot_broadcast(xm->root, XRT_EVENT_PRE_REMOVAL);
-	sysfs_remove_group(&pdev->dev.kobj, &selftest1_root_attr_group);
+	sysfs_remove_group(&dev->kobj, &selftest1_root_attr_group);
 	(void)xroot_remove(xm->root);
 	selftest1_info(xm, "%s cleaned up successfully", SELFTEST1_MODULE_NAME);
 }
 
-static struct pci_driver selftest1_driver = {
+static struct miscdevice selftest1_driver = {
 	.name = SELFTEST1_MODULE_NAME,
-	.id_table = selftest1_pci_ids,
-	.probe = selftest1_probe,
-	.remove = selftest1_remove,
 };
 
 static int __init selftest1_init(void)
@@ -208,25 +190,30 @@ static int __init selftest1_init(void)
 
 	res = selftest_test_register_leaf();
 	if (res)
-		return res;
+		goto failed_test;
 
-	selftest1_class = class_create(THIS_MODULE, SELFTEST1_MODULE_NAME);
-	if (IS_ERR(selftest1_class))
-		return PTR_ERR(selftest1_class);
+	res = misc_register(&selftest1_driver);
+	if (res)
+		goto failed_misc;
 
-	res = pci_register_driver(&selftest1_driver);
-	if (res) {
-		class_destroy(selftest1_class);
-		return res;
-	}
-
+	res = selftest1_probe(selftest1_driver.this_device);
+	if (res)
+		goto failed_probe;
 	return 0;
+
+failed_probe:
+	misc_deregister(&selftest1_driver);
+failed_misc:
+	selftest_test_unregister_leaf();
+failed_test:
+	selftest1_main_unregister_leaf();
+	return res;
 }
 
 static __exit void selftest1_exit(void)
 {
-	pci_unregister_driver(&selftest1_driver);
-	class_destroy(selftest1_class);
+	selftest1_remove(selftest1_driver.this_device);
+	misc_deregister(&selftest1_driver);
 	selftest_test_unregister_leaf();
 	selftest1_main_unregister_leaf();
 }
@@ -234,7 +221,6 @@ static __exit void selftest1_exit(void)
 module_init(selftest1_init);
 module_exit(selftest1_exit);
 
-MODULE_DEVICE_TABLE(pci, selftest1_pci_ids);
 MODULE_VERSION(SELFTEST1_DRIVER_VERSION);
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");
 MODULE_DESCRIPTION("Xilinx XRT selftest driver");
