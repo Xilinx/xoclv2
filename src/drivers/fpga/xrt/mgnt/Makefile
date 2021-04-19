@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (C) 2019-2020 Xilinx, Inc. All rights reserved.
+# Copyright (C) 2019-2021 Xilinx, Inc. All rights reserved.
 #
 # Authors: Sonal.Santan@xilinx.com
 #
 
-obj-m	+= xrt-mgmt.o
+obj-m	+= xrt-mgnt.o
 
 fdtdir := ../../../../lib
 
@@ -25,7 +25,7 @@ fdtobj := 				\
 	$(fdtdir)/fdt_wip.o
 endif
 
-xrt-mgmt-y := root.o		\
+xrt-mgnt-y := root.o		\
 	   xmgnt-main.o		\
 	   xrt-mgr.o		\
 	   xmgnt-main-region.o	\

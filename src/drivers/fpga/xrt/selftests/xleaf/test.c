@@ -99,7 +99,7 @@ static void xrt_test_event_cb(struct xrt_device *xdev, void *arg)
 	if (xdev->instance == 1)
 		xleaf_broadcast_event(xdev, XRT_EVENT_TEST, true);
 	xrt_info(xdev, "processed XRT_EVENT_POST_CREATION for (%d, %d)",
-		id, instance);
+		 id, instance);
 }
 
 static int xrt_test_cb_a(struct xrt_device *xdev, void *arg)
