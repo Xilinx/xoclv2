@@ -20,7 +20,7 @@
 static struct xrt_iores_map cmc_iores_id_map[] = {
 	{ XRT_MD_NODE_CMC_REG, IO_REG},
 	{ XRT_MD_NODE_CMC_RESET, IO_GPIO},
-	{ XRT_MD_NODE_CMC_FW_MEM, IO_IMAGE_MGMT},
+	{ XRT_MD_NODE_CMC_FW_MEM, IO_IMAGE_MGNT},
 	{ XRT_MD_NODE_CMC_MUTEX, IO_MUTEX},
 };
 

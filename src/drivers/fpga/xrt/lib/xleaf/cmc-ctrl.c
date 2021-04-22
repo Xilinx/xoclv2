@@ -182,16 +182,16 @@ static int cmc_fetch_firmware(struct xrt_cmc_ctrl *cmc_ctrl)
 {
 	int ret = 0;
 	struct xrt_device *xdev = cmc_ctrl->xdev;
-	struct xrt_device *mgmt_leaf = xleaf_get_leaf_by_id(xdev,
-		XRT_SUBDEV_MGMT_MAIN, XRT_INVALID_DEVICE_INST);
-	struct xrt_mgmt_main_get_axlf_section gs = {
-		XMGMT_BLP, FIRMWARE,
+	struct xrt_device *mgnt_leaf = xleaf_get_leaf_by_id(xdev,
+		XRT_SUBDEV_MGNT_MAIN, XRT_INVALID_DEVICE_INST);
+	struct xrt_mgnt_main_get_axlf_section gs = {
+		XMGNT_BLP, FIRMWARE,
 	};
 
-	if (!mgmt_leaf)
+	if (!mgnt_leaf)
 		return -ENOENT;
 
-	ret = xleaf_call(mgmt_leaf, XRT_MGMT_MAIN_GET_AXLF_SECTION, &gs);
+	ret = xleaf_call(mgnt_leaf, XRT_MGNT_MAIN_GET_AXLF_SECTION, &gs);
 	if (ret == 0) {
 		cmc_ctrl->firmware = vmalloc(gs.xmmigas_section_size);
 		if (!cmc_ctrl->firmware) {
@@ -203,7 +203,7 @@ static int cmc_fetch_firmware(struct xrt_cmc_ctrl *cmc_ctrl)
 	} else {
 		xrt_err(xdev, "failed to fetch firmware: %d", ret);
 	}
-	xleaf_put_leaf(xdev, mgmt_leaf);
+	xleaf_put_leaf(xdev, mgnt_leaf);
 
 	return ret;
 }
@@ -275,9 +275,9 @@ int cmc_ctrl_probe(struct xrt_device *xdev, struct cmc_reg_map *regmaps, void **
 	cmc_ctrl->reg_mutex = regmaps[IO_MUTEX];
 	cmc_ctrl->reg_reset = regmaps[IO_GPIO];
 	cmc_ctrl->reg_io = regmaps[IO_REG];
-	cmc_ctrl->reg_image = regmaps[IO_IMAGE_MGMT];
+	cmc_ctrl->reg_image = regmaps[IO_IMAGE_MGNT];
 
-	/* Get firmware image from xmgmt-main leaf. */
+	/* Get firmware image from xmgnt-main leaf. */
 	ret = cmc_fetch_firmware(cmc_ctrl);
 	if (ret)
 		goto done;

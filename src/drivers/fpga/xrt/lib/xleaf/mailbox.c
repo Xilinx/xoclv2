@@ -12,7 +12,7 @@
  * DOC: Statement of Theory
  *
  * This is the mailbox sub-device driver added to xrt drivers so that user pf
- * and mgmt pf can send and receive messages of arbitrary length to / from its
+ * and mgnt pf can send and receive messages of arbitrary length to / from its
  * peer. The driver is written based on the spec of PG114 document
  * (https://www.xilinx.com/support/documentation/ip_documentation/mailbox/v2_1/
  * pg114-mailbox.pdf). The HW provides one TX channel and one RX channel, which
@@ -105,7 +105,7 @@
  *
  * The RX thread is responsible for receiving incoming msgs. If it's a request
  * or notification msg, it'll punt it to REQ thread for processing, which, in
- * turn, will call the callback provided by mgmt pf driver or user pf driver to
+ * turn, will call the callback provided by mgnt pf driver or user pf driver to
  * further process it. If it's a response, it'll simply wake up the waiting
  * thread.
  *
@@ -117,8 +117,8 @@
  *
  * A msg can be sent or received through HW mailbox channel or through a daemon
  * implemented in user land (software communication daemon). The daemon waiting
- * for sending msg from user pf to mgmt pf is called MPD. The other one is MSD,
- * which is responsible for sending msg from mgmt pf to user pf.
+ * for sending msg from user pf to mgnt pf is called MPD. The other one is MSD,
+ * which is responsible for sending msg from mgnt pf to user pf.
  *
  * Each mailbox subdevice driver creates a device node under /dev. A daemon
  * (MPD or MSD) can block and wait in the read() interface waiting for fetching
@@ -147,7 +147,7 @@
  *
  * The current protocol defined at communication layer followed a rule as below:
  * All requests initiated from user pf requires a response and all requests from
- * mgmt pf does not require a response. This should avoid any possible deadlock
+ * mgnt pf does not require a response. This should avoid any possible deadlock
  * derived from each side blocking and waiting for response from the peer.
  *
  * The overall architecture can be shown as below::

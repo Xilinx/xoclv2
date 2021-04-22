@@ -81,7 +81,7 @@ enum {
 enum {
 	IO_REG = 0,
 	IO_GPIO,
-	IO_IMAGE_MGMT,
+	IO_IMAGE_MGNT,
 	IO_MUTEX,
 	NUM_IOADDR
 };
