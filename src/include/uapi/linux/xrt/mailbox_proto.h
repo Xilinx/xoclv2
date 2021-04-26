@@ -13,7 +13,7 @@
 #endif
 
 /*
- * This header file contains mailbox protocol b/w mgmt and user pfs.
+ * This header file contains mailbox protocol b/w mgnt and user pfs.
  * - Any changes made here should maintain backward compatibility.
  * - If it's not possible, new OP code should be added and version number should
  *   be bumped up.
@@ -37,19 +37,19 @@
  * @XCL_MAILBOX_REQ_UNKNOWN: invalid OP code
  * @XCL_MAILBOX_REQ_TEST_READY: test msg is ready (post only, internal test only)
  * @XCL_MAILBOX_REQ_TEST_READ: fetch test msg from peer (internal test only)
- * @XCL_MAILBOX_REQ_LOCK_BITSTREAM: lock down xclbin on mgmt pf (not implemented)
- * @XCL_MAILBOX_REQ_UNLOCK_BITSTREAM: unlock xclbin on mgmt pf (not implemented)
- * @XCL_MAILBOX_REQ_HOT_RESET: request mgmt pf driver to reset the board
- * @XCL_MAILBOX_REQ_FIREWALL: firewall trip detected on mgmt pf (post only)
+ * @XCL_MAILBOX_REQ_LOCK_BITSTREAM: lock down xclbin on mgnt pf (not implemented)
+ * @XCL_MAILBOX_REQ_UNLOCK_BITSTREAM: unlock xclbin on mgnt pf (not implemented)
+ * @XCL_MAILBOX_REQ_HOT_RESET: request mgnt pf driver to reset the board
+ * @XCL_MAILBOX_REQ_FIREWALL: firewall trip detected on mgnt pf (post only)
  * @XCL_MAILBOX_REQ_LOAD_XCLBIN_KADDR: download xclbin (pointed to by a pointer)
  * @XCL_MAILBOX_REQ_LOAD_XCLBIN: download xclbin (bitstream is in payload)
  * @XCL_MAILBOX_REQ_RECLOCK: set clock frequency
  * @XCL_MAILBOX_REQ_PEER_DATA: read specified data from peer
- * @XCL_MAILBOX_REQ_USER_PROBE: for user pf to probe the peer mgmt pf
- * @XCL_MAILBOX_REQ_MGMT_STATE: for mgmt pf to notify user pf of its state change
+ * @XCL_MAILBOX_REQ_USER_PROBE: for user pf to probe the peer mgnt pf
+ * @XCL_MAILBOX_REQ_MGNT_STATE: for mgnt pf to notify user pf of its state change
  *                          (post only)
- * @XCL_MAILBOX_REQ_CHG_SHELL: shell change is required on mgmt pf (post only)
- * @XCL_MAILBOX_REQ_PROGRAM_SHELL: request mgmt pf driver to reprogram shell
+ * @XCL_MAILBOX_REQ_CHG_SHELL: shell change is required on mgnt pf (post only)
+ * @XCL_MAILBOX_REQ_PROGRAM_SHELL: request mgnt pf driver to reprogram shell
  */
 enum xcl_mailbox_request {
 	XCL_MAILBOX_REQ_UNKNOWN =		0,
@@ -64,7 +64,7 @@ enum xcl_mailbox_request {
 	XCL_MAILBOX_REQ_RECLOCK =		9,
 	XCL_MAILBOX_REQ_PEER_DATA =		10,
 	XCL_MAILBOX_REQ_USER_PROBE =		11,
-	XCL_MAILBOX_REQ_MGMT_STATE =		12,
+	XCL_MAILBOX_REQ_MGNT_STATE =		12,
 	XCL_MAILBOX_REQ_CHG_SHELL =		13,
 	XCL_MAILBOX_REQ_PROGRAM_SHELL =		14,
 	XCL_MAILBOX_REQ_READ_P2P_BAR_ADDR =	15,
@@ -85,7 +85,7 @@ static inline const char *mailbox_req2name(enum xcl_mailbox_request req)
 	case XCL_MAILBOX_REQ_RECLOCK: return "XCL_MAILBOX_REQ_RECLOCK";
 	case XCL_MAILBOX_REQ_PEER_DATA: return "XCL_MAILBOX_REQ_PEER_DATA";
 	case XCL_MAILBOX_REQ_USER_PROBE: return "XCL_MAILBOX_REQ_USER_PROBE";
-	case XCL_MAILBOX_REQ_MGMT_STATE: return "XCL_MAILBOX_REQ_MGMT_STATE";
+	case XCL_MAILBOX_REQ_MGNT_STATE: return "XCL_MAILBOX_REQ_MGNT_STATE";
 	case XCL_MAILBOX_REQ_CHG_SHELL: return "XCL_MAILBOX_REQ_CHG_SHELL";
 	case XCL_MAILBOX_REQ_PROGRAM_SHELL: return "XCL_MAILBOX_REQ_PROGRAM_SHELL";
 	case XCL_MAILBOX_REQ_READ_P2P_BAR_ADDR: return "XCL_MAILBOX_REQ_READ_P2P_BAR_ADDR";
@@ -104,7 +104,7 @@ struct xcl_mailbox_req_bitstream_lock {
 };
 
 /**
- * enum group_kind - Groups of data that can be fetched from mgmt side
+ * enum group_kind - Groups of data that can be fetched from mgnt side
  * @SENSOR: all kinds of sensor readings
  * @ICAP: ICAP IP related information
  * @BDINFO: Board Info, serial_num, mac_address
@@ -341,7 +341,7 @@ struct xcl_mailbox_conn_resp {
 #define XCL_MB_STATE_ONLINE		BIT(0)
 #define XCL_MB_STATE_OFFLINE		BIT(1)
 /**
- * struct mailbox_peer_state - MAILBOX_REQ_MGMT_STATE payload type
+ * struct mailbox_peer_state - MAILBOX_REQ_MGNT_STATE payload type
  * @state_flags: peer state flags
  */
 struct xcl_mailbox_peer_state {

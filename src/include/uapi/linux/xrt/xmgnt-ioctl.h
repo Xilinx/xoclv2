@@ -6,41 +6,41 @@
 
 /**
  * DOC: PCIe Kernel Driver for Managament Physical Function
- * Interfaces exposed by *xclmgmt* driver are defined in file, *mgmt-ioctl.h*.
- * Core functionality provided by *xmgmt* driver is described in the following table:
+ * Interfaces exposed by *xclmgnt* driver are defined in file, *mgnt-ioctl.h*.
+ * Core functionality provided by *xmgnt* driver is described in the following table:
  *
  * =========== ============================== ==================================
  * Functionality           ioctl request code           data format
  * =========== ============================== ==================================
- * 1 FPGA image download   XMGMT_IOCICAPDOWNLOAD_AXLF xmgmt_ioc_bitstream_axlf
+ * 1 FPGA image download   XMGNT_IOCICAPDOWNLOAD_AXLF xmgnt_ioc_bitstream_axlf
  * =========== ============================== ==================================
  */
 
-#ifndef _XMGMT_IOCTL_H_
-#define _XMGMT_IOCTL_H_
+#ifndef _XMGNT_IOCTL_H_
+#define _XMGNT_IOCTL_H_
 
 #include <linux/ioctl.h>
 
-#define XMGMT_IOC_MAGIC	'X'
-#define XMGMT_IOC_ICAP_DOWNLOAD_AXLF 0x6
+#define XMGNT_IOC_MAGIC	'X'
+#define XMGNT_IOC_ICAP_DOWNLOAD_AXLF 0x6
 
 /**
- * struct xmgmt_ioc_bitstream_axlf - load xclbin (AXLF) device image
- * used with XMGMT_IOCICAPDOWNLOAD_AXLF ioctl
+ * struct xmgnt_ioc_bitstream_axlf - load xclbin (AXLF) device image
+ * used with XMGNT_IOCICAPDOWNLOAD_AXLF ioctl
  *
  * @xclbin:	Pointer to user's xclbin structure in memory
  */
-struct xmgmt_ioc_bitstream_axlf {
+struct xmgnt_ioc_bitstream_axlf {
 	struct axlf *xclbin;
 };
 
-#define XMGMT_IOCICAPDOWNLOAD_AXLF				\
-	_IOW(XMGMT_IOC_MAGIC, XMGMT_IOC_ICAP_DOWNLOAD_AXLF, struct xmgmt_ioc_bitstream_axlf)
+#define XMGNT_IOCICAPDOWNLOAD_AXLF				\
+	_IOW(XMGNT_IOC_MAGIC, XMGNT_IOC_ICAP_DOWNLOAD_AXLF, struct xmgnt_ioc_bitstream_axlf)
 
 /*
  * The following definitions are for binary compatibility with classic XRT management driver
  */
-#define XCLMGMT_IOCICAPDOWNLOAD_AXLF XMGMT_IOCICAPDOWNLOAD_AXLF
-#define xclmgmt_ioc_bitstream_axlf xmgmt_ioc_bitstream_axlf
+#define XCLMGNT_IOCICAPDOWNLOAD_AXLF XMGNT_IOCICAPDOWNLOAD_AXLF
+#define xclmgnt_ioc_bitstream_axlf xmgnt_ioc_bitstream_axlf
 
 #endif
