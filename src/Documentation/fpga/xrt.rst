@@ -31,8 +31,8 @@ xrt-lib.ko
 ----------
 
 Repository of all subsystem drivers and pure software modules that can potentially
-be shared between xrt-xmgnt and xrt-user. All these drivers are structured as
-**xrt_driver** and are instantiated by xrt-xmgnt (or xrt-user under development)
+be shared between xrt-mgnt and xrt-user. All these drivers are structured as
+**xrt_driver** and are instantiated by xrt-mgnt (or xrt-user under development)
 based on meta data associated with the hardware. The metadata is in the form of a
 device tree as mentioned before. Each xrt driver statically defines a subsystem
 node array by using node name or a string in its ``.endpoints`` property. And this
@@ -47,13 +47,13 @@ driver leaf calls.
    See code in ``include/xleaf.h`` and ``include/xdevice.h``
 
 
-xrt-xmgnt.ko
+xrt-mgnt.ko
 ------------
 
-The xrt-xmgnt driver is a PCIe device driver driving MPF found on Xilinx's Alveo
-PCIE device. It consists of one *root* driver, one or more *group* drivers
+The xrt-mgnt driver is a PCIe device driver driving MPF found on Xilinx's Alveo
+PCIe device. It consists of one *root* driver, one or more *group* drivers
 and one or more *xleaf* drivers. The root and MPF specific xleaf drivers are
-in xrt-xmgnt.ko. The group driver and other xleaf drivers are in xrt-lib.ko.
+in xrt-mgnt.ko. The group driver and other xleaf drivers are in xrt-lib.ko.
 
 The instantiation of specific group driver or xleaf driver is completely data
 driven based on meta data (mostly in device tree format) found through VSEC
@@ -90,7 +90,7 @@ As an example for Xilinx Alveo U50 before user xclbin download, the tree
 looks like the following::
 
                                 +-----------+
-                                | xrt-xmgnt |
+                                |  xrt-mgnt |
                                 +-----+-----+
                                       |
             +-------------------------+--------------------+
@@ -105,7 +105,7 @@ looks like the following::
       |           |        |    |         |    |     |          |        |
       v           v        |    v         v    |     v          v        |
  +------------+  +------+  | +------+ +------+ |  +------+ +-----------+ |
- | xmgmt_main |  | VSEC |  | | GPIO | | QSPI | |  |  CMC | | AXI-GATE0 | |
+ | xmgnt_main |  | VSEC |  | | GPIO | | QSPI | |  |  CMC | | AXI-GATE0 | |
  +------------+  +------+  | +------+ +------+ |  +------+ +-----------+ |
                            | +---------+       |  +------+ +-----------+ |
                            +>| MAILBOX |       +->| ICAP | | AXI-GATE1 |<+
@@ -118,7 +118,7 @@ After an xclbin is downloaded, group3 will be added and the tree looks like the
 following::
 
                                 +-----------+
-                                | xrt-xmgnt |
+                                |  xrt-mgnt |
                                 +-----+-----+
                                       |
             +-------------------------+--------------------+-----------------+
@@ -133,7 +133,7 @@ following::
       |           |       |     |         |    |     |          |        |   |
       v           v       |     v         v    |     v          v        |   |
  +------------+  +------+ | +------+ +------+  |  +------+ +-----------+ |   |
- | xmgmt_main |  | VSEC | | | GPIO | | QSPI |  |  |  CMC | | AXI-GATE0 | |   |
+ | xmgnt_main |  | VSEC | | | GPIO | | QSPI |  |  |  CMC | | AXI-GATE0 | |   |
  +------------+  +------+ | +------+ +------+  |  +------+ +-----------+ |   |
                           | +---------+        |  +------+ +-----------+ |   |
                           +>| MAILBOX |        +->| ICAP | | AXI-GATE1 |<+   |
@@ -161,7 +161,7 @@ root
 ^^^^
 
 The root driver is a PCIe device driver attached to MPF. It's part of the
-infrastructure of the MPF driver and resides in xrt-xmgnt.ko. This driver
+infrastructure of the MPF driver and resides in xrt-mgnt.ko. This driver
 
 * manages one or more group drivers
 * provides access to functionalities that requires pci_dev, such as PCIE config
@@ -173,11 +173,11 @@ When root driver starts, it will explicitly create an initial group instance,
 which contains xleaf drivers that will trigger the creation of other group
 instances. The root driver will wait for all group and leaves to be created
 before it returns from it's probe routine and claim success of the
-initialization of the entire xrt-xmgnt driver. If any leaf fails to initialize
-the xrt-xmgnt driver will still come online but with limited functionality.
+initialization of the entire xrt-mgnt driver. If any leaf fails to initialize
+the xrt-mgnt driver will still come online but with limited functionality.
 
 .. note::
-   See code in ``lib/xroot.c`` and ``mgmt/root.c``
+   See code in ``lib/xroot.c`` and ``mgnt/root.c``
 
 
 group
@@ -191,7 +191,7 @@ infrastructure of the MPF driver and resides in xrt-lib.ko. This driver
 * provides access to root from leaves, so that root calls, event notifications
   and inter-leaf calls can happen
 
-In xrt-xmgnt, an initial group driver instance will be created by the root. This
+In xrt-mgnt, an initial group driver instance will be created by the root. This
 instance contains leaves that will trigger group instances to be created to
 manage groups of leaves found on different partitions on hardware, such as
 VSEC, Shell, and User.
@@ -210,10 +210,10 @@ xleaf
 
 The xleaf driver is a xrt device driver whose life cycle is managed by
 a group driver and may or may not have real IO mem or IRQ resources. They
-are the real meat of xrt-xmgnt and manage HW subsystems they are attached to.
+are the real meat of xrt-mgnt and manage HW subsystems they are attached to.
 
 A xleaf driver may not have real hardware resources when it merely acts as a
-driver that manages certain in-memory states for xrt-xmgnt. These in-memory
+driver that manages certain in-memory states for xrt-mgnt. These in-memory
 states could be shared by multiple other leaves.
 
 Leaf drivers assigned to specific hardware resources drive specific subsystem in
@@ -263,16 +263,16 @@ device tree of the parent group.
 Driver Interfaces
 =================
 
-xrt-xmgnt Driver Ioctls
------------------------
+xrt-mgnt Driver Ioctls
+----------------------
 
-Ioctls exposed by xrt-xmgnt driver to user space are enumerated in the following
+Ioctls exposed by xrt-mgnt driver to user space are enumerated in the following
 table:
 
 == ===================== ============================ ==========================
 #  Functionality         ioctl request code            data format
 == ===================== ============================ ==========================
-1  FPGA image download   XMGMT_IOCICAPDOWNLOAD_AXLF    xmgmt_ioc_bitstream_axlf
+1  FPGA image download   XMGNT_IOCICAPDOWNLOAD_AXLF    xmgnt_ioc_bitstream_axlf
 == ===================== ============================ ==========================
 
 A user xclbin can be downloaded by using the xbmgmt tool from the XRT open source
@@ -280,22 +280,22 @@ suite. See example usage below::
 
   xbmgmt partition --program --path /lib/firmware/xilinx/862c7020a250293e32036f19956669e5/test/verify.xclbin --force
 
-xrt-xmgnt Driver Sysfs
+xrt-mgnt Driver Sysfs
 ----------------------
 
-xrt-xmgnt driver exposes a rich set of sysfs interfaces. Subsystem xrt
+xrt-mgnt driver exposes a rich set of sysfs interfaces. Subsystem xrt
 drivers export sysfs node for every platform instance.
 
 Every partition also exports its UUIDs. See below for examples::
 
-  /sys/bus/pci/devices/0000:06:00.0/xmgmt_main.0/interface_uuids
-  /sys/bus/pci/devices/0000:06:00.0/xmgmt_main.0/logic_uuids
+  /sys/bus/pci/devices/0000:06:00.0/xmgnt_main.0/interface_uuids
+  /sys/bus/pci/devices/0000:06:00.0/xmgnt_main.0/logic_uuids
 
 
 hwmon
 -----
 
-xmgmt driver exposes standard hwmon interface to report voltage, current,
+xmgnt driver exposes standard hwmon interface to report voltage, current,
 temperature, power, etc. These can easily be viewed using *sensors* command
 line utility.
 
@@ -318,7 +318,7 @@ child relationship.
    Partition compatibility matching is key design component of Alveo platforms
    and XRT. Partitions have child and parent relationship. A loaded partition
    exposes child partition UUID to advertise its compatibility requirement.When
-   loading a child partition the xrt-xmgnt management driver matches parent UUID of
+   loading a child partition the xrt-mgnt management driver matches parent UUID of
    the child partition against child UUID exported by the parent. Parent and
    child partition UUIDs are stored in the *xclbin* (for user) or *xsabin* (for
    shell). Except for root UUID exported by VSEC, hardware itself does not know
@@ -349,7 +349,7 @@ Loading Sequence
 ----------------
 
 The Shell partition is loaded from flash at system boot time. It establishes the
-PCIe link and exposes two physical functions to the BIOS. After the OS boots, xrt-xmgnt
+PCIe link and exposes two physical functions to the BIOS. After the OS boots, xrt-mgnt
 driver attaches to the PCIe physical function 0 exposed by the Shell and then looks
 for VSEC in PCIe extended configuration space. Using VSEC it determines the logic
 UUID of Shell and uses the UUID to load matching *xsabin* file from Linux firmware
@@ -359,13 +359,13 @@ also contains Partition UUIDs as described here :ref:`partition_uuids`.
 
 The Shell exports a child interface UUID which is used for the compatibility check
 when loading user compiled xclbin over the User partition as part of DFX. When a user
-requests loading of a specific xclbin the xrt-xmgnt management driver reads the parent
+requests loading of a specific xclbin the xrt-mgnt management driver reads the parent
 interface UUID specified in the xclbin and matches it with child interface UUID
 exported by Shell to determine if xclbin is compatible with the Shell. If match
 fails loading of xclbin is denied.
 
 xclbin loading is requested using ICAP_DOWNLOAD_AXLF ioctl command. When loading
-xclbin, xrt-xmgnt driver performs the following *logical* operations:
+xclbin, xrt-mgnt driver performs the following *logical* operations:
 
 1. Copy xclbin from user to kernel memory
 2. Sanity check the xclbin contents
@@ -767,13 +767,13 @@ Deployment Models
 Baremetal
 ---------
 
-In bare-metal deployments, both MPF and UPF are visible and accessible. xrt-xmgnt
-driver binds to MPF. xrt-xmgnt driver operations are privileged and available to
+In bare-metal deployments, both MPF and UPF are visible and accessible. xrt-mgnt
+driver binds to MPF. xrt-mgnt driver operations are privileged and available to
 system administrator. The full stack is illustrated below::
 
                             HOST
 
-               [XRT-XMGNT]         [XRT-USER]
+               [XRT-MGNT]         [XRT-USER]
                     |                  |
                     |                  |
                  +-----+            +-----+
@@ -802,15 +802,15 @@ Virtualized
 -----------
 
 In virtualized deployments, privileged MPF is assigned to host but unprivileged
-UPF is assigned to guest VM via PCIe pass-through. xrt-xmgnt driver in host binds
-to MPF. xrt-xmgnt driver operations are privileged and only accessible to the MPF.
+UPF is assigned to guest VM via PCIe pass-through. xrt-mgnt driver in host binds
+to MPF. xrt-mgnt driver operations are privileged and only accessible to the MPF.
 The full stack is illustrated below::
 
 
                                  ..............
                   HOST           .    VM      .
                                  .            .
-                 [XRT-XMGNT]     . [XRT-USER] .
+               [XRT-MGNT]        . [XRT-USER] .
                     |            .     |      .
                     |            .     |      .
                  +-----+         .  +-----+   .
