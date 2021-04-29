@@ -7,8 +7,8 @@
  *	Cheng Zhen <maxz@xilinx.com>
  */
 
-#ifndef _XMGNT_XMGNT_H_
-#define _XMGNT_XMGNT_H_
+#ifndef _XMGNT_H_
+#define _XMGNT_H_
 
 #include "xmgnt-main.h"
 
@@ -37,4 +37,4 @@ void xmgnt_mailbox_event_cb(struct xrt_device *xdev, void *arg);
 int xmgnt_register_leaf(void);
 void xmgnt_unregister_leaf(void);
 
-#endif	/* _XMGNT_XMGNT_H_ */
+#endif	/* _XMGNT_H_ */

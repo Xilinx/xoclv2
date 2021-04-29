@@ -492,7 +492,7 @@ end:
 static int clock_init(struct clock *clock)
 {
 	struct xrt_subdev_platdata *pdata = DEV_PDATA(clock->xdev);
-	const u16 *freq;
+	const __be16 *freq;
 	int err = 0;
 
 	err = xrt_md_get_prop(DEV(clock->xdev), pdata->xsp_dtb,

@@ -243,8 +243,8 @@ static int xrt_vsec_mapio(struct xrt_vsec *vsec)
 	struct xrt_subdev_platdata *pdata = DEV_PDATA(vsec->xdev);
 	struct resource *res = NULL;
 	void __iomem *base = NULL;
-	const u64 *bar_off;
-	const u32 *bar;
+	const __be64 *bar_off;
+	const __be32 *bar;
 	u64 addr;
 	int ret;
 

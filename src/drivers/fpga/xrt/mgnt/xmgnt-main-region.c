@@ -68,7 +68,7 @@ static int xmgnt_br_enable_set(struct fpga_bridge *bridge, bool enable)
 	return rc;
 }
 
-const struct fpga_bridge_ops xmgnt_bridge_ops = {
+static const struct fpga_bridge_ops xmgnt_bridge_ops = {
 	.enable_set = xmgnt_br_enable_set
 };
 
@@ -475,8 +475,6 @@ failed:
 	if (compat_region) {
 		put_device(&compat_region->dev);
 		xmgnt_region_cleanup(compat_region);
-	} else {
-		xmgnt_region_cleanup_all(xdev);
 	}
 
 	vfree(dtb);

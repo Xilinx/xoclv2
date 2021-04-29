@@ -686,13 +686,15 @@ static int bitstream_axlf_ioctl(struct xmgnt_main *xmm, const void __user *arg)
 {
 	struct xmgnt_ioc_bitstream_axlf ioc_obj = { 0 };
 	struct axlf xclbin_obj = { {0} };
+	const void __user *xclbin;
 	size_t copy_buffer_size = 0;
 	void *copy_buffer = NULL;
 	int ret = 0;
 
 	if (copy_from_user((void *)&ioc_obj, arg, sizeof(ioc_obj)))
 		return -EFAULT;
-	if (copy_from_user((void *)&xclbin_obj, ioc_obj.xclbin, sizeof(xclbin_obj)))
+	xclbin = (const void __user *)ioc_obj.xclbin;
+	if (copy_from_user((void *)&xclbin_obj, xclbin, sizeof(xclbin_obj)))
 		return -EFAULT;
 	if (memcmp(xclbin_obj.magic, XCLBIN_VERSION2, sizeof(XCLBIN_VERSION2)))
 		return -EINVAL;
@@ -707,7 +709,7 @@ static int bitstream_axlf_ioctl(struct xmgnt_main *xmm, const void __user *arg)
 	if (!copy_buffer)
 		return -ENOMEM;
 
-	if (copy_from_user(copy_buffer, ioc_obj.xclbin, copy_buffer_size)) {
+	if (copy_from_user(copy_buffer, xclbin, copy_buffer_size)) {
 		vfree(copy_buffer);
 		return -EFAULT;
 	}

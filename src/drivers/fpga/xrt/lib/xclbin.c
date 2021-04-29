@@ -241,7 +241,7 @@ int xrt_xclbin_parse_bitstream_header(struct device *dev, const unchar *data,
 }
 EXPORT_SYMBOL_GPL(xrt_xclbin_parse_bitstream_header);
 
-struct xrt_clock_desc {
+static struct xrt_clock_desc {
 	char	*clock_ep_name;
 	u32	clock_xclbin_type;
 	char	*clkfreq_ep_name;
@@ -311,7 +311,7 @@ static int xrt_xclbin_add_clock_metadata(struct device *dev,
 		if (!ep_name || !counter_name)
 			continue;
 
-		freq = cpu_to_be16(clock_topo->clock_freq[i].freq_MHZ);
+		freq = be16_to_cpu((__force __be16)clock_topo->clock_freq[i].freq_MHZ);
 		rc = xrt_md_set_prop(dev, dtb, ep_name, NULL, XRT_MD_PROP_CLK_FREQ,
 				     &freq, sizeof(freq));
 		if (rc)

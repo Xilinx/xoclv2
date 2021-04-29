@@ -53,7 +53,7 @@
 /*
  * Canned command sequence to obtain IDCODE of the FPGA
  */
-static const u32 idcode_stream[] = {
+static const __be32 idcode_stream[] = {
 	/* dummy word */
 	cpu_to_be32(0xffffffff),
 	/* sync word */
@@ -103,7 +103,7 @@ static int wait_for_done(const struct icap *icap)
 	return -ETIMEDOUT;
 }
 
-static int icap_write(const struct icap *icap, const u32 *word_buf, int size)
+static int icap_write(const struct icap *icap, const __be32 *word_buf, int size)
 {
 	u32 value = 0;
 	int ret;
@@ -134,7 +134,7 @@ static int icap_write(const struct icap *icap, const u32 *word_buf, int size)
 	return -EIO;
 }
 
-static int bitstream_helper(struct icap *icap, const u32 *word_buffer,
+static int bitstream_helper(struct icap *icap, const __be32 *word_buffer,
 			    u32 word_count)
 {
 	int wr_fifo_vacancy = 0;
@@ -186,7 +186,7 @@ static int icap_download(struct icap *icap, const char *buffer,
 		if (num_chars_read > XCLBIN_HWICAP_BITFILE_BUF_SZ)
 			num_chars_read = XCLBIN_HWICAP_BITFILE_BUF_SZ;
 
-		err = bitstream_helper(icap, (u32 *)buffer, num_chars_read / sizeof(u32));
+		err = bitstream_helper(icap, (__be32 *)buffer, num_chars_read / sizeof(u32));
 		if (err)
 			goto failed;
 		buffer += num_chars_read;

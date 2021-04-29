@@ -178,12 +178,13 @@ static void xmgnt_root_hot_reset(struct device *dev)
 
 static int xmgnt_add_vsec_node(struct xmgnt *xm, char *dtb)
 {
-	u32 off_low, off_high, vsec_bar, header;
 	struct pci_dev *pdev = XMGNT_PDEV(xm);
 	struct xrt_md_endpoint ep = { 0 };
 	struct device *dev = DEV(pdev);
+	u32 off_low, off_high, header;
 	int cap = 0, ret = 0;
-	u64 vsec_off;
+	__be32 vsec_bar;
+	__be64 vsec_off;
 
 	while ((cap = pci_find_next_ext_capability(pdev, cap, PCI_EXT_CAP_ID_VNDR))) {
 		pci_read_config_dword(pdev, cap + PCI_VNDR_HEADER, &header);
