@@ -5,12 +5,12 @@
  * Authors: Sonal.Santan@xilinx.com
  */
 
-#ifndef _XMGMT_MGR_H_
-#define _XMGMT_MGR_H_
+#ifndef _XMGNT_MGR_H_
+#define _XMGNT_MGR_H_
 
 #include <linux/fpga/fpga-mgr.h>
 
-struct fpga_manager *xmgmt_fmgr_probe(struct xrt_device *xdev);
-int xmgmt_fmgr_remove(struct fpga_manager *fmgr);
+struct fpga_manager *xmgnt_fmgr_probe(struct xrt_device *xdev);
+int xmgnt_fmgr_remove(struct fpga_manager *fmgr);
 
 #endif

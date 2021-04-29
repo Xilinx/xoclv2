@@ -112,7 +112,7 @@ static int selftest1_create_group(const char *ep)
  *           |                    |                    |
  *           v                    v                    v
  *      +---------+          +---------+          +-----------+
- *      | test[0] |          | test[1] |          | mgmt_main |
+ *      | test[0] |          | test[1] |          | mgnt_main |
  *      +---------+          +---------+          +-----------+
  */
 static int selftest1_probe(struct device *dev)
@@ -135,7 +135,7 @@ static int selftest1_probe(struct device *dev)
 	if (ret)
 		goto failed_metadata;
 
-	ret = selftest1_create_group(XRT_MD_NODE_MGMT_MAIN);
+	ret = selftest1_create_group(XRT_MD_NODE_MGNT_MAIN);
 
 	if (ret)
 		goto failed_metadata;

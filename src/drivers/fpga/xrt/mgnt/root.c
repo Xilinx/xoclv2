@@ -18,27 +18,27 @@
 #include "xmgnt.h"
 #include "metadata.h"
 
-#define XMGMT_MODULE_NAME	"xrt-mgmt"
-#define XMGMT_DRIVER_VERSION	"4.0.0"
+#define XMGNT_MODULE_NAME	"xrt-mgnt"
+#define XMGNT_DRIVER_VERSION	"4.0.0"
 
-#define XMGMT_PDEV(xm)		((xm)->pdev)
-#define XMGMT_DEV(xm)		(&(XMGMT_PDEV(xm)->dev))
-#define xmgmt_err(xm, fmt, args...)	\
-	dev_err(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
-#define xmgmt_warn(xm, fmt, args...)	\
-	dev_warn(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
-#define xmgmt_info(xm, fmt, args...)	\
-	dev_info(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
-#define xmgmt_dbg(xm, fmt, args...)	\
-	dev_dbg(XMGMT_DEV(xm), "%s: " fmt, __func__, ##args)
-#define XMGMT_DEV_ID(_pcidev)			\
+#define XMGNT_PDEV(xm)		((xm)->pdev)
+#define XMGNT_DEV(xm)		(&(XMGNT_PDEV(xm)->dev))
+#define xmgnt_err(xm, fmt, args...)	\
+	dev_err(XMGNT_DEV(xm), "%s: " fmt, __func__, ##args)
+#define xmgnt_warn(xm, fmt, args...)	\
+	dev_warn(XMGNT_DEV(xm), "%s: " fmt, __func__, ##args)
+#define xmgnt_info(xm, fmt, args...)	\
+	dev_info(XMGNT_DEV(xm), "%s: " fmt, __func__, ##args)
+#define xmgnt_dbg(xm, fmt, args...)	\
+	dev_dbg(XMGNT_DEV(xm), "%s: " fmt, __func__, ##args)
+#define XMGNT_DEV_ID(_pcidev)			\
 	({ typeof(_pcidev) (pcidev) = (_pcidev);	\
 	((pci_domain_nr((pcidev)->bus) << 16) |	\
 	PCI_DEVID((pcidev)->bus->number, 0)); })
 #define XRT_VSEC_ID		0x20
 #define XRT_MAX_READRQ		512
 
-static struct class *xmgmt_class;
+static struct class *xmgnt_class;
 
 /* PCI Device IDs */
 /*
@@ -49,33 +49,33 @@ static struct class *xmgmt_class;
  */
 #define PCI_DEVICE_ID_U50_GOLDEN	0xD020
 #define PCI_DEVICE_ID_U50		0x5020
-static const struct pci_device_id xmgmt_pci_ids[] = {
+static const struct pci_device_id xmgnt_pci_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_XILINX, PCI_DEVICE_ID_U50_GOLDEN), }, /* Alveo U50 (golden) */
 	{ PCI_DEVICE(PCI_VENDOR_ID_XILINX, PCI_DEVICE_ID_U50), }, /* Alveo U50 */
 	{ 0, }
 };
 
-struct xmgmt {
+struct xmgnt {
 	struct pci_dev *pdev;
 	void *root;
 
 	bool ready;
 };
 
-static int xmgmt_config_pci(struct xmgmt *xm)
+static int xmgnt_config_pci(struct xmgnt *xm)
 {
-	struct pci_dev *pdev = XMGMT_PDEV(xm);
+	struct pci_dev *pdev = XMGNT_PDEV(xm);
 	int rc;
 
 	rc = pcim_enable_device(pdev);
 	if (rc < 0) {
-		xmgmt_err(xm, "failed to enable device: %d", rc);
+		xmgnt_err(xm, "failed to enable device: %d", rc);
 		return rc;
 	}
 
 	rc = pci_enable_pcie_error_reporting(pdev);
 	if (rc)
-		xmgmt_warn(xm, "failed to enable AER: %d", rc);
+		xmgnt_warn(xm, "failed to enable AER: %d", rc);
 
 	pci_set_master(pdev);
 
@@ -85,12 +85,12 @@ static int xmgmt_config_pci(struct xmgmt *xm)
 	return 0;
 }
 
-static int xmgmt_match_slot_and_save(struct device *dev, void *data)
+static int xmgnt_match_slot_and_save(struct device *dev, void *data)
 {
-	struct xmgmt *xm = data;
+	struct xmgnt *xm = data;
 	struct pci_dev *pdev = to_pci_dev(dev);
 
-	if (XMGMT_DEV_ID(pdev) == XMGMT_DEV_ID(xm->pdev)) {
+	if (XMGNT_DEV_ID(pdev) == XMGNT_DEV_ID(xm->pdev)) {
 		pci_cfg_access_lock(pdev);
 		pci_save_state(pdev);
 	}
@@ -98,17 +98,17 @@ static int xmgmt_match_slot_and_save(struct device *dev, void *data)
 	return 0;
 }
 
-static void xmgmt_pci_save_config_all(struct xmgmt *xm)
+static void xmgnt_pci_save_config_all(struct xmgnt *xm)
 {
-	bus_for_each_dev(&pci_bus_type, NULL, xm, xmgmt_match_slot_and_save);
+	bus_for_each_dev(&pci_bus_type, NULL, xm, xmgnt_match_slot_and_save);
 }
 
-static int xmgmt_match_slot_and_restore(struct device *dev, void *data)
+static int xmgnt_match_slot_and_restore(struct device *dev, void *data)
 {
-	struct xmgmt *xm = data;
+	struct xmgnt *xm = data;
 	struct pci_dev *pdev = to_pci_dev(dev);
 
-	if (XMGMT_DEV_ID(pdev) == XMGMT_DEV_ID(xm->pdev)) {
+	if (XMGNT_DEV_ID(pdev) == XMGNT_DEV_ID(xm->pdev)) {
 		pci_restore_state(pdev);
 		pci_cfg_access_unlock(pdev);
 	}
@@ -116,23 +116,23 @@ static int xmgmt_match_slot_and_restore(struct device *dev, void *data)
 	return 0;
 }
 
-static void xmgmt_pci_restore_config_all(struct xmgmt *xm)
+static void xmgnt_pci_restore_config_all(struct xmgnt *xm)
 {
-	bus_for_each_dev(&pci_bus_type, NULL, xm, xmgmt_match_slot_and_restore);
+	bus_for_each_dev(&pci_bus_type, NULL, xm, xmgnt_match_slot_and_restore);
 }
 
-static void xmgmt_root_hot_reset(struct device *dev)
+static void xmgnt_root_hot_reset(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct pci_bus *bus;
 	u16 pci_cmd, devctl;
-	struct xmgmt *xm;
+	struct xmgnt *xm;
 	u8 pci_bctl;
 	int i, ret;
 
 	xm = pci_get_drvdata(pdev);
-	xmgmt_info(xm, "hot reset start");
-	xmgmt_pci_save_config_all(xm);
+	xmgnt_info(xm, "hot reset start");
+	xmgnt_pci_save_config_all(xm);
 	pci_disable_device(pdev);
 	bus = pdev->bus;
 
@@ -160,7 +160,7 @@ static void xmgmt_root_hot_reset(struct device *dev)
 
 	ret = pci_enable_device(pdev);
 	if (ret)
-		xmgmt_err(xm, "failed to enable device, ret %d", ret);
+		xmgnt_err(xm, "failed to enable device, ret %d", ret);
 
 	for (i = 0; i < 300; i++) {
 		pci_read_config_word(pdev, PCI_COMMAND, &pci_cmd);
@@ -169,17 +169,17 @@ static void xmgmt_root_hot_reset(struct device *dev)
 		msleep(20);
 	}
 	if (i == 300)
-		xmgmt_err(xm, "timed out waiting for device to be online after reset");
+		xmgnt_err(xm, "timed out waiting for device to be online after reset");
 
-	xmgmt_info(xm, "waiting for %d ms", i * 20);
-	xmgmt_pci_restore_config_all(xm);
-	xmgmt_config_pci(xm);
+	xmgnt_info(xm, "waiting for %d ms", i * 20);
+	xmgnt_pci_restore_config_all(xm);
+	xmgnt_config_pci(xm);
 }
 
-static int xmgmt_add_vsec_node(struct xmgmt *xm, char *dtb)
+static int xmgnt_add_vsec_node(struct xmgnt *xm, char *dtb)
 {
 	u32 off_low, off_high, vsec_bar, header;
-	struct pci_dev *pdev = XMGMT_PDEV(xm);
+	struct pci_dev *pdev = XMGNT_PDEV(xm);
 	struct xrt_md_endpoint ep = { 0 };
 	struct device *dev = DEV(pdev);
 	int cap = 0, ret = 0;
@@ -191,20 +191,20 @@ static int xmgmt_add_vsec_node(struct xmgmt *xm, char *dtb)
 			break;
 	}
 	if (!cap) {
-		xmgmt_info(xm, "No Vendor Specific Capability.");
+		xmgnt_info(xm, "No Vendor Specific Capability.");
 		return -ENOENT;
 	}
 
 	if (pci_read_config_dword(pdev, cap + 8, &off_low) ||
 	    pci_read_config_dword(pdev, cap + 12, &off_high)) {
-		xmgmt_err(xm, "pci_read vendor specific failed.");
+		xmgnt_err(xm, "pci_read vendor specific failed.");
 		return -EINVAL;
 	}
 
 	ep.ep_name = XRT_MD_NODE_VSEC;
 	ret = xrt_md_add_endpoint(dev, dtb, &ep);
 	if (ret) {
-		xmgmt_err(xm, "add vsec metadata failed, ret %d", ret);
+		xmgnt_err(xm, "add vsec metadata failed, ret %d", ret);
 		goto failed;
 	}
 
@@ -212,7 +212,7 @@ static int xmgmt_add_vsec_node(struct xmgmt *xm, char *dtb)
 	ret = xrt_md_set_prop(dev, dtb, XRT_MD_NODE_VSEC, NULL,
 			      XRT_MD_PROP_BAR_IDX, &vsec_bar, sizeof(vsec_bar));
 	if (ret) {
-		xmgmt_err(xm, "add vsec bar idx failed, ret %d", ret);
+		xmgnt_err(xm, "add vsec bar idx failed, ret %d", ret);
 		goto failed;
 	}
 
@@ -220,7 +220,7 @@ static int xmgmt_add_vsec_node(struct xmgmt *xm, char *dtb)
 	ret = xrt_md_set_prop(dev, dtb, XRT_MD_NODE_VSEC, NULL,
 			      XRT_MD_PROP_OFFSET, &vsec_off, sizeof(vsec_off));
 	if (ret) {
-		xmgmt_err(xm, "add vsec offset failed, ret %d", ret);
+		xmgnt_err(xm, "add vsec offset failed, ret %d", ret);
 		goto failed;
 	}
 
@@ -228,18 +228,18 @@ failed:
 	return ret;
 }
 
-static int xmgmt_create_root_metadata(struct xmgmt *xm, char **root_dtb)
+static int xmgnt_create_root_metadata(struct xmgnt *xm, char **root_dtb)
 {
 	char *dtb = NULL;
 	int ret;
 
-	ret = xrt_md_create(XMGMT_DEV(xm), &dtb);
+	ret = xrt_md_create(XMGNT_DEV(xm), &dtb);
 	if (ret) {
-		xmgmt_err(xm, "create metadata failed, ret %d", ret);
+		xmgnt_err(xm, "create metadata failed, ret %d", ret);
 		goto failed;
 	}
 
-	ret = xmgmt_add_vsec_node(xm, dtb);
+	ret = xmgnt_add_vsec_node(xm, dtb);
 	if (ret == -ENOENT) {
 		/*
 		 * We may be dealing with a MFG board.
@@ -248,7 +248,7 @@ static int xmgmt_create_root_metadata(struct xmgmt *xm, char **root_dtb)
 		 */
 		ret = xroot_add_simple_node(xm->root, dtb, XRT_MD_NODE_VSEC_GOLDEN);
 	} else if (ret == 0) {
-		ret = xroot_add_simple_node(xm->root, dtb, XRT_MD_NODE_MGMT_MAIN);
+		ret = xroot_add_simple_node(xm->root, dtb, XRT_MD_NODE_MGNT_MAIN);
 	}
 	if (ret)
 		goto failed;
@@ -266,22 +266,22 @@ static ssize_t ready_show(struct device *dev,
 			  char *buf)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
-	struct xmgmt *xm = pci_get_drvdata(pdev);
+	struct xmgnt *xm = pci_get_drvdata(pdev);
 
 	return sprintf(buf, "%d\n", xm->ready);
 }
 static DEVICE_ATTR_RO(ready);
 
-static struct attribute *xmgmt_root_attrs[] = {
+static struct attribute *xmgnt_root_attrs[] = {
 	&dev_attr_ready.attr,
 	NULL
 };
 
-static struct attribute_group xmgmt_root_attr_group = {
-	.attrs = xmgmt_root_attrs,
+static struct attribute_group xmgnt_root_attr_group = {
+	.attrs = xmgnt_root_attrs,
 };
 
-static void xmgmt_root_get_id(struct device *dev, struct xrt_root_get_id *rid)
+static void xmgnt_root_get_id(struct device *dev, struct xrt_root_get_id *rid)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 
@@ -291,14 +291,14 @@ static void xmgmt_root_get_id(struct device *dev, struct xrt_root_get_id *rid)
 	rid->xpigi_sub_device_id = pdev->subsystem_device;
 }
 
-static int xmgmt_root_get_resource(struct device *dev, struct xrt_root_get_res *res)
+static int xmgnt_root_get_resource(struct device *dev, struct xrt_root_get_res *res)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
-	struct xmgmt *xm;
+	struct xmgnt *xm;
 
 	xm = pci_get_drvdata(pdev);
 	if (res->xpigr_region_id > PCI_STD_RESOURCE_END) {
-		xmgmt_err(xm, "Invalid bar idx %d", res->xpigr_region_id);
+		xmgnt_err(xm, "Invalid bar idx %d", res->xpigr_region_id);
 		return -EINVAL;
 	}
 
@@ -306,17 +306,17 @@ static int xmgmt_root_get_resource(struct device *dev, struct xrt_root_get_res *
 	return 0;
 }
 
-static struct xroot_physical_function_callback xmgmt_xroot_pf_cb = {
-	.xpc_get_id = xmgmt_root_get_id,
-	.xpc_get_resource = xmgmt_root_get_resource,
-	.xpc_hot_reset = xmgmt_root_hot_reset,
+static struct xroot_physical_function_callback xmgnt_xroot_pf_cb = {
+	.xpc_get_id = xmgnt_root_get_id,
+	.xpc_get_resource = xmgnt_root_get_resource,
+	.xpc_hot_reset = xmgnt_root_hot_reset,
 };
 
-static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+static int xmgnt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret;
 	struct device *dev = &pdev->dev;
-	struct xmgmt *xm = devm_kzalloc(dev, sizeof(*xm), GFP_KERNEL);
+	struct xmgnt *xm = devm_kzalloc(dev, sizeof(*xm), GFP_KERNEL);
 	char *dtb = NULL;
 
 	if (!xm)
@@ -324,36 +324,36 @@ static int xmgmt_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	xm->pdev = pdev;
 	pci_set_drvdata(pdev, xm);
 
-	ret = xmgmt_config_pci(xm);
+	ret = xmgnt_config_pci(xm);
 	if (ret)
 		goto failed;
 
-	ret = xroot_probe(&pdev->dev, &xmgmt_xroot_pf_cb, &xm->root);
+	ret = xroot_probe(&pdev->dev, &xmgnt_xroot_pf_cb, &xm->root);
 	if (ret)
 		goto failed;
 
-	ret = xmgmt_create_root_metadata(xm, &dtb);
+	ret = xmgnt_create_root_metadata(xm, &dtb);
 	if (ret)
 		goto failed_metadata;
 
 	ret = xroot_create_group(xm->root, dtb);
 	vfree(dtb);
 	if (ret)
-		xmgmt_err(xm, "failed to create root group: %d", ret);
+		xmgnt_err(xm, "failed to create root group: %d", ret);
 
 	if (!xroot_wait_for_bringup(xm->root))
-		xmgmt_err(xm, "failed to bringup all groups");
+		xmgnt_err(xm, "failed to bringup all groups");
 	else
 		xm->ready = true;
 
-	ret = sysfs_create_group(&pdev->dev.kobj, &xmgmt_root_attr_group);
+	ret = sysfs_create_group(&pdev->dev.kobj, &xmgnt_root_attr_group);
 	if (ret) {
 		/* Warning instead of failing the probe. */
-		xmgmt_warn(xm, "create xmgmt root attrs failed: %d", ret);
+		xmgnt_warn(xm, "create xmgnt root attrs failed: %d", ret);
 	}
 
 	xroot_broadcast(xm->root, XRT_EVENT_POST_CREATION);
-	xmgmt_info(xm, "%s started successfully", XMGMT_MODULE_NAME);
+	xmgnt_info(xm, "%s started successfully", XMGNT_MODULE_NAME);
 	return 0;
 
 failed_metadata:
@@ -363,57 +363,57 @@ failed:
 	return ret;
 }
 
-static void xmgmt_remove(struct pci_dev *pdev)
+static void xmgnt_remove(struct pci_dev *pdev)
 {
-	struct xmgmt *xm = pci_get_drvdata(pdev);
+	struct xmgnt *xm = pci_get_drvdata(pdev);
 
 	xroot_broadcast(xm->root, XRT_EVENT_PRE_REMOVAL);
-	sysfs_remove_group(&pdev->dev.kobj, &xmgmt_root_attr_group);
+	sysfs_remove_group(&pdev->dev.kobj, &xmgnt_root_attr_group);
 	xroot_remove(xm->root);
 	pci_disable_pcie_error_reporting(xm->pdev);
-	xmgmt_info(xm, "%s cleaned up successfully", XMGMT_MODULE_NAME);
+	xmgnt_info(xm, "%s cleaned up successfully", XMGNT_MODULE_NAME);
 }
 
-static struct pci_driver xmgmt_driver = {
-	.name = XMGMT_MODULE_NAME,
-	.id_table = xmgmt_pci_ids,
-	.probe = xmgmt_probe,
-	.remove = xmgmt_remove,
+static struct pci_driver xmgnt_driver = {
+	.name = XMGNT_MODULE_NAME,
+	.id_table = xmgnt_pci_ids,
+	.probe = xmgnt_probe,
+	.remove = xmgnt_remove,
 };
 
-static int __init xmgmt_init(void)
+static int __init xmgnt_init(void)
 {
 	int res = 0;
 
-	res = xmgmt_register_leaf();
+	res = xmgnt_register_leaf();
 	if (res)
 		return res;
 
-	xmgmt_class = class_create(THIS_MODULE, XMGMT_MODULE_NAME);
-	if (IS_ERR(xmgmt_class))
-		return PTR_ERR(xmgmt_class);
+	xmgnt_class = class_create(THIS_MODULE, XMGNT_MODULE_NAME);
+	if (IS_ERR(xmgnt_class))
+		return PTR_ERR(xmgnt_class);
 
-	res = pci_register_driver(&xmgmt_driver);
+	res = pci_register_driver(&xmgnt_driver);
 	if (res) {
-		class_destroy(xmgmt_class);
+		class_destroy(xmgnt_class);
 		return res;
 	}
 
 	return 0;
 }
 
-static __exit void xmgmt_exit(void)
+static __exit void xmgnt_exit(void)
 {
-	pci_unregister_driver(&xmgmt_driver);
-	class_destroy(xmgmt_class);
-	xmgmt_unregister_leaf();
+	pci_unregister_driver(&xmgnt_driver);
+	class_destroy(xmgnt_class);
+	xmgnt_unregister_leaf();
 }
 
-module_init(xmgmt_init);
-module_exit(xmgmt_exit);
+module_init(xmgnt_init);
+module_exit(xmgnt_exit);
 
-MODULE_DEVICE_TABLE(pci, xmgmt_pci_ids);
-MODULE_VERSION(XMGMT_DRIVER_VERSION);
+MODULE_DEVICE_TABLE(pci, xmgnt_pci_ids);
+MODULE_VERSION(XMGNT_DRIVER_VERSION);
 MODULE_AUTHOR("XRT Team <runtime@xilinx.com>");
 MODULE_DESCRIPTION("Xilinx Alveo management function driver");
 MODULE_LICENSE("GPL v2");
