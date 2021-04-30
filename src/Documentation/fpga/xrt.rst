@@ -61,9 +61,13 @@ capability and inside firmware files, such as platform xsabin or user xclbin fil
 The root driver manages the life cycle of multiple group drivers, which, in turn,
 manages multiple xleaf drivers. This allows a single set of drivers to support
 all kinds of subsystems exposed by different shells. The difference among all
-these subsystems will be handled in xleaf drivers with root and group drivers
-being part of the infrastructure and provide common services for all leaves
-found on all platforms.
+these subsystems is handled in xleaf drivers with root and group drivers being
+part of the infrastructure which provide common services to all leaves found
+on various platforms.
+
+
+Driver Object Model
+===================
 
 The driver object model looks like the following::
 
@@ -158,7 +162,7 @@ following::
 
 
 root
-^^^^
+----
 
 The root driver is a PCIe device driver attached to MPF. It's part of the
 infrastructure of the MPF driver and resides in xrt-mgnt.ko. This driver
@@ -181,7 +185,7 @@ the xrt-mgnt driver will still come online but with limited functionality.
 
 
 group
-^^^^^
+-----
 
 The group driver represents a pseudo device whose life cycle is managed by
 root and does not have real IO mem or IRQ resources. It's part of the
@@ -206,20 +210,19 @@ across xclbin downloads.
 
 
 xleaf
-^^^^^
+-----
 
 The xleaf driver is a xrt device driver whose life cycle is managed by
 a group driver and may or may not have real IO mem or IRQ resources. They
 are the real meat of xrt-mgnt and manage HW subsystems they are attached to.
 
-A xleaf driver may not have real hardware resources when it merely acts as a
-driver that manages certain in-memory states for xrt-mgnt. These in-memory
-states could be shared by multiple other leaves.
+A xleaf driver without real hardware resources manages in-memory states for
+xrt-mgnt. These in-memory states could be shared by multiple other leaves.
 
-Leaf drivers assigned to specific hardware resources drive specific subsystem in
-the device. To manipulate the subsystem or carry out a task, a xleaf driver may
-ask help from the root via root calls and/or from other leaves via inter-leaf
-calls.
+Leaf drivers assigned to specific hardware resources drive a specific subsystem
+in the device. To manipulate the subsystem or carry out a task, a xleaf driver
+may ask for help from the root via root calls and/or from other leaves via
+inter-leaf calls.
 
 A xleaf can also broadcast events through infrastructure code for other leaves
 to process. It can also receive event notification from infrastructure about
@@ -228,6 +231,14 @@ certain events, such as post-creation or pre-exit of a particular xleaf.
 .. note::
    See code in ``lib/xleaf/*.c``
 
+
+xrt_bus_type
+------------
+
+TODO
+
+.. note::
+   See code in ``lib/lib-drv.c``
 
 FPGA Manager Interaction
 ========================
@@ -295,9 +306,9 @@ Every partition also exports its UUIDs. See below for examples::
 hwmon
 -----
 
-xmgnt driver exposes standard hwmon interface to report voltage, current,
-temperature, power, etc. These can easily be viewed using *sensors* command
-line utility.
+The xrt-mgmnt driver exposes standard hwmon interface to report voltage, current,
+temperature, power, etc. These can easily be viewed using *sensors* command line
+utility.
 
 Alveo Platform Overview
 =======================
@@ -305,26 +316,26 @@ Alveo Platform Overview
 Alveo platforms are architected as two physical FPGA partitions: *Shell* and
 *User*. The Shell provides basic infrastructure for the Alveo platform like
 PCIe connectivity, board management, Dynamic Function Exchange (DFX), sensors,
-clocking, reset, and security. User partition contains user compiled FPGA
-binary which is loaded by a process called DFX also known as partial
+clocking, reset, and security. The User partition contains the user compiled FPGA
+binary which is loaded by a procedure called DFX also known as partial
 reconfiguration.
 
-For DFX to work properly physical partitions require strict HW compatibility
+For DFX to work properly, physical partitions require strict HW compatibility
 with each other. Every physical partition has two interface UUIDs: *parent* UUID
 and *child* UUID. For simple single stage platforms, Shell → User forms parent
 child relationship.
 
 .. note::
-   Partition compatibility matching is key design component of Alveo platforms
+   Partition compatibility matching is a key design component of the Alveo platforms
    and XRT. Partitions have child and parent relationship. A loaded partition
-   exposes child partition UUID to advertise its compatibility requirement.When
-   loading a child partition the xrt-mgnt management driver matches parent UUID of
-   the child partition against child UUID exported by the parent. Parent and
-   child partition UUIDs are stored in the *xclbin* (for user) or *xsabin* (for
-   shell). Except for root UUID exported by VSEC, hardware itself does not know
-   about UUIDs. UUIDs are stored in xsabin and xclbin. The image format has a
-   special node called Partition UUIDs which define the compatibility UUIDs. See
-   :ref:`partition_uuids`.
+   exposes child partition UUID to advertise its compatibility requirement. When
+   loading a child partition the xrt-mgnt driver matches the parent
+   UUID of the child partition against the child UUID exported by the parent.
+   The parent and child partition UUIDs are stored in the *xclbin* (for the user)
+   and the *xsabin* (for the shell). Except for the root UUID exported by VSEC,
+   the hardware itself does not know about the UUIDs. The UUIDs are stored in
+   xsabin and xclbin. The image format has a special node called Partition UUIDs
+   which define the compatibility UUIDs. See :ref:`partition_uuids`.
 
 
 The physical partitions and their loading is illustrated below::
@@ -349,20 +360,21 @@ Loading Sequence
 ----------------
 
 The Shell partition is loaded from flash at system boot time. It establishes the
-PCIe link and exposes two physical functions to the BIOS. After the OS boots, xrt-mgnt
-driver attaches to the PCIe physical function 0 exposed by the Shell and then looks
-for VSEC in PCIe extended configuration space. Using VSEC it determines the logic
-UUID of Shell and uses the UUID to load matching *xsabin* file from Linux firmware
-directory. The xsabin file contains metadata to discover peripherals that are part
-of Shell and firmware(s) for any embedded soft processors in Shell. The xsabin file
-also contains Partition UUIDs as described here :ref:`partition_uuids`.
+PCIe link and exposes two physical functions to the BIOS. After the OS boots,
+xrt-mgnt driver attaches to the PCIe physical function 0 exposed by the Shell
+and then looks for VSEC in the PCIe extended configuration space. Using VSEC, it
+determines the logic UUID of Shell and uses the UUID to load matching *xsabin*
+file from Linux firmware directory. The xsabin file contains the metadata to
+discover the peripherals that are part of the Shell and firmware for any embedded
+soft processors in the Shell. The xsabin file also contains Partition UUIDs as
+described here :ref:`partition_uuids`.
 
-The Shell exports a child interface UUID which is used for the compatibility check
-when loading user compiled xclbin over the User partition as part of DFX. When a user
-requests loading of a specific xclbin the xrt-mgnt management driver reads the parent
-interface UUID specified in the xclbin and matches it with child interface UUID
-exported by Shell to determine if xclbin is compatible with the Shell. If match
-fails loading of xclbin is denied.
+The Shell exports a child interface UUID which is used for the compatibility
+check when loading user compiled xclbin over the User partition as part of DFX.
+When a user requests loading of a specific xclbin, the xrt-mgnt driver reads
+the parent interface UUID specified in the xclbin and matches it with the child
+interface UUID exported by the Shell to determine if the xclbin is compatible with
+the Shell. If the match fails loading of xclbin is denied.
 
 xclbin loading is requested using ICAP_DOWNLOAD_AXLF ioctl command. When loading
 xclbin, xrt-mgnt driver performs the following *logical* operations:
@@ -373,7 +385,7 @@ xclbin, xrt-mgnt driver performs the following *logical* operations:
 4. Download the bitstream using the FPGA config engine (ICAP)
 5. De-isolate the User partition
 6. Program the clocks (ClockWiz) driving the User partition
-7. Wait for memory controller (MIG) calibration
+7. Wait for the memory controller (MIG) calibration
 8. Return the loading status back to the caller
 
 `Platform Loading Overview <https://xilinx.github.io/XRT/master/html/platforms_partitions.html>`_
@@ -395,7 +407,7 @@ xclbin is compiled by end user using
 `Vitis <https://www.xilinx.com/products/design-tools/vitis/vitis-platform.html>`_
 tool set from Xilinx. The xclbin contains sections describing user compiled
 acceleration engines/kernels, memory subsystems, clocking information etc. It also
-contains FPGA bitstream for the user partition, UUIDs, platform name, etc.
+contains a FPGA bitstream for the user partition, UUIDs, platform name, etc.
 
 
 .. _xsabin_xclbin_container_format:
@@ -437,9 +449,9 @@ The following figure illustrates a typical xclbin::
            +---------------------+
 
 
-xclbin/xsabin files can be packaged, un-packaged and inspected using XRT utility
-called **xclbinutil**. xclbinutil is part of XRT open source software stack. The
-source code for xclbinutil can be found at
+xclbin/xsabin files can be packaged, un-packaged and inspected using a XRT
+utility called **xclbinutil**. xclbinutil is part of the XRT open source
+software stack. The source code for xclbinutil can be found at
 https://github.com/Xilinx/XRT/tree/master/src/runtime_src/tools/xclbinutil
 
 For example to enumerate the contents of a xclbin/xsabin use the *--info* switch
@@ -455,11 +467,11 @@ as shown below::
 Device Tree Usage
 -----------------
 
-As mentioned previously xsabin file stores metadata which advertise HW subsystems present
-in a partition. The metadata is stored in device tree format with a well defined schema.
-XRT management driver uses this information to bind *xrt drivers* to the subsystem
-instantiations. The xrt drivers are found in **xrt-lib.ko** kernel module defined
-earlier.
+As mentioned previously, the xsabin file stores metadata which advertise HW
+subsystems present in a partition. The metadata is stored in device tree format
+with a well defined schema. XRT management driver uses this information to bind
+*xrt drivers* to the subsystem instantiations. The xrt drivers are found in
+**xrt-lib.ko** kernel module defined earlier.
 
 Logic UUID
 ^^^^^^^^^^
@@ -534,10 +546,11 @@ Each subsystem node and its properties define a hardware instance::
 
   addressable_endpoints {
       abc {
-          reg = <0xa 0xb>
+          reg = <0x00 0x1f05000 0x00 0x1000>>
           pcie_physical_function = <0x0>;
           pcie_bar_mapping = <0x2>;
           compatible = "abc def";
+	  interrupts = <0x09 0x0c>;
           firmware {
               firmware_product_name = "abc"
               firmware_branch_name = "def"
@@ -549,17 +562,21 @@ Each subsystem node and its properties define a hardware instance::
   }
 
 :reg:
- Property defines address range. '<0xa 0xb>' is BAR offset and length pair, both
- are 64-bit integer.
+ Propert defines an address range. `<0x00 0x1f05000 0x00 0x1000>` indicates
+ *0x00 0x1f05000* as BAR offset and *0x00 0x1000* as address length.
 :pcie_physical_function:
  Property specifies which PCIe physical function the subsystem node resides.
+ `<0x0>` implies physical function 0.
 :pcie_bar_mapping:
- Property specifies which PCIe BAR the subsystem node resides. '<0x2>' is BAR
- index and it is 0 if this property is not defined.
+ Property specifies which PCIe BAR the subsystem node resides. `<0x2>` implies
+ BAR 2. A value of 0 means the property is not defined.
 :compatible:
  Property is a list of strings. The first string in the list specifies the exact
  subsystem node. The following strings represent other devices that the device
  is compatible with.
+:interrupts:
+ Property specifies start and end interrupts for this subsystem node.
+ `<0x09 0x0c>` implies interrupts 9 to 13 are used by this subsystem.
 :firmware:
  Subnode defines the firmware required by this subsystem node.
 
@@ -801,10 +818,10 @@ system administrator. The full stack is illustrated below::
 Virtualized
 -----------
 
-In virtualized deployments, privileged MPF is assigned to host but unprivileged
-UPF is assigned to guest VM via PCIe pass-through. xrt-mgnt driver in host binds
-to MPF. xrt-mgnt driver operations are privileged and only accessible to the MPF.
-The full stack is illustrated below::
+In virtualized deployments, the privileged MPF is assigned to the host but the
+unprivileged UPF is assigned to a guest VM via PCIe pass-through. xrt-mgnt driver
+in host binds to MPF. xrt-mgnt driver operations are privileged and only accessible
+to the MPF. The full stack is illustrated below::
 
 
                                  ..............
