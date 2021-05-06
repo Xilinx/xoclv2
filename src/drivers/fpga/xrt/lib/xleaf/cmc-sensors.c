@@ -10,7 +10,7 @@
 #include <linux/slab.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
-#include "xmgnt-main.h"
+#include "xmgmt-main.h"
 #include "xrt-cmc-impl.h"
 
 #define CMC_12V_PEX_REG			0x20
@@ -343,17 +343,17 @@ void cmc_sensor_remove(struct xrt_device *xdev)
 
 static const char *cmc_get_vbnv(struct xrt_cmc_sensor *cmc_sensor)
 {
-	struct xrt_device *mgnt_leaf;
+	struct xrt_device *mgmt_leaf;
 	const char *vbnv;
 	int ret;
 
-	mgnt_leaf = xleaf_get_leaf_by_id(cmc_sensor->xdev, XRT_SUBDEV_MGNT_MAIN,
+	mgmt_leaf = xleaf_get_leaf_by_id(cmc_sensor->xdev, XRT_SUBDEV_MGMT_MAIN,
 					 XRT_INVALID_DEVICE_INST);
-	if (!mgnt_leaf)
+	if (!mgmt_leaf)
 		return NULL;
 
-	ret = xleaf_call(mgnt_leaf, XRT_MGNT_MAIN_GET_VBNV, &vbnv);
-	xleaf_put_leaf(cmc_sensor->xdev, mgnt_leaf);
+	ret = xleaf_call(mgmt_leaf, XRT_MGMT_MAIN_GET_VBNV, &vbnv);
+	xleaf_put_leaf(cmc_sensor->xdev, mgmt_leaf);
 	if (ret)
 		return NULL;
 	return vbnv;

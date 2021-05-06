@@ -16,11 +16,11 @@
 #include "xleaf/flash.h"
 #include "xleaf/devctl.h"
 #include "xleaf/test.h"
-#include "xmgnt-main.h"
+#include "xmgmt-main.h"
 #include "main-impl.h"
 #include "xleaf.h"
 #include <linux/xrt/flash_xrt_data.h>
-#include <linux/xrt/xmgnt-ioctl.h>
+#include <linux/xrt/xmgmt-ioctl.h>
 
 #define SELFTEST1_MAIN "xrt-selftest1-main"
 
@@ -77,7 +77,7 @@ static void selftest1_main_remove(struct xrt_device *xdev)
 /* Basic test for XRT core which validates xleaf lookup with EP name together with
  * instance number as key. Perform the following operation:
  *
- * group2.xmgnt_main() {
+ * group2.xmgmt_main() {
  *     lookup(group0.test);
  *     lookup(group1.test);
  * }
@@ -113,7 +113,7 @@ finally:
 /* Basic test for XRT core which validates inter xleaf calls. Perform the
  * following operations:
  *
- * group2.xmgnt_main() {
+ * group2.xmgmt_main() {
  *     xleaf_call(group0.test, XRT_XLEAF_TEST_A, arg);
  *     xleaf_call(group1.test, XRT_XLEAF_TEST_B, arg) {
  *         lookup(group0.test);
@@ -237,10 +237,10 @@ static int selftest1_main_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static struct xrt_dev_endpoints xrt_mgnt_main_endpoints[] = {
+static struct xrt_dev_endpoints xrt_mgmt_main_endpoints[] = {
 	{
 		.xse_names = (struct xrt_dev_ep_names []){
-			{ .ep_name = XRT_MD_NODE_MGNT_MAIN },
+			{ .ep_name = XRT_MD_NODE_MGMT_MAIN },
 			{ NULL },
 		},
 		.xse_min_ep = 1,
@@ -262,8 +262,8 @@ static struct xrt_driver selftest1_main_driver = {
 		},
 		.xsf_dev_name = "selftest1",
 	},
-	.subdev_id = XRT_SUBDEV_MGNT_MAIN,
-	.endpoints = xrt_mgnt_main_endpoints,
+	.subdev_id = XRT_SUBDEV_MGMT_MAIN,
+	.endpoints = xrt_mgmt_main_endpoints,
 	.probe = selftest1_main_probe,
 	.remove = selftest1_main_remove,
 	.leaf_call = selftest1_mainleaf_call,

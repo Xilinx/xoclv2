@@ -11,7 +11,7 @@
 
 /*
  * This header file contains data structures used in mailbox transport layer
- * b/w mgnt and user pfs. Any changes made here should maintain backward
+ * b/w mgmt and user pfs. Any changes made here should maintain backward
  * compatibility.
  */
 

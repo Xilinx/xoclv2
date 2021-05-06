@@ -15,14 +15,14 @@
 #include "xleaf.h"
 #include "xleaf/axigate.h"
 #include "xclbin-helper.h"
-#include "xmgnt.h"
+#include "xmgmt.h"
 
-struct xmgnt_bridge {
+struct xmgmt_bridge {
 	struct xrt_device *xdev;
 	const char *bridge_name;
 };
 
-struct xmgnt_region {
+struct xmgmt_region {
 	struct xrt_device *xdev;
 	struct fpga_region *region;
 	struct fpga_compat_id compat_id;
@@ -33,15 +33,15 @@ struct xmgnt_region {
 	struct list_head list;
 };
 
-struct xmgnt_region_match_arg {
+struct xmgmt_region_match_arg {
 	struct xrt_device *xdev;
 	uuid_t *uuids;
 	u32 uuid_num;
 };
 
-static int xmgnt_br_enable_set(struct fpga_bridge *bridge, bool enable)
+static int xmgmt_br_enable_set(struct fpga_bridge *bridge, bool enable)
 {
-	struct xmgnt_bridge *br_data = (struct xmgnt_bridge *)bridge->priv;
+	struct xmgmt_bridge *br_data = (struct xmgmt_bridge *)bridge->priv;
 	struct xrt_device *axigate_leaf;
 	int rc;
 
@@ -68,13 +68,13 @@ static int xmgnt_br_enable_set(struct fpga_bridge *bridge, bool enable)
 	return rc;
 }
 
-static const struct fpga_bridge_ops xmgnt_bridge_ops = {
-	.enable_set = xmgnt_br_enable_set
+static const struct fpga_bridge_ops xmgmt_bridge_ops = {
+	.enable_set = xmgmt_br_enable_set
 };
 
-static void xmgnt_destroy_bridge(struct fpga_bridge *br)
+static void xmgmt_destroy_bridge(struct fpga_bridge *br)
 {
-	struct xmgnt_bridge *br_data = br->priv;
+	struct xmgmt_bridge *br_data = br->priv;
 
 	if (!br_data)
 		return;
@@ -87,11 +87,11 @@ static void xmgnt_destroy_bridge(struct fpga_bridge *br)
 	fpga_bridge_free(br);
 }
 
-static struct fpga_bridge *xmgnt_create_bridge(struct xrt_device *xdev,
+static struct fpga_bridge *xmgmt_create_bridge(struct xrt_device *xdev,
 					       char *dtb)
 {
 	struct fpga_bridge *br = NULL;
-	struct xmgnt_bridge *br_data;
+	struct xmgmt_bridge *br_data;
 	const char *gate;
 	int rc;
 
@@ -114,7 +114,7 @@ static struct fpga_bridge *xmgnt_create_bridge(struct xrt_device *xdev,
 	}
 
 	br = fpga_bridge_create(DEV(xdev), br_data->bridge_name,
-				&xmgnt_bridge_ops, br_data);
+				&xmgmt_bridge_ops, br_data);
 	if (!br) {
 		xrt_err(xdev, "failed to create bridge");
 		goto failed;
@@ -139,9 +139,9 @@ failed:
 	return NULL;
 }
 
-static void xmgnt_destroy_region(struct fpga_region *region)
+static void xmgmt_destroy_region(struct fpga_region *region)
 {
-	struct xmgnt_region *r_data = region->priv;
+	struct xmgmt_region *r_data = region->priv;
 
 	xrt_info(r_data->xdev, "destroy fpga region %llx.%llx",
 		 region->compat_id->id_h, region->compat_id->id_l);
@@ -152,7 +152,7 @@ static void xmgnt_destroy_region(struct fpga_region *region)
 		xleaf_destroy_group(r_data->xdev, r_data->group_instance);
 
 	if (r_data->bridge)
-		xmgnt_destroy_bridge(r_data->bridge);
+		xmgmt_destroy_bridge(r_data->bridge);
 
 	if (r_data->region->info) {
 		fpga_image_info_free(r_data->region->info);
@@ -164,9 +164,9 @@ static void xmgnt_destroy_region(struct fpga_region *region)
 	devm_kfree(DEV(r_data->xdev), r_data);
 }
 
-static int xmgnt_region_match(struct device *dev, const void *data)
+static int xmgmt_region_match(struct device *dev, const void *data)
 {
-	const struct xmgnt_region_match_arg *arg = data;
+	const struct xmgmt_region_match_arg *arg = data;
 	const struct fpga_region *match_region;
 	uuid_t compat_uuid;
 	int i;
@@ -192,11 +192,11 @@ static int xmgnt_region_match(struct device *dev, const void *data)
 	return false;
 }
 
-static int xmgnt_region_match_base(struct device *dev, const void *data)
+static int xmgmt_region_match_base(struct device *dev, const void *data)
 {
-	const struct xmgnt_region_match_arg *arg = data;
+	const struct xmgmt_region_match_arg *arg = data;
 	const struct fpga_region *match_region;
-	const struct xmgnt_region *r_data;
+	const struct xmgmt_region *r_data;
 
 	if (dev->parent != &arg->xdev->dev)
 		return false;
@@ -209,11 +209,11 @@ static int xmgnt_region_match_base(struct device *dev, const void *data)
 	return false;
 }
 
-static int xmgnt_region_match_by_uuid(struct device *dev, const void *data)
+static int xmgmt_region_match_by_uuid(struct device *dev, const void *data)
 {
-	const struct xmgnt_region_match_arg *arg = data;
+	const struct xmgmt_region_match_arg *arg = data;
 	const struct fpga_region *match_region;
-	const struct xmgnt_region *r_data;
+	const struct xmgmt_region *r_data;
 
 	if (dev->parent != &arg->xdev->dev)
 		return false;
@@ -229,11 +229,11 @@ static int xmgnt_region_match_by_uuid(struct device *dev, const void *data)
 	return false;
 }
 
-static void xmgnt_region_cleanup(struct fpga_region *region)
+static void xmgmt_region_cleanup(struct fpga_region *region)
 {
-	struct xmgnt_region *r_data = region->priv, *pdata, *temp;
+	struct xmgmt_region *r_data = region->priv, *pdata, *temp;
 	struct xrt_device *xdev = r_data->xdev;
-	struct xmgnt_region_match_arg arg = { 0 };
+	struct xmgmt_region_match_arg arg = { 0 };
 	struct fpga_region *match_region = NULL;
 	struct device *start_dev = NULL;
 	LIST_HEAD(free_list);
@@ -249,7 +249,7 @@ static void xmgnt_region_cleanup(struct fpga_region *region)
 		import_uuid(arg.uuids, (const char *)pdata->region->compat_id);
 		start_dev = NULL;
 		while ((match_region = fpga_region_class_find(start_dev, &arg,
-							      xmgnt_region_match_by_uuid))) {
+							      xmgmt_region_match_by_uuid))) {
 			pdata = match_region->priv;
 			list_add_tail(&pdata->list, &free_list);
 			start_dev = &match_region->dev;
@@ -260,7 +260,7 @@ static void xmgnt_region_cleanup(struct fpga_region *region)
 	list_del(&r_data->list);
 
 	list_for_each_entry_safe_reverse(pdata, temp, &free_list, list)
-		xmgnt_destroy_region(pdata->region);
+		xmgmt_destroy_region(pdata->region);
 
 	if (r_data->group_instance > 0) {
 		xleaf_destroy_group(xdev, r_data->group_instance);
@@ -272,18 +272,18 @@ static void xmgnt_region_cleanup(struct fpga_region *region)
 	}
 }
 
-void xmgnt_region_cleanup_all(struct xrt_device *xdev)
+void xmgmt_region_cleanup_all(struct xrt_device *xdev)
 {
-	struct xmgnt_region_match_arg arg = { 0 };
+	struct xmgmt_region_match_arg arg = { 0 };
 	struct fpga_region *base_region;
 
 	arg.xdev = xdev;
 
-	while ((base_region = fpga_region_class_find(NULL, &arg, xmgnt_region_match_base))) {
+	while ((base_region = fpga_region_class_find(NULL, &arg, xmgmt_region_match_base))) {
 		put_device(&base_region->dev);
 
-		xmgnt_region_cleanup(base_region);
-		xmgnt_destroy_region(base_region);
+		xmgmt_region_cleanup(base_region);
+		xmgmt_destroy_region(base_region);
 	}
 }
 
@@ -291,12 +291,12 @@ void xmgnt_region_cleanup_all(struct xrt_device *xdev)
  * Program a region with a xclbin image. Bring up the subdevs and the
  * group object to contain the subdevs.
  */
-static int xmgnt_region_program(struct fpga_region *region, const void *xclbin, char *dtb)
+static int xmgmt_region_program(struct fpga_region *region, const void *xclbin, char *dtb)
 {
 	const struct axlf *xclbin_obj = xclbin;
 	struct fpga_image_info *info;
 	struct xrt_device *xdev;
-	struct xmgnt_region *r_data;
+	struct xmgmt_region *r_data;
 	int rc;
 
 	r_data = region->priv;
@@ -338,9 +338,9 @@ static int xmgnt_region_program(struct fpga_region *region, const void *xclbin, 
 	return rc;
 }
 
-static int xmgnt_get_bridges(struct fpga_region *region)
+static int xmgmt_get_bridges(struct fpga_region *region)
 {
-	struct xmgnt_region *r_data = region->priv;
+	struct xmgmt_region *r_data = region->priv;
 	struct device *dev = &r_data->xdev->dev;
 
 	return fpga_bridge_get_to_list(dev, region->info, &region->bridge_list);
@@ -354,14 +354,14 @@ static int xmgnt_get_bridges(struct fpga_region *region)
  * 4. Iterate over this region's interface uuids to determine if it defines any
  *    child region. Create fpga_region for the child region.
  */
-int xmgnt_process_xclbin(struct xrt_device *xdev,
+int xmgmt_process_xclbin(struct xrt_device *xdev,
 			 struct fpga_manager *fmgr,
 			 const struct axlf *xclbin,
 			 enum provider_kind kind)
 {
 	struct fpga_region *region, *compat_region = NULL;
-	struct xmgnt_region_match_arg arg = { 0 };
-	struct xmgnt_region *r_data;
+	struct xmgmt_region_match_arg arg = { 0 };
+	struct xmgmt_region *r_data;
 	uuid_t compat_uuid;
 	char *dtb = NULL;
 	int rc, i;
@@ -394,17 +394,17 @@ int xmgnt_process_xclbin(struct xrt_device *xdev,
 	}
 
 	/* if this is not base firmware, search for a compatible region */
-	if (kind != XMGNT_BLP) {
-		compat_region = fpga_region_class_find(NULL, &arg, xmgnt_region_match);
+	if (kind != XMGMT_BLP) {
+		compat_region = fpga_region_class_find(NULL, &arg, xmgmt_region_match);
 		if (!compat_region) {
 			xrt_err(xdev, "failed to get compatible region");
 			rc = -ENOENT;
 			goto failed;
 		}
 
-		xmgnt_region_cleanup(compat_region);
+		xmgmt_region_cleanup(compat_region);
 
-		rc = xmgnt_region_program(compat_region, xclbin, dtb);
+		rc = xmgmt_region_program(compat_region, xclbin, dtb);
 		if (rc) {
 			xrt_err(xdev, "failed to program region");
 			goto failed;
@@ -421,7 +421,7 @@ int xmgnt_process_xclbin(struct xrt_device *xdev,
 			continue;
 		}
 
-		region = fpga_region_create(DEV(xdev), fmgr, xmgnt_get_bridges);
+		region = fpga_region_create(DEV(xdev), fmgr, xmgmt_get_bridges);
 		if (!region) {
 			xrt_err(xdev, "failed to create fpga region");
 			rc = -EFAULT;
@@ -439,7 +439,7 @@ int xmgnt_process_xclbin(struct xrt_device *xdev,
 		uuid_copy(&r_data->interface_uuid, &arg.uuids[i]);
 		if (compat_region)
 			import_uuid(&r_data->depend_uuid, (const char *)compat_region->compat_id);
-		r_data->bridge = xmgnt_create_bridge(xdev, dtb);
+		r_data->bridge = xmgmt_create_bridge(xdev, dtb);
 		if (!r_data->bridge) {
 			xrt_err(xdev, "failed to create fpga bridge");
 			rc = -EFAULT;
@@ -455,7 +455,7 @@ int xmgnt_process_xclbin(struct xrt_device *xdev,
 		rc = fpga_region_register(region);
 		if (rc) {
 			xrt_err(xdev, "failed to register fpga region");
-			xmgnt_destroy_bridge(r_data->bridge);
+			xmgmt_destroy_bridge(r_data->bridge);
 			fpga_region_free(region);
 			devm_kfree(DEV(xdev), r_data);
 			goto failed;
@@ -474,7 +474,7 @@ int xmgnt_process_xclbin(struct xrt_device *xdev,
 failed:
 	if (compat_region) {
 		put_device(&compat_region->dev);
-		xmgnt_region_cleanup(compat_region);
+		xmgmt_region_cleanup(compat_region);
 	}
 
 	vfree(dtb);

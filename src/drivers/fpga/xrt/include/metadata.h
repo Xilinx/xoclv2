@@ -43,10 +43,10 @@
  * ULP: User Reconfigurable Partition
  */
 #define XRT_MD_NODE_ADDR_TRANSLATOR "ep_remap_data_c2h_00"
-#define XRT_MD_NODE_AF_BLP_CTRL_MGNT "ep_firewall_blp_ctrl_mgmt_00"
+#define XRT_MD_NODE_AF_BLP_CTRL_MGMT "ep_firewall_blp_ctrl_mgmt_00"
 #define XRT_MD_NODE_AF_BLP_CTRL_USER "ep_firewall_blp_ctrl_user_00"
 #define XRT_MD_NODE_AF_CTRL_DEBUG "ep_firewall_ctrl_debug_00"
-#define XRT_MD_NODE_AF_CTRL_MGNT "ep_firewall_ctrl_mgmt_00"
+#define XRT_MD_NODE_AF_CTRL_MGMT "ep_firewall_ctrl_mgmt_00"
 #define XRT_MD_NODE_AF_CTRL_USER "ep_firewall_ctrl_user_00"
 #define XRT_MD_NODE_AF_DATA_C2H "ep_firewall_data_c2h_00" /* c2h: card to host */
 #define XRT_MD_NODE_AF_DATA_H2C "ep_firewall_data_h2c_00" /* h2c: host to card */
@@ -66,7 +66,7 @@
 #define XRT_MD_NODE_DDR_CALIB "ep_ddr_mem_calib_00"
 #define XRT_MD_NODE_DDR4_RESET_GATE "ep_ddr_mem_srsr_gate_00"
 #define XRT_MD_NODE_ERT_BASE "ep_ert_base_address_00"
-#define XRT_MD_NODE_ERT_CQ_MGNT "ep_ert_command_queue_mgmt_00"
+#define XRT_MD_NODE_ERT_CQ_MGMT "ep_ert_command_queue_mgmt_00"
 #define XRT_MD_NODE_ERT_CQ_USER "ep_ert_command_queue_user_00"
 #define XRT_MD_NODE_ERT_FW_MEM "ep_ert_firmware_mem_00"
 #define XRT_MD_NODE_ERT_RESET "ep_ert_reset_00"
@@ -77,7 +77,7 @@
 #define XRT_MD_NODE_GATE_PLP "ep_pr_isolate_plp_00"
 #define XRT_MD_NODE_GATE_ULP "ep_pr_isolate_ulp_00"
 #define XRT_MD_NODE_KDMA_CTRL "ep_kdma_ctrl_00"
-#define XRT_MD_NODE_MAILBOX_MGNT "ep_mailbox_mgmt_00"
+#define XRT_MD_NODE_MAILBOX_MGMT "ep_mailbox_mgmt_00"
 #define XRT_MD_NODE_MAILBOX_USER "ep_mailbox_user_00"
 #define XRT_MD_NODE_MAILBOX_XRT "ep_mailbox_user_to_ert_00"
 #define XRT_MD_NODE_MSIX "ep_msix_00"
@@ -106,7 +106,7 @@
 #define XRT_MD_NODE_FLASH_VSEC "drv_ep_card_flash_program_00"
 #define XRT_MD_NODE_GOLDEN_VER "drv_ep_golden_ver_00"
 #define XRT_MD_NODE_MAILBOX_VSEC "drv_ep_mailbox_vsec_00"
-#define XRT_MD_NODE_MGNT_MAIN "drv_ep_mgmt_main_00"
+#define XRT_MD_NODE_MGMT_MAIN "drv_ep_mgmt_main_00"
 #define XRT_MD_NODE_PLAT_INFO "drv_ep_platform_info_mgmt_00"
 #define XRT_MD_NODE_PARTITION_INFO_BLP "partition_info_0"
 #define XRT_MD_NODE_PARTITION_INFO_PLP "partition_info_1"

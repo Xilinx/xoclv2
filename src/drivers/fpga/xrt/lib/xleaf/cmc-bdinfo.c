@@ -10,7 +10,7 @@
 #include <linux/slab.h>
 #include "xleaf.h"
 #include "xrt-cmc-impl.h"
-#include "xmgnt-main.h"
+#include "xmgmt-main.h"
 #include <linux/xrt/mailbox_proto.h>
 
 enum board_info_key {
@@ -169,19 +169,19 @@ static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 #define NONE_BMC_VERSION	"0.0.0"
 	int ret = 0;
 	struct xrt_device *xdev = cmc_bdi->xdev;
-	struct xrt_device *mgnt_leaf =
-		xleaf_get_leaf_by_id(xdev, XRT_SUBDEV_MGNT_MAIN, XRT_INVALID_DEVICE_INST);
-	struct xrt_mgnt_main_get_axlf_section gs = { XMGNT_BLP, BMC, };
+	struct xrt_device *mgmt_leaf =
+		xleaf_get_leaf_by_id(xdev, XRT_SUBDEV_MGMT_MAIN, XRT_INVALID_DEVICE_INST);
+	struct xrt_mgmt_main_get_axlf_section gs = { XMGMT_BLP, BMC, };
 	struct bmc *bmcsect;
 
 	(void)sprintf(expbmc, "%s", NONE_BMC_VERSION);
 
-	if (!mgnt_leaf) {
+	if (!mgmt_leaf) {
 		xrt_err(xdev, "failed to get hold of main");
 		return;
 	}
 
-	ret = xleaf_call(mgnt_leaf, XRT_MGNT_MAIN_GET_AXLF_SECTION, &gs);
+	ret = xleaf_call(mgmt_leaf, XRT_MGMT_MAIN_GET_AXLF_SECTION, &gs);
 	if (ret == 0) {
 		bmcsect = (struct bmc *)gs.xmmigas_section;
 		memcpy(expbmc, bmcsect->version, sizeof(bmcsect->version));
@@ -192,7 +192,7 @@ static void cmc_copy_expect_bmc(struct xrt_cmc_bdinfo *cmc_bdi, void *expbmc)
 		 */
 		cmc_copy_board_info_by_key(cmc_bdi, BDINFO_BMC_VER, expbmc);
 	}
-	xleaf_put_leaf(xdev, mgnt_leaf);
+	xleaf_put_leaf(xdev, mgmt_leaf);
 }
 
 int cmc_bdinfo_read(struct xrt_device *xdev, struct xcl_board_info *bdinfo)

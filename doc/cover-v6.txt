@@ -1,0 +1,135 @@
+Hello,
+
+This is V6 of patch series which adds management physical function driver
+for Xilinx Alveo PCIe accelerator cards.
+    https://www.xilinx.com/products/boards-and-kits/alveo.html
+
+This driver is part of Xilinx Runtime (XRT) open source stack.
+
+XILINX ALVEO PLATFORM ARCHITECTURE
+
+Alveo PCIe FPGA based platforms have a static *shell* partition and a
+partial re-configurable *user* partition. The shell partition is
+automatically loaded from flash when host is booted and PCIe is enumerated
+by BIOS. Shell cannot be changed till the next cold reboot. The shell
+exposes two PCIe physical functions:
+
+1. management physical function
+2. user physical function
+
+The patch series includes Documentation/xrt.rst which describes Alveo
+platform, XRT driver architecture and deployment model in more detail.
+
+Users compile their high level design in C/C++/OpenCL or RTL into FPGA
+image using Vitis tools.
+    https://www.xilinx.com/products/design-tools/vitis/vitis-platform.html
+
+The compiled image is packaged as xclbin which contains partial bitstream
+for the user partition and necessary metadata. Users can dynamically swap
+the image running on the user partition in order to switch between
+different workloads by loading different xclbins.
+
+XRT DRIVERS FOR XILINX ALVEO
+
+XRT Linux kernel driver *xrt-mgmt* binds to management physical function of
+Alveo platform. The modular driver framework is organized into several
+platform drivers which primarily handle the following functionality:
+
+1.  Loading firmware container also called xsabin at driver attach time
+2.  Loading of user compiled xclbin with FPGA Manager integration
+3.  Clock scaling of image running on user partition
+4.  In-band sensors: temp, voltage, power, etc.
+5.  Device reset and rescan
+
+The platform drivers are packaged into *xrt-lib* helper module with well
+defined interfaces. The module provides a pseudo-bus implementation for the
+platform drivers. More details on the driver model can be found in
+Documentation/xrt.rst.
+
+User physical function driver is not included in this patch series.
+
+LIBFDT REQUIREMENT
+
+XRT driver infrastructure uses Device Tree as a metadata format to discover
+HW subsystems in the Alveo PCIe device. The Device Tree schema used by XRT
+is documented in Documentation/xrt.rst.
+
+TESTING AND VALIDATION
+
+xrt-mgmt driver can be tested with full XRT open source stack which
+includes user space libraries, board utilities and (out of tree) first
+generation user physical function driver xocl. XRT open source runtime
+stack is available at https://github.com/Xilinx/XRT
+
+Complete documentation for XRT open source stack including sections on
+Alveo/XRT security and platform architecture can be found here:
+
+https://xilinx.github.io/XRT/master/html/index.html
+https://xilinx.github.io/XRT/master/html/security.html
+https://xilinx.github.io/XRT/master/html/platforms_partitions.html
+
+Changes since v5:
+- Revert all changes 'mgnt/MGNT' back to 'mgmt/MGMT'
+- Updated code base to include v5 code review comments.
+
+Changes since v4:
+- Added xrt_bus_type and xrt_device. All sub devices were changed from
+  platform_bus_type/platform_device to xrt_bus_type/xrt_device.
+- Renamed xrt-mgmt driver to xrt-mgnt driver.
+- Replaced 'MGMT' with 'MGNT' and 'mgmt' with 'mgnt' in code and file names
+- Moved pci function calls from infrastructure to xrt-mgnt driver.
+- Renamed files: mgmt/main.c -> mgnt/xmgnt-main.c
+                 mgmt/main-region.c -> mgnt/xmgnt-main-region.c
+                 include/xmgmt-main.h -> include/xmgnt-main.h
+                 mgmt/fmgr-drv.c -> mgnt/xrt-mgr.c
+                 mgmt/fmgr.h -> mgnt/xrt-mgr.h
+- Updated code base to include v4 code review comments.
+
+Changes since v3:
+- Leaf drivers use regmap-mmio to access hardware registers.
+- Renamed driver module: xmgmt.ko -> xrt-mgmt.ko
+- Renamed files: calib.[c|h] -> ddr_calibration.[c|h],
+                 lib/main.[c|h] -> lib/lib-drv.[c|h],
+                 mgmt/main-impl.h - > mgmt/xmgnt.h
+- Updated code base to include v3 code review comments.
+
+Changes since v2:
+- Streamlined the driver framework into *xleaf*, *group* and *xroot*
+- Updated documentation to show the driver model with examples
+- Addressed kernel test robot errors
+- Added a selftest for basic driver framework
+- Documented device tree schema
+- Removed need to export libfdt symbols
+
+Changes since v1:
+- Updated the driver to use fpga_region and fpga_bridge for FPGA
+  programming
+- Dropped platform drivers not related to PR programming to focus on XRT
+  core framework
+- Updated Documentation/fpga/xrt.rst with information on XRT core framework
+- Addressed checkpatch issues
+- Dropped xrt- prefix from some header files
+
+For reference V5 version of patch series can be found here:
+
+https://lore.kernel.org/lkml/20210427205431.23896-1-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-2-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-3-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-4-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-5-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-6-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-7-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-8-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-9-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-10-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-11-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-12-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-13-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-14-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-15-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-16-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-17-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-18-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-19-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-20-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210427205431.23896-21-lizhi.hou@xilinx.com/
