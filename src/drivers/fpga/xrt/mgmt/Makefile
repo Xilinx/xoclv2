@@ -5,7 +5,7 @@
 # Authors: Sonal.Santan@xilinx.com
 #
 
-obj-m	+= xrt-mgnt.o
+obj-m	+= xrt-mgmt.o
 
 fdtdir := ../../../../lib
 
@@ -25,11 +25,11 @@ fdtobj := 				\
 	$(fdtdir)/fdt_wip.o
 endif
 
-xrt-mgnt-y := root.o		\
-	   xmgnt-main.o		\
+xrt-mgmt-y := root.o		\
+	   xmgmt-main.o		\
 	   xrt-mgr.o		\
-	   xmgnt-main-region.o	\
-	   xmgnt-main-mailbox.o	\
+	   xmgmt-main-region.o	\
+	   xmgmt-main-mailbox.o	\
 	   $(fdtobj)
 
 

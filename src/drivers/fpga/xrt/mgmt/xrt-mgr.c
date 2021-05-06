@@ -18,7 +18,7 @@
 #include "xrt-mgr.h"
 #include "xleaf/axigate.h"
 #include "xleaf/icap.h"
-#include "xmgnt.h"
+#include "xmgmt.h"
 
 struct xfpga_class {
 	struct xrt_device *xdev;
@@ -29,7 +29,7 @@ struct xfpga_class {
  * xclbin download plumbing -- find the download subsystem, ICAP and
  * pass the xclbin for heavy lifting
  */
-static int xmgnt_download_bitstream(struct xrt_device *xdev,
+static int xmgmt_download_bitstream(struct xrt_device *xdev,
 				    const struct axlf *xclbin)
 
 {
@@ -90,7 +90,7 @@ fail:
  * There is no HW prep work we do here since we need the full
  * xclbin for its sanity check.
  */
-static int xmgnt_pr_write_init(struct fpga_manager *mgr,
+static int xmgmt_pr_write_init(struct fpga_manager *mgr,
 			       struct fpga_image_info *info,
 			       const char *buf, size_t count)
 {
@@ -120,7 +120,7 @@ static int xmgnt_pr_write_init(struct fpga_manager *mgr,
  * for checking the validity of xclbin and walking the sections to
  * discover the bitstream.
  */
-static int xmgnt_pr_write(struct fpga_manager *mgr,
+static int xmgmt_pr_write(struct fpga_manager *mgr,
 			  const char *buf, size_t count)
 {
 	const struct axlf *bin = (const struct axlf *)buf;
@@ -129,10 +129,10 @@ static int xmgnt_pr_write(struct fpga_manager *mgr,
 	if (bin->header.length != count)
 		return -EINVAL;
 
-	return xmgnt_download_bitstream((void *)obj->xdev, bin);
+	return xmgmt_download_bitstream((void *)obj->xdev, bin);
 }
 
-static int xmgnt_pr_write_complete(struct fpga_manager *mgr,
+static int xmgmt_pr_write_complete(struct fpga_manager *mgr,
 				   struct fpga_image_info *info)
 {
 	const struct axlf *bin = (const struct axlf *)info->buf;
@@ -143,20 +143,20 @@ static int xmgnt_pr_write_complete(struct fpga_manager *mgr,
 	return 0;
 }
 
-static enum fpga_mgr_states xmgnt_pr_state(struct fpga_manager *mgr)
+static enum fpga_mgr_states xmgmt_pr_state(struct fpga_manager *mgr)
 {
 	return FPGA_MGR_STATE_UNKNOWN;
 }
 
-static const struct fpga_manager_ops xmgnt_pr_ops = {
+static const struct fpga_manager_ops xmgmt_pr_ops = {
 	.initial_header_size = sizeof(struct axlf),
-	.write_init = xmgnt_pr_write_init,
-	.write = xmgnt_pr_write,
-	.write_complete = xmgnt_pr_write_complete,
-	.state = xmgnt_pr_state,
+	.write_init = xmgmt_pr_write_init,
+	.write = xmgmt_pr_write,
+	.write_complete = xmgmt_pr_write_complete,
+	.state = xmgmt_pr_state,
 };
 
-struct fpga_manager *xmgnt_fmgr_probe(struct xrt_device *xdev)
+struct fpga_manager *xmgmt_fmgr_probe(struct xrt_device *xdev)
 {
 	struct xfpga_class *obj = devm_kzalloc(DEV(xdev), sizeof(struct xfpga_class),
 					       GFP_KERNEL);
@@ -170,7 +170,7 @@ struct fpga_manager *xmgnt_fmgr_probe(struct xrt_device *xdev)
 	obj->xdev = xdev;
 	fmgr = fpga_mgr_create(&xdev->dev,
 			       obj->name,
-			       &xmgnt_pr_ops,
+			       &xmgmt_pr_ops,
 			       obj);
 	if (!fmgr)
 		return ERR_PTR(-ENOMEM);
@@ -183,7 +183,7 @@ struct fpga_manager *xmgnt_fmgr_probe(struct xrt_device *xdev)
 	return fmgr;
 }
 
-int xmgnt_fmgr_remove(struct fpga_manager *fmgr)
+int xmgmt_fmgr_remove(struct fpga_manager *fmgr)
 {
 	fpga_mgr_unregister(fmgr);
 	return 0;

@@ -117,7 +117,8 @@ static ssize_t metadata_output(struct file *filp, struct kobject *kobj,
 	}
 
 	if (off + count > size) {
-		dev_dbg(dev, "count (%ld) beyond left bytes: %lld\n", count, size - off);
+		dev_dbg(dev, "count (%ld) beyond left bytes: %lld\n",
+			(unsigned long)count, size - off);
 		count = size - off;
 	}
 	memcpy(buf, blob + off, count);
@@ -156,8 +157,8 @@ xrt_subdev_getres(struct device *parent, enum xrt_subdev_id id,
 {
 	struct xrt_subdev_platdata *pdata;
 	struct resource *pci_res = NULL;
-	const u64 *bar_range;
-	const u32 *bar_idx;
+	const __be64 *bar_range;
+	const __be32 *bar_idx;
 	char *ep_name = NULL, *compat = NULL;
 	uint bar;
 	int count1 = 0, count2 = 0, ret;

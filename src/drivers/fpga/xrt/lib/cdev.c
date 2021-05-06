@@ -9,8 +9,7 @@
  */
 
 #include "xleaf.h"
-
-extern struct class *xrt_class;
+#include "lib-drv.h"
 
 #define XRT_CDEV_DIR		"xrt"
 #define INODE2PDATA(inode)	\
