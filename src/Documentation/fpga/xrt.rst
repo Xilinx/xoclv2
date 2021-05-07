@@ -17,10 +17,10 @@ PCIe platforms from Xilinx.
 XRTV2 drivers support *subsystem* style data driven platforms where driver's
 configuration and behavior is determined by meta data provided by the platform
 (in *device tree* format). Primary management physical function (MPF) driver
-is called **xrt-mgnt**. Primary user physical function (UPF) driver is called
-**xrt-user** and is under development. xrt driver framework and HW subsystem
+is called **xrt-mgmt**. Primary user physical function (UPF) driver is called
+**xrt-user** and is under development. xrt_driver framework and HW subsystem
 drivers are packaged into a library module called **xrt-lib**, which is shared
-by **xrt-mgnt** and **xrt-user** (under development). The xrt driver framework
+by **xrt-mgmt** and **xrt-user** (under development). The xrt_driver framework
 implements a ``bus_type`` called **xrt_bus_type** which is used to discover HW
 subsystems and facilitate inter HW subsystem interaction.
 
@@ -30,40 +30,44 @@ Driver Modules
 xrt-lib.ko
 ----------
 
-Repository of all subsystem drivers and pure software modules that can potentially
-be shared between xrt-mgnt and xrt-user. All these drivers are structured as
-**xrt_driver** and are instantiated by xrt-mgnt (or xrt-user under development)
-based on meta data associated with the hardware. The metadata is in the form of a
-device tree as mentioned before. Each xrt driver statically defines a subsystem
-node array by using node name or a string in its ``.endpoints`` property. And this
-array is eventually translated to IOMEM resources in the instantiated xrt device.
+xrt-lib is the repository of all subsystem drivers and pure software modules that
+can potentially be shared between xrt-mgmt and xrt-user. All these drivers are
+structured as **xrt_driver** and are instantiated by xrt-mgmt (or xrt-user under
+development) based on meta data associated with the hardware. The metadata is
+in the form of a device tree as mentioned before. Each xrt_driver statically
+defines a subsystem node array by using node name or a string in its ``.endpoints``
+property. And this array is eventually translated to IOMEM resources in the
+instantiated **xrt_device**.
 
-The xrt-lib infrastructure provides hooks to xrt drivers for device node
+The xrt-lib infrastructure provides hooks to xrt_drivers for device node
 management, user file operations and ioctl callbacks. The core infrastructure also
-provides bus functionality for xrt driver registration, discovery and inter xrt
-driver leaf calls.
+provides a bus functionality called **xrt_bus_type** for xrt_driver registration,
+discovery and inter xrt_driver calls. xrt-lib does not have any dependency on PCIe
+subsytem.
 
 .. note::
    See code in ``include/xleaf.h`` and ``include/xdevice.h``
 
 
-xrt-mgnt.ko
+xrt-mgmt.ko
 ------------
 
-The xrt-mgnt driver is a PCIe device driver driving MPF found on Xilinx's Alveo
+The xrt-mgmt driver is a PCIe device driver driving MPF found on Xilinx's Alveo
 PCIe device. It consists of one *root* driver, one or more *group* drivers
-and one or more *xleaf* drivers. The root and MPF specific xleaf drivers are
-in xrt-mgnt.ko. The group driver and other xleaf drivers are in xrt-lib.ko.
+and one or more *xleaf* drivers. The group and xleaf drivers are instantiations
+of xrt_driver but are called group and xleaf to symbolize the logical operation
+performed by them.
+
+The root driver manages the life cycle of multiple group drivers, which, in turn,
+manages multiple xleaf drivers. This flexibility allows xrt-mgmt.ko and xrt-lib.ko
+to support various HW subsystems exposed by different Alveo shells. The differences
+among these Alveo shells is handled in xleaf drivers. The root and group
+drivers make part of the infrastructure which provide common services to xleaf
+drivers found on various Alveo shells. See :ref:`alveo_platform_overview`.
 
 The instantiation of specific group driver or xleaf driver is completely data
 driven based on meta data (mostly in device tree format) found through VSEC
 capability and inside firmware files, such as platform xsabin or user xclbin file.
-The root driver manages the life cycle of multiple group drivers, which, in turn,
-manages multiple xleaf drivers. This allows a single set of drivers to support
-all kinds of subsystems exposed by different shells. The difference among all
-these subsystems is handled in xleaf drivers with root and group drivers being
-part of the infrastructure which provide common services to all leaves found
-on various platforms.
 
 
 Driver Object Model
@@ -94,7 +98,7 @@ As an example for Xilinx Alveo U50 before user xclbin download, the tree
 looks like the following::
 
                                 +-----------+
-                                |  xrt-mgnt |
+                                |  xrt-mgmt |
                                 +-----+-----+
                                       |
             +-------------------------+--------------------+
@@ -109,7 +113,7 @@ looks like the following::
       |           |        |    |         |    |     |          |        |
       v           v        |    v         v    |     v          v        |
  +------------+  +------+  | +------+ +------+ |  +------+ +-----------+ |
- | xmgnt_main |  | VSEC |  | | GPIO | | QSPI | |  |  CMC | | AXI-GATE0 | |
+ | xmgmt_main |  | VSEC |  | | GPIO | | QSPI | |  |  CMC | | AXI-GATE0 | |
  +------------+  +------+  | +------+ +------+ |  +------+ +-----------+ |
                            | +---------+       |  +------+ +-----------+ |
                            +>| MAILBOX |       +->| ICAP | | AXI-GATE1 |<+
@@ -122,7 +126,7 @@ After an xclbin is downloaded, group3 will be added and the tree looks like the
 following::
 
                                 +-----------+
-                                |  xrt-mgnt |
+                                |  xrt-mgmt |
                                 +-----+-----+
                                       |
             +-------------------------+--------------------+-----------------+
@@ -137,7 +141,7 @@ following::
       |           |       |     |         |    |     |          |        |   |
       v           v       |     v         v    |     v          v        |   |
  +------------+  +------+ | +------+ +------+  |  +------+ +-----------+ |   |
- | xmgnt_main |  | VSEC | | | GPIO | | QSPI |  |  |  CMC | | AXI-GATE0 | |   |
+ | xmgmt_main |  | VSEC | | | GPIO | | QSPI |  |  |  CMC | | AXI-GATE0 | |   |
  +------------+  +------+ | +------+ +------+  |  +------+ +-----------+ |   |
                           | +---------+        |  +------+ +-----------+ |   |
                           +>| MAILBOX |        +->| ICAP | | AXI-GATE1 |<+   |
@@ -165,23 +169,23 @@ root
 ----
 
 The root driver is a PCIe device driver attached to MPF. It's part of the
-infrastructure of the MPF driver and resides in xrt-mgnt.ko. This driver
+infrastructure of the MPF driver and resides in xrt-mgmt.ko. This driver
 
 * manages one or more group drivers
 * provides access to functionalities that requires pci_dev, such as PCIE config
   space access, to other xleaf drivers through root calls
+* facilities inter xleaf driver calls for other xleaf drivers
 * facilities event callbacks for other xleaf drivers
-* facilities inter-leaf driver calls for other xleaf drivers
 
 When root driver starts, it will explicitly create an initial group instance,
 which contains xleaf drivers that will trigger the creation of other group
-instances. The root driver will wait for all group and leaves to be created
-before it returns from it's probe routine and claim success of the
-initialization of the entire xrt-mgnt driver. If any leaf fails to initialize
-the xrt-mgnt driver will still come online but with limited functionality.
+instances. The root driver will wait for all group and xleaf drivers to be
+created before it returns from it's probe routine and claim success of the
+initialization of the entire xrt-mgmt driver. If any xleaf fails to initialize
+the xrt-mgmt driver will still come online but with limited functionality.
 
 .. note::
-   See code in ``lib/xroot.c`` and ``mgnt/root.c``
+   See code in ``lib/xroot.c`` and ``mgmt/root.c``
 
 
 group
@@ -192,15 +196,15 @@ root and does not have real IO mem or IRQ resources. It's part of the
 infrastructure of the MPF driver and resides in xrt-lib.ko. This driver
 
 * manages one or more xleaf drivers
-* provides access to root from leaves, so that root calls, event notifications
-  and inter-leaf calls can happen
+* provides access to root from xleaf drivers, so that root calls, event
+  notifications and inter xleaf calls can happen
 
-In xrt-mgnt, an initial group driver instance will be created by the root. This
-instance contains leaves that will trigger group instances to be created to
-manage groups of leaves found on different partitions on hardware, such as
-VSEC, Shell, and User.
+In xrt-mgmt, an initial group driver instance will be created by the root. This
+instance contains xleaf drivers that will trigger group instances to be created
+to manage groups of xleaf drivers found on different partitions on hardware,
+such as VSEC, Shell, and User.
 
-Every *fpga_region* has a group object associated with it. The group is
+Every *fpga_region* has a group driver associated with it. The group driver is
 created when xclbin image is loaded on the fpga_region. The existing group
 is destroyed when a new xclbin image is loaded. The fpga_region persists
 across xclbin downloads.
@@ -212,17 +216,17 @@ across xclbin downloads.
 xleaf
 -----
 
-The xleaf driver is a xrt device driver whose life cycle is managed by
+The xleaf driver is a xrt_driver whose life cycle is managed by
 a group driver and may or may not have real IO mem or IRQ resources. They
-are the real meat of xrt-mgnt and manage HW subsystems they are attached to.
+are the real meat of xrt-mgmt and manage HW subsystems they are attached to.
 
 A xleaf driver without real hardware resources manages in-memory states for
-xrt-mgnt. These in-memory states could be shared by multiple other leaves.
+xrt-mgmt. These in-memory states could be shared by multiple other xleaf.
 
-Leaf drivers assigned to specific hardware resources drive a specific subsystem
+Xleaf drivers assigned to specific hardware resources drive a specific subsystem
 in the device. To manipulate the subsystem or carry out a task, a xleaf driver
 may ask for help from the root via root calls and/or from other leaves via
-inter-leaf calls.
+inter xleaf calls.
 
 A xleaf can also broadcast events through infrastructure code for other leaves
 to process. It can also receive event notification from infrastructure about
@@ -235,7 +239,9 @@ certain events, such as post-creation or pre-exit of a particular xleaf.
 xrt_bus_type
 ------------
 
-TODO
+xrt_bus_type defines a virtual bus which handles xrt_driver probe, remove and match
+operations. All xrt_drivers register with xrt_bus_type as part of xrt-lib driver
+``module_init`` and unregister as part of xrt-lib driver ``module_exit``.
 
 .. note::
    See code in ``lib/lib-drv.c``
@@ -246,10 +252,10 @@ FPGA Manager Interaction
 fpga_manager
 ------------
 
-An instance of fpga_manager is created by xmgnt_main and is used for xclbin
+An instance of fpga_manager is created by xmgmt_main and is used for xclbin
 image download. fpga_manager requires the full xclbin image before it can
 start programming the FPGA configuration engine via Internal Configuration
-Access Port (ICAP) xrt driver.
+Access Port (ICAP) xrt_driver.
 
 fpga_region
 -----------
@@ -274,16 +280,16 @@ device tree of the parent group.
 Driver Interfaces
 =================
 
-xrt-mgnt Driver Ioctls
+xrt-mgmt Driver Ioctls
 ----------------------
 
-Ioctls exposed by xrt-mgnt driver to user space are enumerated in the following
+Ioctls exposed by xrt-mgmt driver to user space are enumerated in the following
 table:
 
 == ===================== ============================ ==========================
 #  Functionality         ioctl request code            data format
 == ===================== ============================ ==========================
-1  FPGA image download   XMGNT_IOCICAPDOWNLOAD_AXLF    xmgnt_ioc_bitstream_axlf
+1  FPGA image download   XMGMT_IOCICAPDOWNLOAD_AXLF    xmgmt_ioc_bitstream_axlf
 == ===================== ============================ ==========================
 
 A user xclbin can be downloaded by using the xbmgmt tool from the XRT open source
@@ -291,16 +297,16 @@ suite. See example usage below::
 
   xbmgmt partition --program --path /lib/firmware/xilinx/862c7020a250293e32036f19956669e5/test/verify.xclbin --force
 
-xrt-mgnt Driver Sysfs
+xrt-mgmt Driver Sysfs
 ----------------------
 
-xrt-mgnt driver exposes a rich set of sysfs interfaces. Subsystem xrt
+xrt-mgmt driver exposes a rich set of sysfs interfaces. Subsystem xrt
 drivers export sysfs node for every platform instance.
 
 Every partition also exports its UUIDs. See below for examples::
 
-  /sys/bus/pci/devices/0000:06:00.0/xmgnt_main.0/interface_uuids
-  /sys/bus/pci/devices/0000:06:00.0/xmgnt_main.0/logic_uuids
+  /sys/bus/pci/devices/0000:06:00.0/xmgmt_main.0/interface_uuids
+  /sys/bus/pci/devices/0000:06:00.0/xmgmt_main.0/logic_uuids
 
 
 hwmon
@@ -309,6 +315,8 @@ hwmon
 The xrt-mgmnt driver exposes standard hwmon interface to report voltage, current,
 temperature, power, etc. These can easily be viewed using *sensors* command line
 utility.
+
+.. _alveo_platform_overview:
 
 Alveo Platform Overview
 =======================
@@ -329,7 +337,7 @@ child relationship.
    Partition compatibility matching is a key design component of the Alveo platforms
    and XRT. Partitions have child and parent relationship. A loaded partition
    exposes child partition UUID to advertise its compatibility requirement. When
-   loading a child partition the xrt-mgnt driver matches the parent
+   loading a child partition the xrt-mgmt driver matches the parent
    UUID of the child partition against the child UUID exported by the parent.
    The parent and child partition UUIDs are stored in the *xclbin* (for the user)
    and the *xsabin* (for the shell). Except for the root UUID exported by VSEC,
@@ -361,7 +369,7 @@ Loading Sequence
 
 The Shell partition is loaded from flash at system boot time. It establishes the
 PCIe link and exposes two physical functions to the BIOS. After the OS boots,
-xrt-mgnt driver attaches to the PCIe physical function 0 exposed by the Shell
+xrt-mgmt driver attaches to the PCIe physical function 0 exposed by the Shell
 and then looks for VSEC in the PCIe extended configuration space. Using VSEC, it
 determines the logic UUID of Shell and uses the UUID to load matching *xsabin*
 file from Linux firmware directory. The xsabin file contains the metadata to
@@ -371,13 +379,13 @@ described here :ref:`partition_uuids`.
 
 The Shell exports a child interface UUID which is used for the compatibility
 check when loading user compiled xclbin over the User partition as part of DFX.
-When a user requests loading of a specific xclbin, the xrt-mgnt driver reads
+When a user requests loading of a specific xclbin, the xrt-mgmt driver reads
 the parent interface UUID specified in the xclbin and matches it with the child
 interface UUID exported by the Shell to determine if the xclbin is compatible with
 the Shell. If the match fails loading of xclbin is denied.
 
 xclbin loading is requested using ICAP_DOWNLOAD_AXLF ioctl command. When loading
-xclbin, xrt-mgnt driver performs the following *logical* operations:
+xclbin, xrt-mgmt driver performs the following *logical* operations:
 
 1. Copy xclbin from user to kernel memory
 2. Sanity check the xclbin contents
@@ -470,7 +478,7 @@ Device Tree Usage
 As mentioned previously, the xsabin file stores metadata which advertise HW
 subsystems present in a partition. The metadata is stored in device tree format
 with a well defined schema. XRT management driver uses this information to bind
-*xrt drivers* to the subsystem instantiations. The xrt drivers are found in
+*xrt_drivers* to the subsystem instantiations. The xrt_drivers are found in
 **xrt-lib.ko** kernel module defined earlier.
 
 Logic UUID
@@ -784,13 +792,13 @@ Deployment Models
 Baremetal
 ---------
 
-In bare-metal deployments, both MPF and UPF are visible and accessible. xrt-mgnt
-driver binds to MPF. xrt-mgnt driver operations are privileged and available to
+In bare-metal deployments, both MPF and UPF are visible and accessible. xrt-mgmt
+driver binds to MPF. xrt-mgmt driver operations are privileged and available to
 system administrator. The full stack is illustrated below::
 
                             HOST
 
-               [XRT-MGNT]         [XRT-USER]
+               [XRT-MGMT]         [XRT-USER]
                     |                  |
                     |                  |
                  +-----+            +-----+
@@ -819,15 +827,15 @@ Virtualized
 -----------
 
 In virtualized deployments, the privileged MPF is assigned to the host but the
-unprivileged UPF is assigned to a guest VM via PCIe pass-through. xrt-mgnt driver
-in host binds to MPF. xrt-mgnt driver operations are privileged and only accessible
+unprivileged UPF is assigned to a guest VM via PCIe pass-through. xrt-mgmt driver
+in host binds to MPF. xrt-mgmt driver operations are privileged and only accessible
 to the MPF. The full stack is illustrated below::
 
 
                                  ..............
                   HOST           .    VM      .
                                  .            .
-               [XRT-MGNT]        . [XRT-USER] .
+               [XRT-MGMT]        . [XRT-USER] .
                     |            .     |      .
                     |            .     |      .
                  +-----+         .  +-----+   .
