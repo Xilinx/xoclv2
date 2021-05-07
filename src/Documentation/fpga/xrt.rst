@@ -15,7 +15,7 @@ drivers which support `Alveo <https://www.xilinx.com/products/boards-and-kits/al
 PCIe platforms from Xilinx.
 
 XRTV2 drivers support *subsystem* style data driven platforms where driver's
-configuration and behavior is determined by metadata provided by the platform
+configuration and behavior are determined by metadata provided by the platform
 (in *device tree* format). Primary management physical function (MPF) driver
 is called **xrt-mgmt**. Primary user physical function (UPF) driver is called
 **xrt-user** and is under development. xrt_driver framework and HW subsystem
@@ -94,7 +94,7 @@ The driver object model looks like the following::
     | xleaf |..| xleaf |    | xleaf |..| xleaf |
     +-------+  +-------+    +-------+  +-------+
 
-As an example for Xilinx Alveo U50 before user xclbin download, the tree
+As an example, for Xilinx Alveo U50 before user xclbin download, the tree
 looks like the following::
 
                                 +-----------+
@@ -180,7 +180,7 @@ infrastructure of the MPF driver and resides in xrt-mgmt.ko. This driver
 When root driver starts, it will explicitly create an initial group instance,
 which contains xleaf drivers that will trigger the creation of other group
 instances. The root driver will wait for all group and xleaf drivers to be
-created before it returns from it's probe routine and claim success of the
+created before it returns from its probe routine and claim success of the
 initialization of the entire xrt-mgmt driver. If any xleaf fails to initialize
 the xrt-mgmt driver will still come online but with limited functionality.
 
@@ -337,7 +337,7 @@ child relationship.
    Partition compatibility matching is a key design component of the Alveo platforms
    and XRT. Partitions have child and parent relationship. A loaded partition
    exposes child partition UUID to advertise its compatibility requirement. When
-   loading a child partition the xrt-mgmt driver matches the parent
+   loading a child partition, the xrt-mgmt driver matches the parent
    UUID of the child partition against the child UUID exported by the parent.
    The parent and child partition UUIDs are stored in the *xclbin* (for the user)
    and the *xsabin* (for the shell). Except for the root UUID exported by VSEC,
@@ -346,7 +346,7 @@ child relationship.
    which define the compatibility UUIDs. See :ref:`partition_uuids`.
 
 
-The physical partitions and their loading is illustrated below::
+The physical partitions and their loading are illustrated below::
 
            SHELL                               USER
         +-----------+                  +-------------------+
