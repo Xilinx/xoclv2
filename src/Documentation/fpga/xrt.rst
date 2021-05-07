@@ -43,7 +43,7 @@ The xrt-lib infrastructure provides hooks to xrt_drivers for device node
 management, user file operations and ioctl callbacks. The core infrastructure also
 provides a bus functionality called **xrt_bus_type** for xrt_driver registration,
 discovery and inter xrt_driver calls. xrt-lib does not have any dependency on PCIe
-subsytem.
+subsystem.
 
 .. note::
    See code in ``include/xleaf.h`` and ``include/xdevice.h``
@@ -241,7 +241,7 @@ xrt_bus_type
 
 xrt_bus_type defines a virtual bus which handles xrt_driver probe, remove and match
 operations. All xrt_drivers register with xrt_bus_type as part of xrt-lib driver
-``module_init`` and unregister as part of xrt-lib driver ``module_exit``.
+``module_init`` and un-register as part of xrt-lib driver ``module_exit``.
 
 .. note::
    See code in ``lib/lib-drv.c``
@@ -312,7 +312,7 @@ Every partition also exports its UUIDs. See below for examples::
 hwmon
 -----
 
-The xrt-mgmnt driver exposes standard hwmon interface to report voltage, current,
+The xrt-mgmt driver exposes standard hwmon interface to report voltage, current,
 temperature, power, etc. These can easily be viewed using *sensors* command line
 utility.
 
@@ -570,7 +570,7 @@ Each subsystem node and its properties define a hardware instance::
   }
 
 :reg:
- Propert defines an address range. `<0x00 0x1f05000 0x00 0x1000>` indicates
+ Property defines an address range. `<0x00 0x1f05000 0x00 0x1000>` indicates
  *0x00 0x1f05000* as BAR offset and *0x00 0x1000* as address length.
 :pcie_physical_function:
  Property specifies which PCIe physical function the subsystem node resides.
