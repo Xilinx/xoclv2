@@ -15,7 +15,7 @@ drivers which support `Alveo <https://www.xilinx.com/products/boards-and-kits/al
 PCIe platforms from Xilinx.
 
 XRTV2 drivers support *subsystem* style data driven platforms where driver's
-configuration and behavior is determined by meta data provided by the platform
+configuration and behavior is determined by metadata provided by the platform
 (in *device tree* format). Primary management physical function (MPF) driver
 is called **xrt-mgmt**. Primary user physical function (UPF) driver is called
 **xrt-user** and is under development. xrt_driver framework and HW subsystem
@@ -33,7 +33,7 @@ xrt-lib.ko
 xrt-lib is the repository of all subsystem drivers and pure software modules that
 can potentially be shared between xrt-mgmt and xrt-user. All these drivers are
 structured as **xrt_driver** and are instantiated by xrt-mgmt (or xrt-user under
-development) based on meta data associated with the hardware. The metadata is
+development) based on the metadata associated with the hardware. The metadata is
 in the form of a device tree as mentioned before. Each xrt_driver statically
 defines a subsystem node array by using node name or a string in its ``.endpoints``
 property. And this array is eventually translated to IOMEM resources in the
@@ -66,7 +66,7 @@ drivers make part of the infrastructure which provide common services to xleaf
 drivers found on various Alveo shells. See :ref:`alveo_platform_overview`.
 
 The instantiation of specific group driver or xleaf driver is completely data
-driven based on meta data (mostly in device tree format) found through VSEC
+driven based on metadata (mostly in device tree format) found through VSEC
 capability and inside firmware files, such as platform xsabin or user xclbin file.
 
 
@@ -122,7 +122,7 @@ looks like the following::
                                                +->| CALIB |
                                                   +-------+
 
-After an xclbin is downloaded, group3 will be added and the tree looks like the
+After a xclbin is downloaded, group3 will be added and the tree looks like the
 following::
 
                                 +-----------+
@@ -205,7 +205,7 @@ to manage groups of xleaf drivers found on different partitions on hardware,
 such as VSEC, Shell, and User.
 
 Every *fpga_region* has a group driver associated with it. The group driver is
-created when xclbin image is loaded on the fpga_region. The existing group
+created when a xclbin image is loaded on the fpga_region. The existing group
 is destroyed when a new xclbin image is loaded. The fpga_region persists
 across xclbin downloads.
 
@@ -378,14 +378,14 @@ soft processors in the Shell. The xsabin file also contains Partition UUIDs as
 described here :ref:`partition_uuids`.
 
 The Shell exports a child interface UUID which is used for the compatibility
-check when loading user compiled xclbin over the User partition as part of DFX.
+check when loading the user compiled xclbin over the User partition as part of DFX.
 When a user requests loading of a specific xclbin, the xrt-mgmt driver reads
 the parent interface UUID specified in the xclbin and matches it with the child
 interface UUID exported by the Shell to determine if the xclbin is compatible with
 the Shell. If the match fails loading of xclbin is denied.
 
 xclbin loading is requested using ICAP_DOWNLOAD_AXLF ioctl command. When loading
-xclbin, xrt-mgmt driver performs the following *logical* operations:
+a xclbin, xrt-mgmt driver performs the following *logical* operations:
 
 1. Copy xclbin from user to kernel memory
 2. Sanity check the xclbin contents
@@ -426,7 +426,7 @@ xsabin/xclbin Container Format
 xclbin/xsabin is ELF-like binary container format. It is structured as series of
 sections. There is a file header followed by several section headers which is
 followed by sections. A section header points to an actual section. There is an
-optional signature at the end. The format is defined by header file ``xclbin.h``.
+optional signature at the end. The format is defined by the header file ``xclbin.h``.
 The following figure illustrates a typical xclbin::
 
 
@@ -493,8 +493,8 @@ A partition is identified uniquely through ``logic_uuid`` property::
 
 Schema Version
 ^^^^^^^^^^^^^^
-Schema version is defined through ``schema_version`` node. And it contains ``major``
-and ``minor`` properties as below::
+Schema version is defined through the ``schema_version`` node. It contains
+``major`` and ``minor`` properties as below::
 
   /dts-v1/;
   / {
