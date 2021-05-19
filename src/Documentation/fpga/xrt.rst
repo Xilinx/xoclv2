@@ -459,12 +459,12 @@ The following figure illustrates a typical xclbin::
            +---------------------+
 
 
-xclbin/xsabin files can be packaged, un-packaged and inspected using a XRT
+xclbin/xsabin files can be packaged, un-packaged and inspected using an XRT
 utility called **xclbinutil**. xclbinutil is part of the XRT open source
 software stack. The source code for xclbinutil can be found at
 https://github.com/Xilinx/XRT/tree/master/src/runtime_src/tools/xclbinutil
 
-For example to enumerate the contents of a xclbin/xsabin use the *--info* switch
+For example, to enumerate the contents of a xclbin/xsabin use the *--info* switch
 as shown below::
 
 
