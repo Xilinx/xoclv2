@@ -35,7 +35,7 @@ can potentially be shared between xrt-mgmt and xrt-user. All these drivers are
 structured as **xrt_driver** and are instantiated by xrt-mgmt (or xrt-user under
 development) based on the metadata associated with the hardware. The metadata is
 in the form of a device tree as mentioned before. Each xrt_driver statically
-defines a subsystem node array by using node name or a string in its ``.endpoints``
+defines a subsystem node array by using a node name or a string in its ``.endpoints``
 property. And this array is eventually translated to IOMEM resources in the
 instantiated **xrt_device**.
 
@@ -55,7 +55,7 @@ xrt-mgmt.ko
 The xrt-mgmt driver is a PCIe device driver driving MPF found on Xilinx's Alveo
 PCIe device. It consists of one *root* driver, one or more *group* drivers
 and one or more *xleaf* drivers. The group and xleaf drivers are instantiations
-of xrt_driver but are called group and xleaf to symbolize the logical operation
+of the xrt_driver but are called group and xleaf to symbolize the logical operation
 performed by them.
 
 The root driver manages the life cycle of multiple group drivers, which, in turn,
@@ -65,9 +65,10 @@ among these Alveo shells is handled in xleaf drivers. The root and group
 drivers make part of the infrastructure which provide common services to xleaf
 drivers found on various Alveo shells. See :ref:`alveo_platform_overview`.
 
-The instantiation of specific group driver or xleaf driver is completely data
+The instantiation of specific group driver or xleaf drivers is completely data
 driven based on metadata (mostly in device tree format) found through VSEC
-capability and inside firmware files, such as platform xsabin or user xclbin file.
+capability and inside the firmware files, such as platform xsabin or user xclbin
+file.
 
 
 Driver Object Model
@@ -177,7 +178,7 @@ infrastructure of the MPF driver and resides in xrt-mgmt.ko. This driver
 * facilities inter xleaf driver calls for other xleaf drivers
 * facilities event callbacks for other xleaf drivers
 
-When root driver starts, it will explicitly create an initial group instance,
+When the root driver starts, it will explicitly create an initial group instance,
 which contains xleaf drivers that will trigger the creation of other group
 instances. The root driver will wait for all group and xleaf drivers to be
 created before it returns from its probe routine and claim success of the
@@ -201,7 +202,7 @@ infrastructure of the MPF driver and resides in xrt-lib.ko. This driver
 
 In xrt-mgmt, an initial group driver instance will be created by the root. This
 instance contains xleaf drivers that will trigger group instances to be created
-to manage groups of xleaf drivers found on different partitions on hardware,
+to manage groups of xleaf drivers found on different partitions of hardware,
 such as VSEC, Shell, and User.
 
 Every *fpga_region* has a group driver associated with it. The group driver is
@@ -218,10 +219,10 @@ xleaf
 
 The xleaf driver is a xrt_driver whose life cycle is managed by
 a group driver and may or may not have real IO mem or IRQ resources. They
-are the real meat of xrt-mgmt and manage HW subsystems they are attached to.
+manage HW subsystems they are attached to.
 
 A xleaf driver without real hardware resources manages in-memory states for
-xrt-mgmt. These in-memory states could be shared by multiple other xleaf.
+xrt-mgmt. These states are shareable by other xleaf drivers.
 
 Xleaf drivers assigned to specific hardware resources drive a specific subsystem
 in the device. To manipulate the subsystem or carry out a task, a xleaf driver
@@ -266,16 +267,17 @@ fpga_region. The device tree of the *parent* fpga_region defines the
 resources for a new instance of fpga_bridge which isolates the parent from
 child fpga_region. This new instance of fpga_bridge will be used when a
 xclbin image is loaded on the child fpga_region. After the xclbin image is
-downloaded to the fpga_region, an instance of group is created for the
+downloaded to the fpga_region, an instance of a group is created for the
 fpga_region using the device tree obtained as part of the xclbin. If this
-device tree defines any child interfaces then it can trigger the creation of
+device tree defines any child interfaces, it can trigger the creation of
 fpga_bridge and fpga_region for the next region in the chain.
 
 fpga_bridge
 -----------
 
-Like the fpga_region, matching fpga_bridge is also created by walking the
-device tree of the parent group.
+Like the fpga_region, a fpga_bridge is created by walking the device tree
+of the parent group. The bridge is used for isolation between a parent and
+its child.
 
 Driver Interfaces
 =================
@@ -283,8 +285,8 @@ Driver Interfaces
 xrt-mgmt Driver Ioctls
 ----------------------
 
-Ioctls exposed by xrt-mgmt driver to user space are enumerated in the following
-table:
+Ioctls exposed by the xrt-mgmt driver to user space are enumerated in the
+following table:
 
 == ===================== ============================ ==========================
 #  Functionality         ioctl request code            data format
@@ -324,14 +326,13 @@ Alveo Platform Overview
 Alveo platforms are architected as two physical FPGA partitions: *Shell* and
 *User*. The Shell provides basic infrastructure for the Alveo platform like
 PCIe connectivity, board management, Dynamic Function Exchange (DFX), sensors,
-clocking, reset, and security. The User partition contains the user compiled FPGA
-binary which is loaded by a procedure called DFX also known as partial
-reconfiguration.
+clocking, reset, and security. DFX, partial reconfiguration, is responsible for
+loading the user compiled FPGA binary is the User partition.
 
 For DFX to work properly, physical partitions require strict HW compatibility
-with each other. Every physical partition has two interface UUIDs: *parent* UUID
-and *child* UUID. For simple single stage platforms, Shell → User forms parent
-child relationship.
+with each other. Every physical partition has two interface UUIDs: the *parent*
+UUID and the *child* UUID. For simple single stage platforms, Shell → User forms
+the parent child relationship.
 
 .. note::
    Partition compatibility matching is a key design component of the Alveo platforms
@@ -371,21 +372,22 @@ The Shell partition is loaded from flash at system boot time. It establishes the
 PCIe link and exposes two physical functions to the BIOS. After the OS boots,
 xrt-mgmt driver attaches to the PCIe physical function 0 exposed by the Shell
 and then looks for VSEC in the PCIe extended configuration space. Using VSEC, it
-determines the logic UUID of Shell and uses the UUID to load matching *xsabin*
+determines the logic UUID of the Shell and uses the UUID to load matching *xsabin*
 file from Linux firmware directory. The xsabin file contains the metadata to
-discover the peripherals that are part of the Shell and firmware for any embedded
-soft processors in the Shell. The xsabin file also contains Partition UUIDs as
-described here :ref:`partition_uuids`.
+discover the peripherals that are part of the Shell and the firmware for any
+embedded soft processors in the Shell. The xsabin file also contains Partition
+UUIDs as described here :ref:`partition_uuids`.
 
 The Shell exports a child interface UUID which is used for the compatibility
 check when loading the user compiled xclbin over the User partition as part of DFX.
 When a user requests loading of a specific xclbin, the xrt-mgmt driver reads
 the parent interface UUID specified in the xclbin and matches it with the child
 interface UUID exported by the Shell to determine if the xclbin is compatible with
-the Shell. If the match fails loading of xclbin is denied.
+the Shell. If the match fails, loading of xclbin is denied.
 
 xclbin loading is requested using ICAP_DOWNLOAD_AXLF ioctl command. When loading
-a xclbin, xrt-mgmt driver performs the following *logical* operations:
+a xclbin using the ICAP_DOWNLOAD_AXLF ioctl, xrt-mgmt driver performs the
+following *logical* operations:
 
 1. Copy xclbin from user to kernel memory
 2. Sanity check the xclbin contents
@@ -457,12 +459,12 @@ The following figure illustrates a typical xclbin::
            +---------------------+
 
 
-xclbin/xsabin files can be packaged, un-packaged and inspected using a XRT
+xclbin/xsabin files can be packaged, un-packaged and inspected using an XRT
 utility called **xclbinutil**. xclbinutil is part of the XRT open source
 software stack. The source code for xclbinutil can be found at
 https://github.com/Xilinx/XRT/tree/master/src/runtime_src/tools/xclbinutil
 
-For example to enumerate the contents of a xclbin/xsabin use the *--info* switch
+For example, to enumerate the contents of a xclbin/xsabin use the *--info* switch
 as shown below::
 
 
@@ -475,11 +477,11 @@ as shown below::
 Device Tree Usage
 -----------------
 
-As mentioned previously, the xsabin file stores metadata which advertise HW
-subsystems present in a partition. The metadata is stored in device tree format
-with a well defined schema. XRT management driver uses this information to bind
-*xrt_drivers* to the subsystem instantiations. The xrt_drivers are found in
-**xrt-lib.ko** kernel module defined earlier.
+The xsabin file stores metadata which advertise HW subsystems present in a
+partition. The metadata is stored in device tree format with a well defined
+schema. XRT management driver uses this information to bind *xrt_drivers* to
+the subsystem instantiations. The xrt_drivers are found in **xrt-lib.ko** kernel
+module.
 
 Logic UUID
 ^^^^^^^^^^
@@ -509,7 +511,7 @@ Schema version is defined through the ``schema_version`` node. It contains
 
 Partition UUIDs
 ^^^^^^^^^^^^^^^
-As mentioned earlier, each partition may have parent and child UUIDs. These UUIDs are
+Each partition may have parent and child UUIDs. These UUIDs are
 defined by ``interfaces`` node and ``interface_uuid`` property::
 
   /dts-v1/;
@@ -558,7 +560,7 @@ Each subsystem node and its properties define a hardware instance::
           pcie_physical_function = <0x0>;
           pcie_bar_mapping = <0x2>;
           compatible = "abc def";
-	  interrupts = <0x09 0x0c>;
+          interrupts = <0x09 0x0c>;
           firmware {
               firmware_product_name = "abc"
               firmware_branch_name = "def"
@@ -792,9 +794,9 @@ Deployment Models
 Baremetal
 ---------
 
-In bare-metal deployments, both MPF and UPF are visible and accessible. xrt-mgmt
-driver binds to MPF. xrt-mgmt driver operations are privileged and available to
-system administrator. The full stack is illustrated below::
+In bare-metal deployments, both MPF and UPF are visible and accessible. The
+xrt-mgmt driver binds to MPF. The xrt-mgmt driver operations are privileged and
+available to system administrator. The full stack is illustrated below::
 
                             HOST
 
