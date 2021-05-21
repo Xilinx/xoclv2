@@ -22,6 +22,7 @@
 #include "xrt-mgr.h"
 #include "xleaf/icap.h"
 #include "xleaf/axigate.h"
+#include "xleaf/pcie-firewall.h"
 #include "xmgmt.h"
 
 #define XMGMT_MAIN "xmgmt_main"
@@ -419,6 +420,63 @@ done:
 	return rc;
 }
 
+static int xmgmt_unblock_endpoints(struct xrt_device *xdev, char *dtb)
+{
+	struct xrt_pcie_firewall_unblock arg = { 0 };
+	char *epname = NULL, *regmap = NULL;
+	struct xrt_device *pcie_firewall;
+	struct device *dev = DEV(xdev);
+	__be32 *pf_num, *bar_index;
+	int rc = 0;
+
+	pcie_firewall = xleaf_get_leaf_by_id(xdev, XRT_SUBDEV_PCIE_FIREWALL,
+					     XRT_INVALID_DEVICE_INST);
+	if (!pcie_firewall)
+		return -ENODEV;
+
+	for (xrt_md_get_next_endpoint(dev, dtb, NULL, NULL, &epname, &regmap);
+	     epname;
+	     xrt_md_get_next_endpoint(dev, dtb, epname, regmap, &epname, &regmap)) {
+		rc = xrt_md_get_prop(dev, dtb, epname, regmap, XRT_MD_PROP_PF_NUM,
+				     (const void **)&pf_num, NULL);
+		if (rc)
+			continue;
+		rc = xrt_md_get_prop(dev, dtb, epname, regmap, XRT_MD_PROP_BAR_IDX,
+				     (const void **)&bar_index, NULL);
+		if (rc)
+			bar_index = 0;
+
+		arg.pf_index = be32_to_cpu(*pf_num);
+		arg.bar_index = be32_to_cpu(*bar_index);
+		rc = xleaf_call(pcie_firewall, XRT_PFW_UNBLOCK, &arg);
+		if (rc) {
+			/*
+			 * It should not fail unless hardware issue. And pci reset
+			 * will set pcie firewall to default state. Thus it does not
+			 * have to reset pcie firewall on failure case.
+			 */
+			xrt_err(xdev, "failed to unblock endpoint %s", epname);
+			break;
+		}
+	}
+	xleaf_put_leaf(xdev, pcie_firewall);
+
+	return rc;
+}
+
+static void xmgmt_unblock_all(struct xrt_device *xdev)
+{
+	char *dtb;
+	int type;
+
+	for (type = XMGMT_BLP; type <= XMGMT_ULP; type++) {
+		dtb = xmgmt_get_dtb(xdev, type);
+		if (!dtb)
+			break;
+		xmgmt_unblock_endpoints(xdev, dtb);
+	}
+}
+
 static int xmgmt_create_blp(struct xmgmt_main *xmm)
 {
 	const struct axlf *provider = xmgmt_get_axlf_firmware(xmm, XMGMT_BLP);
@@ -439,10 +497,10 @@ static int xmgmt_create_blp(struct xmgmt_main *xmm)
 	}
 
 	rc = xleaf_create_group(xdev, dtb);
-	if (rc < 0)
+	if (rc < 0) {
 		xrt_err(xdev, "failed to create BLP group: %d", rc);
-	else
-		rc = 0;
+		goto failed;
+	}
 
 	WARN_ON(xmm->blp_interface_uuids);
 	rc = xrt_md_get_interface_uuids(&xdev->dev, dtb, 0, NULL);
@@ -516,6 +574,9 @@ static void xmgmt_main_event_cb(struct xrt_device *xdev, void *arg)
 		/* mgmt driver is about to detach, notify user pf. */
 		if (id == XRT_ROOT)
 			xmgmt_peer_notify_state(xmm->mailbox_hdl, false);
+		break;
+	case XRT_EVENT_POST_GATE_OPEN:
+		xmgmt_unblock_all(xdev);
 		break;
 	default:
 		xrt_dbg(xdev, "ignored event %d", e);

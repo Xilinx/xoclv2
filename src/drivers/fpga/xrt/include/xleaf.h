@@ -205,5 +205,6 @@ void cmc_leaf_init_fini(bool init);
 void clkfreq_leaf_init_fini(bool init);
 void clock_leaf_init_fini(bool init);
 void ucs_leaf_init_fini(bool init);
+void pfw_leaf_init_fini(bool init);
 
 #endif	/* _XRT_LEAF_H_ */

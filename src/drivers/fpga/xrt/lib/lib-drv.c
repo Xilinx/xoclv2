@@ -281,6 +281,7 @@ static void (*leaf_init_fini_cbs[])(bool) = {
 	vsec_leaf_init_fini,
 	vsec_golden_leaf_init_fini,
 	devctl_leaf_init_fini,
+	pfw_leaf_init_fini,
 	axigate_leaf_init_fini,
 	icap_leaf_init_fini,
 	calib_leaf_init_fini,

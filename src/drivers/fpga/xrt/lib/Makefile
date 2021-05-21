@@ -50,6 +50,7 @@ xrt-lib-y := 			\
 	xleaf/clkfreq.o		\
 	xleaf/ucs.o		\
 	xleaf/ddr_calibration.o	\
+	xleaf/pcie-firewall.o	\
 	$(fdtobj)
 
 ifndef CONFIG_FPGA_XRT_METADATA

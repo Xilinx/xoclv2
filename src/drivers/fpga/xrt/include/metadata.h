@@ -76,6 +76,7 @@
 #define XRT_MD_NODE_GAPPING "ep_gapping_demand_00"
 #define XRT_MD_NODE_GATE_PLP "ep_pr_isolate_plp_00"
 #define XRT_MD_NODE_GATE_ULP "ep_pr_isolate_ulp_00"
+#define XRT_MD_NODE_PCIE_FIREWALL "ep_firewall_pcie_00"
 #define XRT_MD_NODE_KDMA_CTRL "ep_kdma_ctrl_00"
 #define XRT_MD_NODE_MAILBOX_MGMT "ep_mailbox_mgmt_00"
 #define XRT_MD_NODE_MAILBOX_USER "ep_mailbox_user_00"
