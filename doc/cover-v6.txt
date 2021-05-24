@@ -71,6 +71,10 @@ https://xilinx.github.io/XRT/master/html/platforms_partitions.html
 Changes since v5:
 - Revert all changes 'mgnt/MGNT' back to 'mgmt/MGMT'
 - Updated code base to include v5 code review comments.
+   xrt.rst: address grammar and taxonomy
+   subdev_id.h: defines XRT_SUBDEV_INVALID = 0
+   xclbin.c: change shift operation to be_to_cpu
+- Resolved kernel test robot errors.
 
 Changes since v4:
 - Added xrt_bus_type and xrt_device. All sub devices were changed from
