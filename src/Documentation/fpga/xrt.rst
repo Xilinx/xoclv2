@@ -302,7 +302,7 @@ suite. See example usage below::
 xrt-mgmt Driver Sysfs
 ----------------------
 
-xrt-mgmt driver exposes a rich set of sysfs interfaces. Subsystem xrt
+The xrt-mgmt driver exposes a rich set of sysfs interfaces. Subsystem xrt
 drivers export sysfs node for every platform instance.
 
 Every partition also exports its UUIDs. See below for examples::
@@ -370,7 +370,7 @@ Loading Sequence
 
 The Shell partition is loaded from flash at system boot time. It establishes the
 PCIe link and exposes two physical functions to the BIOS. After the OS boots,
-xrt-mgmt driver attaches to the PCIe physical function 0 exposed by the Shell
+the xrt-mgmt driver attaches to the PCIe physical function 0 exposed by the Shell
 and then looks for VSEC in the PCIe extended configuration space. Using VSEC, it
 determines the logic UUID of the Shell and uses the UUID to load matching *xsabin*
 file from Linux firmware directory. The xsabin file contains the metadata to
@@ -386,7 +386,7 @@ interface UUID exported by the Shell to determine if the xclbin is compatible wi
 the Shell. If the match fails, loading of xclbin is denied.
 
 xclbin loading is requested using the ICAP_DOWNLOAD_AXLF ioctl command. When loading
-a xclbin, xrt-mgmt driver performs the following *logical* operations:
+a xclbin, the xrt-mgmt driver performs the following *logical* operations:
 
 1. Copy xclbin from user to kernel memory
 2. Sanity check the xclbin contents
@@ -828,9 +828,9 @@ Virtualized
 -----------
 
 In virtualized deployments, the privileged MPF is assigned to the host but the
-unprivileged UPF is assigned to a guest VM via PCIe pass-through. xrt-mgmt driver
-in host binds to MPF. xrt-mgmt driver operations are privileged and only accessible
-to the MPF. The full stack is illustrated below::
+unprivileged UPF is assigned to a guest VM via PCIe pass-through. The xrt-mgmt
+driver in host binds to MPF. The xrt-mgmt driver operations are privileged and
+only accessible to the MPF. The full stack is illustrated below::
 
 
                                  ..............
