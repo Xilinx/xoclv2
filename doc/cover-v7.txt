@@ -1,6 +1,6 @@
 Hello,
 
-This is V6 of patch series which adds management physical function driver
+This is V7 of patch series which adds management physical function driver
 for Xilinx Alveo PCIe accelerator cards.
     https://www.xilinx.com/products/boards-and-kits/alveo.html
 
@@ -68,6 +68,12 @@ https://xilinx.github.io/XRT/master/html/index.html
 https://xilinx.github.io/XRT/master/html/security.html
 https://xilinx.github.io/XRT/master/html/platforms_partitions.html
 
+Changes since v6:
+- Resolved grammatical errors and cleaned up taxonomy in xrt.rst
+  documentation.
+- Fixed clang warnings.
+- Updated code base to include v6 code review comments.
+
 Changes since v5:
 - Revert all changes 'mgnt/MGNT' back to 'mgmt/MGMT'
 - Updated code base to include v5 code review comments.
@@ -114,26 +120,26 @@ Changes since v1:
 - Addressed checkpatch issues
 - Dropped xrt- prefix from some header files
 
-For reference V5 version of patch series can be found here:
+For reference V6 version of patch series can be found here:
 
-https://lore.kernel.org/lkml/20210427205431.23896-1-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-2-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-3-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-4-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-5-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-6-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-7-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-8-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-9-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-10-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-11-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-12-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-13-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-14-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-15-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-16-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-17-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-18-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-19-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-20-lizhi.hou@xilinx.com/
-https://lore.kernel.org/lkml/20210427205431.23896-21-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-1-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-2-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-3-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-4-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-5-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-6-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-7-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-8-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-9-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-10-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-11-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-12-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-13-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-14-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-15-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-16-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-17-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-18-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-19-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-20-lizhi.hou@xilinx.com/
+https://lore.kernel.org/lkml/20210512015339.5649-21-lizhi.hou@xilinx.com/

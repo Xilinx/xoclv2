@@ -62,7 +62,7 @@ The root driver manages the life cycle of multiple group drivers, which, in turn
 manages multiple xleaf drivers. This flexibility allows xrt-mgmt.ko and xrt-lib.ko
 to support various HW subsystems exposed by different Alveo shells. The differences
 among these Alveo shells is handled in xleaf drivers. The root and group
-drivers make part of the infrastructure which provide common services to xleaf
+drivers are part of the infrastructure which provide common services to xleaf
 drivers found on various Alveo shells. See :ref:`alveo_platform_overview`.
 
 The instantiation of specific group driver or xleaf drivers is completely data
@@ -302,7 +302,7 @@ suite. See example usage below::
 xrt-mgmt Driver Sysfs
 ----------------------
 
-xrt-mgmt driver exposes a rich set of sysfs interfaces. Subsystem xrt
+The xrt-mgmt driver exposes a rich set of sysfs interfaces. Subsystem xrt
 drivers export sysfs node for every platform instance.
 
 Every partition also exports its UUIDs. See below for examples::
@@ -327,7 +327,7 @@ Alveo platforms are architected as two physical FPGA partitions: *Shell* and
 *User*. The Shell provides basic infrastructure for the Alveo platform like
 PCIe connectivity, board management, Dynamic Function Exchange (DFX), sensors,
 clocking, reset, and security. DFX, partial reconfiguration, is responsible for
-loading the user compiled FPGA binary is the User partition.
+loading the user compiled FPGA binary.
 
 For DFX to work properly, physical partitions require strict HW compatibility
 with each other. Every physical partition has two interface UUIDs: the *parent*
@@ -370,7 +370,7 @@ Loading Sequence
 
 The Shell partition is loaded from flash at system boot time. It establishes the
 PCIe link and exposes two physical functions to the BIOS. After the OS boots,
-xrt-mgmt driver attaches to the PCIe physical function 0 exposed by the Shell
+the xrt-mgmt driver attaches to the PCIe physical function 0 exposed by the Shell
 and then looks for VSEC in the PCIe extended configuration space. Using VSEC, it
 determines the logic UUID of the Shell and uses the UUID to load matching *xsabin*
 file from Linux firmware directory. The xsabin file contains the metadata to
@@ -385,9 +385,8 @@ the parent interface UUID specified in the xclbin and matches it with the child
 interface UUID exported by the Shell to determine if the xclbin is compatible with
 the Shell. If the match fails, loading of xclbin is denied.
 
-xclbin loading is requested using ICAP_DOWNLOAD_AXLF ioctl command. When loading
-a xclbin using the ICAP_DOWNLOAD_AXLF ioctl, xrt-mgmt driver performs the
-following *logical* operations:
+xclbin loading is requested using the ICAP_DOWNLOAD_AXLF ioctl command. When loading
+a xclbin, the xrt-mgmt driver performs the following *logical* operations:
 
 1. Copy xclbin from user to kernel memory
 2. Sanity check the xclbin contents
@@ -829,9 +828,9 @@ Virtualized
 -----------
 
 In virtualized deployments, the privileged MPF is assigned to the host but the
-unprivileged UPF is assigned to a guest VM via PCIe pass-through. xrt-mgmt driver
-in host binds to MPF. xrt-mgmt driver operations are privileged and only accessible
-to the MPF. The full stack is illustrated below::
+unprivileged UPF is assigned to a guest VM via PCIe pass-through. The xrt-mgmt
+driver in host binds to MPF. The xrt-mgmt driver operations are privileged and
+only accessible to the MPF. The full stack is illustrated below::
 
 
                                  ..............
